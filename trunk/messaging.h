@@ -32,11 +32,15 @@ extern int loglevel;
 extern "C" {
 void logmsgf(int level, const char* format, ...);
 }
+
+//TODO: does this even need to be a class? couldn't it be done just as well
+//	using two functions outside of a class? 
 class Messaging
 {
 public:
-	Messaging(void);
-	~Messaging(void);
+	Messaging(void) {;}
+	~Messaging(void) {;}
+	
 	static int sendmessage(SWInetSocket *socket, int type, unsigned int  source, unsigned int len, char* content);
 	static int receivemessage(SWInetSocket *socket, int *type, unsigned int *source, unsigned int *wrotelen, char* content, unsigned int bufferlen);
 

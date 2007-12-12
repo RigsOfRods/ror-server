@@ -26,6 +26,7 @@ class Sequencer;
 
 #define QUEUE_LENGTH 25
 
+
 typedef struct
 {
 	unsigned int uid;
@@ -34,6 +35,7 @@ typedef struct
 	unsigned int datalen;
 } queue_entry_t;
 
+///TODO: Documents the broadcaster class
 class Broadcaster
 {
 private:

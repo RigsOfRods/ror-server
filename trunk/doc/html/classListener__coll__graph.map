@@ -1,0 +1,29 @@
+<area shape="rect" href="$classSequencer.html" title="Sequencer" alt="" coords="140,103,231,129">
+<area shape="rect" title="listener" alt="" coords="159,31,167,39">
+<area shape="rect" title="listener" alt="" coords="160,99,168,107">
+<area shape="rect" title="sequencer" alt="" coords="185,99,193,107">
+<area shape="rect" title="sequencer" alt="" coords="187,31,195,39">
+<area shape="rect" href="$classNotifier.html" title="Notifier" alt="" coords="16,199,85,225">
+<area shape="rect" title="sequencer" alt="" coords="151,127,159,135">
+<area shape="rect" title="sequencer" alt="" coords="60,195,68,203">
+<area shape="rect" href="$classBroadcaster.html" title="TODO: Documents the broadcaster class." alt="" coords="336,199,435,225">
+<area shape="rect" title="sequencer" alt="" coords="224,127,232,135">
+<area shape="rect" title="sequencer" alt="" coords="360,195,368,203">
+<area shape="rect" href="$classReceiver.html" title="Receiver" alt="" coords="147,199,224,225">
+<area shape="rect" title="sequencer" alt="" coords="181,127,189,135">
+<area shape="rect" title="sequencer" alt="" coords="181,195,189,203">
+<area shape="rect" title="notifier" alt="" coords="28,195,36,203">
+<area shape="rect" title="notifier" alt="" coords="136,116,144,124">
+<area shape="rect" href="$structclient__t.html" title="A struct to hold information about a client." alt="" coords="277,295,344,321">
+<area shape="rect" title="clients" alt="" coords="303,291,311,299">
+<area shape="rect" title="clients" alt="" coords="217,127,225,135">
+<area shape="rect" title="broadcaster" alt="" coords="369,223,377,231">
+<area shape="rect" title="broadcaster" alt="" coords="317,291,325,299">
+<area shape="rect" href="$structqueue__entry__t.html" title="queue_entry_t" alt="" coords="356,103,471,129">
+<area shape="rect" title="queue" alt="" coords="405,127,413,135">
+<area shape="rect" title="queue" alt="" coords="385,195,393,203">
+<area shape="rect" title="receiver" alt="" coords="181,223,189,231">
+<area shape="rect" title="receiver" alt="" coords="273,301,281,309">
+<area shape="rect" href="$classVector3.html" title="Vector3" alt="" coords="459,199,528,225">
+<area shape="rect" title="position" alt="" coords="479,223,487,231">
+<area shape="rect" title="position" alt="" coords="340,299,348,307">

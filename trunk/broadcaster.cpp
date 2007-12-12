@@ -80,10 +80,12 @@ void Broadcaster::stop()
 	pthread_mutex_unlock(&queue_mutex);
 	*/
 	logmsgf(LOG_DEBUG,"Cancel");
-	pthread_cancel(thread); //finish the bastard
+	//pthread_cancel(thread); //finish the bastard
+	
 	logmsgf(LOG_DEBUG,"Join");
-	pthread_join(thread, NULL); //this can block the killer!
+	//pthread_join(thread, NULL); //this can block the killer!
 	alive=false;
+	
 	logmsgf(LOG_DEBUG,"UnLock");
 	pthread_mutex_unlock(&queue_mutex);
 	logmsgf(LOG_DEBUG,"Done");
@@ -99,7 +101,8 @@ void Broadcaster::threadstart()
 		unsigned int uid;
 		int type;
 		unsigned int datalen;
-		if (finish) return;
+		if (finish)
+			pthread_exit(NULL);
 		//wait for an entry and lock the queue
 		pthread_mutex_lock(&queue_mutex);
 		while (queue_end==queue_start && !finish)
@@ -108,24 +111,29 @@ void Broadcaster::threadstart()
 		{
 			pthread_mutex_unlock(&queue_mutex);
 			logmsgf(LOG_DEBUG,"Appropriate finish");
-			return; //crash and burn
+			pthread_exit(NULL); //crash and burn
 		}
 		//pop stuff
 		uid=queue[queue_start].uid;
 		type=queue[queue_start].type;
 		datalen=queue[queue_start].datalen;
+		
 		memcpy(send_data, queue[queue_start].data, datalen);
 		queue_start++;
-		if (queue_start==QUEUE_LENGTH) queue_start-=QUEUE_LENGTH;
+		
+		if (queue_start==QUEUE_LENGTH)
+			queue_start-=QUEUE_LENGTH;
 		//unlock the queue
 		pthread_mutex_unlock(&queue_mutex);
-		if (finish) return;
+		if (finish)
+			pthread_exit(NULL);
 		//Send message
 		if (Messaging::sendmessage(sock, type, uid, datalen, send_data))
 		{
 			sequencer->disconnect(id, "Broadcaster: Send error"); return;
 		}
 	}
+	pthread_exit(NULL);
 }
 
 //this is called all the way from the receiver threads, we should process this swiftly

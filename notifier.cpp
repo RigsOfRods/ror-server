@@ -43,7 +43,7 @@ Notifier::~Notifier(void)
 }
 
 /**
- * @breif
+ * @brief
  */
 bool Notifier::registerServer()
 {

@@ -24,7 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "sequencer.h"
 
 /**
- * @breif notifier class handles communications with the master server
+ * @brief notifier class handles communications with the master server
  */
 class Notifier
 {

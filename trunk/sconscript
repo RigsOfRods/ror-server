@@ -2,8 +2,8 @@ import os, glob
 
 Import("env")
 localenv = env.Copy()
-localenv.Append(CPPPATH = ["#/mysocketw"])
+localenv.Append(CPPPATH = ["#/SocketW/src"])
 localenv.Append(LIBS = ["libmysocketw", "pthread"])
-localenv.Append(LIBPATH=["#/mysocketw"])
+localenv.Append(LIBPATH=["#/SocketW/src"])
 
 localenv.Program("rorserver", glob.glob('*.cpp'))

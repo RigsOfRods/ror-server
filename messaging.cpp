@@ -19,14 +19,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "messaging.h"
 #include <stdarg.h>
 
-Messaging::Messaging(void)
-{
-}
-
-Messaging::~Messaging(void)
-{
-}
-
+/**
+ * @param socket socket to communicate over
+ * @param type a type... dunno
+ * @param source who is sending the message
+ * @param len length of the content being sent
+ * @param content message to send
+ * @return dunno
+ */
 int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source, unsigned int len, char* content)
 {
 	SWBaseSocket::SWBaseError error;
@@ -34,7 +34,9 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source, 
 	head.command=type;
 	head.source=source;
 	head.size=len;
-	int hlen=0;
+	
+	unsigned int hlen=0;
+	
 	while (hlen<sizeof(header_t))
 	{
 		int sendnum=socket->send(((char*)&head)+hlen, sizeof(header_t)-hlen, &error);
@@ -44,6 +46,7 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source, 
 		}
 		hlen+=sendnum;
 	}
+	
 	if (len>0) 
 	{
 		int rlen=0;
@@ -60,11 +63,21 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source, 
 	return 0;
 }
 
+/**
+ * Name: receivemessage
+ * @param *socket:
+ * @param *type:
+ * @param *source:
+ * @param *wrotelen:
+ * @param content:
+ * @param bufferlen:
+ * @return
+ */
 int Messaging::receivemessage(SWInetSocket *socket, int *type, unsigned int *source, unsigned int *wrotelen, char* content, unsigned int bufferlen)
 {
 	SWBaseSocket::SWBaseError error;
 	header_t head;
-	int hlen=0;
+	unsigned int hlen=0;
 	while (hlen<sizeof(header_t))
 	{
 		int recvnum=socket->recv(((char*)&head)+hlen, sizeof(header_t)-hlen,&error);
@@ -97,6 +110,7 @@ int Messaging::receivemessage(SWInetSocket *socket, int *type, unsigned int *sou
 int loglevel=1;
 
 extern "C" {
+
 void logmsgf(int level, const char* format, ...)
 {
 	if (level<loglevel) return;
@@ -116,5 +130,6 @@ void logmsgf(int level, const char* format, ...)
 	printf("\n");
 	fflush(stdout);
 }
-}
+
+}	//	extern "C"
 

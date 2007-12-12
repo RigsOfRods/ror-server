@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef __Receiver_H__
 #define __Receiver_H__
 
-#include "pthread.h"
+#include <pthread.h>
 #include "SocketW.h"
 #include "sequencer.h"
 class Sequencer;

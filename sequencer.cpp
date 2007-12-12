@@ -34,6 +34,7 @@ Sequencer::Sequencer(char *pubip, int max_clients, char* servname, char* terrnam
 	pthread_mutex_init(&killer_mutex, NULL);
 	pthread_cond_init(&killer_cv, NULL);
 	pthread_mutex_init(&clients_mutex, NULL);
+	
 	freekillqueue=0;
 	servermode=smode;
 	pthread_create(&killerthread, NULL, s_klthreadstart, this);
@@ -60,10 +61,22 @@ Sequencer::Sequencer(char *pubip, int max_clients, char* servname, char* terrnam
 
 Sequencer::~Sequencer(void)
 {
-	for (int i=0; i<maxclients; i++) 
+	for (int i=0; i<maxclients && &clients[i]; i++) 
 	{
-		delete clients[i].broadcaster;
-		delete clients[i].receiver;
+		logmsgf(LOG_DEBUG,"clients[%d]", i);
+		if(clients[i].broadcaster){
+			logmsgf(LOG_DEBUG,"delete clients[%d].broadcaster", i);
+			delete clients[i].broadcaster;
+		} else { 
+			logmsgf(LOG_DEBUG,"clients[%d].broadcaster is null", i);
+		}
+
+		if(clients[i].receiver) {
+			logmsgf(LOG_DEBUG,"delete clients[%d].receiver", i); 
+			delete clients[i].receiver;
+		} else { 
+			logmsgf(LOG_DEBUG,"clients[%d].receiver is null", i);
+		}
 	}
 	if(notifier) delete notifier;
 	delete listener;
@@ -91,6 +104,7 @@ void Sequencer::createClient(SWInetSocket *sock, char* name)
 		sock->disconnect();
 		return;
 	}
+	
 	//okay, create the stuff
 	clients[pos].flow=false;
 	clients[pos].status=USED;
@@ -269,7 +283,8 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 		unsigned int destuid=((netforce_t*)data)->target_uid;
 		for (int i=0; i<maxclients; i++)
 		{
-			if (clients[i].status==USED && clients[i].flow && clients[i].uid==destuid) clients[i].broadcaster->queueMessage(clients[pos].uid, type, data, len);
+			if (clients[i].status==USED && clients[i].flow && clients[i].uid==destuid)
+				clients[i].broadcaster->queueMessage(clients[pos].uid, type, data, len);
 		}
 	}
 	else
@@ -277,9 +292,11 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 		//just push to all the present clients
 		for (int i=0; i<maxclients; i++)
 		{
-			if (clients[i].status==USED && clients[i].flow && i!=pos) clients[i].broadcaster->queueMessage(clients[pos].uid, type, data, len);
+			if (clients[i].status==USED && clients[i].flow && i!=pos)
+				clients[i].broadcaster->queueMessage(clients[pos].uid, type, data, len);
 #ifdef REFLECT_DEBUG
-			if (clients[i].status==USED && i==pos) clients[i].broadcaster->queueMessage(clients[pos].uid+100, type, data, len);
+			if (clients[i].status==USED && i==pos)
+				clients[i].broadcaster->queueMessage(clients[pos].uid+100, type, data, len);
 #endif
 		}
 	}

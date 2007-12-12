@@ -42,6 +42,9 @@ Notifier::~Notifier(void)
 	exit = true;
 }
 
+/**
+ * @breif
+ */
 bool Notifier::registerServer()
 {
 	char regurl[1024];
@@ -77,6 +80,7 @@ bool Notifier::unregisterServer()
 	sprintf(unregurl, "%s/unregister/?challenge=%s", REPO_URLPREFIX, challenge);
 	if (HTTPGET(unregurl) < 0)
 		return false;
+
 	if(strncmp(httpresp, "2\r\nok", 5) >= 0)
 		return true;
 	else

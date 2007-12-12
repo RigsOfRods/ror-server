@@ -34,16 +34,26 @@ class Notifier;
 #define BUSY 1
 #define USED 2
 
+///A struct to hold information about a client
 typedef struct
 {
+	/// current status of the client, options are FREE, BUSY or USED
 	int status;
+	/// pointer to a receiver class, this 
 	Receiver* receiver;
+	/// pointer to a broadcaster class
 	Broadcaster* broadcaster;
+	/// socket used to communicate with the client
 	SWInetSocket* sock;
+	/// flag to see if the client should be sent data?
 	bool flow;
+	/// name of the vehicle
 	char vehicle_name[140];
+	/// Username, this is what they are called to other players
 	char nickname[32];
+	/// userid
 	unsigned int uid;
+	/// position on the map?
 	Vector3 position;
 } client_t;
 
@@ -51,29 +61,50 @@ class Sequencer
 {
 private:
 	pthread_t killerthread;
-	pthread_mutex_t killer_mutex;
 	pthread_cond_t killer_cv;
+	/// mutex used for locking access to the killqueue
+	pthread_mutex_t killer_mutex;
+	/// mutex used for locking access to the clients array
 	pthread_mutex_t clients_mutex;
+
 	Listener *listener;
+	/**
+	 *  @brief clients is a list of all the available client connections, it is allocated 
+	 */
 	client_t *clients;
+	/// maximum number of clients allowed to connect to the server.
 	int maxclients;
 	unsigned int fuid;
+	/** 
+	 *  @brief killqueue is a queue of clients to be killed. 
+	 *  killqueue is a queue of clients to be removed from the server.
+	 *  it is an array of integers, where each integer is a position in the
+	 *  client list.
+	 */
 	int killqueue[256];
+	/**
+	 *  @brief freekillqueue holds the number of spots available in the killqueue
+	 */
 	int freekillqueue;
 	int servermode;
 
 public:
 	Sequencer(char *pubip, int listenport, char* servname, char* terrname, int max_clients, int servermode, char *password);
 	~Sequencer(void);
+	/// initilize client information
 	void createClient(SWInetSocket *sock, char* name);
+	/// call to start the thread to disconnect clients from the server.
 	void killerthreadstart();
+	/// call to initiate the disconnect processes for a client.
 	void disconnect(int pos, char* error);
 	void queueMessage(int pos, int type, char* data, unsigned int len);
-	void notifyRoutine();
 	void enableFlow(int id);
+	void notifyRoutine();
 	void notifyAllVehicles(int id);
+	/// returns the number of clients connected to this server
 	int getNumClients();
 	int getHeartbeatData(char *challenge, char *hearbeatdata);
+	/// prints the Stats view, of who is connected and what slot they are in
 	void printStats();
 	Notifier *notifier;
 };

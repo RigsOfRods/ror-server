@@ -23,6 +23,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h"
 #include "sequencer.h"
 
+/**
+ * @breif notifier class handles communications with the master server
+ */
 class Notifier
 {
 private:
@@ -34,20 +37,26 @@ private:
 	Sequencer* sequencer;
 	char httpresp[65536];
 	char challenge[256];
-	bool registerServer();
-	bool sendHearbeat();
 	bool exit;
 	bool passprotected;
 	bool wasregistered;
 	int servermode;
 	int error_count;
+
+	/// registration call to the master server to register this server
+	bool registerServer();
+	bool sendHearbeat();
+
 public:
 	Notifier(char* pubip, int port, Sequencer* seq, int max_client, char* servname, char* terrname, bool pwprotected, int servermode);
 	~Notifier(void);
 	void loop();
 	int HTTPGET(char* URL);
 	int HTTPPOST(char* URL, char* data);
+
 	char *getResponse() { return httpresp; };
+
+	/// call to the master server to unregister this server.
 	bool unregisterServer();
 };
 #endif

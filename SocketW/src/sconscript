@@ -1,0 +1,6 @@
+import os, glob
+
+Import("env")
+localenv = env.Copy()
+
+localenv.Library("mysocketw", glob.glob('*.cxx'))

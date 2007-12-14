@@ -18,7 +18,9 @@
 
 #include "sw_internal.h"
 
+#ifndef __WIN32__
 #include <unistd.h>
+#endif
 #include <string>
 
 // Set error handling mode

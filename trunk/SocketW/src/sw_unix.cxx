@@ -12,7 +12,9 @@
  *  License as published by the Free Software Foundation; either       *
  *  version 2.1 of the License, or (at your option) any later version. *
  ***********************************************************************/
- 
+
+#ifndef __WIN32__
+
 #include "sw_unix.h"
 #include <fcntl.h>
 
@@ -22,7 +24,6 @@ using namespace std;
 //== SWUnixSocket
 //== Unix streaming sockets
 //====================================================================
-#ifndef __WIN32__
 
 SWUnixSocket::SWUnixSocket(block_type block)
 {	

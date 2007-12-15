@@ -24,16 +24,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h"
 #include "messaging.h"
 #include "sequencer.h"
-class Sequencer;
 
 class Listener
 {
 private:
 	pthread_t thread;
 	int lport;
-	Sequencer *sequencer;
 public:
-	Listener(int port, Sequencer* seq);
+	Listener(int port);
 	~Listener(void);
 	void threadstart();
 };

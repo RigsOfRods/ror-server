@@ -23,13 +23,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <unistd.h>
 #endif
 
-Notifier::Notifier(char* pubip, int port, Sequencer* seq, int max_client, char* servname, char* terrname, bool pprotected, int smode) : exit(false)
+Notifier::Notifier(char* pubip, int port, int max_client, char* servname, char* terrname, bool pprotected, int smode) : exit(false)
 {
 	lport=port;
 	maxclient=max_client;
 	server_name=servname;
 	terrain_name=terrname;
-	sequencer=seq;
 	public_ip=pubip;
 	passprotected=pprotected;
 	wasregistered=false;
@@ -92,7 +91,7 @@ bool Notifier::sendHearbeat()
 	char hearbeaturl[1024] = "";
 	char hearbeatdata[16384] = "";
 	sprintf(hearbeaturl, "%s/heartbeat/", REPO_URLPREFIX);
-	if(sequencer->getHeartbeatData(challenge, hearbeatdata))
+	if(SEQUENCER.getHeartbeatData(challenge, hearbeatdata))
 		return false;
 
 	if (HTTPPOST(hearbeaturl, hearbeatdata) < 0)

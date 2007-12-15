@@ -34,7 +34,6 @@ private:
 	char* public_ip;
 	char* server_name;
 	char* terrain_name;
-	Sequencer* sequencer;
 	char httpresp[65536];
 	char challenge[256];
 	bool exit;
@@ -48,7 +47,7 @@ private:
 	bool sendHearbeat();
 
 public:
-	Notifier(char* pubip, int port, Sequencer* seq, int max_client, char* servname, char* terrname, bool pwprotected, int servermode);
+	Notifier(char* pubip, int port, int max_client, char* servname, char* terrname, bool pwprotected, int servermode);
 	~Notifier(void);
 	void loop();
 	int HTTPGET(char* URL);

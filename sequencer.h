@@ -19,6 +19,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef __Sequencer_H__
 #define __Sequencer_H__
 
+#include <iostream>
+
 #include "SocketW.h"
 #include "listener.h"
 #include "receiver.h"
@@ -33,6 +35,8 @@ class Notifier;
 #define FREE 0
 #define BUSY 1
 #define USED 2
+
+#define SEQUENCER Sequencer::Instance()
 
 ///A struct to hold information about a client
 typedef struct
@@ -88,9 +92,19 @@ private:
 	int freekillqueue;
 	int servermode;
 
+protected:
+	Sequencer(){}
+	~Sequencer(){}
+
+	static Sequencer* TheInstance;
+	
 public:
-	Sequencer(char *pubip, int listenport, char* servname, char* terrname, int max_clients, int servermode, char *password);
-	~Sequencer(void);
+	/// method to access the singleton instance
+	static Sequencer& Instance();
+	///	initilize theSequencers information
+	void initilize(char *pubip, int listenport, char* servname, char* terrname, int max_clients, int servermode, char *password);
+	/// destructor call, used for clean up
+	void cleanUp();
 	/// initilize client information
 	void createClient(SWInetSocket *sock, char* name);
 	/// call to start the thread to disconnect clients from the server.
@@ -106,6 +120,7 @@ public:
 	int getHeartbeatData(char *challenge, char *hearbeatdata);
 	/// prints the Stats view, of who is connected and what slot they are in
 	void printStats();
+	
 	Notifier *notifier;
 };
 

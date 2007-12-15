@@ -22,7 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <pthread.h>
 #include <SocketW.h>
 #include "sequencer.h"
-class Sequencer;
 
 #define QUEUE_LENGTH 25
 
@@ -40,7 +39,6 @@ class Broadcaster
 {
 private:
 	pthread_t thread;
-	Sequencer *sequencer;
 	int id;
 	SWInetSocket *sock;
 	queue_entry_t queue[QUEUE_LENGTH];
@@ -53,7 +51,7 @@ private:
 	bool alive;
 
 public:
-	Broadcaster(Sequencer *seq);
+	Broadcaster();
 	~Broadcaster(void);
 	void reset(int pos, SWInetSocket *socky);
 	void stop();

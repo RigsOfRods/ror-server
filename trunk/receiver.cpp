@@ -25,9 +25,8 @@ void *s_lithreadstart(void* vid)
 }
 
 
-Receiver::Receiver(Sequencer *seq)
+Receiver::Receiver()
 {
-	sequencer=seq;
 	id=0;
 	sock=0;
 	alive=false;
@@ -69,49 +68,49 @@ void Receiver::threadstart()
 	
 	//security fix: we limit the size of the vehicle name to 128 characters <- from Luigi Auriemma
 	if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, 128)) {
-		sequencer->disconnect(id, "Messaging abuse 1");
+		SEQUENCER.disconnect(id, "Messaging abuse 1");
 		pthread_exit(NULL);
 	}
 	
 	if (type!=MSG2_USE_VEHICLE) {
-		sequencer->disconnect(id, "Protocol error 1");
+		SEQUENCER.disconnect(id, "Protocol error 1");
 		pthread_exit(NULL);
 	}
 	//security
 	dbuffer[len]=0;
 	//we queue the use vehicle message for others
-	sequencer->queueMessage(id, type, dbuffer, len);
+	SEQUENCER.queueMessage(id, type, dbuffer, len);
 	//get the buffer size, not really usefull but a good way to detect errors
 	if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, 4)) {
-		sequencer->disconnect(id, "Messaging abuse 2"); 
+		SEQUENCER.disconnect(id, "Messaging abuse 2"); 
 		pthread_exit(NULL);
 	}
 	
 	if (type!=MSG2_BUFFER_SIZE) {
-		sequencer->disconnect(id, "Protocol error 2");
+		SEQUENCER.disconnect(id, "Protocol error 2");
 		pthread_exit(NULL);
 	}
 	unsigned int buffersize=*((unsigned int*)dbuffer);
 	if (buffersize>MAX_MESSAGE_LENGTH) {
-		sequencer->disconnect(id, "Memory error from client");
+		SEQUENCER.disconnect(id, "Memory error from client");
 		pthread_exit(NULL);
 	}
 	//notify the client of all pre-existing vehicles
-	sequencer->notifyAllVehicles(id);
+	SEQUENCER.notifyAllVehicles(id);
 	//okay, we are ready, we can receive data frames
-	sequencer->enableFlow(id);
+	SEQUENCER.enableFlow(id);
 	logmsgf(LOG_DEBUG,"Slot %d is switching to FLOW", id);
 	while (1)
 	{
 		if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, MAX_MESSAGE_LENGTH)) {
-			sequencer->disconnect(id, "Game connection closed");
+			SEQUENCER.disconnect(id, "Game connection closed");
 			pthread_exit(NULL);
 		}
 		if (type!=MSG2_VEHICLE_DATA && type!=MSG2_CHAT && type!=MSG2_FORCE) {
-			sequencer->disconnect(id, "Protocol error 3");
+			SEQUENCER.disconnect(id, "Protocol error 3");
 			pthread_exit(NULL);
 		}
-		sequencer->queueMessage(id, type, dbuffer, len);
+		SEQUENCER.queueMessage(id, type, dbuffer, len);
 	}
 	pthread_exit(NULL);
 }

@@ -27,6 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdlib.h>
 #include <iostream>
 #include <csignal>
+#include <memory>
 
 // simpleopt by http://code.jellycan.com/simpleopt/
 // license: MIT
@@ -54,7 +55,6 @@ CSimpleOpt::SOption cmdline_options[] = {
 	SO_END_OF_OPTIONS
 };
 
-Sequencer *seq = 0;
 
 void handler(int signal)
 {
@@ -71,20 +71,18 @@ void handler(int signal)
 		logmsgf(LOG_ERROR,"got unkown signal: %d", signal);
 	}
 
-	if(seq && servermode != SERVER_LAN)
+	if(servermode != SERVER_LAN)
 	{
 		logmsgf(LOG_ERROR,"closing server ... unregistering ... ");
-		if(seq->notifier)
-			seq->notifier->unregisterServer();
+		if(SEQUENCER.notifier)
+			SEQUENCER.notifier->unregisterServer();
 		logmsgf(LOG_ERROR," unregistered.");
-		delete seq;
-		seq=0;
+		SEQUENCER.cleanUp();
 	}
-	else if(seq && servermode == SERVER_LAN)
+	else if(servermode == SERVER_LAN)
 	{
 		logmsgf(LOG_ERROR,"closing server ... ");
-		delete seq;
-		seq=0;
+		SEQUENCER.cleanUp();
 	}
 	exit(0);
 } 
@@ -266,12 +264,12 @@ int main(int argc, char* argv[])
 	if(strnlen(password, 250) > 0)
 		printf("server is password protected!\n");
 
-	seq=new Sequencer(pubip, max_clients, servname, terrname, listenport, servermode, password);
+	SEQUENCER.initilize(pubip, max_clients, servname, terrname, listenport, servermode, password);
 
 	if(servermode == SERVER_INET || servermode == SERVER_AUTO)
 	{
 		//the main thread is used by the notifier
-		seq->notifyRoutine(); //this should not return
+		SEQUENCER.notifyRoutine(); //this should not return
 	}
 	else if(servermode == SERVER_LAN)
 	{
@@ -287,10 +285,6 @@ int main(int argc, char* argv[])
 	}
 
 	// delete all (needed in here, if not shutdown due to signal)
-	if(seq)
-	{
-		delete seq;
-		seq=0;
-	}
+	SEQUENCER.cleanUp();
 	return 0;
 }

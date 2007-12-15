@@ -22,19 +22,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <pthread.h>
 #include "SocketW.h"
 #include "sequencer.h"
-class Sequencer;
 
 class Receiver
 {
 private:
 	pthread_t thread;
-	Sequencer *sequencer;
 	int id;
 	SWInetSocket *sock;
 	char dbuffer[MAX_MESSAGE_LENGTH];
 	bool alive;
 public:
-	Receiver(Sequencer *seq);
+	Receiver();
 	~Receiver(void);
 	void reset(int pos, SWInetSocket *socky);
 	void stop();

@@ -28,8 +28,20 @@ void *s_klthreadstart(void* vid)
 	return NULL;
 }
 
+// init the singleton pointer
+Sequencer* Sequencer::TheInstance = NULL;
 
-Sequencer::Sequencer(char *pubip, int max_clients, char* servname, char* terrname, int listenport, int smode, char *pass)
+/// retreives the instance of the Sequencer
+Sequencer& Sequencer::Instance() {
+	if(!TheInstance) 
+		TheInstance = new Sequencer;
+	return (*TheInstance);
+}
+
+/**
+ * Inililize, needs to be called before the class is used
+ */ 
+void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* terrname, int listenport, int smode, char *pass)
 {
 	pthread_mutex_init(&killer_mutex, NULL);
 	pthread_cond_init(&killer_cv, NULL);
@@ -45,21 +57,25 @@ Sequencer::Sequencer(char *pubip, int max_clients, char* servname, char* terrnam
 	for (int i=0; i<maxclients; i++) 
 	{
 		clients[i].status=FREE;
-		clients[i].broadcaster=new Broadcaster(this);
-		clients[i].receiver=new Receiver(this);
+		clients[i].broadcaster=new Broadcaster();
+		clients[i].receiver=new Receiver();
 	}
 
-	listener=new Listener(listenport, this);
+	listener=new Listener(listenport);
 
 	bool pwprotected = false;
 	if(pass && strnlen(pass,250)>0)
 		pwprotected = true;
 
 	if(servermode == SERVER_INET || servermode == SERVER_AUTO)
-		notifier=new Notifier(pubip, listenport, this, max_clients, servname, terrname, pwprotected, servermode);
+		notifier=new Notifier(pubip, listenport, max_clients, servname, terrname, pwprotected, servermode);
 }
 
-Sequencer::~Sequencer(void)
+/**
+ * Cleanup function is to be called when the Sequencer is done being used
+ * this is in place of the destructor.
+ */
+void Sequencer::cleanUp()
 {
 	for (int i=0; i<maxclients && &clients[i]; i++) 
 	{

@@ -25,10 +25,9 @@ void *s_lsthreadstart(void* vid)
 }
 
 
-Listener::Listener(int port, Sequencer* seq)
+Listener::Listener(int port)
 {
 	lport=port;
-	sequencer=seq;
 	//start a listener thread
 	pthread_create(&thread, NULL, s_lsthreadstart, this);
 }
@@ -108,7 +107,7 @@ void Listener::threadstart()
 					buffer[len]=0;
 					for (unsigned int i=0; i<len; i++) if (buffer[i]<32 || buffer[i]>127 || buffer[i]==';') buffer[i]='#';
 					logmsgf(LOG_DEBUG,"Listener creating a new client (%s)", buffer);
-					sequencer->createClient(ts, buffer);
+					SEQUENCER.createClient(ts, buffer);
 				}
 				else
 				{

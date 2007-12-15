@@ -25,13 +25,12 @@ void *s_brthreadstart(void* vid)
 }
 
 
-Broadcaster::Broadcaster(Sequencer *seq)
+Broadcaster::Broadcaster()
 {
 	pthread_mutex_init(&queue_mutex, NULL);
 	pthread_cond_init(&queue_cv, NULL);
 	queue_start=0;
 	queue_end=0;
-	sequencer=seq;
 	id=0;
 	sock=NULL;
 	finish=false;
@@ -130,7 +129,7 @@ void Broadcaster::threadstart()
 		//Send message
 		if (Messaging::sendmessage(sock, type, uid, datalen, send_data))
 		{
-			sequencer->disconnect(id, "Broadcaster: Send error"); return;
+			SEQUENCER.disconnect(id, "Broadcaster: Send error"); return;
 		}
 	}
 	pthread_exit(NULL);

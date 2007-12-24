@@ -23,7 +23,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h"
 #include <time.h>
 
-
+#define LOG_VVERBOSE -2
+#define LOG_VERBOSE -1
 #define LOG_DEBUG 0
 #define LOG_WARN 1
 #define LOG_ERROR 2

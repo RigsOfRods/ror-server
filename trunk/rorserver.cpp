@@ -38,7 +38,19 @@ int servermode=SERVER_AUTO;
 
 
 // option identifiers
-enum { OPT_HELP, OPT_IP, OPT_PORT, OPT_NAME, OPT_TERRAIN, OPT_MAXCLIENTS, OPT_LAN, OPT_DEBUG, OPT_PASS, OPT_INET};
+enum {
+	OPT_HELP,
+	OPT_IP,
+	OPT_PORT,
+	OPT_NAME,
+	OPT_TERRAIN,
+	OPT_MAXCLIENTS,
+	OPT_LAN,
+	OPT_DEBUG,
+	OPT_VERBOSE,
+	OPT_VVERBOSE,
+	OPT_PASS,
+	OPT_INET};
 
 // option array
 CSimpleOpt::SOption cmdline_options[] = {
@@ -51,6 +63,8 @@ CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_LAN, ("-lan"), SO_NONE },
 	{ OPT_INET, ("-inet"), SO_NONE },
 	{ OPT_DEBUG, ("-debug"), SO_NONE },
+	{ OPT_VERBOSE, ("-verbose"), SO_NONE },
+	{ OPT_VVERBOSE, ("-vverbose"), SO_NONE },
 	{ OPT_HELP,  ("--help"), SO_NONE },
 	SO_END_OF_OPTIONS
 };
@@ -172,6 +186,14 @@ int main(int argc, char* argv[])
 				debugmode=true;
 				loglevel=LOG_DEBUG;
 				printf("== DEBUG MODE ==\n");
+			} else if (args.OptionId() == OPT_VERBOSE) {
+				debugmode=true;
+				loglevel=LOG_VERBOSE;
+				printf("== VERBOSE MODE ==\n");
+			} else if (args.OptionId() == OPT_VVERBOSE) {
+				debugmode=true;
+				loglevel=LOG_VVERBOSE;
+				printf("== VERY VERBOSE MODE ==\n");
 			} else if (args.OptionId() == OPT_LAN) {
 				if(servermode != SERVER_AUTO)
 				{

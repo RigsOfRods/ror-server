@@ -59,6 +59,8 @@ typedef struct
 	unsigned int uid;
 	/// position on the map?
 	Vector3 position;
+	/// users unique id
+	char uniqueid[20];
 } client_t;
 
 class Sequencer
@@ -91,6 +93,9 @@ private:
 	 */
 	int freekillqueue;
 	int servermode;
+	char terrainName[255];
+	char serverPassword[21];
+	bool pwProtected;
 
 protected:
 	Sequencer(){}
@@ -106,7 +111,7 @@ public:
 	/// destructor call, used for clean up
 	void cleanUp();
 	/// initilize client information
-	void createClient(SWInetSocket *sock, char* name);
+	void createClient(SWInetSocket *sock, user_credentials_t *user);
 	/// call to start the thread to disconnect clients from the server.
 	void killerthreadstart();
 	/// call to initiate the disconnect processes for a client.
@@ -120,6 +125,10 @@ public:
 	int getHeartbeatData(char *challenge, char *hearbeatdata);
 	/// prints the Stats view, of who is connected and what slot they are in
 	void printStats();
+
+	char *getTerrainName() { return terrainName; };
+	bool isPasswordProtected() { return pwProtected; };
+	char *getServerPasswordHash() { return serverPassword; };
 	
 	Notifier *notifier;
 };

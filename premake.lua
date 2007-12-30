@@ -4,7 +4,7 @@ package = newpackage()
 package.name = "rorserver"
 package.kind = "exe"
 package.language = "c++"
-package.files = { matchfiles("*.cpp") }
+package.files = { matchfiles("*.cpp"), matchfiles("*.c") }
 package.objdir = "obj"
 
 if windows then

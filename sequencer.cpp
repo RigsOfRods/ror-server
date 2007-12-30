@@ -39,6 +39,14 @@ Sequencer& Sequencer::Instance() {
 	return (*TheInstance);
 }
 
+Sequencer::Sequencer() : pwProtected(false)
+{
+}
+
+Sequencer::~Sequencer()
+{
+}
+
 /**
  * Inililize, needs to be called before the class is used
  */ 
@@ -68,15 +76,14 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 
 	listener=new Listener(listenport);
 
-	pwProtected = false;
 	if(pass && strnlen(pass,250)>0)
-		pwProtected = true;
-	
-	
-	if(!SHA1FromString(serverPassword, pass))
 	{
-		logmsgf(LOG_ERROR, "could not generate server SHA1 password hash!");
-		exit(1);
+		pwProtected = true;
+		if(!SHA1FromString(serverPassword, pass))
+		{
+			logmsgf(LOG_ERROR, "could not generate server SHA1 password hash!");
+			exit(1);
+		}
 	}
 
 	if(servermode == SERVER_INET || servermode == SERVER_AUTO)

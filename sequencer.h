@@ -60,7 +60,7 @@ typedef struct
 	/// position on the map?
 	Vector3 position;
 	/// users unique id
-	char uniqueid[20];
+	char uniqueid[60];
 } client_t;
 
 class Sequencer

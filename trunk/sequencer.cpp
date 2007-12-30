@@ -57,6 +57,8 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 	notifier=0;
 	maxclients=max_clients;
 	clients=(client_t*)malloc(sizeof(client_t)*maxclients);
+	memset(clients, 0, sizeof(client_t)*maxclients);
+
 	for (int i=0; i<maxclients; i++) 
 	{
 		clients[i].status=FREE;
@@ -139,10 +141,10 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	clients[pos].status=USED;
 	clients[pos].vehicle_name[0]=0;
 	clients[pos].position=Vector3(0,0,0);
-	strncpy(clients[pos].nickname, user->username, 60);
+	strncpy(clients[pos].nickname, user->username, 20);
 	strncpy(clients[pos].uniqueid, user->uniqueid, 60);
 
-	// replace bad characters
+	/* // replace bad characters
 	for (unsigned int i=0; i<60; i++)
 	{
 		if(clients[pos].nickname[i] == 0)
@@ -150,6 +152,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 		if (clients[pos].nickname[i]<32 || clients[pos].nickname[i]>127 || clients[pos].nickname[i]==';') 
 			clients[pos].nickname[i]='#';
 	}
+	*/
 
 	clients[pos].uid=fuid;
 	fuid++;

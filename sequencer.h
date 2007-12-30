@@ -96,6 +96,7 @@ private:
 	char terrainName[255];
 	char serverPassword[21];
 	bool pwProtected;
+	bool isSandbox;
 
 protected:
 	Sequencer();

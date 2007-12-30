@@ -39,7 +39,7 @@ Sequencer& Sequencer::Instance() {
 	return (*TheInstance);
 }
 
-Sequencer::Sequencer() : pwProtected(false)
+Sequencer::Sequencer() : pwProtected(false), isSandbox(false)
 {
 }
 
@@ -57,6 +57,7 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 	pthread_mutex_init(&clients_mutex, NULL);
 
 	strncpy(terrainName, terrname, 250);
+	isSandbox = !strcmp(terrname, "any");
 
 	freekillqueue=0;
 	servermode=smode;
@@ -151,15 +152,14 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	strncpy(clients[pos].nickname, user->username, 20);
 	strncpy(clients[pos].uniqueid, user->uniqueid, 60);
 
-	/* // replace bad characters
-	for (unsigned int i=0; i<60; i++)
+	// replace bad characters
+	for (unsigned int i=0; i<20; i++)
 	{
 		if(clients[pos].nickname[i] == 0)
 			break;
 		if (clients[pos].nickname[i]<32 || clients[pos].nickname[i]>127 || clients[pos].nickname[i]==';') 
 			clients[pos].nickname[i]='#';
 	}
-	*/
 
 	clients[pos].uid=fuid;
 	fuid++;
@@ -356,7 +356,11 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 void Sequencer::printStats()
 {
 	SWBaseSocket::SWBaseError error;
-	printf("Server occupancy:\n");
+	printf("Server occupancy:");
+	if(isSandbox)
+		printf(" (Sandbox mode!)");
+	printf("\n");
+
 	printf("Slot Status   UID IP              Nickname, Vehicle\n");
 	printf("--------------------------------------------------\n");
 	pthread_mutex_lock(&clients_mutex);

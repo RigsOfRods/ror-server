@@ -98,8 +98,8 @@ private:
 	bool pwProtected;
 
 protected:
-	Sequencer(){}
-	~Sequencer(){}
+	Sequencer();
+	~Sequencer();
 
 	static Sequencer* TheInstance;
 	

@@ -130,6 +130,10 @@ void Listener::threadstart()
 							delete ts;
 							continue;
 						}
+					}else
+					{
+						logmsgf(LOG_DEBUG,"creating client, no password protection!");
+						SEQUENCER.createClient(ts, user);
 					}
 				}
 				else

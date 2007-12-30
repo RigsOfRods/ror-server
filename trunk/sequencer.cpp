@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "sequencer.h"
 #include "messaging.h"
 #include "rornet.h"
+#include "sha1_util.h"
 
 //#define REFLECT_DEBUG 
 
@@ -46,7 +47,9 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 	pthread_mutex_init(&killer_mutex, NULL);
 	pthread_cond_init(&killer_cv, NULL);
 	pthread_mutex_init(&clients_mutex, NULL);
-	
+
+	strncpy(terrainName, terrname, 250);
+
 	freekillqueue=0;
 	servermode=smode;
 	pthread_create(&killerthread, NULL, s_klthreadstart, this);
@@ -63,12 +66,19 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 
 	listener=new Listener(listenport);
 
-	bool pwprotected = false;
+	pwProtected = false;
 	if(pass && strnlen(pass,250)>0)
-		pwprotected = true;
+		pwProtected = true;
+	
+	
+	if(!SHA1FromString(serverPassword, pass))
+	{
+		logmsgf(LOG_ERROR, "could not generate server SHA1 password hash!");
+		exit(1);
+	}
 
 	if(servermode == SERVER_INET || servermode == SERVER_AUTO)
-		notifier=new Notifier(pubip, listenport, max_clients, servname, terrname, pwprotected, servermode);
+		notifier=new Notifier(pubip, listenport, max_clients, servname, terrname, pwProtected, servermode);
 }
 
 /**
@@ -106,7 +116,7 @@ void Sequencer::notifyRoutine()
 }
 
 //this is called by the Listener thread
-void Sequencer::createClient(SWInetSocket *sock, char* name)
+void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 {
 	//we have a confirmed client that wants to play
 	//try to find a place for him
@@ -121,12 +131,26 @@ void Sequencer::createClient(SWInetSocket *sock, char* name)
 		return;
 	}
 	
+	
+
+	
 	//okay, create the stuff
 	clients[pos].flow=false;
 	clients[pos].status=USED;
 	clients[pos].vehicle_name[0]=0;
 	clients[pos].position=Vector3(0,0,0);
-	strncpy(clients[pos].nickname, name, 21);
+	strncpy(clients[pos].nickname, user->username, 60);
+	strncpy(clients[pos].uniqueid, user->uniqueid, 60);
+
+	// replace bad characters
+	for (unsigned int i=0; i<60; i++)
+	{
+		if(clients[pos].nickname[i] == 0)
+			break;
+		if (clients[pos].nickname[i]<32 || clients[pos].nickname[i]>127 || clients[pos].nickname[i]==';') 
+			clients[pos].nickname[i]='#';
+	}
+
 	clients[pos].uid=fuid;
 	fuid++;
 	clients[pos].sock=sock;

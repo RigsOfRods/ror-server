@@ -26,7 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //#define MAX_MLEN 1024
 #define MAX_MESSAGE_LENGTH 8192
 
-#define RORNET_VERSION "RoRnet_2.0"
+#define RORNET_VERSION "RoRnet_2.1"
 
 #define MSG_REGISTER 0 //client registers with magic!
 #define MSG_PING 1 //heartbeat sent by server ()
@@ -65,11 +65,24 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MSG2_LISTUSERS 1013 // asks for connected users
 #define MSG2_LISTUSERS_RESP 1014 // replies with connected users
 
-#define MSG2_PASSWORD 1015 // requests password
-#define MSG2_PASSWORD_RESP 1016 // replies password
+//#define MSG2_PASSWORD 1015 // requests password
+//#define MSG2_PASSWORD_RESP 1016 // replies password
+
+// 2.1
+#define MSG2_USER_CREDENTIALS 1017 // improved user credentials
+//#define MSG2_TERRAIN 1018 // client asks server for the terrain name
+#define MSG2_TERRAIN_RESP 1019 // server send client the terrain name
+#define MSG2_WRONG_PW 1020 // server send that on wrong pw
 
 // server modes
 enum {SERVER_LAN, SERVER_INET, SERVER_AUTO};
+
+typedef struct
+{
+	char username[20];
+	char password[60];
+	char uniqueid[60];
+} user_credentials_t;
 
 typedef struct
 {

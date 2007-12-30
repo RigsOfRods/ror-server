@@ -88,6 +88,15 @@ void Listener::threadstart()
 				delete ts;
 				continue;
 			}
+			logmsgf(LOG_DEBUG,"Listener sending terrain");
+			//send the terrain information back
+			if (Messaging::sendmessage(ts, MSG2_TERRAIN_RESP, 0, (int)strnlen(SEQUENCER.getTerrainName(),250), SEQUENCER.getTerrainName()))
+			{
+				logmsgf(LOG_ERROR,"ERROR Listener: sending terrain");
+				ts->disconnect(&error);
+				delete ts;
+				continue;
+			}
 
 			if(!strncmp(buffer, RORNET_VERSION, strlen(RORNET_VERSION)))
 			{
@@ -99,15 +108,29 @@ void Listener::threadstart()
 					delete ts;
 					continue;
 				}
-				if (type==MSG2_USER)
+				if (type==MSG2_USER_CREDENTIALS)
 				{
 					//create a new client
 					//correct a bit the client name (trucate, validate)
-					if (len>20) len=20;
-					buffer[len]=0;
-					for (unsigned int i=0; i<len; i++) if (buffer[i]<32 || buffer[i]>127 || buffer[i]==';') buffer[i]='#';
-					logmsgf(LOG_DEBUG,"Listener creating a new client (%s)", buffer);
-					SEQUENCER.createClient(ts, buffer);
+					if (len>sizeof(user_credentials_t))
+						continue;
+					logmsgf(LOG_DEBUG,"Listener creating a new client...");
+					user_credentials_t *user = (user_credentials_t *)buffer;
+					if(SEQUENCER.isPasswordProtected())
+					{
+						if(!strncmp(SEQUENCER.getServerPasswordHash(), user->password, 20))
+						{
+							logmsgf(LOG_DEBUG,"user used the correct password!");
+							SEQUENCER.createClient(ts, user);
+						}else
+						{
+							Messaging::sendmessage(ts, MSG2_WRONG_PW, 0, 0, 0);
+							logmsgf(LOG_ERROR,"ERROR Listener: wrong password");
+							ts->disconnect(&error);
+							delete ts;
+							continue;
+						}
+					}
 				}
 				else
 				{

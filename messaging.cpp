@@ -31,34 +31,28 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source, 
 {
 	SWBaseSocket::SWBaseError error;
 	header_t head;
+	memset(&head, 0, sizeof(header_t));
 	head.command=type;
 	head.source=source;
 	head.size=len;
+	int hlen=0;
 	
-	unsigned int hlen=0;
-	
-	while (hlen<sizeof(header_t))
+	// construct buffer
+	const int msgsize = sizeof(header_t) + len;
+	char buffer[MAX_MESSAGE_LENGTH];
+	memset(buffer,0, MAX_MESSAGE_LENGTH);
+	memcpy(buffer, (char *)&head, sizeof(header_t));
+	memcpy(buffer+sizeof(header_t), content, len);
+
+	int rlen=0;
+	while (rlen<(int)msgsize)
 	{
-		int sendnum=socket->send(((char*)&head)+hlen, sizeof(header_t)-hlen, &error);
+		int sendnum=socket->send(buffer+rlen, msgsize-rlen, &error);
 		if (sendnum<0 || error!=SWBaseSocket::ok) 
 		{
 			return -1;
 		}
-		hlen+=sendnum;
-	}
-	
-	if (len>0) 
-	{
-		int rlen=0;
-		while (rlen<(int)head.size)
-		{
-			int sendnum=socket->send(content+rlen, head.size-rlen, &error);
-			if (sendnum<0 || error!=SWBaseSocket::ok) 
-			{
-				return -1;
-			}
-			rlen+=sendnum;
-		}
+		rlen+=sendnum;
 	}
 	return 0;
 }
@@ -76,34 +70,41 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source, 
 int Messaging::receivemessage(SWInetSocket *socket, int *type, unsigned int *source, unsigned int *wrotelen, char* content, unsigned int bufferlen)
 {
 	SWBaseSocket::SWBaseError error;
-	header_t head;
-	unsigned int hlen=0;
-	while (hlen<sizeof(header_t))
+	
+	char buffer[MAX_MESSAGE_LENGTH];
+	memset(buffer,0, MAX_MESSAGE_LENGTH);
+	
+	int hlen=0;
+	while (hlen<(int)sizeof(header_t))
 	{
-		int recvnum=socket->recv(((char*)&head)+hlen, sizeof(header_t)-hlen,&error);
-		if (recvnum<=0 || error!=SWBaseSocket::ok)
+		int recvnum=socket->recv(buffer+hlen, sizeof(header_t)-hlen,&error);
+		if (recvnum<0 || error!=SWBaseSocket::ok)
 		{
+			// this also happens when the connection is canceled
 			return -1;
 		}
 		hlen+=recvnum;
 	}
-	if (head.size<=bufferlen)
-	{
-		int rlen=0;
-		while (rlen<(int)head.size)
-		{
-			int recvnum=socket->recv(content+rlen, head.size-rlen, &error);
-			if (recvnum<=0 || error!=SWBaseSocket::ok)
-			{
-				*wrotelen=rlen;
-				return -1;
-			}
-			rlen+=recvnum;
-		}
-	} else return -2;
+	header_t head;
+	memcpy(&head, buffer, sizeof(header_t));
 	*type=head.command;
 	*source=head.source;
 	*wrotelen=head.size;
+	if(head.size>0)
+	{
+		//read the rest
+		while (hlen<(int)sizeof(header_t)+head.size)
+		{
+			int recvnum=socket->recv(buffer+hlen, (head.size+sizeof(header_t))-hlen,&error);
+			if (recvnum<0 || error!=SWBaseSocket::ok)
+			{
+				return -1;
+			}
+			hlen+=recvnum;
+		}
+	}
+
+	memcpy(content, buffer+sizeof(header_t), bufferlen);
 	return 0;
 }
 

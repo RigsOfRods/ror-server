@@ -1,7 +1,0 @@
-<area shape="rect" href="$messaging_8cpp.html#b365bee5dc9bc19b4aeced19e6ccc434" title="logmsgf" alt="" coords="492,107,564,133">
-<area shape="rect" href="$classSequencer.html#2bed0b1f98d44407b3cda0081e76b038" title="prints the Stats view, of who is connected and what slot they are in" alt="" coords="244,56,407,83">
-<area shape="rect" href="$classBroadcaster.html#799150b9b1c769fc8312561f99360a34" title="Broadcaster::reset" alt="" coords="255,5,396,32">
-<area shape="rect" href="$classReceiver.html#6bfa7ac893f8be4447db6c3cb437acd5" title="Receiver::reset" alt="" coords="267,157,384,184">
-<area shape="rect" href="$classMessaging.html#5f0ce0f474be38a6a41329daaaf4e797" title="Messaging::sendmessage" alt="" coords="232,208,419,235">
-<area shape="rect" href="$broadcaster_8cpp.html#fea92bcc58bf8e46c07f2a039680d2c7" title="s_brthreadstart" alt="" coords="468,5,588,32">
-<area shape="rect" href="$receiver_8cpp.html#7e60e97102e2ce85f903f93900ca93fd" title="s_lithreadstart" alt="" coords="472,157,584,184">

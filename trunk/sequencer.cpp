@@ -100,8 +100,7 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 	{
 		char buffer[40];
 		memset(buffer, 0, 40);
-		strncpy(buffer, pass, 40);
-		buffer[40]=0;
+		strncpy(buffer, rconpass, 40);
 		
 		char result[40];
 		memset(result, 0, 40);
@@ -111,6 +110,7 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 			exit(1);
 		}
 		strncpy(rconPassword, result, 40);
+		logmsgf(LOG_DEBUG,"sha1(%s) = %s", rconpass, rconPassword);
 		rconenabled = true;
 	}
 

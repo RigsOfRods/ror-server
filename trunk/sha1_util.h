@@ -18,14 +18,15 @@ bool toHex(char *result, char *data)
 
 bool SHA1FromString(char *result, char *source)
 {
-	char src[2048]="";
-	char tmp[60]="", tmp1[60]="";
+	char output[20];
+	memset(output, 0, 20);
 
-	strncpy(src, source, 2048);
-	sha1( (unsigned char *)src, (int)strnlen(src, 2048), (unsigned char *)tmp);
-	result[60]=0;
-	if(!toHex(tmp1, tmp))
+	char output_hex[255];
+	memset(output_hex, 0, 255);
+
+	sha1( (unsigned char *)source, (int)strlen(source), (unsigned char *)output);
+	if(!toHex(output_hex, output))
 		return false;
-	strncpy(result, tmp1, 60);
+	strncpy(result, output_hex, 255);
 	return true;
 }

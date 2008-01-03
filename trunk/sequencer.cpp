@@ -341,9 +341,6 @@ void Sequencer::notifyAllVehicles(int pos)
 //this is called by the receivers threads, like crazy & concurrently
 void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 {
-	if (type==MSG2_VEHICLE_DATA)
-		return;
-
 	pthread_mutex_lock(&clients_mutex);
 	if (type==MSG2_USE_VEHICLE) 
 	{
@@ -358,7 +355,11 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 	else if (type==MSG2_RCON_COMMAND)
 	{
 		// XXX: TODO: handle rcon command stuff here
-		Messaging::sendmessage(clients[pos].sock, MSG2_RCON_COMMAND_SUCCESS, 0, 0, 0);
+		logmsgf(LOG_DEBUG, "user %d (%d) sends rcon command: %s", pos, clients[pos].rconauth, data);
+		if(clients[pos].rconauth==1)
+			Messaging::sendmessage(clients[pos].sock, MSG2_RCON_COMMAND_SUCCESS, 0, 0, 0);
+		else
+			Messaging::sendmessage(clients[pos].sock, MSG2_RCON_COMMAND_FAILED, 0, 0, 0);
 	}
 	else if (type==MSG2_CHAT)
 	{

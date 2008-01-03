@@ -27,6 +27,7 @@ bool SHA1FromString(char *result, char *source)
 	sha1( (unsigned char *)source, (int)strlen(source), (unsigned char *)output);
 	if(!toHex(output_hex, output))
 		return false;
-	strncpy(result, output_hex, 255);
+	strncpy(result, output_hex, 40);
+	result[40]=0;
 	return true;
 }

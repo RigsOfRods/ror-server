@@ -350,7 +350,7 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 			char pw[255]="";
 			strncpy(pw, data, len);
 			pw[len]=0;
-			
+			logmsgf(LOG_DEBUG, "user %d  tries to loginto RCON: server: %s, his: %s", rconPassword, pw);
 			if(pw && strnlen(pw, 250) > 20 && !strcmp(rconPassword, pw))
 			{
 				logmsgf(LOG_WARN, "user %d logged into RCON", pos);

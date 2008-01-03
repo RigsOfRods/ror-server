@@ -79,7 +79,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MSG2_RCON_LOGIN_SUCCESS 1023 // server sends that on correct pw
 #define MSG2_RCON_LOGIN_NOTAV 1024 // server sends that on disabled rcon
 
-#define MSG2_RCON_COMMAND 1025
+#define MSG2_RCON_COMMAND 1025 // sends a rcon command
 
 // server modes
 enum {SERVER_LAN, SERVER_INET, SERVER_AUTO};

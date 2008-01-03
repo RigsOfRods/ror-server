@@ -348,9 +348,9 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 		if(rconenabled && clients[pos].rconretries < 3)
 		{
 			char pw[255]="";
-			strncpy(pw, data, len);
+			strncpy(pw, data, 255);
 			pw[len]=0;
-			logmsgf(LOG_DEBUG, "user %d  tries to loginto RCON: server: %s, his: %s", rconPassword, pw);
+			logmsgf(LOG_DEBUG, "user %d  tries to loginto RCON: server: %s, his: %s", pos, rconPassword, pw);
 			if(pw && strnlen(pw, 250) > 20 && !strcmp(rconPassword, pw))
 			{
 				logmsgf(LOG_WARN, "user %d logged into RCON", pos);

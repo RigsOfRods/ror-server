@@ -79,22 +79,38 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 
 	if(pass && strnlen(pass, 250)>0)
 	{
-		pwProtected = true;
-		if(!SHA1FromString(serverPassword, pass))
+		char buffer[40];
+		memset(buffer, 0, 40);
+		strncpy(buffer, pass, 40);
+		buffer[40]=0;
+		
+		char result[40];
+		memset(result, 0, 40);
+		if(!SHA1FromString(result, buffer))
 		{
 			logmsgf(LOG_ERROR, "could not generate server SHA1 password hash!");
 			exit(1);
 		}
+		strncpy(serverPassword, result, 40);
+		pwProtected = true;
 	}
 
 	rconenabled = false;
 	if(rconpass && strnlen(rconpass, 250)>0)
 	{
-		if(!SHA1FromString(rconPassword, pass))
+		char buffer[40];
+		memset(buffer, 0, 40);
+		strncpy(buffer, pass, 40);
+		buffer[40]=0;
+		
+		char result[40];
+		memset(result, 0, 40);
+		if(!SHA1FromString(result, buffer))
 		{
 			logmsgf(LOG_ERROR, "could not generate server SHA1 RCon password hash!");
 			exit(1);
 		}
+		strncpy(rconPassword, result, 40);
 		rconenabled = true;
 	}
 

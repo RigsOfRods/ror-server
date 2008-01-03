@@ -98,10 +98,10 @@ private:
 	int freekillqueue;
 	int servermode;
 	char terrainName[255];
-	char serverPassword[61];
+	char serverPassword[40];
 	bool pwProtected;
 	
-	char rconPassword[61];
+	char rconPassword[40];
 	bool rconenabled;
 	bool isSandbox;
 

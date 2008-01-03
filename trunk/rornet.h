@@ -62,8 +62,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define MSG2_FORCE 1012 //Force information, attached to a netforce_t struct
 
-#define MSG2_LISTUSERS 1013 // asks for connected users
-#define MSG2_LISTUSERS_RESP 1014 // replies with connected users
+//#define MSG2_LISTUSERS 1013 // asks for connected users
+//#define MSG2_LISTUSERS_RESP 1014 // replies with connected users
 
 //#define MSG2_PASSWORD 1015 // requests password
 //#define MSG2_PASSWORD_RESP 1016 // replies password
@@ -79,6 +79,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MSG2_RCON_LOGIN_SUCCESS 1023 // server sends that on correct pw
 #define MSG2_RCON_LOGIN_NOTAV 1024 // server sends that on disabled rcon
 
+#define MSG2_RCON_COMMAND 1025
 
 // server modes
 enum {SERVER_LAN, SERVER_INET, SERVER_AUTO};

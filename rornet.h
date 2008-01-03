@@ -80,6 +80,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MSG2_RCON_LOGIN_NOTAV 1024 // server sends that on disabled rcon
 
 #define MSG2_RCON_COMMAND 1025 // sends a rcon command
+#define MSG2_RCON_COMMAND_FAILED 1026 // send to client
+#define MSG2_RCON_COMMAND_SUCCESS 1027 // send to client
 
 // server modes
 enum {SERVER_LAN, SERVER_INET, SERVER_AUTO};

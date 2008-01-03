@@ -50,7 +50,7 @@ Sequencer::~Sequencer()
 /**
  * Inililize, needs to be called before the class is used
  */ 
-void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* terrname, int listenport, int smode, char *pass)
+void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* terrname, int listenport, int smode, char *pass, char *rconpass)
 {
 	pthread_mutex_init(&killer_mutex, NULL);
 	pthread_cond_init(&killer_cv, NULL);
@@ -77,7 +77,7 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 
 	listener=new Listener(listenport);
 
-	if(pass && strnlen(pass,250)>0)
+	if(pass && strnlen(pass, 250)>0)
 	{
 		pwProtected = true;
 		if(!SHA1FromString(serverPassword, pass))
@@ -87,8 +87,19 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 		}
 	}
 
+	rconenabled = false;
+	if(rconpass && strnlen(rconpass, 250)>0)
+	{
+		if(!SHA1FromString(rconPassword, pass))
+		{
+			logmsgf(LOG_ERROR, "could not generate server SHA1 RCon password hash!");
+			exit(1);
+		}
+		rconenabled = true;
+	}
+
 	if(servermode == SERVER_INET || servermode == SERVER_AUTO)
-		notifier=new Notifier(pubip, listenport, max_clients, servname, terrname, pwProtected, servermode);
+		notifier=new Notifier(pubip, listenport, max_clients, servname, terrname, pwProtected, servermode, rconenabled);
 }
 
 /**
@@ -149,6 +160,8 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	clients[pos].status=USED;
 	clients[pos].vehicle_name[0]=0;
 	clients[pos].position=Vector3(0,0,0);
+	clients[pos].rconretries=0;
+	clients[pos].rconauth=0;
 	strncpy(clients[pos].nickname, user->username, 20);
 	strncpy(clients[pos].uniqueid, user->uniqueid, 60);
 
@@ -175,12 +188,13 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 //this is called from the hearbeat notifier thread
 int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 {
+	SWBaseSocket::SWBaseError error;
 	pthread_mutex_lock(&clients_mutex);
 	int clientnum =0;
 	for (int i=0; i<maxclients; i++) if (clients[i].status!=FREE) clientnum++;
 
 	sprintf(hearbeatdata, "%s\n" \
-	                      "version1\n" \
+	                      "version2\n" \
 	                      "%i\n", challenge, clientnum);
 	if(clientnum > 0)
 	{
@@ -191,7 +205,7 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 				char playerdata[1024] = "";
 				char positiondata[128] = "";
 				clients[i].position.toString(positiondata);
-				sprintf(playerdata, "%d;%s;%s;%s\n", i, clients[i].vehicle_name, clients[i].nickname, positiondata);
+				sprintf(playerdata, "%d;%s;%s;%s;%s;%s\n", i, clients[i].vehicle_name, clients[i].nickname, positiondata, clients[i].sock->get_peerAddr(&error).c_str(), clients[i].uniqueid);
 				strcat(hearbeatdata, playerdata);
 			}
 		}
@@ -311,6 +325,9 @@ void Sequencer::notifyAllVehicles(int pos)
 //this is called by the receivers threads, like crazy & concurrently
 void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 {
+	if (type==MSG2_VEHICLE_DATA)
+		return;
+
 	pthread_mutex_lock(&clients_mutex);
 	if (type==MSG2_USE_VEHICLE) 
 	{
@@ -322,12 +339,41 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 		strcpy(data+len+1, clients[pos].nickname);
 		len+=(int)strlen(clients[pos].nickname)+2;
 	}
-	if (type==MSG2_VEHICLE_DATA)
+	else if (type==MSG2_CHAT)
+	{
+		logmsgf(LOG_WARN, "CHAT| %s", data);
+	}
+	else if (type==MSG2_RCON_LOGIN)
+	{
+		if(rconenabled && clients[pos].rconretries < 3)
+		{
+			char pw[255]="";
+			strncpy(pw, data, len);
+			pw[len]=0;
+			
+			if(pw && strnlen(pw, 250) > 20 && !strcmp(rconPassword, pw))
+			{
+				logmsgf(LOG_WARN, "user %d logged into RCon", pos);
+				clients[pos].rconauth=1;
+				Messaging::sendmessage(clients[pos].sock, MSG2_RCON_LOGIN_SUCCESS, 0, 0, 0);
+			}else
+			{
+				// pw incorrect or failed
+				logmsgf(LOG_WARN, "user %d failed to login RCon, retry number %d", pos, clients[pos].rconretries);
+				clients[pos].rconretries++;
+				Messaging::sendmessage(clients[pos].sock, MSG2_RCON_LOGIN_FAILED, 0, 0, 0);
+			}
+		}else
+		{
+			Messaging::sendmessage(clients[pos].sock, MSG2_RCON_LOGIN_NOTAV, 0, 0, 0);
+		}
+	}
+	else if (type==MSG2_VEHICLE_DATA)
 	{
 		float* fpt=(float*)(data+sizeof(oob_t));
 		clients[pos].position=Vector3(fpt[0], fpt[1], fpt[2]);
 	}
-	if (type==MSG2_FORCE)
+	else if (type==MSG2_FORCE)
 	{
 		//this message is to be sent to only one destination
 		unsigned int destuid=((netforce_t*)data)->target_uid;

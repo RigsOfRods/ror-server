@@ -39,6 +39,7 @@ private:
 	bool exit;
 	bool passprotected;
 	bool wasregistered;
+	bool rconenabled;
 	int servermode;
 	int error_count;
 
@@ -47,7 +48,7 @@ private:
 	bool sendHearbeat();
 
 public:
-	Notifier(char* pubip, int port, int max_client, char* servname, char* terrname, bool pwprotected, int servermode);
+	Notifier(char* pubip, int port, int max_client, char* servname, char* terrname, bool pwprotected, int servermode, bool rconenabled);
 	~Notifier(void);
 	void loop();
 	int HTTPGET(char* URL);

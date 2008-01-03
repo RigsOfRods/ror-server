@@ -93,7 +93,7 @@ int Messaging::receivemessage(SWInetSocket *socket, int *type, unsigned int *sou
 	if(head.size>0)
 	{
 		//read the rest
-		while (hlen<(int)sizeof(header_t)+head.size)
+		while (hlen<(int)sizeof(header_t)+(int)head.size)
 		{
 			int recvnum=socket->recv(buffer+hlen, (head.size+sizeof(header_t))-hlen,&error);
 			if (recvnum<0 || error!=SWBaseSocket::ok)

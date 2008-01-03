@@ -358,6 +358,7 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 	else if (type==MSG2_RCON_COMMAND)
 	{
 		// XXX: TODO: handle rcon command stuff here
+		Messaging::sendmessage(clients[pos].sock, MSG2_RCON_COMMAND_SUCCESS, 0, 0, 0);
 	}
 	else if (type==MSG2_CHAT)
 	{

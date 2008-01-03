@@ -353,18 +353,19 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 			
 			if(pw && strnlen(pw, 250) > 20 && !strcmp(rconPassword, pw))
 			{
-				logmsgf(LOG_WARN, "user %d logged into RCon", pos);
+				logmsgf(LOG_WARN, "user %d logged into RCON", pos);
 				clients[pos].rconauth=1;
 				Messaging::sendmessage(clients[pos].sock, MSG2_RCON_LOGIN_SUCCESS, 0, 0, 0);
 			}else
 			{
 				// pw incorrect or failed
-				logmsgf(LOG_WARN, "user %d failed to login RCon, retry number %d", pos, clients[pos].rconretries);
+				logmsgf(LOG_WARN, "user %d failed to login RCON, retry number %d", pos, clients[pos].rconretries);
 				clients[pos].rconretries++;
 				Messaging::sendmessage(clients[pos].sock, MSG2_RCON_LOGIN_FAILED, 0, 0, 0);
 			}
 		}else
 		{
+			logmsgf(LOG_WARN, "user %d failed to login RCON, as RCON is disabled %d", pos, clients[pos].rconretries);
 			Messaging::sendmessage(clients[pos].sock, MSG2_RCON_LOGIN_NOTAV, 0, 0, 0);
 		}
 	}

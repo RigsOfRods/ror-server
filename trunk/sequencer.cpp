@@ -355,6 +355,10 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 		strcpy(data+len+1, clients[pos].nickname);
 		len+=(int)strlen(clients[pos].nickname)+2;
 	}
+	else if (type==MSG2_RCON_COMMAND)
+	{
+		// XXX: TODO: handle rcon command stuff here
+	}
 	else if (type==MSG2_CHAT)
 	{
 		logmsgf(LOG_WARN, "CHAT| %s", data);

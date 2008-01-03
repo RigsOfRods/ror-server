@@ -61,6 +61,10 @@ typedef struct
 	Vector3 position;
 	/// users unique id
 	char uniqueid[60];
+	/// rcon password retries
+	int rconretries;
+	/// rcon authenticated mode
+	int rconauth;
 } client_t;
 
 class Sequencer
@@ -94,8 +98,11 @@ private:
 	int freekillqueue;
 	int servermode;
 	char terrainName[255];
-	char serverPassword[21];
+	char serverPassword[61];
 	bool pwProtected;
+	
+	char rconPassword[61];
+	bool rconenabled;
 	bool isSandbox;
 
 protected:
@@ -108,7 +115,7 @@ public:
 	/// method to access the singleton instance
 	static Sequencer& Instance();
 	///	initilize theSequencers information
-	void initilize(char *pubip, int listenport, char* servname, char* terrname, int max_clients, int servermode, char *password);
+	void initilize(char *pubip, int listenport, char* servname, char* terrname, int max_clients, int servermode, char *password, char *rconpassword);
 	/// destructor call, used for clean up
 	void cleanUp();
 	/// initilize client information

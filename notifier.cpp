@@ -23,7 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <unistd.h>
 #endif
 
-Notifier::Notifier(char* pubip, int port, int max_client, char* servname, char* terrname, bool pprotected, int smode) : exit(false)
+Notifier::Notifier(char* pubip, int port, int max_client, char* servname, char* terrname, bool pprotected, int smode, bool _rconenabled) : exit(false)
 {
 	lport=port;
 	maxclient=max_client;
@@ -33,6 +33,7 @@ Notifier::Notifier(char* pubip, int port, int max_client, char* servname, char* 
 	passprotected=pprotected;
 	wasregistered=false;
 	servermode=smode;
+	rconenabled=_rconenabled;
 	error_count=0;
 }
 
@@ -47,8 +48,8 @@ Notifier::~Notifier(void)
 bool Notifier::registerServer()
 {
 	char regurl[1024];
-	sprintf(regurl, "%s/register/?name=%s&description=%s&ip=%s&port=%i&terrainname=%s&maxclients=%i&version=%s&pw=%d", 
-		REPO_URLPREFIX, server_name, "", public_ip, lport, terrain_name, maxclient, RORNET_VERSION, passprotected);
+	sprintf(regurl, "%s/register/?name=%s&description=%s&ip=%s&port=%i&terrainname=%s&maxclients=%i&version=%s&pw=%d&rcon=", 
+		REPO_URLPREFIX, server_name, "", public_ip, lport, terrain_name, maxclient, RORNET_VERSION, passprotected, rconenabled);
 	printf("Trying to register at Master Server ... (this can take some seconds as your server is being checked by the Master server)\n");
 	if (HTTPGET(regurl) < 0)
 		return false;

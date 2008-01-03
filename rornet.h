@@ -74,6 +74,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MSG2_TERRAIN_RESP 1019 // server send client the terrain name
 #define MSG2_WRONG_PW 1020 // server send that on wrong pw
 
+#define MSG2_RCON_LOGIN 1021 // client send that the server with a sha1 password
+#define MSG2_RCON_LOGIN_FAILED 1022 // server sends that on wrong pw
+#define MSG2_RCON_LOGIN_SUCCESS 1023 // server sends that on correct pw
+#define MSG2_RCON_LOGIN_NOTAV 1024 // server sends that on disabled rcon
+
+
 // server modes
 enum {SERVER_LAN, SERVER_INET, SERVER_AUTO};
 

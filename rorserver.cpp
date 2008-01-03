@@ -50,7 +50,8 @@ enum {
 	OPT_VERBOSE,
 	OPT_VVERBOSE,
 	OPT_PASS,
-	OPT_INET};
+	OPT_INET,
+	OPT_RCONPASS};
 
 // option array
 CSimpleOpt::SOption cmdline_options[] = {
@@ -58,6 +59,7 @@ CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_PORT, ("-port"), SO_REQ_SEP },
 	{ OPT_NAME, ("-name"), SO_REQ_SEP },
 	{ OPT_PASS, ("-password"), SO_REQ_SEP },
+	{ OPT_RCONPASS, ("-rconpassword"), SO_REQ_SEP },
 	{ OPT_TERRAIN, ("-terrain"), SO_REQ_SEP },
 	{ OPT_MAXCLIENTS, ("-maxclients"), SO_REQ_SEP },
 	{ OPT_LAN, ("-lan"), SO_NONE },
@@ -163,6 +165,7 @@ int main(int argc, char* argv[])
 	char servname[255]="";
 	char terrname[255]="aspen";
 	char password[255]="";
+	char rconpassword[255]="";
 	int max_clients=16;
 
 	// parse arguments
@@ -180,6 +183,8 @@ int main(int argc, char* argv[])
 				strncpy(terrname, args.OptionArg(), 250);
 			} else if (args.OptionId() == OPT_PASS) {
 				strncpy(password, args.OptionArg(), 250);
+			} else if (args.OptionId() == OPT_RCONPASS) {
+				strncpy(rconpassword, args.OptionArg(), 250);
 			} else if (args.OptionId() == OPT_PORT) {
 				listenport = atoi(args.OptionArg());
 			} else if (args.OptionId() == OPT_DEBUG) {
@@ -286,7 +291,10 @@ int main(int argc, char* argv[])
 	if(strnlen(password, 250) > 0)
 		printf("server is password protected!\n");
 
-	SEQUENCER.initilize(pubip, max_clients, servname, terrname, listenport, servermode, password);
+	if(strnlen(rconpassword, 250) == 0)
+		printf("no RCon password set: RCon disabled!\n");
+
+	SEQUENCER.initilize(pubip, max_clients, servname, terrname, listenport, servermode, password, rconpassword);
 
 	if(servermode == SERVER_INET || servermode == SERVER_AUTO)
 	{

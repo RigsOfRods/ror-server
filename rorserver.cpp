@@ -292,7 +292,7 @@ int main(int argc, char* argv[])
 		printf("server is password protected!\n");
 
 	if(strnlen(rconpassword, 250) == 0)
-		printf("no RCon password set: RCon disabled!\n");
+		printf("no RCON password set: RCON disabled!\n");
 
 	SEQUENCER.initilize(pubip, max_clients, servname, terrname, listenport, servermode, password, rconpassword);
 

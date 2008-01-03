@@ -8,7 +8,7 @@ bool toHex(char *result, char *data, int len)
 {
 	std::ostringstream hexStream;
 	hexStream << std::setw(2) << std::setfill('0') << std::hex;
-	for(unsigned int i=0;i<len;i++)
+	for(unsigned int i=0;(int)i<len;i++)
 	{
 		hexStream << static_cast<unsigned int>(static_cast<unsigned char>(data[i]));
 	}

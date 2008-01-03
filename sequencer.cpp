@@ -376,6 +376,7 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 			{
 				// pw incorrect or failed
 				logmsgf(LOG_WARN, "user %d failed to login RCON, retry number %d", pos, clients[pos].rconretries);
+				clients[pos].rconauth=0;
 				clients[pos].rconretries++;
 				Messaging::sendmessage(clients[pos].sock, MSG2_RCON_LOGIN_FAILED, 0, 0, 0);
 			}

@@ -106,7 +106,7 @@ void Receiver::threadstart()
 			SEQUENCER.disconnect(id, "Game connection closed");
 			pthread_exit(NULL);
 		}
-		if (type!=MSG2_VEHICLE_DATA && type!=MSG2_CHAT && type!=MSG2_FORCE) {
+		if (type!=MSG2_VEHICLE_DATA && type!=MSG2_CHAT && type!=MSG2_FORCE && type!=MSG2_RCON_LOGIN && type!=MSG2_RCON_COMMAND) {
 			SEQUENCER.disconnect(id, "Protocol error 3");
 			pthread_exit(NULL);
 		}

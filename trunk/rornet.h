@@ -89,8 +89,8 @@ enum {SERVER_LAN, SERVER_INET, SERVER_AUTO};
 typedef struct
 {
 	char username[20];
-	char password[60];
-	char uniqueid[60];
+	char password[40];
+	char uniqueid[40];
 } user_credentials_t;
 
 typedef struct

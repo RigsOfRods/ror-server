@@ -118,7 +118,8 @@ void Listener::threadstart()
 					user_credentials_t *user = (user_credentials_t *)buffer;
 					if(SEQUENCER.isPasswordProtected())
 					{
-						if(!strcmp(SEQUENCER.getServerPasswordHash(), user->password))
+						logmsgf(LOG_DEBUG,"password login: %s == %s?", SEQUENCER.getServerPasswordHash(), user->password);
+						if(!strncmp(SEQUENCER.getServerPasswordHash(), user->password, 40))
 						{
 							logmsgf(LOG_DEBUG,"user used the correct password!");
 							SEQUENCER.createClient(ts, user);

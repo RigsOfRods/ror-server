@@ -159,17 +159,31 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	//try to find a place for him
 	pthread_mutex_lock(&clients_mutex);
 	int pos=0;
-	for (pos=0; pos<maxclients; pos++) if (clients[pos].status==FREE) break;
+	for (pos=0; pos<maxclients; pos++)
+	{
+		if (!strcmp(user->username, clients[pos].nickname)) //validate the requested nick against the slot that
+		{
+			// is being scanned for openings.
+			logmsgf(LOG_DEBUG,"Dupe nick found: '%s' rejecting!", user->username); //a dupe, kill it!
+			pthread_mutex_unlock(&clients_mutex);
+			char *msg = "Duplicate name, please choose another one!";
+			Messaging::sendmessage(sock, MSG2_BANNED, 0, (unsigned int)strlen(msg), msg); //lack of proper protocol msg
+			return;
+		} else
+		{
+			//Now that we've checked against dupe nicks, we can see if the pos is free
+			if (clients[pos].status==FREE) 
+				break; 
+		} 
+	}
+
 	if (pos==maxclients)
 	{
+		logmsgf(LOG_WARN,"join request from '%s' on full server: rejecting!", user->username);
 		pthread_mutex_unlock(&clients_mutex);
 		Messaging::sendmessage(sock, MSG2_FULL, 0, 0, 0);
-		sock->disconnect();
 		return;
 	}
-	
-	
-
 	
 	//okay, create the stuff
 	clients[pos].flow=false;
@@ -284,6 +298,7 @@ void Sequencer::killerthreadstart()
 			clients[pos].receiver->stop();
 			logmsgf(LOG_DEBUG,"Killer stopping broadcaster");
 			clients[pos].broadcaster->stop();
+			memset(clients[pos].nickname, 0, 20); // Clear the nick data or else nicks will only be able to be used once!
 			logmsgf(LOG_DEBUG,"Killer deleting socket");
 			delete clients[pos].sock;
 			pthread_mutex_lock(&clients_mutex); 
@@ -299,7 +314,7 @@ void Sequencer::disconnect(int pos, char* errormsg)
 {
 	//this routine is a potential trouble maker as it can be called from many thread contexts
 	//so we use a killer thread
-	logmsgf(LOG_DEBUG,"ERROR Disconnecting Slot %d: %s", pos, errormsg);
+	logmsgf(LOG_DEBUG,"Disconnecting Slot %d: %s", pos, errormsg);
 	pthread_mutex_lock(&killer_mutex);
 	//first check if not already queued
 	bool found=false;
@@ -354,6 +369,11 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 		len+=(int)strlen(clients[pos].nickname)+2;
 		publishData=true;
 	}
+	
+	else if (type==MSG2_DELETE)
+	{
+		disconnect(pos, "disconnected on request");
+	}
 	else if (type==MSG2_RCON_COMMAND)
 	{
 		// XXX: TODO: handle rcon command stuff here
@@ -366,7 +386,7 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 	}
 	else if (type==MSG2_CHAT)
 	{
-		logmsgf(LOG_WARN, "CHAT| %s", data);
+		logmsgf(LOG_WARN, "CHAT| %s: %s", clients[pos].nickname, data);
 		publishData=true;
 	}
 	else if (type==MSG2_RCON_LOGIN)

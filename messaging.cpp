@@ -40,7 +40,7 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source, 
 	// construct buffer
 	const int msgsize = sizeof(header_t) + len;
 	char buffer[MAX_MESSAGE_LENGTH];
-	memset(buffer,0, MAX_MESSAGE_LENGTH);
+	memset(buffer, 0, MAX_MESSAGE_LENGTH);
 	memcpy(buffer, (char *)&head, sizeof(header_t));
 	memcpy(buffer+sizeof(header_t), content, len);
 

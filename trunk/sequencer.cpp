@@ -102,8 +102,8 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 		memset(buffer, 0, 40);
 		strncpy(buffer, rconpass, 40);
 		
-		char result[40];
-		memset(result, 0, 40);
+		char result[255];
+		memset(result, 0, 255);
 		if(!SHA1FromString(result, buffer))
 		{
 			logmsgf(LOG_ERROR, "could not generate server SHA1 RCon password hash!");
@@ -342,6 +342,7 @@ void Sequencer::notifyAllVehicles(int pos)
 void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 {
 	pthread_mutex_lock(&clients_mutex);
+	bool publishData=false;
 	if (type==MSG2_USE_VEHICLE) 
 	{
 		data[len]=0;
@@ -351,6 +352,7 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 		//we alter the message to add user info
 		strcpy(data+len+1, clients[pos].nickname);
 		len+=(int)strlen(clients[pos].nickname)+2;
+		publishData=true;
 	}
 	else if (type==MSG2_RCON_COMMAND)
 	{
@@ -360,10 +362,12 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 			Messaging::sendmessage(clients[pos].sock, MSG2_RCON_COMMAND_SUCCESS, 0, 0, 0);
 		else
 			Messaging::sendmessage(clients[pos].sock, MSG2_RCON_COMMAND_FAILED, 0, 0, 0);
+		publishData=false;
 	}
 	else if (type==MSG2_CHAT)
 	{
 		logmsgf(LOG_WARN, "CHAT| %s", data);
+		publishData=true;
 	}
 	else if (type==MSG2_RCON_LOGIN)
 	{
@@ -391,11 +395,13 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 			logmsgf(LOG_WARN, "user %d failed to login RCON, as RCON is disabled %d", pos, clients[pos].rconretries);
 			Messaging::sendmessage(clients[pos].sock, MSG2_RCON_LOGIN_NOTAV, 0, 0, 0);
 		}
+		publishData=false;
 	}
 	else if (type==MSG2_VEHICLE_DATA)
 	{
 		float* fpt=(float*)(data+sizeof(oob_t));
 		clients[pos].position=Vector3(fpt[0], fpt[1], fpt[2]);
+		publishData=true;
 	}
 	else if (type==MSG2_FORCE)
 	{
@@ -406,8 +412,10 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 			if (clients[i].status==USED && clients[i].flow && clients[i].uid==destuid)
 				clients[i].broadcaster->queueMessage(clients[pos].uid, type, data, len);
 		}
+		publishData=false;
 	}
-	else
+	
+	if(publishData)
 	{
 		//just push to all the present clients
 		for (int i=0; i<maxclients; i++)

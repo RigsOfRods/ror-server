@@ -477,7 +477,7 @@ void Sequencer::printStats()
 	int uphours = timediff/60/60;
 	int upminutes = (timediff-(uphours*60*60))/60;
 	printf("- traffic statistics (uptime: %d hours, %d minutes):\n", uphours, upminutes);
-	printf("- total: incoming: %0.2MkB , outgoing: %0.2fMB\n", Messaging::getBandwitdthIncoming()/1024/1024, Messaging::getBandwidthOutgoing()/1024/1024);
+	printf("- total: incoming: %0.2MB , outgoing: %0.2fMB\n", Messaging::getBandwitdthIncoming()/1024/1024, Messaging::getBandwidthOutgoing()/1024/1024);
 	printf("- rate (last minute): incoming: %0.1fkB/s , outgoing: %0.1fkB/s\n", Messaging::getBandwitdthIncomingRate()/1024, Messaging::getBandwidthOutgoingRate()/1024);
 	pthread_mutex_unlock(&clients_mutex);
 }

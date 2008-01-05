@@ -59,6 +59,7 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 	strncpy(terrainName, terrname, 250);
 	isSandbox = !strcmp(terrname, "any");
 
+	startTime = Messaging::getTime();
 	freekillqueue=0;
 	servermode=smode;
 	pthread_create(&killerthread, NULL, s_klthreadstart, this);
@@ -472,8 +473,11 @@ void Sequencer::printStats()
 			printf(" Used %5i %-16s %s, %s\n", clients[i].uid, clients[i].sock->get_peerAddr(&error).c_str(), clients[i].nickname, clients[i].vehicle_name);
 	}
 	printf("--------------------------------------------------\n");
-	printf("- traffic statistics:\n");
-	printf("- total: incoming: %0.1fkB , outgoing: %0.1fkB\n", Messaging::getBandwitdthIncoming()/1024, Messaging::getBandwidthOutgoing()/1024);
+	int timediff = Messaging::getTime()-startTime;
+	int uphours = timediff/60/60;
+	int upminutes = (timediff-(uphours*60*60))/60;
+	printf("- traffic statistics (uptime: %d hours, %d minutes):\n", uphours, upminutes);
+	printf("- total: incoming: %0.2MkB , outgoing: %0.2fMB\n", Messaging::getBandwitdthIncoming()/1024/1024, Messaging::getBandwidthOutgoing()/1024/1024);
 	printf("- rate (last minute): incoming: %0.1fkB/s , outgoing: %0.1fkB/s\n", Messaging::getBandwitdthIncomingRate()/1024, Messaging::getBandwidthOutgoingRate()/1024);
 	pthread_mutex_unlock(&clients_mutex);
 }

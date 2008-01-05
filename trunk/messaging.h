@@ -51,6 +51,7 @@ public:
 	static double getBandwidthOutgoingRate() { return bandwidthOutgoingRate; };
 
 	static void updateMinuteStats();
+	static int getTime() { return (int)time(NULL); };
 
 protected:
 	static double bandwidthIncoming;

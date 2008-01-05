@@ -473,8 +473,8 @@ void Sequencer::printStats()
 	}
 	printf("--------------------------------------------------\n");
 	printf("- traffic statistics:\n");
-	printf("- total: incoming: %0.3fkB , outgoing: %0.3fkB\n", Messaging::getBandwitdthIncoming()/1024, Messaging::getBandwidthOutgoing()/1024);
-	printf("- rate (last minute): incoming: %0.3fkB/s , outgoing: %0.3fkB/s\n", Messaging::getBandwitdthIncomingRate()/1024, Messaging::getBandwidthOutgoingRate()/1024);
+	printf("- total: incoming: %0.1fkB , outgoing: %0.1fkB\n", Messaging::getBandwitdthIncoming()/1024, Messaging::getBandwidthOutgoing()/1024);
+	printf("- rate (last minute): incoming: %0.1fkB/s , outgoing: %0.1fkB/s\n", Messaging::getBandwitdthIncomingRate()/1024, Messaging::getBandwidthOutgoingRate()/1024);
 	pthread_mutex_unlock(&clients_mutex);
 }
 

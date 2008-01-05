@@ -19,6 +19,22 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "messaging.h"
 #include <stdarg.h>
 
+
+double Messaging::bandwidthIncoming=0;
+double Messaging::bandwidthOutgoing=0;
+double Messaging::bandwidthIncomingLastMinute=0;
+double Messaging::bandwidthOutgoingLastMinute=0;
+double Messaging::bandwidthIncomingRate=0;
+double Messaging::bandwidthOutgoingRate=0;
+
+void Messaging::updateMinuteStats()
+{
+	bandwidthIncomingRate = (bandwidthIncoming-bandwidthIncomingLastMinute)/60;
+	bandwidthIncomingLastMinute = bandwidthIncoming;
+	bandwidthOutgoingRate = (bandwidthOutgoing-bandwidthOutgoingLastMinute)/60;
+	bandwidthOutgoingLastMinute = bandwidthOutgoing;
+}
+
 /**
  * @param socket socket to communicate over
  * @param type a type... dunno
@@ -54,6 +70,7 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source, 
 		}
 		rlen+=sendnum;
 	}
+	bandwidthOutgoing += msgsize;
 	return 0;
 }
 
@@ -103,7 +120,7 @@ int Messaging::receivemessage(SWInetSocket *socket, int *type, unsigned int *sou
 			hlen+=recvnum;
 		}
 	}
-
+	bandwidthIncoming += (int)sizeof(header_t)+(int)head.size;
 	memcpy(content, buffer+sizeof(header_t), bufferlen);
 	return 0;
 }

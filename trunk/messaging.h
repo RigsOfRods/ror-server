@@ -45,6 +45,20 @@ public:
 	static int sendmessage(SWInetSocket *socket, int type, unsigned int  source, unsigned int len, char* content);
 	static int receivemessage(SWInetSocket *socket, int *type, unsigned int *source, unsigned int *wrotelen, char* content, unsigned int bufferlen);
 
+	static double getBandwitdthIncoming() { return bandwidthIncoming; };
+	static double getBandwidthOutgoing() { return bandwidthOutgoing; };
+	static double getBandwitdthIncomingRate() { return bandwidthIncomingRate; };
+	static double getBandwidthOutgoingRate() { return bandwidthOutgoingRate; };
+
+	static void updateMinuteStats();
+
+protected:
+	static double bandwidthIncoming;
+	static double bandwidthOutgoing;
+	static double bandwidthIncomingLastMinute;
+	static double bandwidthOutgoingLastMinute;
+	static double bandwidthIncomingRate;
+	static double bandwidthOutgoingRate;
 };
 
 

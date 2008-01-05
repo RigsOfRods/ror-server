@@ -471,6 +471,10 @@ void Sequencer::printStats()
 		else 
 			printf(" Used %5i %-16s %s, %s\n", clients[i].uid, clients[i].sock->get_peerAddr(&error).c_str(), clients[i].nickname, clients[i].vehicle_name);
 	}
+	printf("--------------------------------------------------\n");
+	printf("- traffic statistics:\n");
+	printf("- total: incoming: %0.3fkB , outgoing: %0.3fkB\n", Messaging::getBandwitdthIncoming()/1024, Messaging::getBandwidthOutgoing()/1024);
+	printf("- rate (last minute): incoming: %0.3fkB/s , outgoing: %0.3fkB/s\n", Messaging::getBandwitdthIncomingRate()/1024, Messaging::getBandwidthOutgoingRate()/1024);
 	pthread_mutex_unlock(&clients_mutex);
 }
 

@@ -105,6 +105,8 @@ private:
 	bool rconenabled;
 	bool isSandbox;
 
+	int startTime;
+
 protected:
 	Sequencer();
 	~Sequencer();

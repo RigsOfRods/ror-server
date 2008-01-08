@@ -201,8 +201,6 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	{
 		if(clients[pos].nickname[i] == 0)
 			break;
-		if (clients[pos].nickname[i]<32 || clients[pos].nickname[i]>127 || clients[pos].nickname[i]==';') 
-			clients[pos].nickname[i]='#';
 	}
 
 	clients[pos].uid=fuid;

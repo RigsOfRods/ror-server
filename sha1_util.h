@@ -21,11 +21,11 @@ bool SHA1FromString(char *result, char *source)
 	char output[20];
 	memset(output, 0, 20);
 
-	char output_hex[40];
-	memset(output_hex, 0, 40);
+	char output_hex[255];
+	memset(output_hex, 0, 255);
 
 	sha1( (unsigned char *)source, (int)strlen(source), (unsigned char *)output);
-	if(!toHex(output_hex, output, 20))
+	if(!toHex(output_hex, output, 40))
 		return false;
 	strncpy(result, output_hex, 40);
 	result[40]=0;

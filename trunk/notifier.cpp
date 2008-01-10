@@ -48,21 +48,22 @@ Notifier::~Notifier(void)
 bool Notifier::registerServer()
 {
 	char regurl[1024];
-	sprintf(regurl, "%s/register/?name=%s&description=%s&ip=%s&port=%i&terrainname=%s&maxclients=%i&version=%s&pw=%d&rcon=", 
+	sprintf(regurl, "%s/register/?name=%s&description=%s&ip=%s&port=%i&terrainname=%s&maxclients=%i&version=%s&pw=%d&rcon=%d", 
 		REPO_URLPREFIX, server_name, "", public_ip, lport, terrain_name, maxclient, RORNET_VERSION, passprotected, rconenabled);
 	printf("Trying to register at Master Server ... (this can take some seconds as your server is being checked by the Master server)\n");
 	if (HTTPGET(regurl) < 0)
 		return false;
 
-	if(strncmp(httpresp+5, "error", 5) == 0) {
+	if(strncmp(httpresp+5, "error", 5) == 0 || strnlen(httpresp, 50) < 40) {
 		// print out the error.
-		printf("%s\n\n", httpresp+5);
+		logmsgf(LOG_ERROR, "got that as registration response: %s", httpresp);
 		printf("!!! Server is NOT registered at the Master server !!!\n");
 		wasregistered=false;
 		return false;
 	}
 	else
 	{
+		logmsgf(LOG_DEBUG, "got that as registration response: %s", httpresp);
 		strncpy(challenge, httpresp+4, 40);
 		challenge[40]=0;
 		//	printf("Challenge:%s\n", challenge);

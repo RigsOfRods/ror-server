@@ -80,13 +80,13 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 
 	if(pass && strnlen(pass, 250)>0)
 	{
-		char buffer[40];
-		memset(buffer, 0, 40);
+		char buffer[255];
+		memset(buffer, 0, 255);
 		strncpy(buffer, pass, 40);
 		buffer[40]=0;
 		
-		char result[40];
-		memset(result, 0, 40);
+		char result[255];
+		memset(result, 0, 255);
 		if(!SHA1FromString(result, buffer))
 		{
 			logmsgf(LOG_ERROR, "could not generate server SHA1 password hash!");
@@ -99,8 +99,8 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 	rconenabled = false;
 	if(rconpass && strnlen(rconpass, 250)>0)
 	{
-		char buffer[40];
-		memset(buffer, 0, 40);
+		char buffer[255];
+		memset(buffer, 0, 255);
 		strncpy(buffer, rconpass, 40);
 		
 		char result[255];

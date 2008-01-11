@@ -50,12 +50,13 @@ Sequencer::~Sequencer()
 /**
  * Inililize, needs to be called before the class is used
  */ 
-void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* terrname, int listenport, int smode, char *pass, char *rconpass)
+void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* terrname, int listenport, int smode, char *pass, char *rconpass, bool _guimode)
 {
 	pthread_mutex_init(&killer_mutex, NULL);
 	pthread_cond_init(&killer_cv, NULL);
 	pthread_mutex_init(&clients_mutex, NULL);
 
+	guimode = _guimode;
 	strncpy(terrainName, terrname, 250);
 	isSandbox = !strcmp(terrname, "any");
 
@@ -115,6 +116,28 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 		rconenabled = true;
 	}
 
+	if(guimode)
+	{
+		initscr();
+		// begin info window
+		win_info = newwin(1, 80, 0, 0);
+
+		wprintw(win_info, "Name: %s | ", servname);
+		wprintw(win_info, "Port %d | ", listenport);
+		wprintw(win_info, "Terrain: %s", terrname, max_clients);
+
+		// now that we know max clients, we can actually make the box
+		win_slots = newwin((max_clients+4), 44, 1, 0);
+		win_log = newwin((max_clients+9), 80, (max_clients+5), 0);
+		win_chat = newwin((max_clients+4), 35, 1, 45);
+		scrollok(win_log, 1);
+		scrollok(win_chat, 1);
+		box(win_slots, ACS_VLINE, ACS_HLINE);
+		wrefresh(win_info);
+		wrefresh(win_log);
+		wrefresh(win_chat);
+	}
+
 	if(servermode == SERVER_INET || servermode == SERVER_AUTO)
 		notifier=new Notifier(pubip, listenport, max_clients, servname, terrname, pwProtected, servermode, rconenabled);
 }
@@ -125,6 +148,7 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
  */
 void Sequencer::cleanUp()
 {
+	if(notifier) delete notifier;
 	for (int i=0; i<maxclients && &clients[i]; i++) 
 	{
 		logmsgf(LOG_DEBUG,"clients[%d]", i);
@@ -142,7 +166,6 @@ void Sequencer::cleanUp()
 			logmsgf(LOG_DEBUG,"clients[%d].receiver is null", i);
 		}
 	}
-	if(notifier) delete notifier;
 	delete listener;
 	free(clients);
 }
@@ -453,31 +476,51 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 void Sequencer::printStats()
 {
 	SWBaseSocket::SWBaseError error;
-	printf("Server occupancy:");
-	if(isSandbox)
-		printf(" (Sandbox mode!)");
-	printf("\n");
-
-	printf("Slot Status   UID IP              Nickname, Vehicle\n");
-	printf("--------------------------------------------------\n");
-	pthread_mutex_lock(&clients_mutex);
-	for (int i=0; i<maxclients; i++)
+	if(guimode)
 	{
-		printf("%4i", i);
-		if (clients[i].status==FREE) printf(" Free\n");
-		else if (clients[i].status==BUSY)
-			printf(" Busy %5i %-16s %s, %s\n", clients[i].uid, "-", clients[i].nickname, clients[i].vehicle_name);
-		else 
-			printf(" Used %5i %-16s %s, %s\n", clients[i].uid, clients[i].sock->get_peerAddr(&error).c_str(), clients[i].nickname, clients[i].vehicle_name);
+		mvwprintw(win_slots, 1, 1, "Slot Status UID IP              Nickname");
+		mvwprintw(win_slots, 2, 1, "------------------------------------------");
+		pthread_mutex_lock(&clients_mutex);
+		for (int i=0; i<maxclients; i++)
+		{
+			//this is glitched: the rest of the line is not cleared !!!
+			//I used to know what the problem was but I forgot it... I'll figure it out, eventually :)
+			if (clients[i].status==FREE) 
+				mvwprintw(win_slots, (i+3), 1, "%4i Free", i);
+			else if (clients[i].status==BUSY)
+				mvwprintw(win_slots, (i+3), 1, "%4i Busy %5i %-15s %.10s", i, clients[i].uid, "n/a", clients[i].nickname);
+			else if (clients[i].status==USED)
+				mvwprintw(win_slots, (i+3), 1, "%4i Used %5i %-15s %.10s", i, clients[i].uid, clients[i].sock->get_peerAddr(&error).c_str(), clients[i].nickname);
+		}
+		wrefresh(win_slots);
+	} else
+	{
+		printf("Server occupancy:");
+		if(isSandbox)
+			printf(" (Sandbox mode!)");
+		printf("\n");
+
+		printf("Slot Status   UID IP              Nickname, Vehicle\n");
+		printf("--------------------------------------------------\n");
+		pthread_mutex_lock(&clients_mutex);
+		for (int i=0; i<maxclients; i++)
+		{
+			printf("%4i", i);
+			if (clients[i].status==FREE) printf(" Free\n");
+			else if (clients[i].status==BUSY)
+				printf(" Busy %5i %-16s %s, %s\n", clients[i].uid, "-", clients[i].nickname, clients[i].vehicle_name);
+			else 
+				printf(" Used %5i %-16s %s, %s\n", clients[i].uid, clients[i].sock->get_peerAddr(&error).c_str(), clients[i].nickname, clients[i].vehicle_name);
+		}
+		printf("--------------------------------------------------\n");
+		int timediff = Messaging::getTime()-startTime;
+		int uphours = timediff/60/60;
+		int upminutes = (timediff-(uphours*60*60))/60;
+		printf("- traffic statistics (uptime: %d hours, %d minutes):\n", uphours, upminutes);
+		printf("- total: incoming: %0.2fMB , outgoing: %0.2fMB\n", Messaging::getBandwitdthIncoming()/1024/1024, Messaging::getBandwidthOutgoing()/1024/1024);
+		printf("- rate (last minute): incoming: %0.1fkB/s , outgoing: %0.1fkB/s\n", Messaging::getBandwitdthIncomingRate()/1024, Messaging::getBandwidthOutgoingRate()/1024);
+		pthread_mutex_unlock(&clients_mutex);
 	}
-	printf("--------------------------------------------------\n");
-	int timediff = Messaging::getTime()-startTime;
-	int uphours = timediff/60/60;
-	int upminutes = (timediff-(uphours*60*60))/60;
-	printf("- traffic statistics (uptime: %d hours, %d minutes):\n", uphours, upminutes);
-	printf("- total: incoming: %0.2fMB , outgoing: %0.2fMB\n", Messaging::getBandwitdthIncoming()/1024/1024, Messaging::getBandwidthOutgoing()/1024/1024);
-	printf("- rate (last minute): incoming: %0.1fkB/s , outgoing: %0.1fkB/s\n", Messaging::getBandwitdthIncomingRate()/1024, Messaging::getBandwidthOutgoingRate()/1024);
-	pthread_mutex_unlock(&clients_mutex);
 }
 
 

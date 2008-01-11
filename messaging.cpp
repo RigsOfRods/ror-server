@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "messaging.h"
 #include <stdarg.h>
+#include "sequencer.h"
 
 
 double Messaging::bandwidthIncoming=0;
@@ -131,22 +132,45 @@ extern "C" {
 
 void logmsgf(int level, const char* format, ...)
 {
-	if (level<loglevel) return;
-	time_t lotime=time(NULL);
-	char timestr[50];
-#ifdef __WIN32__
-	ctime_s(timestr, 50, &lotime);
-#else
-	ctime_r(&lotime, timestr);
-#endif
-	timestr[strlen(timestr)-1]=0;
-	printf("%s: ", timestr);
-	va_list args;
-	va_start(args, format);
-	vprintf(format, args);
-	va_end(args);
-	printf("\n");
-	fflush(stdout);
+	if(SEQUENCER.getGUIMode())
+	{
+		WINDOW *win_log = SEQUENCER.getLogWindow();
+		if (level<loglevel) return;
+		time_t lotime=time(NULL);
+		char timestr[50];
+	#ifdef __WIN32__
+		ctime_s(timestr, 50, &lotime);
+	#else
+		ctime_r(&lotime, timestr);
+	#endif
+		timestr[strlen(timestr)-1]=0;
+		wprintw(win_log, "%s: ", timestr);
+ 		va_list args;
+ 		va_start(args, format);
+		vw_printw(win_log, format, args);
+ 		va_end(args);
+		wprintw(win_log, "\n");
+		fflush(stdout);
+		wrefresh(win_log);
+	} else
+	{
+		if (level<loglevel) return;
+		time_t lotime=time(NULL);
+		char timestr[50];
+	#ifdef __WIN32__
+		ctime_s(timestr, 50, &lotime);
+	#else
+		ctime_r(&lotime, timestr);
+	#endif
+		timestr[strlen(timestr)-1]=0;
+		printf("%s: ", timestr);
+		va_list args;
+		va_start(args, format);
+		vprintf(format, args);
+		va_end(args);
+		printf("\n");
+		fflush(stdout);
+	}
 }
 
 }	//	extern "C"

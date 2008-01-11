@@ -51,7 +51,8 @@ enum {
 	OPT_VVERBOSE,
 	OPT_PASS,
 	OPT_INET,
-	OPT_RCONPASS};
+	OPT_RCONPASS,
+	OPT_GUI};
 
 // option array
 CSimpleOpt::SOption cmdline_options[] = {
@@ -65,6 +66,7 @@ CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_LAN, ("-lan"), SO_NONE },
 	{ OPT_INET, ("-inet"), SO_NONE },
 	{ OPT_DEBUG, ("-debug"), SO_NONE },
+	{ OPT_GUI, ("-gui"), SO_NONE },
 	{ OPT_VERBOSE, ("-verbose"), SO_NONE },
 	{ OPT_VVERBOSE, ("-vverbose"), SO_NONE },
 	{ OPT_HELP,  ("--help"), SO_NONE },
@@ -167,6 +169,7 @@ int main(int argc, char* argv[])
 	char password[255]="";
 	char rconpassword[255]="";
 	int max_clients=16;
+	bool guimode=false;
 
 	// parse arguments
 	CSimpleOpt args(argc, argv, cmdline_options);
@@ -187,6 +190,8 @@ int main(int argc, char* argv[])
 				strncpy(rconpassword, args.OptionArg(), 250);
 			} else if (args.OptionId() == OPT_PORT) {
 				listenport = atoi(args.OptionArg());
+			} else if (args.OptionId() == OPT_GUI) {
+				guimode=true;
 			} else if (args.OptionId() == OPT_DEBUG) {
 				debugmode=true;
 				loglevel=LOG_DEBUG;
@@ -294,7 +299,7 @@ int main(int argc, char* argv[])
 	if(strnlen(rconpassword, 250) == 0)
 		printf("no RCON password set: RCON disabled!\n");
 
-	SEQUENCER.initilize(pubip, max_clients, servname, terrname, listenport, servermode, password, rconpassword);
+	SEQUENCER.initilize(pubip, max_clients, servname, terrname, listenport, servermode, password, rconpassword, guimode);
 
 	if(servermode == SERVER_INET || servermode == SERVER_AUTO)
 	{

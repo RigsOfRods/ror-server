@@ -27,6 +27,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "broadcaster.h"
 #include "notifier.h"
 #include "Vector3.h"
+
+#include "curses.h"
+
 class Broadcaster;
 class Receiver;
 class Listener;
@@ -104,6 +107,12 @@ private:
 	char rconPassword[40];
 	bool rconenabled;
 	bool isSandbox;
+	bool guimode;
+
+	WINDOW *win_info;
+	WINDOW *win_slots;
+	WINDOW *win_log;
+	WINDOW *win_chat;
 
 	int startTime;
 
@@ -117,7 +126,7 @@ public:
 	/// method to access the singleton instance
 	static Sequencer& Instance();
 	///	initilize theSequencers information
-	void initilize(char *pubip, int listenport, char* servname, char* terrname, int max_clients, int servermode, char *password, char *rconpassword);
+	void initilize(char *pubip, int listenport, char* servname, char* terrname, int max_clients, int servermode, char *password, char *rconpassword, bool guimode);
 	/// destructor call, used for clean up
 	void cleanUp();
 	/// initilize client information
@@ -139,6 +148,8 @@ public:
 	char *getTerrainName() { return terrainName; };
 	bool isPasswordProtected() { return pwProtected; };
 	char *getServerPasswordHash() { return serverPassword; };
+	bool getGUIMode() { return guimode; };
+	WINDOW *getLogWindow() { return win_log; };
 	
 	Notifier *notifier;
 };

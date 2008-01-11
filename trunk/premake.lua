@@ -7,6 +7,7 @@ package.language = "c++"
 package.includepaths = { "PDCurses-3.3" }
 if windows then
 	package.files = { matchfiles("PDCurses-3.3/win32/*.c") }
+	package.defines = { "_CRT_SECURE_NO_WARNINGS" }
 else
 	package.files = { matchfiles("PDCurses-3.3/x11/*.c") }
 end

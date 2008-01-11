@@ -25,11 +25,11 @@ PDCURSES_WIN_H	= $(osdir)\pdcwin.h
 CC		= cl.exe -nologo
 
 !ifdef DEBUG
-CFLAGS		= -Z7 -DPDCDEBUG
-LDFLAGS		= -debug -pdb:none
+CFLAGS		= -Z7 -DPDCDEBUG -I"C:\Program Files\Microsoft Platform SDK\Include"
+LDFLAGS		= -debug -pdb:none -L"C:\Program Files\Microsoft Platform SDK\Lib"
 !else
-CFLAGS		= -O1
-LDFLAGS		=
+CFLAGS		= -O1  -I"C:\Program Files\Microsoft Platform SDK\Include"
+LDFLAGS		= /LIBPATH:"C:\Program Files\Microsoft Platform SDK\Lib"
 !endif
 
 !ifdef WIDE

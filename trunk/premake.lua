@@ -38,7 +38,7 @@ if windows then
 	package.links = { "kernel32", "wsock32", "SocketW", "pthreadVC2", "WSOCK32", "ws2_32", "PDCurses"}
 else
 	package.includepaths = { "SocketW/src/", "PDCurses-3.3"}
-	package.defines = { "NCURSES" }
+	package.defines = {}
 	package.libpaths = { "PDCurses-3.3/x11"}
-	package.links = { "SocketW", "pthread", "PDCurses", "XCurses"}
+	package.links = { "SocketW", "pthread"}
 end

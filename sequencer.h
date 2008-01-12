@@ -28,7 +28,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "notifier.h"
 #include "Vector3.h"
 
+#ifdef NCURSES
 #include "curses.h"
+#endif
 
 class Broadcaster;
 class Receiver;
@@ -109,11 +111,12 @@ private:
 	bool isSandbox;
 	bool guimode;
 
+#ifdef NCURSES
 	WINDOW *win_info;
 	WINDOW *win_slots;
 	WINDOW *win_log;
 	WINDOW *win_chat;
-
+#endif
 	int startTime;
 
 protected:
@@ -149,8 +152,9 @@ public:
 	bool isPasswordProtected() { return pwProtected; };
 	char *getServerPasswordHash() { return serverPassword; };
 	bool getGUIMode() { return guimode; };
+#ifdef NCURSES
 	WINDOW *getLogWindow() { return win_log; };
-	
+#endif	
 	Notifier *notifier;
 };
 

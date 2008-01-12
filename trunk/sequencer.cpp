@@ -118,6 +118,7 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 
 	if(guimode)
 	{
+#ifdef NCURSES
 		initscr();
 		// begin info window
 		win_info = newwin(1, 80, 0, 0);
@@ -136,6 +137,7 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 		wrefresh(win_info);
 		wrefresh(win_log);
 		wrefresh(win_chat);
+#endif
 	}
 
 	if(servermode == SERVER_INET || servermode == SERVER_AUTO)
@@ -478,6 +480,7 @@ void Sequencer::printStats()
 	SWBaseSocket::SWBaseError error;
 	if(guimode)
 	{
+#ifdef NCURSES
 		mvwprintw(win_slots, 1, 1, "Slot Status UID IP              Nickname");
 		mvwprintw(win_slots, 2, 1, "------------------------------------------");
 		pthread_mutex_lock(&clients_mutex);
@@ -493,6 +496,7 @@ void Sequencer::printStats()
 				mvwprintw(win_slots, (i+3), 1, "%4i Used %5i %-15s %.10s", i, clients[i].uid, clients[i].sock->get_peerAddr(&error).c_str(), clients[i].nickname);
 		}
 		wrefresh(win_slots);
+#endif
 	} else
 	{
 		printf("Server occupancy:");

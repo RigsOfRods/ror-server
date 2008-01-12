@@ -134,6 +134,7 @@ void logmsgf(int level, const char* format, ...)
 {
 	if(SEQUENCER.getGUIMode())
 	{
+#ifdef NCURSES
 		WINDOW *win_log = SEQUENCER.getLogWindow();
 		if (level<loglevel) return;
 		time_t lotime=time(NULL);
@@ -152,6 +153,7 @@ void logmsgf(int level, const char* format, ...)
 		wprintw(win_log, "\n");
 		fflush(stdout);
 		wrefresh(win_log);
+#endif
 	} else
 	{
 		if (level<loglevel) return;

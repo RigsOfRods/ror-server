@@ -121,8 +121,9 @@ void Listener::threadstart()
 						logmsgf(LOG_DEBUG,"password login: %s == %s?", SEQUENCER.getServerPasswordHash(), user->password);
 						if(!strncmp(SEQUENCER.getServerPasswordHash(), user->password, 40))
 						{
-							logmsgf(LOG_DEBUG,"user used the correct password!");
+							logmsgf(LOG_DEBUG,"user used the correct password, creating client!");
 							SEQUENCER.createClient(ts, user);
+							logmsgf(LOG_DEBUG,"listener returned!");
 						}else
 						{
 							Messaging::sendmessage(ts, MSG2_WRONG_PW, 0, 0, 0);
@@ -133,8 +134,10 @@ void Listener::threadstart()
 						}
 					}else
 					{
-						logmsgf(LOG_DEBUG,"creating client, no password protection!");
+						logmsgf(LOG_DEBUG,"creating client, no password protection, creating client");
 						SEQUENCER.createClient(ts, user);
+						logmsgf(LOG_DEBUG,"listener returned!");
+
 					}
 				}
 				else

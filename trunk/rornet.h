@@ -122,6 +122,7 @@ typedef struct
 #define NETMASK_CLIGHT3     0x00000400
 #define NETMASK_CLIGHT4     0x00000800
 #define NETMASK_POLICEAUDIO 0x00001000
+#define NETMASK_PARTICLE    0x00002000
 
 typedef struct
 {

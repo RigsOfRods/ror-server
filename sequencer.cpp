@@ -133,7 +133,7 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 		win_chat = newwin((max_clients+4), 35, 1, 45);
 		scrollok(win_log, 1);
 		scrollok(win_chat, 1);
-		box(win_slots, ACS_VLINE, ACS_HLINE);
+		//box(win_slots, ACS_VLINE, ACS_HLINE);
 		wrefresh(win_info);
 		wrefresh(win_log);
 		wrefresh(win_chat);
@@ -170,6 +170,10 @@ void Sequencer::cleanUp()
 	}
 	delete listener;
 	free(clients);
+
+#ifdef NCURSES
+	endwin();
+#endif
 }
 
 void Sequencer::notifyRoutine()

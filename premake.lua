@@ -9,7 +9,7 @@ if windows then
 	package.files = { matchfiles("PDCurses-3.3/win32/*.c", "PDCurses-3.3/pdcurses/*.c")}
 	package.defines = { "_CRT_SECURE_NO_WARNINGS" }
 else
-	--package.files = { matchfiles("PDCurses-3.3/x11/*.c", "PDCurses-3.3/pdcurses/*.c") }
+	package.files = { matchfiles("PDCurses-3.3/*.c") }
 end
 
 
@@ -38,7 +38,8 @@ if windows then
 	package.links = { "kernel32", "wsock32", "SocketW", "pthreadVC2", "WSOCK32", "ws2_32", "PDCurses"}
 else
 	package.includepaths = { "SocketW/src/", "PDCurses-3.3"}
-	package.defines = {}
-	package.libpaths = { "PDCurses-3.3/x11"}
-	package.links = { "SocketW", "pthread"}
+	package.defines = {"NCURSES"}
+	package.libpaths = { "PDCurses-3.3"}
+	package.links = { "SocketW", "pthread", "PDCurses", "curses"}
 end
+

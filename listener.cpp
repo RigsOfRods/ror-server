@@ -104,6 +104,7 @@ void Listener::threadstart()
 				if (Messaging::receivemessage(ts, &type, &source, &len, buffer, 256))
 				{
 					logmsgf(LOG_ERROR,"ERROR Listener: receiving user name");
+					logmsgf(LOG_ERROR,"ERROR Listener: got that: %d" , type);
 					ts->disconnect(&error);
 					delete ts;
 					continue;

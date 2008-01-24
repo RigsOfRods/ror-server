@@ -130,52 +130,62 @@ int Messaging::receivemessage(SWInetSocket *socket, int *type, unsigned int *sou
 }
 
 int loglevel=1;
+FILE *logfile=0;
 
 extern "C" {
 
 void logmsgf(int level, const char* format, ...)
 {
+	time_t lotime=time(NULL);
+	char timestr[50];
+#ifdef __WIN32__
+	ctime_s(timestr, 50, &lotime);
+#else
+	ctime_r(&lotime, timestr);
+#endif
+	timestr[strlen(timestr)-1]=0;
+
 	if(SEQUENCER.getGUIMode())
 	{
 #ifdef NCURSES
 		WINDOW *win_log = SEQUENCER.getLogWindow();
-		if (level<loglevel) return;
-		time_t lotime=time(NULL);
-		char timestr[50];
-	#ifdef __WIN32__
-		ctime_s(timestr, 50, &lotime);
-	#else
-		ctime_r(&lotime, timestr);
-	#endif
-		timestr[strlen(timestr)-1]=0;
-		wprintw(win_log, "%s: ", timestr);
- 		va_list args;
- 		va_start(args, format);
-		vw_printw(win_log, format, args);
- 		va_end(args);
-		wprintw(win_log, "\n");
-		fflush(stdout);
-		wrefresh(win_log);
+		if (level>=loglevel)
+		{
+			wprintw(win_log, "%s: ", timestr);
+ 			va_list args;
+ 			va_start(args, format);
+			vw_printw(win_log, format, args);
+ 			va_end(args);
+			wprintw(win_log, "\n");
+			fflush(stdout);
+			wrefresh(win_log);
+		}
 #endif
 	} else
 	{
-		if (level<loglevel) return;
-		time_t lotime=time(NULL);
-		char timestr[50];
-	#ifdef __WIN32__
-		ctime_s(timestr, 50, &lotime);
-	#else
-		ctime_r(&lotime, timestr);
-	#endif
-		timestr[strlen(timestr)-1]=0;
-		printf("%s: ", timestr);
-		va_list args;
-		va_start(args, format);
-		vprintf(format, args);
-		va_end(args);
-		printf("\n");
-		fflush(stdout);
+		if (level>=loglevel)
+		{
+			printf("%s: ", timestr);
+			va_list args;
+			va_start(args, format);
+			vprintf(format, args);
+			va_end(args);
+			printf("\n");
+			fflush(stdout);
+		}
 	}
+
+	if(!logfile)
+		logfile = fopen("server.log", "a");
+
+	// write everything to the log file!
+	fprintf(logfile, "%s: ", timestr);
+	va_list args;
+	va_start(args, format);
+	vfprintf(logfile, format, args);
+	va_end(args);
+	fprintf(logfile, "\n");
+	fflush(logfile);
 }
 
 }	//	extern "C"

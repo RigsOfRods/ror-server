@@ -386,6 +386,7 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 	
 	else if (type==MSG2_DELETE)
 	{
+		logmsgf(LOG_WARN, "user %d disconnects on request", pos);
 		disconnect(pos, "disconnected on request");
 	}
 	else if (type==MSG2_RCON_COMMAND)
@@ -393,7 +394,33 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 		// XXX: TODO: handle rcon command stuff here
 		logmsgf(LOG_DEBUG, "user %d (%d) sends rcon command: %s", pos, clients[pos].rconauth, data);
 		if(clients[pos].rconauth==1)
-			Messaging::sendmessage(clients[pos].sock, MSG2_RCON_COMMAND_SUCCESS, 0, 0, 0);
+		{
+			if(!strncmp(data, "kick", 4))
+			{
+				int player = -1;
+				int res = sscanf(data, "kick %d", &player);
+				if(res == 1 && player != -1 && player < maxclients)
+				{
+					if(clients[player].status == FREE || clients[player].status == BUSY)
+					{
+						char *error = "cannot kick free or busy client";
+						Messaging::sendmessage(clients[pos].sock, MSG2_RCON_COMMAND_FAILED, 0, (unsigned int)strlen(error), error);
+					} else if(clients[player].status == USED)
+					{
+						logmsgf(LOG_WARN, "user %d kicked by user %d via rcmd", player, pos);
+						disconnect(player, "kicked");
+						char tmp[255]="";
+						memset(tmp, 0, 255);
+						sprintf(tmp, "user %d kicked successfully.", player);
+						Messaging::sendmessage(clients[pos].sock, MSG2_RCON_COMMAND_SUCCESS, 0, (unsigned int)strlen(tmp), tmp);
+					}
+				} else 
+				{
+					char *error = "invalid client number";
+					Messaging::sendmessage(clients[pos].sock, MSG2_RCON_COMMAND_FAILED, 0, (unsigned int)strlen(error), error);
+				}
+			}
+		}
 		else
 			Messaging::sendmessage(clients[pos].sock, MSG2_RCON_COMMAND_FAILED, 0, 0, 0);
 		publishData=false;
@@ -489,30 +516,27 @@ void Sequencer::printStats()
 #endif
 	} else
 	{
-		printf("Server occupancy:");
-		if(isSandbox)
-			printf(" (Sandbox mode!)");
-		printf("\n");
+		logmsgf(LOG_WARN, "Server occupancy:");
 
-		printf("Slot Status   UID IP              Nickname, Vehicle\n");
-		printf("--------------------------------------------------\n");
+		logmsgf(LOG_WARN, "Slot Status   UID IP              Nickname, Vehicle");
+		logmsgf(LOG_WARN, "--------------------------------------------------");
 		pthread_mutex_lock(&clients_mutex);
 		for (int i=0; i<maxclients; i++)
 		{
-			printf("%4i", i);
-			if (clients[i].status==FREE) printf(" Free\n");
+			if (clients[i].status==FREE) 
+				logmsgf(LOG_WARN, "%4i Free", i);
 			else if (clients[i].status==BUSY)
-				printf(" Busy %5i %-16s %s, %s\n", clients[i].uid, "-", clients[i].nickname, clients[i].vehicle_name);
+				logmsgf(LOG_WARN, "%4i Busy %5i %-16s %s, %s", i, clients[i].uid, "-", clients[i].nickname, clients[i].vehicle_name);
 			else 
-				printf(" Used %5i %-16s %s, %s\n", clients[i].uid, clients[i].sock->get_peerAddr(&error).c_str(), clients[i].nickname, clients[i].vehicle_name);
+				logmsgf(LOG_WARN, "%4i Used %5i %-16s %s, %s", i, clients[i].uid, clients[i].sock->get_peerAddr(&error).c_str(), clients[i].nickname, clients[i].vehicle_name);
 		}
-		printf("--------------------------------------------------\n");
+		logmsgf(LOG_WARN, "--------------------------------------------------");
 		int timediff = Messaging::getTime()-startTime;
 		int uphours = timediff/60/60;
 		int upminutes = (timediff-(uphours*60*60))/60;
-		printf("- traffic statistics (uptime: %d hours, %d minutes):\n", uphours, upminutes);
-		printf("- total: incoming: %0.2fMB , outgoing: %0.2fMB\n", Messaging::getBandwitdthIncoming()/1024/1024, Messaging::getBandwidthOutgoing()/1024/1024);
-		printf("- rate (last minute): incoming: %0.1fkB/s , outgoing: %0.1fkB/s\n", Messaging::getBandwitdthIncomingRate()/1024, Messaging::getBandwidthOutgoingRate()/1024);
+		logmsgf(LOG_WARN, "- traffic statistics (uptime: %d hours, %d minutes):", uphours, upminutes);
+		logmsgf(LOG_WARN, "- total: incoming: %0.2fMB , outgoing: %0.2fMB", Messaging::getBandwitdthIncoming()/1024/1024, Messaging::getBandwidthOutgoing()/1024/1024);
+		logmsgf(LOG_WARN, "- rate (last minute): incoming: %0.1fkB/s , outgoing: %0.1fkB/s", Messaging::getBandwitdthIncomingRate()/1024, Messaging::getBandwidthOutgoingRate()/1024);
 		pthread_mutex_unlock(&clients_mutex);
 	}
 }

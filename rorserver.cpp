@@ -29,6 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <csignal>
 #include <memory>
 #include "sha1_util.h"
+#include "sha1.h"
 
 // simpleopt by http://code.jellycan.com/simpleopt/
 // license: MIT
@@ -125,7 +126,7 @@ void getPublicIP(char *pubip)
 		char query[2048];
 		sprintf(query, "GET /getpublicip/ HTTP/1.1\r\nHost: %s\r\n\r\n", REPO_SERVER);
 		if(debugmode)
-			printf("Query to get public IP: %s\n", query);
+			logmsgf(LOG_DEBUG, "Query to get public IP: %s\n", query);
 		if (mySocket.sendmsg(query, &error)<0)
 			return;
 		int rlen=mySocket.recv(tmp, 250, &error);
@@ -134,7 +135,7 @@ void getPublicIP(char *pubip)
 		else
 			return;
 		if(debugmode)
-			printf("Response from public IP request :'%s'\n", tmp);
+			logmsgf(LOG_DEBUG, "Response from public IP request :'%s'", tmp);
 		//clean a bit
 		char *start=strstr(tmp, "\r\n\r\n");
 		start+=4;
@@ -172,8 +173,11 @@ int main(int argc, char* argv[])
 	int max_clients=16;
 	bool guimode=false;
 
-	if(!sha1check())
-		printf("sha1 malfunction!\n");
+	if(!sha1check() || sha1_self_test(1))
+	{
+		logmsgf(LOG_ERROR,"sha1 malfunction!");
+		exit(-123);
+	}
 
 	// parse arguments
 	CSimpleOpt args(argc, argv, cmdline_options);
@@ -199,31 +203,31 @@ int main(int argc, char* argv[])
 			} else if (args.OptionId() == OPT_DEBUG) {
 				debugmode=true;
 				loglevel=LOG_DEBUG;
-				printf("== DEBUG MODE ==\n");
+				logmsgf(LOG_WARN, "== DEBUG MODE ==");
 			} else if (args.OptionId() == OPT_VERBOSE) {
 				debugmode=true;
 				loglevel=LOG_VERBOSE;
-				printf("== VERBOSE MODE ==\n");
+				logmsgf(LOG_WARN, "== VERBOSE MODE ==");
 			} else if (args.OptionId() == OPT_VVERBOSE) {
 				debugmode=true;
 				loglevel=LOG_VVERBOSE;
-				printf("== VERY VERBOSE MODE ==\n");
+				logmsgf(LOG_WARN, "== VERY VERBOSE MODE ==");
 			} else if (args.OptionId() == OPT_LAN) {
 				if(servermode != SERVER_AUTO)
 				{
-					printf("you cannot use lan mode and internet mode at the same time!\n");
+					logmsgf(LOG_ERROR, "you cannot use lan mode and internet mode at the same time!");
 					exit(1);
 				}
 				servermode=SERVER_LAN;
-				printf("started in LAN mode.\n");
+				logmsgf(LOG_WARN, "started in LAN mode.");
 			} else if (args.OptionId() == OPT_INET) {
 				if(servermode != SERVER_AUTO)
 				{
-					printf("you cannot use lan mode and internet mode at the same time!\n");
+					logmsgf(LOG_ERROR, "you cannot use lan mode and internet mode at the same time!");
 					exit(1);
 				}
 				servermode=SERVER_INET;
-				printf("started in Internet mode.\n");
+				logmsgf(LOG_WARN, "started in Internet mode.");
 			} else if (args.OptionId() == OPT_MAXCLIENTS) {
 				max_clients = atoi(args.OptionArg());
 			}
@@ -238,70 +242,70 @@ int main(int argc, char* argv[])
 	{
 		getPublicIP(pubip);
 		if(strnlen(pubip,250) == 0)
-			printf("could not get public IP automatically!\n");
+			logmsgf(LOG_ERROR, "could not get public IP automatically!");
 		else
-			printf("got public IP automatically: '%s'\n", pubip);
+			logmsgf(LOG_ERROR, "got public IP automatically: '%s'", pubip);
 
 	}
 	if(listenport == 0)
 	{
 		listenport = getRandomPort();
-		printf("using Port %d\n", listenport);
+		logmsgf(LOG_WARN, "using Port %d", listenport);
 	}
 
 	// now validity checks
 	if (strnlen(pubip,250) == 0 && servermode != SERVER_LAN)
 	{
-		printf("You need to specify a IP where the server will be listening.\n");
+		logmsgf(LOG_ERROR, "You need to specify a IP where the server will be listening.");
 		showUsage();
 		return 1;
 	}
 	if (strnlen(servname,250) == 0 && servermode != SERVER_LAN)
 	{
-		printf("You need to specify a server name.\n");
+		logmsgf(LOG_ERROR, "You need to specify a server name.");
 		showUsage();
 		return 1;
 	}
 	if (strnlen(terrname,250) == 0)
 	{
-		printf("You need to specify a terrain name.\n");
+		logmsgf(LOG_ERROR, "You need to specify a terrain name.");
 		showUsage();
 		return 1;
 	}
 	if (max_clients < 2 || max_clients > 64)
 	{
-		printf("You need to specify how much clients the server should support.\n");
+		logmsgf(LOG_ERROR, "You need to specify how much clients the server should support.");
 		showUsage();
 		return 1;
 	}
 	if (listenport == 0)
 	{
-		printf("You need to specify a port to listen on.\n");
+		logmsgf(LOG_ERROR, "You need to specify a port to listen on.");
 		showUsage();
 		return 1;
 	}
 	if(max_clients > 16 && servermode != SERVER_LAN)
 	{
-		printf("!!! more than 16 Players not supported in Internet mode.\n");
-		printf("!!! under full load, you server will use %ikbit/s of upload and %ikbit/s of download\n", max_clients*(max_clients-1)*64, max_clients*64);
-		printf("!!! that means that clients that have less bandwidth than %ikbit/s of upload and %ikbit/s of download will not be able to join!\n", 64, (max_clients-1)*64);
+		logmsgf(LOG_ERROR, "!!! more than 16 Players not supported in Internet mode.");
+		logmsgf(LOG_ERROR, "!!! under full load, you server will use %ikbit/s of upload and %ikbit/s of download", max_clients*(max_clients-1)*64, max_clients*64);
+		logmsgf(LOG_ERROR, "!!! that means that clients that have less bandwidth than %ikbit/s of upload and %ikbit/s of download will not be able to join!", 64, (max_clients-1)*64);
 	}
 	else if(max_clients <= 16)
 	{
-		printf("app. full load traffic: %ikbit/s upload and %ikbit/s download\n", max_clients*(max_clients-1)*64, max_clients*64);
+		logmsgf(LOG_WARN, "app. full load traffic: %ikbit/s upload and %ikbit/s download", max_clients*(max_clients-1)*64, max_clients*64);
 	}
 
 	// so ready to run, then set up signal handling
 	signal(SIGINT, handler);
 	signal(SIGTERM, handler);
 
-	printf("using terrain '%s'. maximum clients: %d\n", terrname, max_clients);
+	logmsgf(LOG_WARN, "using terrain '%s'. maximum clients: %d", terrname, max_clients);
 
 	if(strnlen(password, 250) > 0)
-		printf("server is password protected!\n");
+		logmsgf(LOG_WARN, "server is password protected!");
 
 	if(strnlen(rconpassword, 250) == 0)
-		printf("no RCON password set: RCON disabled!\n");
+		logmsgf(LOG_WARN, "no RCON password set: RCON disabled!");
 
 	SEQUENCER.initilize(pubip, max_clients, servname, terrname, listenport, servermode, password, rconpassword, guimode);
 

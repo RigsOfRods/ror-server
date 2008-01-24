@@ -103,10 +103,10 @@ private:
 	int freekillqueue;
 	int servermode;
 	char terrainName[255];
-	char serverPassword[40];
+	char serverPassword[41];
 	bool pwProtected;
 	
-	char rconPassword[40];
+	char rconPassword[41];
 	bool rconenabled;
 	bool isSandbox;
 	bool guimode;

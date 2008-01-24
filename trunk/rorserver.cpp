@@ -28,6 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <iostream>
 #include <csignal>
 #include <memory>
+#include "sha1_util.h"
 
 // simpleopt by http://code.jellycan.com/simpleopt/
 // license: MIT
@@ -170,6 +171,9 @@ int main(int argc, char* argv[])
 	char rconpassword[255]="";
 	int max_clients=16;
 	bool guimode=false;
+
+	if(!sha1check())
+		printf("sha1 malfunction");
 
 	// parse arguments
 	CSimpleOpt args(argc, argv, cmdline_options);

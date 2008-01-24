@@ -147,6 +147,7 @@ public:
 	int getHeartbeatData(char *challenge, char *hearbeatdata);
 	/// prints the Stats view, of who is connected and what slot they are in
 	void printStats();
+	void serverSay(std::string msg, int notto=-1, int type=0);
 
 	char *getTerrainName() { return terrainName; };
 	bool isPasswordProtected() { return pwProtected; };

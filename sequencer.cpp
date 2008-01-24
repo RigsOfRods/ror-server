@@ -367,6 +367,17 @@ void Sequencer::notifyAllVehicles(int pos)
 	pthread_mutex_unlock(&clients_mutex);
 }
 
+void Sequencer::serverSay(std::string msg, int notto, int type)
+{
+	if(type==0)
+		msg = std::string("^1 SERVER: ^9") + msg;
+	//pthread_mutex_lock(&clients_mutex);
+	for (int i=0; i<maxclients; i++)
+		if (clients[i].status==USED && clients[i].flow && (notto==-1 || notto!=i))
+			clients[i].broadcaster->queueMessage(0, MSG2_CHAT, const_cast<char*>(msg.c_str()), (unsigned int)msg.size());
+	//pthread_mutex_unlock(&clients_mutex);
+}
+
 //this is called by the receivers threads, like crazy & concurrently
 void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 {
@@ -408,11 +419,12 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 					} else if(clients[player].status == USED)
 					{
 						logmsgf(LOG_WARN, "user %d kicked by user %d via rcmd", player, pos);
-						disconnect(player, "kicked");
 						char tmp[255]="";
 						memset(tmp, 0, 255);
-						sprintf(tmp, "user %d kicked successfully.", player);
+						sprintf(tmp, "player '%s' kicked successfully.", player, clients[player].nickname);
+						serverSay(std::string(tmp));
 						Messaging::sendmessage(clients[pos].sock, MSG2_RCON_COMMAND_SUCCESS, 0, (unsigned int)strlen(tmp), tmp);
+						disconnect(player, "kicked");
 					}
 				} else 
 				{

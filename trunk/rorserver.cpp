@@ -173,7 +173,7 @@ int main(int argc, char* argv[])
 	bool guimode=false;
 
 	if(!sha1check())
-		printf("sha1 malfunction");
+		printf("sha1 malfunction!\n");
 
 	// parse arguments
 	CSimpleOpt args(argc, argv, cmdline_options);

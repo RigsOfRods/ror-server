@@ -30,13 +30,13 @@ void *s_klthreadstart(void* vid)
 }
 
 // init the singleton pointer
-Sequencer* Sequencer::TheInstance = NULL;
+Sequencer* Sequencer::mInstance = NULL;
 
 /// retreives the instance of the Sequencer
 Sequencer& Sequencer::Instance() {
-	if(!TheInstance) 
-		TheInstance = new Sequencer;
-	return (*TheInstance);
+	if(!mInstance) 
+		mInstance = new Sequencer;
+	return (*mInstance);
 }
 
 Sequencer::Sequencer() : pwProtected(false), isSandbox(false)
@@ -52,10 +52,6 @@ Sequencer::~Sequencer()
  */ 
 void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* terrname, int listenport, int smode, char *pass, char *rconpass, bool _guimode)
 {
-	pthread_mutex_init(&killer_mutex, NULL);
-	pthread_cond_init(&killer_cv, NULL);
-	pthread_mutex_init(&clients_mutex, NULL);
-
 	guimode = _guimode;
 	strncpy(terrainName, terrname, 250);
 	isSandbox = !strcmp(terrname, "any");
@@ -173,7 +169,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 {
 	//we have a confirmed client that wants to play
 	//try to find a place for him
-	pthread_mutex_lock(&clients_mutex);
+	clients_mutex.lock();
 	int pos=0;
 	for (pos=0; pos<maxclients; pos++)
 	{
@@ -181,7 +177,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 		{
 			// is being scanned for openings.
 			logmsgf(LOG_DEBUG,"Dupe nick found: '%s' rejecting!", user->username); //a dupe, kill it!
-			pthread_mutex_unlock(&clients_mutex);
+			clients_mutex.unlock();
 			char *msg = "Duplicate name, please choose another one!";
 			Messaging::sendmessage(sock, MSG2_BANNED, 0, (unsigned int)strlen(msg), msg); //lack of proper protocol msg
 			return;
@@ -196,7 +192,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	if (pos==maxclients)
 	{
 		logmsgf(LOG_WARN,"join request from '%s' on full server: rejecting!", user->username);
-		pthread_mutex_unlock(&clients_mutex);
+		clients_mutex.unlock();
 		Messaging::sendmessage(sock, MSG2_FULL, 0, 0, 0);
 		return;
 	}
@@ -223,7 +219,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	clients[pos].sock=sock;
 	clients[pos].receiver->reset(pos, sock); //this won't interlock
 	clients[pos].broadcaster->reset(pos, sock); //this won't interlock
-	pthread_mutex_unlock(&clients_mutex);
+	clients_mutex.unlock();
 	Messaging::sendmessage(sock, MSG2_WELCOME, clients[pos].uid, 0, 0);
 	logmsgf(LOG_DEBUG,"Sequencer: New client created in slot %i", pos);
 	printStats();
@@ -233,7 +229,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 {
 	SWBaseSocket::SWBaseError error;
-	pthread_mutex_lock(&clients_mutex);
+	MutexLocker scoped_lock(clients_mutex);
 	int clientnum =0;
 	for (int i=0; i<maxclients; i++) if (clients[i].status!=FREE) clientnum++;
 
@@ -254,16 +250,14 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 			}
 		}
 	}
-	pthread_mutex_unlock(&clients_mutex);
 	return 0;
 }
 
 int Sequencer::getNumClients()
 {
 	int count=0;
-	pthread_mutex_lock(&clients_mutex);
+	MutexLocker scoped_lock(clients_mutex);
 	for (int i=0; i<maxclients; i++) if (clients[i].status!=FREE) count++;
-	pthread_mutex_unlock(&clients_mutex);
 	return count;
 }
 
@@ -276,17 +270,17 @@ void Sequencer::killerthreadstart()
 
 		logmsgf(LOG_DEBUG,"Killer entering cycle");
 
-		pthread_mutex_lock(&killer_mutex);
+		killer_mutex.lock();
 		while (freekillqueue==0)
-			pthread_cond_wait(&killer_cv, &killer_mutex);
+			killer_mutex.wait(killer_cv);
 		//pop the kill queue
 		int pos=killqueue[0];
 		freekillqueue--;
 		memcpy(killqueue, &killqueue[1], sizeof(int)*freekillqueue);
-		pthread_mutex_unlock(&killer_mutex);
+		killer_mutex.unlock();
 
 		logmsgf(LOG_DEBUG,"Killer called to kill %i", pos);
-		pthread_mutex_lock(&clients_mutex); //this won't interlock unless
+		clients_mutex.lock(); //this won't interlock unless
 											//disconnect is called from a clients_mutex owning thread
 		logmsgf(LOG_DEBUG,"Killer got clients lock");
 		if (clients[pos].status==USED)
@@ -302,8 +296,6 @@ void Sequencer::killerthreadstart()
 				}
 			}
 			logmsgf(LOG_DEBUG,"Killer done notifying");
-			//we release the mutex now
-			pthread_mutex_unlock(&clients_mutex);
 
 			//things are less critical, we can take time to cleanup properly and synchronously
 			logmsgf(LOG_DEBUG,"Killer force disconnect");
@@ -315,12 +307,12 @@ void Sequencer::killerthreadstart()
 			memset(clients[pos].nickname, 0, 20); // Clear the nick data or else nicks will only be able to be used once!
 			logmsgf(LOG_DEBUG,"Killer deleting socket");
 			delete clients[pos].sock;
-			pthread_mutex_lock(&clients_mutex); 
 			logmsgf(LOG_DEBUG,"Killer got second clients lock");
 			clients[pos].status=FREE;
 		}
-		pthread_mutex_unlock(&clients_mutex);
+		clients_mutex.unlock();
 		logmsgf(LOG_DEBUG,"Killer has properly killed %i", pos);
+		printStats();
 	}
 }
 
@@ -329,7 +321,7 @@ void Sequencer::disconnect(int pos, char* errormsg)
 	//this routine is a potential trouble maker as it can be called from many thread contexts
 	//so we use a killer thread
 	logmsgf(LOG_DEBUG,"Disconnecting Slot %d: %s", pos, errormsg);
-	pthread_mutex_lock(&killer_mutex);
+	MutexLocker scoped_lock(killer_mutex);
 	//first check if not already queued
 	bool found=false;
 	for (int i=0; i<freekillqueue; i++) if (killqueue[i]==pos) {found=true; break;};
@@ -337,23 +329,21 @@ void Sequencer::disconnect(int pos, char* errormsg)
 	{
 		killqueue[freekillqueue]=pos;
 		freekillqueue++;
-		pthread_cond_signal(&killer_cv);
+		killer_cv.signal();
 	}
-	pthread_mutex_unlock(&killer_mutex);
 }
 
 //this is called from the listener thread initial handshake
 void Sequencer::enableFlow(int pos)
 {
-	pthread_mutex_lock(&clients_mutex);
+	MutexLocker scoped_lock(clients_mutex);
 	clients[pos].flow=true;
-	pthread_mutex_unlock(&clients_mutex);
 }
 
 //this is called from the listener thread initial handshake
 void Sequencer::notifyAllVehicles(int pos)
 {
-	pthread_mutex_lock(&clients_mutex);
+	MutexLocker scoped_lock(clients_mutex);
 	for (int i=0; i<maxclients; i++)
 	{
 		if (i!=pos && clients[i].status==USED && strlen(clients[i].vehicle_name)>0)
@@ -364,7 +354,6 @@ void Sequencer::notifyAllVehicles(int pos)
 			clients[pos].broadcaster->queueMessage(clients[i].uid, MSG2_USE_VEHICLE, message, (int)(strlen(clients[i].vehicle_name)+strlen(clients[i].nickname))+2);
 		}
 	}
-	pthread_mutex_unlock(&clients_mutex);
 }
 
 void Sequencer::serverSay(std::string msg, int notto, int type)
@@ -381,7 +370,7 @@ void Sequencer::serverSay(std::string msg, int notto, int type)
 //this is called by the receivers threads, like crazy & concurrently
 void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 {
-	pthread_mutex_lock(&clients_mutex);
+	MutexLocker scoped_lock(clients_mutex);
 	bool publishData=false;
 	if (type==MSG2_USE_VEHICLE) 
 	{
@@ -501,18 +490,17 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 #endif
 		}
 	}
-	pthread_mutex_unlock(&clients_mutex);
 }
 
 void Sequencer::printStats()
 {
+	MutexLocker scoped_lock(clients_mutex);
 	SWBaseSocket::SWBaseError error;
 	if(guimode)
 	{
 #ifdef NCURSES
 		mvwprintw(win_slots, 1, 1, "Slot Status UID IP              Nickname");
 		mvwprintw(win_slots, 2, 1, "------------------------------------------");
-		pthread_mutex_lock(&clients_mutex);
 		for (int i=0; i<maxclients; i++)
 		{
 			//this is glitched: the rest of the line is not cleared !!!
@@ -532,7 +520,6 @@ void Sequencer::printStats()
 
 		logmsgf(LOG_WARN, "Slot Status   UID IP              Nickname, Vehicle");
 		logmsgf(LOG_WARN, "--------------------------------------------------");
-		pthread_mutex_lock(&clients_mutex);
 		for (int i=0; i<maxclients; i++)
 		{
 			if (clients[i].status==FREE) 
@@ -549,7 +536,6 @@ void Sequencer::printStats()
 		logmsgf(LOG_WARN, "- traffic statistics (uptime: %d hours, %d minutes):", uphours, upminutes);
 		logmsgf(LOG_WARN, "- total: incoming: %0.2fMB , outgoing: %0.2fMB", Messaging::getBandwitdthIncoming()/1024/1024, Messaging::getBandwidthOutgoing()/1024/1024);
 		logmsgf(LOG_WARN, "- rate (last minute): incoming: %0.1fkB/s , outgoing: %0.1fkB/s", Messaging::getBandwitdthIncomingRate()/1024, Messaging::getBandwidthOutgoingRate()/1024);
-		pthread_mutex_unlock(&clients_mutex);
 	}
 }
 

@@ -80,9 +80,6 @@ int getFileHash(char *filename, char *hash)
 		fclose (cfd);
 		buffer[lSize]=0;
 		
-		//LogManager::getSingleton().logMessage("buffer-size: " + StringConverter::toString(lSize));
-		//LogManager::getSingleton().logMessage("buffer: " + String(buffer));
-
 		char sha1result[250];
 		memset(sha1result, 0, 250);
 
@@ -93,7 +90,6 @@ int getFileHash(char *filename, char *hash)
 		{
 			return -1;
 		}
-		//LogManager::getSingleton().logMessage("sha1()="+String(sha1result));
 
 		free (buffer);
 		memcpy(hash, sha1result, 40);
@@ -109,7 +105,5 @@ bool sha1check()
 	char result[255]="";
 	char testvalue[255]="2fd4e1c67a2d28fced849ee1bb76e7391b93eb12";
 	SHA1FromString(result, testStr);
-
-	//LogManager::getSingleton().logMessage("SHA1('"+String(testStr)+"') = '"+String(result)+"' ?= ");
 	return !strcmp(result, testvalue);
 }

@@ -54,7 +54,8 @@ enum {
 	OPT_PASS,
 	OPT_INET,
 	OPT_RCONPASS,
-	OPT_GUI};
+	OPT_GUI,
+	OPT_UPSPEED};
 
 // option array
 CSimpleOpt::SOption cmdline_options[] = {
@@ -65,6 +66,7 @@ CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_RCONPASS, ("-rconpassword"), SO_REQ_SEP },
 	{ OPT_TERRAIN, ("-terrain"), SO_REQ_SEP },
 	{ OPT_MAXCLIENTS, ("-maxclients"), SO_REQ_SEP },
+	{ OPT_UPSPEED, ("-speed"), SO_REQ_SEP },
 	{ OPT_LAN, ("-lan"), SO_NONE },
 	{ OPT_INET, ("-inet"), SO_NONE },
 	{ OPT_DEBUG, ("-debug"), SO_NONE },
@@ -109,10 +111,33 @@ void handler(int signal)
 
 void showUsage()
 {
-	printf("Invalid parameters\n" \
-		"Usage: rorserver (-ip <public IP>) (-port <port>) (-name <server name>) (-terrain <terrain name>) (-maxclients <max number of clients>) (-debug) (-lan) (-inet)\n" \
-		" for example: rorserver -name testserver -terrain nhelens -maxclients 5\n" \
-		" please note: \n -no special chars in servername (also no spaces, only [a-z,0-9,A-Z])\n -ip and port are optional, and can be auto-determined\n\n");
+	printf("\n" \
+		"Usage: rorserver [OPTIONS] <paramaters>\n" \
+		" Where [OPTIONS] and <parameters>\n" \
+		" REQUIRED:\n" \
+		" -name <name>\n" \
+		"  Name of the server, no spaces, only [a-z,0-9,A-Z]\n" \
+		" -terrain <mapname>\n" \
+		"  Map name (defaults to 'any')\n" \
+		" -maxclients|speed <clients|speed>\n" \
+		"  Maximum clients allowed or maximum upload speed (in kilobits)\n" \
+		" -lan|inet \n" \
+		"  Private or public server (defaults to inet)\n" \
+		" OPTIONAL:\n" \
+		" -gui (EXPERIMENTAL!)\n" \
+		"  Use organizational terminal GUI\n" \
+		" -password <password>\n" \
+		"  Private server password\n" \
+		" -rconpassword <password>\n" \
+		"  Set admin password. This is required for RCON to work. Otherwise RCON is disabled.\n" \
+		" -ip <ip>\n" \
+		"  Public IP address to register with.\n" \
+		" -port <port>\n" \
+		"  Port to use (defaults to random 12000-12500)\n" \
+		" -debug\n" \
+		"  Print a lot of information\n" \
+		" -help\n" \
+		"  Show this list\n");
 }
 
 void getPublicIP(char *pubip)
@@ -167,7 +192,7 @@ int main(int argc, char* argv[])
 	char pubip[255]="";
 	int listenport=0;
 	char servname[255]="";
-	char terrname[255]="aspen";
+	char terrname[255]="any";
 	char password[255]="";
 	char rconpassword[255]="";
 	int max_clients=16;
@@ -194,6 +219,8 @@ int main(int argc, char* argv[])
 				strncpy(terrname, args.OptionArg(), 250);
 			} else if (args.OptionId() == OPT_PASS) {
 				strncpy(password, args.OptionArg(), 250);
+			} else if (args.OptionId() == OPT_UPSPEED) {
+				max_clients = (int)floor((1+sqrt((float)1-4*(-(atoi(args.OptionArg())/64))))/2);
 			} else if (args.OptionId() == OPT_RCONPASS) {
 				strncpy(rconpassword, args.OptionArg(), 250);
 			} else if (args.OptionId() == OPT_PORT) {

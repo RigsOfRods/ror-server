@@ -27,6 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "broadcaster.h"
 #include "notifier.h"
 #include "Vector3.h"
+#include "MutexUtils.h"
 
 #ifdef NCURSES
 #include "curses.h"
@@ -76,11 +77,11 @@ class Sequencer
 {
 private:
 	pthread_t killerthread;
-	pthread_cond_t killer_cv;
+	Condition killer_cv;
 	/// mutex used for locking access to the killqueue
-	pthread_mutex_t killer_mutex;
+	Mutex killer_mutex;
 	/// mutex used for locking access to the clients array
-	pthread_mutex_t clients_mutex;
+	Mutex clients_mutex;
 
 	Listener *listener;
 	/**
@@ -123,7 +124,7 @@ protected:
 	Sequencer();
 	~Sequencer();
 
-	static Sequencer* TheInstance;
+	static Sequencer *mInstance;
 	
 public:
 	/// method to access the singleton instance

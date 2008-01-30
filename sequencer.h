@@ -27,7 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "broadcaster.h"
 #include "notifier.h"
 #include "Vector3.h"
-#include "MutexUtils.h"
+#include "mutexutils.h"
 
 #ifdef NCURSES
 #include "curses.h"
@@ -112,6 +112,7 @@ private:
 	bool isSandbox;
 	bool guimode;
 
+	unsigned short getPosfromUid(const unsigned int& uid);
 #ifdef NCURSES
 	WINDOW *win_info;
 	WINDOW *win_slots;
@@ -137,10 +138,12 @@ public:
 	void createClient(SWInetSocket *sock, user_credentials_t *user);
 	/// call to start the thread to disconnect clients from the server.
 	void killerthreadstart();
+	
 	/// call to initiate the disconnect processes for a client.
 	void disconnect(int pos, char* error);
 	void queueMessage(int pos, int type, char* data, unsigned int len);
 	void enableFlow(int id);
+	
 	void notifyRoutine();
 	void notifyAllVehicles(int id);
 	/// returns the number of clients connected to this server

@@ -52,7 +52,6 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source, 
 	head.command=type;
 	head.source=source;
 	head.size=len;
-	int hlen=0;
 	
 	// construct buffer
 	const int msgsize = sizeof(header_t) + len;
@@ -138,7 +137,8 @@ void logmsgf(int level, const char* format, ...)
 {
 	time_t lotime=time(NULL);
 	char timestr[50];
-#ifdef __WIN32__
+
+#ifndef __GNUC__ 
 	ctime_s(timestr, 50, &lotime);
 #else
 	ctime_r(&lotime, timestr);

@@ -21,6 +21,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h"
 #include "sha1_util.h"
 
+#include <stdexcept>
+
 //#define REFLECT_DEBUG 
 
 void *s_klthreadstart(void* vid)
@@ -170,12 +172,14 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	//we have a confirmed client that wants to play
 	//try to find a place for him
 	clients_mutex.lock();
+	
 	int pos=0;
-	for (pos=0; pos<maxclients; pos++)
+	for (pos=0; pos < maxclients; pos++)
 	{
-		if (!strcmp(user->username, clients[pos].nickname)) //validate the requested nick against the slot that
+	    // validate the requested nick against the slot that is being scanned
+	    // for openings.
+		if (!strcmp(user->username, clients[pos].nickname)) 
 		{
-			// is being scanned for openings.
 			logmsgf(LOG_DEBUG,"Dupe nick found: '%s' rejecting!", user->username); //a dupe, kill it!
 			clients_mutex.unlock();
 			char *msg = "Duplicate name, please choose another one!";
@@ -217,9 +221,11 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	clients[pos].uid=fuid;
 	fuid++;
 	clients[pos].sock=sock;
-	clients[pos].receiver->reset(pos, sock); //this won't interlock
-	clients[pos].broadcaster->reset(pos, sock); //this won't interlock
+	 
+	clients[pos].receiver->reset(clients[pos].uid, sock); //this won't interlock
+	clients[pos].broadcaster->reset(clients[pos].uid, sock); //this won't interlock
 	clients_mutex.unlock();
+	
 	Messaging::sendmessage(sock, MSG2_WELCOME, clients[pos].uid, 0, 0);
 	logmsgf(LOG_DEBUG,"Sequencer: New client created in slot %i", pos);
 	printStats();
@@ -280,8 +286,8 @@ void Sequencer::killerthreadstart()
 		killer_mutex.unlock();
 
 		logmsgf(LOG_DEBUG,"Killer called to kill %i", pos);
-		clients_mutex.lock(); //this won't interlock unless
-											//disconnect is called from a clients_mutex owning thread
+		clients_mutex.lock(); //this won't interlock unless disconnect is called
+		                    //from a clients_mutex owning thread
 		logmsgf(LOG_DEBUG,"Killer got clients lock");
 		if (clients[pos].status==USED)
 		{
@@ -316,15 +322,22 @@ void Sequencer::killerthreadstart()
 	}
 }
 
-void Sequencer::disconnect(int pos, char* errormsg)
+void Sequencer::disconnect(int uid, char* errormsg)
 {
+    unsigned short pos = getPosfromUid(uid);
 	//this routine is a potential trouble maker as it can be called from many thread contexts
 	//so we use a killer thread
 	logmsgf(LOG_DEBUG,"Disconnecting Slot %d: %s", pos, errormsg);
 	MutexLocker scoped_lock(killer_mutex);
 	//first check if not already queued
 	bool found=false;
-	for (int i=0; i<freekillqueue; i++) if (killqueue[i]==pos) {found=true; break;};
+	for (int i=0; i<freekillqueue; i++)
+        if (killqueue[i]==pos)
+    	{
+            found=true;
+            break;
+        };
+        
 	if (!found)
 	{
 		killqueue[freekillqueue]=pos;
@@ -334,15 +347,17 @@ void Sequencer::disconnect(int pos, char* errormsg)
 }
 
 //this is called from the listener thread initial handshake
-void Sequencer::enableFlow(int pos)
+void Sequencer::enableFlow(int uid)
 {
+    unsigned short pos = getPosfromUid(uid);
 	MutexLocker scoped_lock(clients_mutex);
 	clients[pos].flow=true;
 }
 
 //this is called from the listener thread initial handshake
-void Sequencer::notifyAllVehicles(int pos)
+void Sequencer::notifyAllVehicles(int uid)
 {
+    unsigned short pos = getPosfromUid(uid);
 	MutexLocker scoped_lock(clients_mutex);
 	for (int i=0; i<maxclients; i++)
 	{
@@ -351,7 +366,14 @@ void Sequencer::notifyAllVehicles(int pos)
 			char message[512];
 			strcpy(message, clients[i].vehicle_name);
 			strcpy(message+strlen(clients[i].vehicle_name)+1, clients[i].nickname);
-			clients[pos].broadcaster->queueMessage(clients[i].uid, MSG2_USE_VEHICLE, message, (int)(strlen(clients[i].vehicle_name)+strlen(clients[i].nickname))+2);
+			clients[pos].broadcaster->queueMessage(clients[i].uid, MSG2_USE_VEHICLE,
+					message, (strlen(clients[i].vehicle_name)+strlen(clients[i].nickname))+2);
+		}
+		// not possible to have flow enabled but not have a truck... disconnect 
+		if ( !strlen(clients[i].vehicle_name) && clients[i].flow )
+		{
+			logmsgf(LOG_ERROR, "Client has flow enable but no truck name, disconnecting");
+			disconnect(i, "client appears to be disconnected");
 		}
 	}
 }
@@ -368,8 +390,9 @@ void Sequencer::serverSay(std::string msg, int notto, int type)
 }
 
 //this is called by the receivers threads, like crazy & concurrently
-void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
+void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 {
+    unsigned short pos = getPosfromUid(uid);
 	MutexLocker scoped_lock(clients_mutex);
 	bool publishData=false;
 	if (type==MSG2_USE_VEHICLE) 
@@ -404,13 +427,16 @@ void Sequencer::queueMessage(int pos, int type, char* data, unsigned int len)
 					if(clients[player].status == FREE || clients[player].status == BUSY)
 					{
 						char *error = "cannot kick free or busy client";
-						Messaging::sendmessage(clients[pos].sock, MSG2_RCON_COMMAND_FAILED, 0, (unsigned int)strlen(error), error);
+						Messaging::sendmessage(clients[pos].sock,
+								MSG2_RCON_COMMAND_FAILED, 0,
+								strlen(error), error);
 					} else if(clients[player].status == USED)
 					{
-						logmsgf(LOG_WARN, "user %d kicked by user %d via rcmd", player, pos);
+						logmsgf(LOG_WARN, "user %d kicked by user %d via rcmd",
+								player, pos);
 						char tmp[255]="";
 						memset(tmp, 0, 255);
-						sprintf(tmp, "player '%s' kicked successfully.", player, clients[player].nickname);
+						sprintf(tmp, "player '%s' kicked successfully.", clients[player].nickname);
 						serverSay(std::string(tmp));
 						Messaging::sendmessage(clients[pos].sock, MSG2_RCON_COMMAND_SUCCESS, 0, (unsigned int)strlen(tmp), tmp);
 						disconnect(player, "kicked");
@@ -538,5 +564,14 @@ void Sequencer::printStats()
 		logmsgf(LOG_WARN, "- rate (last minute): incoming: %0.1fkB/s , outgoing: %0.1fkB/s", Messaging::getBandwitdthIncomingRate()/1024, Messaging::getBandwidthOutgoingRate()/1024);
 	}
 }
-
+// used to access the clients from the array rather than using the array pos it's self.
+unsigned short Sequencer::getPosfromUid(const unsigned int& uid)
+{
+    for (unsigned short i = 0; i < maxclients; i++)
+    {
+        if(clients[i].uid == uid)
+            return i;
+    }
+    throw std::runtime_error("user id not found");
+}
 

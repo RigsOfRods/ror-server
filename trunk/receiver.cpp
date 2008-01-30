@@ -99,14 +99,21 @@ void Receiver::threadstart()
 	SEQUENCER.notifyAllVehicles(id);
 	//okay, we are ready, we can receive data frames
 	SEQUENCER.enableFlow(id);
-	logmsgf(LOG_DEBUG,"Slot %d is switching to FLOW", id);
+	logmsgf(LOG_DEBUG,"UID %d is switching to FLOW", id);
 	while (1)
 	{
+		//	hmm for some reason this fails, 
 		if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, MAX_MESSAGE_LENGTH)) {
 			SEQUENCER.disconnect(id, "Game connection closed");
 			pthread_exit(NULL);
 		}
-		if (type!=MSG2_VEHICLE_DATA && type!=MSG2_CHAT && type!=MSG2_FORCE && type!=MSG2_RCON_LOGIN && type!=MSG2_RCON_COMMAND && type!=MSG2_DELETE) {
+		//shouldn't we already have truck data at this point?? 
+		if (type!=MSG2_VEHICLE_DATA && 
+				type!=MSG2_CHAT &&
+				type!=MSG2_FORCE &&
+				type!=MSG2_RCON_LOGIN &&
+				type!=MSG2_RCON_COMMAND &&
+				type!=MSG2_DELETE) {
 			SEQUENCER.disconnect(id, "Protocol error 3");
 			pthread_exit(NULL);
 		}

@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "SocketW.h"
 #include "notifier.h"
 
-#ifndef __WIN32__
+#ifdef __GNUC__
 #include <unistd.h>
 #endif
 

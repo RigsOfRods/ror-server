@@ -62,10 +62,12 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 	freekillqueue=0;
 	servermode=smode;
 	pthread_create(&killerthread, NULL, s_klthreadstart, this);
-	fuid=1;
-	notifier=0;
+	
+	fuid = 1;
+	notifier = NULL;
 	maxclients=max_clients;
-	clients=(client_t*)malloc(sizeof(client_t)*maxclients);
+	clients = (client_t*)malloc(sizeof(client_t)*maxclients);
+	    
 	memset(clients, 0, sizeof(client_t)*maxclients);
 
 	for (int i=0; i<maxclients; i++) 
@@ -125,7 +127,8 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 	}
 
 	if(servermode == SERVER_INET || servermode == SERVER_AUTO)
-		notifier=new Notifier(pubip, listenport, max_clients, servname, terrname, pwProtected, servermode, rconenabled);
+		notifier = new Notifier(pubip, listenport, max_clients, servname,
+		        terrname, pwProtected, servermode, rconenabled);
 }
 
 /**
@@ -332,6 +335,7 @@ void Sequencer::disconnect(int uid, char* errormsg)
 	//first check if not already queued
 	bool found=false;
 	for (int i=0; i<freekillqueue; i++)
+	    // check for duplicates
         if (killqueue[i]==pos)
     	{
             found=true;
@@ -373,7 +377,7 @@ void Sequencer::notifyAllVehicles(int uid)
 		if ( !strlen(clients[i].vehicle_name) && clients[i].flow )
 		{
 			logmsgf(LOG_ERROR, "Client has flow enable but no truck name, disconnecting");
-			disconnect(i, "client appears to be disconnected");
+			disconnect(clients[i].uid, "client appears to be disconnected");
 		}
 	}
 }
@@ -399,7 +403,8 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	{
 		data[len]=0;
 		strncpy(clients[pos].vehicle_name, data, 129);
-		logmsgf(LOG_DEBUG,"On the fly vehicle registration for slot %d: %s", pos, clients[pos].vehicle_name);
+		logmsgf(LOG_DEBUG,"On the fly vehicle registration for slot %d: %s",
+		            pos, clients[pos].vehicle_name);
 		//printStats();
 		//we alter the message to add user info
 		strcpy(data+len+1, clients[pos].nickname);
@@ -421,10 +426,11 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			if(!strncmp(data, "kick", 4))
 			{
 				int player = -1;
-				int res = sscanf(data, "kick %d", &player);
+				int res = sscanf(data, "kick %d", &player); 
 				if(res == 1 && player != -1 && player < maxclients)
 				{
-					if(clients[player].status == FREE || clients[player].status == BUSY)
+					if(clients[player].status == FREE ||
+					        clients[player].status == BUSY)
 					{
 						char *error = "cannot kick free or busy client";
 						Messaging::sendmessage(clients[pos].sock,
@@ -438,8 +444,10 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 						memset(tmp, 0, 255);
 						sprintf(tmp, "player '%s' kicked successfully.", clients[player].nickname);
 						serverSay(std::string(tmp));
-						Messaging::sendmessage(clients[pos].sock, MSG2_RCON_COMMAND_SUCCESS, 0, (unsigned int)strlen(tmp), tmp);
-						disconnect(player, "kicked");
+						Messaging::sendmessage(clients[pos].sock,
+						        MSG2_RCON_COMMAND_SUCCESS, 0,
+						        strlen(tmp), tmp);
+						disconnect(clients[player].uid, "kicked");
 					}
 				} else 
 				{

@@ -177,24 +177,25 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	clients_mutex.lock();
 	
 	int pos=0;
-	for (pos=0; pos < maxclients; pos++)
+	for (int i = 0; i < maxclients; i++)
 	{
 	    // validate the requested nick against the slot that is being scanned
 	    // for openings.
-		if (!strcmp(user->username, clients[pos].nickname)) 
+		if (!strcmp(user->username, clients[i].nickname)) 
 		{
-			logmsgf(LOG_DEBUG,"Dupe nick found: '%s' rejecting!", user->username); //a dupe, kill it!
 			clients_mutex.unlock();
+			logmsgf(LOG_DEBUG,"Dupe nick found: '%s' rejecting!", user->username); //a dupe, kill it!
 			char *msg = "Duplicate name, please choose another one!";
-			Messaging::sendmessage(sock, MSG2_BANNED, 0, (unsigned int)strlen(msg), msg); //lack of proper protocol msg
+			Messaging::sendmessage(sock, MSG2_BANNED, 0, strlen(msg), msg); //lack of proper protocol msg
 			return;
-		} else
-		{
-			//Now that we've checked against dupe nicks, we can see if the pos is free
-			if (clients[pos].status==FREE) 
-				break; 
-		} 
+		}
+		// an open spot if found, store it's position
+		if (pos < 0 && clients[i].status != FREE)
+			pos = i;
 	}
+	
+	// no dupes found, now look for an open position 
+	for (pos=0; pos < maxclients && clients[pos].status != FREE; pos++);
 
 	if (pos==maxclients)
 	{

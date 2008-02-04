@@ -44,123 +44,103 @@ class Notifier;
 
 #define SEQUENCER Sequencer::Instance()
 
-///A struct to hold information about a client
+//! A struct to hold information about a client
 typedef struct
 {
-	/// current status of the client, options are FREE, BUSY or USED
-	int status;
-	/// pointer to a receiver class, this 
-	Receiver* receiver;
-	/// pointer to a broadcaster class
-	Broadcaster* broadcaster;
-	/// socket used to communicate with the client
-	SWInetSocket* sock;
-	/// flag to see if the client should be sent data?
-	bool flow;
-	/// name of the vehicle
-	char vehicle_name[140];
-	/// Username, this is what they are called to other players
-	char nickname[32];
-	/// userid
-	unsigned int uid;
-	/// position on the map?
-	Vector3 position;
-	/// users unique id
-	char uniqueid[60];
-	/// rcon password retries
-	int rconretries;
-	/// rcon authenticated mode
-	int rconauth;
+    int status;                 //!< current status of the client, options are
+                                //!< FREE, BUSY or USED
+    Receiver* receiver;         //!< pointer to a receiver class, this
+    Broadcaster* broadcaster;   //!< pointer to a broadcaster class
+    SWInetSocket* sock;         //!< socket used to communicate with the client
+    bool flow;                  //!< flag to see if the client should be sent
+                                //!< data?
+    char vehicle_name[140];     //!< name of the vehicle
+    char nickname[32];          //!< Username, this is what they are called to
+                                //!< other players
+    unsigned int uid;           //!< userid
+    Vector3 position;           //!< position on the map?
+    char uniqueid[60];          //!< users unique id
+    int rconretries;            //!< rcon password retries
+    int rconauth;               //!< rcon authenticated mode
 } client_t;
 
 class Sequencer
 {
 private:
-	pthread_t killerthread;
-	Condition killer_cv;
-	/// mutex used for locking access to the killqueue
-	Mutex killer_mutex;
-	/// mutex used for locking access to the clients array
-	Mutex clients_mutex;
+    pthread_t killerthread; //!< thread to handle the killing of clients
+    Condition killer_cv;    //!< wait condition that there are clients to kill
+    Mutex killer_mutex;     //!< mutex used for locking access to the killqueue
+    Mutex clients_mutex;    //!< mutex used for locking access to the clients array
+    Listener *listener;     //!< 
+    client_t *clients;      //!< clients is a list of all the available client
+                            //!< connections, it is allocated
+    int maxclients;         //!< maximum number of clients allowed to connect to
+                            //!< the server.
+    unsigned int fuid;      //!< next userid
+    int killqueue[256];     //!< which position in the queue to kill
+    int freekillqueue;      //!< freekillqueue holds the number of spots
+                            //!< available in the killqueue
+    int servermode;
+    char terrainName[255];
+    char serverPassword[41];
+    bool pwProtected;
+    
+    char rconPassword[41];
+    bool rconenabled;
+    bool isSandbox;
+    bool guimode;
 
-	Listener *listener;
-	/**
-	 *  @brief clients is a list of all the available client connections, it is allocated 
-	 */
-	client_t *clients;
-	/// maximum number of clients allowed to connect to the server.
-	int maxclients;
-	unsigned int fuid;
-	/** 
-	 *  @brief killqueue is a queue of clients to be killed. 
-	 *  killqueue is a queue of clients to be removed from the server.
-	 *  it is an array of integers, where each integer is a position in the
-	 *  client list.
-	 */
-	int killqueue[256];
-	/**
-	 *  @brief freekillqueue holds the number of spots available in the killqueue
-	 */
-	int freekillqueue;
-	int servermode;
-	char terrainName[255];
-	char serverPassword[41];
-	bool pwProtected;
-	
-	char rconPassword[41];
-	bool rconenabled;
-	bool isSandbox;
-	bool guimode;
-
-	unsigned short getPosfromUid(const unsigned int& uid);
+    unsigned short getPosfromUid(const unsigned int& uid);
 #ifdef NCURSES
-	WINDOW *win_info;
-	WINDOW *win_slots;
-	WINDOW *win_log;
-	WINDOW *win_chat;
+    WINDOW *win_info;
+    WINDOW *win_slots;
+    WINDOW *win_log;
+    WINDOW *win_chat;
 #endif
-	int startTime;
+    int startTime;
 
 protected:
-	Sequencer();
-	~Sequencer();
+    Sequencer();
+    ~Sequencer();
 
-	static Sequencer *mInstance;
-	
+    static Sequencer *mInstance;
+    
 public:
-	/// method to access the singleton instance
-	static Sequencer& Instance();
-	///	initilize theSequencers information
-	void initilize(char *pubip, int listenport, char* servname, char* terrname, int max_clients, int servermode, char *password, char *rconpassword, bool guimode);
-	/// destructor call, used for clean up
-	void cleanUp();
-	/// initilize client information
-	void createClient(SWInetSocket *sock, user_credentials_t *user);
-	/// call to start the thread to disconnect clients from the server.
-	void killerthreadstart();
-	
-	/// call to initiate the disconnect processes for a client.
-	void disconnect(int pos, char* error);
-	void queueMessage(int pos, int type, char* data, unsigned int len);
-	void enableFlow(int id);
-	
-	void notifyRoutine();
-	void notifyAllVehicles(int id);
-	/// returns the number of clients connected to this server
-	int getNumClients();
-	int getHeartbeatData(char *challenge, char *hearbeatdata);
-	/// prints the Stats view, of who is connected and what slot they are in
-	void printStats();
-	void serverSay(std::string msg, int notto=-1, int type=0);
+    //! method to access the singleton instance
+    static Sequencer& Instance();
+    //!    initilize theSequencers information
+    void initilize(char *pubip, int listenport, char* servname, char* terrname,
+            int max_clients, int servermode, char *password, char *rconpassword,
+            bool guimode);
+    //! destructor call, used for clean up
+    void cleanUp();
+    //! initilize client information
+    void createClient(SWInetSocket *sock, user_credentials_t *user);
+    //! call to start the thread to disconnect clients from the server.
+    void killerthreadstart();
+    
+    //! call to initiate the disconnect processes for a client.
+    void disconnect(int pos, char* error);
+    void queueMessage(int pos, int type, char* data, unsigned int len);
+    void enableFlow(int id);
+    
+    void notifyRoutine();
+    void notifyAllVehicles(int id);
+    //! returns the number of clients connected to this server
+    int getNumClients();
+    int getHeartbeatData(char *challenge, char *hearbeatdata);
+    //! prints the Stats view, of who is connected and what slot they are in
+    void printStats();
+    void serverSay(std::string msg, int notto=-1, int type=0);
 
-	char *getTerrainName() { return terrainName; };
-	bool isPasswordProtected() { return pwProtected; };
-	char *getServerPasswordHash() { return serverPassword; };
-	bool getGUIMode() { return guimode; };
+    char *getTerrainName() { return terrainName; };
+    bool isPasswordProtected() { return pwProtected; };
+    char *getServerPasswordHash() { return serverPassword; };
+    bool getGUIMode() { return guimode; };
 #ifdef NCURSES
-	WINDOW *getLogWindow() { return win_log; };
-#endif	
-	Notifier *notifier;
+    WINDOW *getLogWindow() { return win_log; };
+#endif    
+    Notifier *notifier;
 };
 
 #endif

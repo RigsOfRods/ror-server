@@ -21,18 +21,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "SocketW.h"
 #include "rornet.h"
-#include <time.h>
+#include "logger.h"
 
-#define LOG_VVERBOSE -2
-#define LOG_VERBOSE -1
-#define LOG_DEBUG 0
-#define LOG_WARN 1
-#define LOG_ERROR 2
-
-extern int loglevel;
-extern "C" {
-void logmsgf(int level, const char* format, ...);
-}
 
 //TODO: does this even need to be a class? couldn't it be done just as well
 //	using two functions outside of a class? 

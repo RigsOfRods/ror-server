@@ -6,11 +6,17 @@
 
 enum LogLevel
 {
-	LOG_DEBUG,
+	LOG_DEBUG=0,
 	LOG_VERBOSE,
 	LOG_INFO,
 	LOG_WARN,
 	LOG_ERROR
+};
+
+enum LogType
+{
+	LOGTYPE_FILE=0,
+	LOGTYPE_DISPLAY
 };
 
 //extern int loglevel;
@@ -25,15 +31,14 @@ public:
 	static void log(const LogLevel& level, const std::string& msg);
 	
 	static void setOutputFile(const std::string& filename);
-	static void setLogLevel(const LogLevel& level);
+	static void setLogLevel(const LogType type, const LogLevel level);
 	
 private:
 	Logger();
 	Logger instance();
 	static Logger theLog;
-	static bool usegui;
-	static LogLevel log_level;
 	static FILE *file;
+	static LogLevel log_level[2];
 	static char *loglevelname[5];
 };
 

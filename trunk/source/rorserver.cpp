@@ -35,7 +35,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // license: MIT
 #include "SimpleOpt.h"
 
-bool debugmode=false;
 int servermode=SERVER_AUTO;
 
 
@@ -48,9 +47,8 @@ enum {
 	OPT_TERRAIN,
 	OPT_MAXCLIENTS,
 	OPT_LAN,
-	OPT_DEBUG,
-	OPT_VERBOSE,
-	OPT_VVERBOSE,
+	OPT_VERBOSITY,
+	OPT_LOGVERBOSITY,
 	OPT_PASS,
 	OPT_INET,
 	OPT_RCONPASS,
@@ -69,10 +67,9 @@ CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_UPSPEED, ("-speed"), SO_REQ_SEP },
 	{ OPT_LAN, ("-lan"), SO_NONE },
 	{ OPT_INET, ("-inet"), SO_NONE },
-	{ OPT_DEBUG, ("-debug"), SO_NONE },
+	{ OPT_VERBOSITY, ("-verbosity"), SO_REQ_SEP },
+	{ OPT_LOGVERBOSITY, ("-logverbosity"), SO_REQ_SEP },
 	{ OPT_GUI, ("-gui"), SO_NONE },
-	{ OPT_VERBOSE, ("-verbose"), SO_NONE },
-	{ OPT_VVERBOSE, ("-vverbose"), SO_NONE },
 	{ OPT_HELP,  ("--help"), SO_NONE },
 	SO_END_OF_OPTIONS
 };
@@ -134,8 +131,10 @@ void showUsage()
 		"  Public IP address to register with.\n" \
 		" -port <port>\n" \
 		"  Port to use (defaults to random 12000-12500)\n" \
-		" -debug\n" \
-		"  Print a lot of information\n" \
+		" -verbosity {0-4}\n" \
+		"  Sets displayed log verbosity: 0 = debug, 1 = verbosity, 2 = info, 3 = warn, 4 = error\n" \
+		" -logverbosity {0-4}\n" \
+		"  Sets file log verbosity: 0 = debug, 1 = verbosity, 2 = info, 3 = warn, 4 = error\n" \
 		" -help\n" \
 		"  Show this list\n");
 }
@@ -150,8 +149,7 @@ void getPublicIP(char *pubip)
 	{
 		char query[2048];
 		sprintf(query, "GET /getpublicip/ HTTP/1.1\r\nHost: %s\r\n\r\n", REPO_SERVER);
-		if(debugmode)
-			logmsgf(LOG_DEBUG, "Query to get public IP: %s\n", query);
+		logmsgf(LOG_DEBUG, "Query to get public IP: %s\n", query);
 		if (mySocket.sendmsg(query, &error)<0)
 			return;
 		int rlen=mySocket.recv(tmp, 250, &error);
@@ -159,8 +157,7 @@ void getPublicIP(char *pubip)
 			tmp[rlen]=0;
 		else
 			return;
-		if(debugmode)
-			logmsgf(LOG_DEBUG, "Response from public IP request :'%s'", tmp);
+		logmsgf(LOG_DEBUG, "Response from public IP request :'%s'", tmp);
 		//clean a bit
 		char *start=strstr(tmp, "\r\n\r\n");
 		start+=4;
@@ -227,14 +224,10 @@ int main(int argc, char* argv[])
 				listenport = atoi(args.OptionArg());
 			} else if (args.OptionId() == OPT_GUI) {
 				guimode=true;
-			} else if (args.OptionId() == OPT_DEBUG) {
-				debugmode=true;
-				Logger::setLogLevel( LOG_DEBUG );
-				logmsgf(LOG_WARN, "== DEBUG MODE ==");
-			} else if (args.OptionId() == OPT_VERBOSE) {
-				debugmode=true;
-				Logger::setLogLevel( LOG_VERBOSE );
-				logmsgf(LOG_WARN, "== VERBOSE MODE ==");
+			} else if (args.OptionId() == OPT_VERBOSITY) {
+				Logger::setLogLevel(LOGTYPE_DISPLAY, LogLevel(atoi(args.OptionArg())));
+			} else if (args.OptionId() == OPT_LOGVERBOSITY) {
+				Logger::setLogLevel(LOGTYPE_FILE, LogLevel(atoi(args.OptionArg())));
 			} else if (args.OptionId() == OPT_LAN) {
 				if(servermode != SERVER_AUTO)
 				{

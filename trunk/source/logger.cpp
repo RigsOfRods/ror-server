@@ -12,48 +12,48 @@
 // http://senzee.blogspot.com/2006/05/c-formatting-stdstring.html   
 std::string format_arg_list(const char *fmt, va_list args)
 {
-    if (!fmt) return "";
-    int   result = -1, length = 256;
-    char *buffer = 0;
-    while (result == -1)
-    {
-        if (buffer) delete [] buffer;
-        buffer = new char [length + 1];
-        memset(buffer, 0, length + 1);
-        result = vsnprintf(buffer, length, fmt, args);
-        length *= 2;
-    }
-    std::string s(buffer);
-    delete [] buffer;
-    return s;
+	if (!fmt) return "";
+	int   result = -1, length = 256;
+	char *buffer = 0;
+	while (result == -1)
+	{
+		if (buffer) delete [] buffer;
+		buffer = new char [length + 1];
+		memset(buffer, 0, length + 1);
+		result = vsnprintf(buffer, length, fmt, args);
+		length *= 2;
+	}
+	std::string s(buffer);
+	delete [] buffer;
+	return s;
 }
 
 void logmsgf(const LogLevel& level, const char* format, ...)
 {
-    va_list args;
-    va_start(args, format);
-    std::string s = format_arg_list(format, args);
-    va_end(args);
+	va_list args;
+	va_start(args, format);
+	std::string s = format_arg_list(format, args);
+	va_end(args);
     
-    Logger::log(level, s);
+	Logger::log(level, s);
 }
 
 
 // public:
 Logger::~Logger()
 {
-    if(file)
+	if(file)
 		fclose(file);
 }
 
 void Logger::log(const LogLevel& level, const char* format, ...)
 {
-    va_list args;
-    va_start(args, format);
-    std::string s = format_arg_list(format, args);
-    va_end(args);
+	va_list args;
+	va_start(args, format);
+	std::string s = format_arg_list(format, args);
+	va_end(args);
     
-    Logger::log(level, s);
+	Logger::log(level, s);
 }
 
 void Logger::log(const LogLevel& level, const std::string& msg)
@@ -70,10 +70,10 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 	// this is not redundant as we remove the trailing \n --thomas
 	timestr[strlen(timestr)-1]=0;
 
-	if (level >= log_level)
+	if (level >= log_level[LOGTYPE_DISPLAY])
 		printf("%s|%5s|%s\n", timestr, loglevelname[(int)level], msg.c_str());
 
-	if(file)
+	if(file && level >= log_level[LOGTYPE_FILE])
 		fprintf(file, "%s|%5s| %s\n", timestr, loglevelname[(int)level], msg.c_str());
 }
 
@@ -84,9 +84,9 @@ void Logger::setOutputFile(const std::string& filename)
 	file = fopen(filename.c_str(), "a");
 }
 
-void Logger::setLogLevel(const LogLevel& level)
+void Logger::setLogLevel(const LogType type, const LogLevel level)
 {
-	log_level = level;
+	log_level[(int)type] = level;
 }
 
 // private:
@@ -96,7 +96,6 @@ Logger::Logger()
 }
 
 Logger Logger::theLog;
-bool Logger::usegui = false;
-LogLevel Logger::log_level = LOG_WARN;
 FILE *Logger::file = 0;
-char *Logger::loglevelname[5]= {"DEBUG", "VERBO", "INFO", "WARN", "ERROR"};
+LogLevel Logger::log_level[2] = {LOG_VERBOSE, LOG_INFO};
+char *Logger::loglevelname[5] = {"DEBUG", "VERBO", "INFO", "WARN", "ERROR"};

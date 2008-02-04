@@ -139,6 +139,8 @@ void showUsage()
 		"  Sets displayed log verbosity: 0 = debug, 1 = verbosity, 2 = info, 3 = warn, 4 = error\n" \
 		" -logverbosity {0-4}\n" \
 		"  Sets file log verbosity: 0 = debug, 1 = verbosity, 2 = info, 3 = warn, 4 = error\n" \
+		" -logfilename <server.log>" \
+		"  sets the filename of the log" \
 		" -help\n" \
 		"  Show this list\n");
 }

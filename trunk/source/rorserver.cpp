@@ -235,10 +235,6 @@ int main(int argc, char* argv[])
 				debugmode=true;
 				Logger::setLogLevel( LOG_VERBOSE );
 				logmsgf(LOG_WARN, "== VERBOSE MODE ==");
-			} else if (args.OptionId() == OPT_VVERBOSE) {
-				debugmode=true;
-				Logger::setLogLevel( LOG_VVERBOSE );
-				logmsgf(LOG_WARN, "== VERY VERBOSE MODE ==");
 			} else if (args.OptionId() == OPT_LAN) {
 				if(servermode != SERVER_AUTO)
 				{

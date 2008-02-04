@@ -18,8 +18,12 @@ package.name = "SocketW"
 package.kind = "dll"
 package.language = "c++"
 if windows then
-	package.defines = { "__WIN32__", "WIN32", "_DEBUG", "_WINDOWS", "_USRDLL", "MYSOCKETW_EXPORTS"}
+	package.config["Debug"].defines = { "__WIN32__", "WIN32", "_DEBUG", "_WINDOWS", "_USRDLL", "MYSOCKETW_EXPORTS"}
+	package.config["Release"].defines = { "__WIN32__", "WIN32", "NDEBUG", "_WINDOWS", "_USRDLL", "MYSOCKETW_EXPORTS"}
 	package.links = { "ws2_32" }
+else
+	package.config["Debug"].defines = { "_DEBUG", "MYSOCKETW_EXPORTS"}
+	package.config["Release"].defines = { "NDEBUG", "MYSOCKETW_EXPORTS"}
 end
 package.files = { matchfiles("SocketW/src/*.cxx") }
 package.objdir = "SocketW/obj"

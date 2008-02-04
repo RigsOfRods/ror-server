@@ -187,7 +187,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 			clients_mutex.unlock();
 			logmsgf(LOG_DEBUG,"Dupe nick found: '%s' rejecting!", user->username); //a dupe, kill it!
 			char *msg = "Duplicate name, please choose another one!";
-			Messaging::sendmessage(sock, MSG2_BANNED, 0, strlen(msg), msg); //lack of proper protocol msg
+			Messaging::sendmessage(sock, MSG2_BANNED, 0, (unsigned int)strlen(msg), msg); //lack of proper protocol msg
 			return;
 		}
 		// an open spot if found, store it's position
@@ -373,7 +373,7 @@ void Sequencer::notifyAllVehicles(int uid)
 			strcpy(message, clients[i].vehicle_name);
 			strcpy(message+strlen(clients[i].vehicle_name)+1, clients[i].nickname);
 			clients[pos].broadcaster->queueMessage(clients[i].uid, MSG2_USE_VEHICLE,
-					message, (strlen(clients[i].vehicle_name)+strlen(clients[i].nickname))+2);
+					message, (unsigned int)(strlen(clients[i].vehicle_name)+strlen(clients[i].nickname))+2);
 		}
 		// not possible to have flow enabled but not have a truck... disconnect 
 		if ( !strlen(clients[i].vehicle_name) && clients[i].flow )
@@ -437,7 +437,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 						char *error = "cannot kick free or busy client";
 						Messaging::sendmessage(clients[pos].sock,
 								MSG2_RCON_COMMAND_FAILED, 0,
-								strlen(error), error);
+								(unsigned int)strlen(error), error);
 					} else if(clients[player].status == USED)
 					{
 						logmsgf(LOG_WARN, "user %d kicked by user %d via rcmd",
@@ -448,7 +448,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 						serverSay(std::string(tmp));
 						Messaging::sendmessage(clients[pos].sock,
 						        MSG2_RCON_COMMAND_SUCCESS, 0,
-						        strlen(tmp), tmp);
+						        (unsigned int)strlen(tmp), tmp);
 						disconnect(clients[player].uid, "kicked");
 					}
 				} else 

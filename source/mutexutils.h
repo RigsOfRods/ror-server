@@ -38,32 +38,32 @@ public:
 	~Mutex()
 	{
 		pthread_mutex_destroy(&m);
-		logmsgf(LOG_VVERBOSE,"Mutex: [%x] was destroyed", &m);
+		logmsgf(LOG_DEBUG, "Mutex: [%x] was destroyed", &m);
 		
 	}
  
-    void lock()
+	void lock()
 	{
-    	pthread_mutex_lock(&m); 
+		pthread_mutex_lock(&m); 
 		// removed due to perfermance issues
 		//logmsgf(LOG_VVERBOSE,"Mutex: [%x] was locked", &m);
 	}
  
-    void unlock()
+	void unlock()
 	{
-    	pthread_mutex_unlock(&m);
+		pthread_mutex_unlock(&m);
 		// removed due to perfermance issues
-    	//logmsgf(LOG_VVERBOSE,"Mutex: [%x] was unlocked", &m);
-    }
+		//logmsgf(LOG_VVERBOSE,"Mutex: [%x] was unlocked", &m);
+	}
  
-    void wait(Condition &c)
+	void wait(Condition &c)
 	{
-    	logmsgf(LOG_VVERBOSE, "Mutex: [%x] is waiting for condition: [%x]", &m, &c);
-    	pthread_cond_wait(&(c.cond), &m);
-    	logmsgf(LOG_VVERBOSE, "Condition: [%x] has been met, Mutex: [%x] is free", &c, &m);
-    }
+		logmsgf(LOG_DEBUG, "Mutex: [%x] is waiting for condition: [%x]", &m, &c);
+		pthread_cond_wait(&(c.cond), &m);
+		logmsgf(LOG_DEBUG, "Condition: [%x] has been met, Mutex: [%x] is free", &c, &m);
+	}
 private:
-    pthread_mutex_t m;
+	pthread_mutex_t m;
 };
 
 

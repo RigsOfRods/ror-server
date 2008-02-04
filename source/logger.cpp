@@ -6,7 +6,6 @@
 #include <cstring>
 #include <cstdio>
 #include <cstdarg>
-#include <iostream>
 
 
 // shamelessly taken from:
@@ -43,7 +42,8 @@ void logmsgf(const LogLevel& level, const char* format, ...)
 // public:
 Logger::~Logger()
 {
-    file.close();
+    if(file)
+		fclose(file);
 }
 
 void Logger::log(const LogLevel& level, const char* format, ...)
@@ -60,52 +60,28 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 {
 	time_t lotime = time(NULL);
 	char timestr[50];
+	memset(timestr, 0, 50);
 	
 #ifndef __GNUC__ 
 	ctime_s(timestr, 50, &lotime);
 #else
 	ctime_r(&lotime, timestr);
 #endif
-	
-	// redundant call.... strlen determins the length of the string by
-	//	finding the null character
-	//timestr[strlen(timestr)-1]=0;
+	// this is not redundant as we remove the trailing \n --thomas
+	timestr[strlen(timestr)-1]=0;
 
-	if( usegui )
-	{
-#ifdef NCURSES
-	    // calls to sequencer do not below in the logger
-		WINDOW *win_log = SEQUENCER.getLogWindow();
-		if (level>=loglevel)
-		{
-			wprintw(win_log, "%s: ", timestr);
- 			va_list args;
- 			va_start(args, format);
-			vw_printw(win_log, format, args);
- 			va_end(args);
-			wprintw(win_log, "\n");
-			fflush(stdout);
-			wrefresh(win_log);
-		}
-#endif
-	}
-	else if (level >= log_level)
-		std::cout << timestr << ": " << msg << std::endl;
+	if (level >= log_level)
+		printf("%s|%5s|%s\n", timestr, loglevelname[(int)level], msg.c_str());
 
-	if(!file.good())
-		return;
-	
-	file << timestr << ": " << msg << std::endl;
-}
-
-void Logger::setGUIMode(const bool& gui)
-{
-	usegui = gui;
+	if(file)
+		fprintf(file, "%s|%5s| %s\n", timestr, loglevelname[(int)level], msg.c_str());
 }
 
 void Logger::setOutputFile(const std::string& filename)
 {
-	file.open( filename.c_str(), std::ios::app & std::ios::out );
+	if(file)
+		fclose(file);
+	file = fopen(filename.c_str(), "a");
 }
 
 void Logger::setLogLevel(const LogLevel& level)
@@ -116,10 +92,11 @@ void Logger::setLogLevel(const LogLevel& level)
 // private:
 Logger::Logger()
 {
-	setOutputFile( "server.log" );
+	setOutputFile("server.log");
 }
 
 Logger Logger::theLog;
 bool Logger::usegui = false;
 LogLevel Logger::log_level = LOG_WARN;
-std::fstream Logger::file;
+FILE *Logger::file = 0;
+char *Logger::loglevelname[5]= {"DEBUG", "VERBO", "INFO", "WARN", "ERROR"};

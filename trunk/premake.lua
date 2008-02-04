@@ -15,10 +15,11 @@ end
 
 package = newpackage()
 package.name = "SocketW"
-package.kind = "lib"
+package.kind = "dll"
 package.language = "c++"
 if windows then
 	package.defines = { "__WIN32__", "WIN32", "_DEBUG", "_WINDOWS", "_USRDLL", "MYSOCKETW_EXPORTS"}
+	package.links = { "ws2_32" }
 end
 package.files = { matchfiles("SocketW/src/*.cxx") }
 package.objdir = "SocketW/obj"
@@ -35,7 +36,7 @@ if windows then
 	package.includepaths = { "SocketW/src/", "win32_pthread", "PDCurses-3.3"}
 	package.libpaths = { "win32_pthread"}
 	package.defines = { "__WIN32__", "_CRT_SECURE_NO_WARNINGS" }
-	package.links = { "kernel32", "wsock32", "SocketW", "pthreadVC2", "WSOCK32", "ws2_32", "PDCurses"}
+	package.links = { "kernel32", "wsock32", "SocketW", "pthreadVC2", "WSOCK32", "PDCurses"}
 else
 	package.includepaths = { "SocketW/src/", "PDCurses-3.3"}
 	package.defines = {"NCURSES"}

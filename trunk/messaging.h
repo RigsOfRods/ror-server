@@ -23,6 +23,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h"
 #include "logger.h"
 
+#ifdef __WIN32__
+#include <time.h>
+#endif
 
 //TODO: does this even need to be a class? couldn't it be done just as well
 //	using two functions outside of a class? 

@@ -91,13 +91,13 @@ void Listener::threadstart()
 			
 			// send client the which version of rornet the server is running
 			logmsgf(LOG_DEBUG,"Listener sending version");
-			if (Messaging::sendmessage(ts, MSG2_VERSION, 0, strlen(RORNET_VERSION), RORNET_VERSION))
+			if (Messaging::sendmessage(ts, MSG2_VERSION, 0, (unsigned int)strlen(RORNET_VERSION), RORNET_VERSION))
 				throw std::runtime_error("ERROR Listener: sending version");
 			
 			logmsgf(LOG_DEBUG,"Listener sending terrain");
 			//send the terrain information back
 			if (Messaging::sendmessage( ts, MSG2_TERRAIN_RESP, 0,
-					strlen( SEQUENCER.getTerrainName()),
+					(unsigned int)strlen( SEQUENCER.getTerrainName()),
 					SEQUENCER.getTerrainName()))
 				throw std::runtime_error("ERROR Listener: sending terrain");
 	

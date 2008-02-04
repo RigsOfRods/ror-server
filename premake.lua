@@ -11,7 +11,7 @@ if windows then
 else
 	package.files = { matchfiles("PDCurses-3.3/*.c") }
 end
-
+package.objdir = "PDCurses-3.3/obj"
 
 package = newpackage()
 package.name = "SocketW"
@@ -29,8 +29,8 @@ package = newpackage()
 package.name = "rorserver"
 package.kind = "exe"
 package.language = "c++"
-package.files = { matchfiles("*.cpp"), matchfiles("*.c") }
-package.objdir = "obj"
+package.files = { matchfiles("source/*.cpp"), matchfiles("source/*.c") }
+package.objdir = "source/obj"
 
 if windows then
 	package.includepaths = { "SocketW/src/", "win32_pthread", "PDCurses-3.3"}

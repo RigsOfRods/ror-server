@@ -99,7 +99,7 @@ void Receiver::threadstart()
 	SEQUENCER.notifyAllVehicles(id);
 	//okay, we are ready, we can receive data frames
 	SEQUENCER.enableFlow(id);
-	logmsgf(LOG_DEBUG,"UID %d is switching to FLOW", id);
+	logmsgf(LOG_VERBOSE,"UID %d is switching to FLOW", id);
 	while (1)
 	{
 		//	hmm for some reason this fails, 

@@ -39,7 +39,8 @@ int servermode=SERVER_AUTO;
 
 
 // option identifiers
-enum {
+enum
+{
 	OPT_HELP,
 	OPT_IP,
 	OPT_PORT,
@@ -53,7 +54,9 @@ enum {
 	OPT_INET,
 	OPT_RCONPASS,
 	OPT_GUI,
-	OPT_UPSPEED};
+	OPT_UPSPEED,
+	OPT_LOGFILENAME
+};
 
 // option array
 CSimpleOpt::SOption cmdline_options[] = {
@@ -69,6 +72,7 @@ CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_INET, ("-inet"), SO_NONE },
 	{ OPT_VERBOSITY, ("-verbosity"), SO_REQ_SEP },
 	{ OPT_LOGVERBOSITY, ("-logverbosity"), SO_REQ_SEP },
+	{ OPT_LOGFILENAME, ("-logfilename"), SO_REQ_SEP },
 	{ OPT_GUI, ("-gui"), SO_NONE },
 	{ OPT_HELP,  ("--help"), SO_NONE },
 	SO_END_OF_OPTIONS
@@ -195,12 +199,6 @@ int main(int argc, char* argv[])
 	int max_clients=16;
 	bool guimode=false;
 
-	if(!sha1check() || sha1_self_test(1))
-	{
-		logmsgf(LOG_ERROR,"sha1 malfunction!");
-		exit(-123);
-	}
-
 	// parse arguments
 	CSimpleOpt args(argc, argv, cmdline_options);
 	while (args.Next()) {
@@ -212,6 +210,8 @@ int main(int argc, char* argv[])
 				strncpy(pubip, args.OptionArg(), 250);
 			} else if (args.OptionId() == OPT_NAME) {
 				strncpy(servname, args.OptionArg(), 250);
+			} else if (args.OptionId() == OPT_LOGFILENAME) {
+				Logger::setOutputFile(std::string(args.OptionArg()));
 			} else if (args.OptionId() == OPT_TERRAIN) {
 				strncpy(terrname, args.OptionArg(), 250);
 			} else if (args.OptionId() == OPT_PASS) {
@@ -243,7 +243,6 @@ int main(int argc, char* argv[])
 					exit(1);
 				}
 				servermode=SERVER_INET;
-				logmsgf(LOG_WARN, "started in Internet mode.");
 			} else if (args.OptionId() == OPT_MAXCLIENTS) {
 				max_clients = atoi(args.OptionArg());
 			}
@@ -252,6 +251,19 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 	}
+
+	if(!sha1check() || sha1_self_test(1))
+	{
+		logmsgf(LOG_ERROR,"sha1 malfunction!");
+		exit(-123);
+	}
+
+	if(servermode==SERVER_AUTO)
+		logmsgf(LOG_INFO, "server started in automatic mode.");
+	else if(servermode==SERVER_LAN)
+		logmsgf(LOG_INFO, "server started in LAN mode.");
+	else if(servermode==SERVER_INET)
+		logmsgf(LOG_INFO, "server started in Internet mode.");
 
 	// some workarounds for missing arguments
 	if(strnlen(pubip,250) == 0 && servermode != SERVER_LAN)
@@ -266,7 +278,7 @@ int main(int argc, char* argv[])
 	if(listenport == 0)
 	{
 		listenport = getRandomPort();
-		logmsgf(LOG_WARN, "using Port %d", listenport);
+		logmsgf(LOG_INFO, "using Port %d", listenport);
 	}
 
 	// now validity checks

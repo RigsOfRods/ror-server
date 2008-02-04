@@ -66,7 +66,7 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source, 
 		int sendnum=socket->send(buffer+rlen, msgsize-rlen, &error);
 		if (sendnum<0 || error!=SWBaseSocket::ok) 
 		{
-			logmsgf(LOG_DEBUG, "send error -1: %s", error.get_error().c_str());
+			logmsgf(LOG_ERROR, "send error -1: %s", error.get_error().c_str());
 			return -1;
 		}
 		rlen+=sendnum;
@@ -98,7 +98,7 @@ int Messaging::receivemessage(SWInetSocket *socket, int *type, unsigned int *sou
 		int recvnum=socket->recv(buffer+hlen, sizeof(header_t)-hlen,&error);
 		if (recvnum<0 || error!=SWBaseSocket::ok)
 		{
-			logmsgf(LOG_DEBUG, "receive error -2: %s", error.get_error().c_str());
+			logmsgf(LOG_ERROR, "receive error -2: %s", error.get_error().c_str());
 			// this also happens when the connection is canceled
 			return -2;
 		}
@@ -117,7 +117,7 @@ int Messaging::receivemessage(SWInetSocket *socket, int *type, unsigned int *sou
 			int recvnum=socket->recv(buffer+hlen, (head.size+sizeof(header_t))-hlen,&error);
 			if (recvnum<0 || error!=SWBaseSocket::ok)
 			{
-				logmsgf(LOG_DEBUG, "receive error -1: %s", error.get_error().c_str());
+				logmsgf(LOG_ERROR, "receive error -1: %s", error.get_error().c_str());
 				return -1;
 			}
 			hlen+=recvnum;

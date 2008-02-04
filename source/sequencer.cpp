@@ -570,7 +570,7 @@ void Sequencer::printStats()
 		int upminutes = (timediff-(uphours*60*60))/60;
 		logmsgf(LOG_INFO, "- traffic statistics (uptime: %d hours, %d minutes):", uphours, upminutes);
 		logmsgf(LOG_INFO, "- total: incoming: %0.2fMB , outgoing: %0.2fMB", Messaging::getBandwitdthIncoming()/1024/1024, Messaging::getBandwidthOutgoing()/1024/1024);
-		logmsgf(LOG_WARN, "- rate (last minute): incoming: %0.1fkB/s , outgoing: %0.1fkB/s", Messaging::getBandwitdthIncomingRate()/1024, Messaging::getBandwidthOutgoingRate()/1024);
+		logmsgf(LOG_INFO, "- rate (last minute): incoming: %0.1fkB/s , outgoing: %0.1fkB/s", Messaging::getBandwitdthIncomingRate()/1024, Messaging::getBandwidthOutgoingRate()/1024);
 	}
 }
 // used to access the clients from the array rather than using the array pos it's self.

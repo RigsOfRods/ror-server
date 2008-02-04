@@ -229,15 +229,15 @@ int main(int argc, char* argv[])
 				guimode=true;
 			} else if (args.OptionId() == OPT_DEBUG) {
 				debugmode=true;
-				loglevel=LOG_DEBUG;
+				Logger::setLogLevel( LOG_DEBUG );
 				logmsgf(LOG_WARN, "== DEBUG MODE ==");
 			} else if (args.OptionId() == OPT_VERBOSE) {
 				debugmode=true;
-				loglevel=LOG_VERBOSE;
+				Logger::setLogLevel( LOG_VERBOSE );
 				logmsgf(LOG_WARN, "== VERBOSE MODE ==");
 			} else if (args.OptionId() == OPT_VVERBOSE) {
 				debugmode=true;
-				loglevel=LOG_VVERBOSE;
+				Logger::setLogLevel( LOG_VVERBOSE );
 				logmsgf(LOG_WARN, "== VERY VERBOSE MODE ==");
 			} else if (args.OptionId() == OPT_LAN) {
 				if(servermode != SERVER_AUTO)

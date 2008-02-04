@@ -50,7 +50,7 @@ bool Notifier::registerServer()
 	char regurl[1024];
 	sprintf(regurl, "%s/register/?name=%s&description=%s&ip=%s&port=%i&terrainname=%s&maxclients=%i&version=%s&pw=%d&rcon=%d", 
 		REPO_URLPREFIX, server_name, "", public_ip, lport, terrain_name, maxclient, RORNET_VERSION, passprotected, rconenabled);
-	logmsgf(LOG_WARN, "Trying to register at Master Server ... (this can take some seconds as your server is being checked by the Master server)");
+	logmsgf(LOG_INFO, "Trying to register at Master Server ... (this can take some seconds as your server is being checked by the Master server)");
 	if (HTTPGET(regurl) < 0)
 		return false;
 
@@ -66,7 +66,7 @@ bool Notifier::registerServer()
 		logmsgf(LOG_DEBUG, "got that as registration response: %s", httpresp);
 		strncpy(challenge, httpresp+4, 40);
 		challenge[40]=0;
-		logmsgf(LOG_WARN,"Server is registered at the Master server.");
+		logmsgf(LOG_INFO,"Server is registered at the Master server.");
 		wasregistered=true;
 		return true;
 	}
@@ -109,7 +109,7 @@ void Notifier::loop()
 	bool advertised = registerServer();
 	if (!advertised && servermode == SERVER_AUTO)
 	{
-		logmsgf(LOG_ERROR, "using LAN mode, probably no internet users will be able to join your server!");
+		logmsgf(LOG_WARN, "using LAN mode, probably no internet users will be able to join your server!");
 	}
 	else if (!advertised && servermode == SERVER_INET)
 	{
@@ -165,7 +165,7 @@ int Notifier::HTTPGET(char* URL)
 	{
 		char query[2048];
 		sprintf(query, "GET %s HTTP/1.1\r\nHost: %s\r\n\r\n", URL, REPO_SERVER);
-		//logmsgf(LOG_DEBUG,"Query to Master server: %s", query);
+		logmsgf(LOG_DEBUG,"Query to Master server: %s", query);
 		if (mySocket.sendmsg(query, &error)<0)
 		{
 			logmsgf(LOG_ERROR,"Notifier: could not send request (%s)", error.get_error().c_str());
@@ -182,7 +182,7 @@ int Notifier::HTTPGET(char* URL)
 		char* pt=strstr(httpresp, "\r\n\r\n");
 		pt+=4;
 		strncpy(httpresp, pt, 65536);
-		//logmsgf(LOG_DEBUG,"Response from Master server:'%s'", httpresp);
+		logmsgf(LOG_DEBUG,"Response from Master server:'%s'", httpresp);
 		// disconnect
 		mySocket.disconnect();
 	}

@@ -59,13 +59,13 @@ void Listener::threadstart()
 	listSocket.listen();
 	
 	//await connections
-	logmsgf(LOG_WARN,"Listener ready");
+	logmsgf(LOG_VERBOSE,"Listener ready");
 	while (1)
 	{
-		logmsgf(LOG_DEBUG,"Listener awaiting connections");
+		logmsgf(LOG_VERBOSE,"Listener awaiting connections");
 		SWInetSocket *ts=(SWInetSocket *)listSocket.accept(&error);
 
-		logmsgf(LOG_DEBUG,"Listener got a new connection");
+		logmsgf(LOG_VERBOSE,"Listener got a new connection");
 		
 		if (error!=SWBaseSocket::ok) 
 		{
@@ -120,7 +120,7 @@ void Listener::threadstart()
 			//correct a bit the client name (trucate, validate)
 			if (len>sizeof(user_credentials_t))
 				continue;
-			logmsgf(LOG_DEBUG,"Listener creating a new client...");
+			logmsgf(LOG_INFO,"Listener creating a new client...");
 			
 			user_credentials_t *user = (user_credentials_t *)buffer;
 			if(SEQUENCER.isPasswordProtected())

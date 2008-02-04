@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "sha1_util.h"
 
 #include <stdexcept>
+#include <sstream>
 
 //#define REFLECT_DEBUG 
 
@@ -416,7 +417,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	else if (type==MSG2_DELETE)
 	{
 		logmsgf(LOG_WARN, "user %d disconnects on request", pos);
-		disconnect(pos, "disconnected on request");
+		disconnect(clients[pos].uid, "disconnected on request");
 	}
 	else if (type==MSG2_RCON_COMMAND)
 	{
@@ -581,6 +582,8 @@ unsigned short Sequencer::getPosfromUid(const unsigned int& uid)
         if(clients[i].uid == uid)
             return i;
     }
-    throw std::runtime_error("user id not found");
+    std::stringstream error_msg;
+    error_msg << "could not find user id: " << uid;
+    throw std::runtime_error(error_msg.str() );
 }
 

@@ -155,7 +155,7 @@ void Notifier::loop()
 	unregisterServer();
 }
 
-int Notifier::HTTPGET(char* URL)
+int Notifier::HTTPGET(const char* URL)
 {
 	int res=0;
 	SWBaseSocket::SWBaseError error;
@@ -194,7 +194,7 @@ int Notifier::HTTPGET(char* URL)
 	return res;
 }
 
-int Notifier::HTTPPOST(char* URL, char* data)
+int Notifier::HTTPPOST(const char* URL, const char* data)
 {
 	int res=0;
 	SWBaseSocket::SWBaseError error;

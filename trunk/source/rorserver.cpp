@@ -274,7 +274,7 @@ int main(int argc, char* argv[])
 		if(strnlen(pubip,250) == 0)
 			logmsgf(LOG_ERROR, "could not get public IP automatically!");
 		else
-			logmsgf(LOG_ERROR, "got public IP automatically: '%s'", pubip);
+			logmsgf(LOG_INFO, "got public IP automatically: '%s'", pubip);
 
 	}
 	if(listenport == 0)

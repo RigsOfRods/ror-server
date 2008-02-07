@@ -37,6 +37,7 @@ Sequencer* Sequencer::mInstance = NULL;
 
 /// retreives the instance of the Sequencer
 Sequencer& Sequencer::Instance() {
+    STACKLOG;
 	if(!mInstance) 
 		mInstance = new Sequencer;
 	return (*mInstance);
@@ -55,6 +56,7 @@ Sequencer::~Sequencer()
  */ 
 void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* terrname, int listenport, int smode, char *pass, char *rconpass, bool _guimode)
 {
+    STACKLOG;
 	guimode = _guimode;
 	strncpy(terrainName, terrname, 250);
 	isSandbox = !strcmp(terrname, "any");
@@ -138,6 +140,7 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
  */
 void Sequencer::cleanUp()
 {
+    STACKLOG;
 	if(notifier) delete notifier;
 	for (int i=0; i<maxclients && &clients[i]; i++) 
 	{
@@ -166,6 +169,7 @@ void Sequencer::cleanUp()
 
 void Sequencer::notifyRoutine()
 {
+    STACKLOG;
 	//we call the notify loop
 	notifier->loop();
 }
@@ -173,6 +177,7 @@ void Sequencer::notifyRoutine()
 //this is called by the Listener thread
 void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 {
+    STACKLOG;
 	//we have a confirmed client that wants to play
 	//try to find a place for him
 	clients_mutex.lock();
@@ -226,7 +231,6 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	clients[pos].uid=fuid;
 	fuid++;
 	clients[pos].sock=sock;
-	 
 	clients[pos].receiver->reset(clients[pos].uid, sock); //this won't interlock
 	clients[pos].broadcaster->reset(clients[pos].uid, sock); //this won't interlock
 	clients_mutex.unlock();
@@ -239,6 +243,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 //this is called from the hearbeat notifier thread
 int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 {
+    STACKLOG;
 	SWBaseSocket::SWBaseError error;
 	MutexLocker scoped_lock(clients_mutex);
 	int clientnum =0;
@@ -266,6 +271,7 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 
 int Sequencer::getNumClients()
 {
+    STACKLOG;
 	int count=0;
 	MutexLocker scoped_lock(clients_mutex);
 	for (int i=0; i<maxclients; i++) if (clients[i].status!=FREE) count++;
@@ -274,6 +280,7 @@ int Sequencer::getNumClients()
 
 void Sequencer::killerthreadstart()
 {
+    STACKLOG;
 	logmsgf(LOG_DEBUG,"Killer thread ready");
 	while (1)
 	{
@@ -329,6 +336,7 @@ void Sequencer::killerthreadstart()
 
 void Sequencer::disconnect(int uid, char* errormsg)
 {
+    STACKLOG;
     unsigned short pos = getPosfromUid(uid);
 	//this routine is a potential trouble maker as it can be called from many thread contexts
 	//so we use a killer thread
@@ -355,6 +363,7 @@ void Sequencer::disconnect(int uid, char* errormsg)
 //this is called from the listener thread initial handshake
 void Sequencer::enableFlow(int uid)
 {
+    STACKLOG;
     unsigned short pos = getPosfromUid(uid);
 	MutexLocker scoped_lock(clients_mutex);
 	clients[pos].flow=true;
@@ -363,6 +372,7 @@ void Sequencer::enableFlow(int uid)
 //this is called from the listener thread initial handshake
 void Sequencer::notifyAllVehicles(int uid)
 {
+    STACKLOG;
     unsigned short pos = getPosfromUid(uid);
 	MutexLocker scoped_lock(clients_mutex);
 	for (int i=0; i<maxclients; i++)
@@ -386,6 +396,7 @@ void Sequencer::notifyAllVehicles(int uid)
 
 void Sequencer::serverSay(std::string msg, int notto, int type)
 {
+    STACKLOG;
 	if(type==0)
 		msg = std::string("^1 SERVER: ^9") + msg;
 	//pthread_mutex_lock(&clients_mutex);
@@ -529,6 +540,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 
 void Sequencer::printStats()
 {
+    STACKLOG;
 	MutexLocker scoped_lock(clients_mutex);
 	SWBaseSocket::SWBaseError error;
 	if(guimode)
@@ -576,6 +588,7 @@ void Sequencer::printStats()
 // used to access the clients from the array rather than using the array pos it's self.
 unsigned short Sequencer::getPosfromUid(const unsigned int& uid)
 {
+    STACKLOG;
     for (unsigned short i = 0; i < maxclients; i++)
     {
         if(clients[i].uid == uid)

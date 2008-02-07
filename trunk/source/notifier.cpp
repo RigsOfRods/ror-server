@@ -25,6 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Notifier::Notifier(char* pubip, int port, int max_client, char* servname, char* terrname, bool pprotected, int smode, bool _rconenabled) : exit(false)
 {
+    STACKLOG;
 	lport=port;
 	maxclient=max_client;
 	server_name=servname;
@@ -39,6 +40,7 @@ Notifier::Notifier(char* pubip, int port, int max_client, char* servname, char* 
 
 Notifier::~Notifier(void)
 {
+    STACKLOG;
 	exit = true;
 }
 
@@ -47,6 +49,7 @@ Notifier::~Notifier(void)
  */
 bool Notifier::registerServer()
 {
+    STACKLOG;
 	char regurl[1024];
 	sprintf(regurl, "%s/register/?name=%s&description=%s&ip=%s&port=%i&terrainname=%s&maxclients=%i&version=%s&pw=%d&rcon=%d", 
 		REPO_URLPREFIX, server_name, "", public_ip, lport, terrain_name, maxclient, RORNET_VERSION, passprotected, rconenabled);
@@ -74,6 +77,7 @@ bool Notifier::registerServer()
 
 bool Notifier::unregisterServer()
 {
+    STACKLOG;
 	if(!wasregistered)
 		return false;
 	char unregurl[1024];
@@ -89,6 +93,7 @@ bool Notifier::unregisterServer()
 
 bool Notifier::sendHearbeat()
 {
+    STACKLOG;
 	char hearbeaturl[1024] = "";
 	char hearbeatdata[16384] = "";
 	sprintf(hearbeaturl, "%s/heartbeat/", REPO_URLPREFIX);
@@ -106,6 +111,7 @@ bool Notifier::sendHearbeat()
 
 void Notifier::loop()
 {
+    STACKLOG;
 	bool advertised = registerServer();
 	if (!advertised && servermode == SERVER_AUTO)
 	{
@@ -157,6 +163,7 @@ void Notifier::loop()
 
 int Notifier::HTTPGET(const char* URL)
 {
+    STACKLOG;
 	int res=0;
 	SWBaseSocket::SWBaseError error;
 	SWInetSocket mySocket;
@@ -196,6 +203,7 @@ int Notifier::HTTPGET(const char* URL)
 
 int Notifier::HTTPPOST(const char* URL, const char* data)
 {
+    STACKLOG;
 	int res=0;
 	SWBaseSocket::SWBaseError error;
 	SWInetSocket mySocket;

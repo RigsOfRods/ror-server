@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 void *s_lithreadstart(void* vid)
 {
+    STACKLOG;
 	((Receiver*)vid)->threadstart();
 	return NULL;
 }
@@ -27,6 +28,7 @@ void *s_lithreadstart(void* vid)
 
 Receiver::Receiver()
 {
+    STACKLOG;
 	id=0;
 	sock=0;
 	alive=false;
@@ -34,11 +36,13 @@ Receiver::Receiver()
 
 Receiver::~Receiver(void)
 {
+    STACKLOG;
 	stop();
 }
 
 void Receiver::reset(int pos, SWInetSocket *socky)
 {
+    STACKLOG;
 	if (alive)
 	{
 		logmsgf(LOG_ERROR,"Whoa, receiver is still alive!");
@@ -53,6 +57,7 @@ void Receiver::reset(int pos, SWInetSocket *socky)
 
 void Receiver::stop()
 {
+    STACKLOG;
 	//pthread_cancel(thread);
 	//pthread_join(thread, NULL);
 	alive=false;
@@ -60,6 +65,7 @@ void Receiver::stop()
 
 void Receiver::threadstart()
 {
+    STACKLOG;
 	logmsgf(LOG_DEBUG,"Receive thread %d started", id);
 	//get the vehicle description
 	int type;

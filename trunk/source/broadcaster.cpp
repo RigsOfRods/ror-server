@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 void *s_brthreadstart(void* vid)
 {
+    STACKLOG;
 	((Broadcaster*)vid)->threadstart();
 	return NULL;
 }
@@ -27,6 +28,7 @@ void *s_brthreadstart(void* vid)
 
 Broadcaster::Broadcaster()
 {
+    STACKLOG;
 	pthread_mutex_init(&queue_mutex, NULL);
 	pthread_cond_init(&queue_cv, NULL);
 	queue_start=0;
@@ -39,6 +41,7 @@ Broadcaster::Broadcaster()
 
 Broadcaster::~Broadcaster(void)
 {
+    STACKLOG;
 	stop();
 	logmsgf(LOG_DEBUG,"Cond destroy");
 	pthread_cond_destroy(&queue_cv); //this can block in certains situations!
@@ -49,6 +52,7 @@ Broadcaster::~Broadcaster(void)
 
 void Broadcaster::reset(int pos, SWInetSocket *socky)
 {
+    STACKLOG;
 	pthread_mutex_lock(&queue_mutex);
 	if (alive)
 	{
@@ -69,6 +73,7 @@ void Broadcaster::reset(int pos, SWInetSocket *socky)
 
 void Broadcaster::stop()
 {
+    STACKLOG;
 	logmsgf(LOG_DEBUG,"Broadcaster stop called");
 	finish=true;
 	logmsgf(LOG_DEBUG,"Lock");
@@ -92,6 +97,7 @@ void Broadcaster::stop()
 
 void Broadcaster::threadstart()
 {
+    STACKLOG;
 	//printf("Broadcast thread\n");
 	while (!finish)
 	{
@@ -100,18 +106,17 @@ void Broadcaster::threadstart()
 		unsigned int uid;
 		int type;
 		unsigned int datalen;
-		if (finish)
-			pthread_exit(NULL);
+
+        if (finish) 
+        {
+            logmsgf(LOG_DEBUG,"Appropriate finish");
+            pthread_exit(NULL); //crash and burn
+        }
+        
 		//wait for an entry and lock the queue
 		pthread_mutex_lock(&queue_mutex);
-		while (queue_end==queue_start && !finish)
+		while (queue_end==queue_start)
 			pthread_cond_wait(&queue_cv, &queue_mutex);
-		if (finish) 
-		{
-			pthread_mutex_unlock(&queue_mutex);
-			logmsgf(LOG_DEBUG,"Appropriate finish");
-			pthread_exit(NULL); //crash and burn
-		}
 		//pop stuff
 		uid=queue[queue_start].uid;
 		type=queue[queue_start].type;
@@ -141,6 +146,7 @@ void Broadcaster::threadstart()
 //also, this function can be called by threads owning clients_mutex !!!
 void Broadcaster::queueMessage(unsigned int uid, int type, char* data, unsigned int len)
 {
+    STACKLOG;
 	//printf("Queue %i\n", type);
 	//lock the queue
 	pthread_mutex_lock(&queue_mutex);

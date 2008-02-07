@@ -339,11 +339,15 @@ int main(int argc, char* argv[])
 
 	SEQUENCER.initilize(pubip, max_clients, servname, terrname, listenport, servermode, password, rconpassword, guimode);
 
+	// start the main program loop
+    // if we need to communiate to the master user the notifier routine 
 	if(servermode == SERVER_INET || servermode == SERVER_AUTO)
 	{
 		//the main thread is used by the notifier
-		SEQUENCER.notifyRoutine(); //this should not return
+	    //this should not return untill the server shuts down
+		SEQUENCER.notifyRoutine(); 
 	}
+	// if not just idle... forever 
 	else if(servermode == SERVER_LAN)
 	{
 		//or by some stupid sleep method in LAN mode
@@ -358,6 +362,7 @@ int main(int argc, char* argv[])
 	}
 
 	// delete all (needed in here, if not shutdown due to signal)
+	// stick in destructor perhaps? 
 	SEQUENCER.cleanUp();
 	return 0;
 }

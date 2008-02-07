@@ -30,12 +30,10 @@ std::string format_arg_list(const char *fmt, va_list args)
 
 void logmsgf(const LogLevel& level, const char* format, ...)
 {
-	va_list args;
-	va_start(args, format);
-	std::string s = format_arg_list(format, args);
-	va_end(args);
-    
-	Logger::log(level, s);
+    va_list args;
+    va_start(args, format);
+    Logger::log(level, format, args);
+    va_end(args);
 }
 
 
@@ -46,14 +44,18 @@ Logger::~Logger()
 		fclose(file);
 }
 
+void Logger::log(const LogLevel& level, const char* format, va_list args)
+{
+    std::string s = format_arg_list(format, args);
+    Logger::log(level, s);   
+}
+
 void Logger::log(const LogLevel& level, const char* format, ...)
 {
 	va_list args;
 	va_start(args, format);
-	std::string s = format_arg_list(format, args);
+    Logger::log(level, format, args);
 	va_end(args);
-    
-	Logger::log(level, s);
 }
 
 void Logger::log(const LogLevel& level, const std::string& msg)
@@ -67,7 +69,7 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 #else
 	ctime_r(&lotime, timestr);
 #endif
-	// this is not redundant as we remove the trailing \n --thomas
+	// remove trailing new line
 	timestr[strlen(timestr)-1]=0;
 
 	if (level >= log_level[LOGTYPE_DISPLAY])
@@ -99,3 +101,27 @@ Logger Logger::theLog;
 FILE *Logger::file = 0;
 LogLevel Logger::log_level[2] = {LOG_VERBOSE, LOG_INFO};
 char *Logger::loglevelname[5] = {"DEBUG", "VERBO", "INFO", "WARN", "ERROR"};
+
+
+// SCOPELOG
+
+ScopeLog::ScopeLog(const LogLevel& level, const char* format, ...)
+: level(level)
+{
+    va_list args;
+    va_start(args, format);
+    msg += format_arg_list(format, args);
+    va_end(args);
+    
+    Logger::log(LOG_DEBUG, "STACK|ENTER - %s", msg.c_str());
+}
+ScopeLog::ScopeLog(const LogLevel& level, const std::string& func)
+: msg(func), level(level)
+{
+    Logger::log(LOG_DEBUG, "STACK|ENTER - %s", msg.c_str());
+}
+
+ScopeLog::~ScopeLog()
+{
+    Logger::log(LOG_DEBUG, "STACK|EXIT - %s", msg.c_str());
+}

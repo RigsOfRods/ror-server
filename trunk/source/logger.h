@@ -26,7 +26,8 @@ class Logger
 {
 public:
 	virtual ~Logger();
-	
+
+	static void log(const LogLevel& level, const char* format, va_list args);
 	static void log(const LogLevel& level, const char* format, ...);
 	static void log(const LogLevel& level, const std::string& msg);
 	
@@ -45,20 +46,14 @@ private:
 class ScopeLog
 {
 public:
-	ScopeLog(std::string func)
-	{
-		msg = func;
-		logmsgf(LOG_DEBUG, "%s - %s", "ENTER", msg.c_str());
-	}
-	
-	~ScopeLog()
-	{
-		logmsgf(LOG_DEBUG, "%s - %s", "EXIT", msg.c_str());
-	}
+    ScopeLog(const LogLevel& level, const char* format, ...);
+	ScopeLog(const LogLevel& level, const std::string& func);
+	~ScopeLog();
 private:
 	std::string msg;
+	const LogLevel level;
 };
 
-#define STACKLOG Logger::log( LOG_DEBUG, __PRETTY_FUNCTION__ )
+#define STACKLOG ScopeLog( LOG_DEBUG, __PRETTY_FUNCTION__ )
 
 #endif // LOGGER_H_

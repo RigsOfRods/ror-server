@@ -28,6 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 void *s_klthreadstart(void* vid)
 {
+    STACKLOG;
 	((Sequencer*)vid)->killerthreadstart();
 	return NULL;
 }
@@ -45,10 +46,12 @@ Sequencer& Sequencer::Instance() {
 
 Sequencer::Sequencer() : pwProtected(false), isSandbox(false)
 {
+    STACKLOG;
 }
 
 Sequencer::~Sequencer()
 {
+    STACKLOG;
 }
 
 /**

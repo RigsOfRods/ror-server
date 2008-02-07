@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 void *s_lsthreadstart(void* vid)
 {
+    STACKLOG;
 	((Listener*)vid)->threadstart();
 	return NULL;
 }
@@ -30,6 +31,7 @@ void *s_lsthreadstart(void* vid)
 
 Listener::Listener(int port)
 {
+    STACKLOG;
 	lport=port;
 	//start a listener thread
 	pthread_create(&thread, NULL, s_lsthreadstart, this);
@@ -37,10 +39,12 @@ Listener::Listener(int port)
 
 Listener::~Listener(void)
 {
+    STACKLOG;
 }
 
 void Listener::threadstart()
 {
+    STACKLOG;
 	logmsgf(LOG_DEBUG,"Listerer thread starting");
 	//here we start
 	SWInetSocket listSocket;

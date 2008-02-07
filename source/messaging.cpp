@@ -30,6 +30,7 @@ double Messaging::bandwidthOutgoingRate=0;
 
 void Messaging::updateMinuteStats()
 {
+    STACKLOG;
 	bandwidthIncomingRate = (bandwidthIncoming-bandwidthIncomingLastMinute)/60;
 	bandwidthIncomingLastMinute = bandwidthIncoming;
 	bandwidthOutgoingRate = (bandwidthOutgoing-bandwidthOutgoingLastMinute)/60;
@@ -46,6 +47,7 @@ void Messaging::updateMinuteStats()
  */
 int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source, unsigned int len, char* content)
 {
+    STACKLOG;
 	SWBaseSocket::SWBaseError error;
 	header_t head;
 	memset(&head, 0, sizeof(header_t));
@@ -87,6 +89,7 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source, 
  */
 int Messaging::receivemessage(SWInetSocket *socket, int *type, unsigned int *source, unsigned int *wrotelen, char* content, unsigned int bufferlen)
 {
+    STACKLOG;
 	SWBaseSocket::SWBaseError error;
 	
 	char buffer[MAX_MESSAGE_LENGTH];

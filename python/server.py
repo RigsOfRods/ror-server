@@ -1,3 +1,5 @@
+#!/bin/env python
+# made by thomas in 5 hours - no guarantees ;)
 import sys, struct, logging, threading, SocketServer
 
 SERVERNAME = sys.argv[1]

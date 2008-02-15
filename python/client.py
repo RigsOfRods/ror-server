@@ -159,8 +159,10 @@ class Client(threading.Thread):
 		recordnum = -1
 		run = True
 		stressTest = False
+		playing=False
 		while run:
 			if playbackFile != '':
+				playing=True
 				(packet, sleeptime) = self.getNextRecordedData(record)
 				if not packet is None:
 					self.sendMsg(packet)
@@ -181,26 +183,33 @@ class Client(threading.Thread):
 				packet.time = time.time()
 				record.buffersize = packet.size
 				record.list.append(packet)
-				self.logger.debug('recorded frame %d' % len(record.list))
+				self.logger.debug('recorded frame %d of client %d, buffersize %d' % (len(record.list), packet.source, packet.size))
+			
+			if recordnum>=0 and packet.source == recordnum and packet.command == MSG2_DELETE:
+					fn = self.newRecordname()
+					self.saveRecording(fn, record)
+					self.sendChat("saved recording as %s (client exited)" % os.path.basename(fn))
+					recordnum = -1
+				
 				
 			if packet.command == MSG2_CHAT:
 				print packet.source, recordnum
 				# check for commands
-				if str(packet.data) == "!recordme" and recordnum<0:
+				if str(packet.data) == "!recordme" and recordnum<0 and not playing:
 					record = Recording()
 					recordnum = packet.source
 					record.vehicle = self.oclients[recordnum][0]
 					record.username = self.oclients[recordnum][1]
 					record.terrain = terrain
 					self.sendChat("recording player %d (%s, %s)  ..." % (recordnum, record.vehicle, record.username))
-				elif str(packet.data) == "!recordme" and recordnum>=0:
+				elif str(packet.data) == "!recordme" and recordnum>=0 and not playing:
 					self.sendChat("already recoding, only one recording a time possible")
 				elif str(packet.data) == "!stop" and recordnum>=0 and packet.source == recordnum:
 					fn = self.newRecordname()
 					self.saveRecording(fn, record)
 					self.sendChat("saved recording as %s" % os.path.basename(fn))
 					recordnum = -1
-				elif str(packet.data) == "!records":
+				elif str(packet.data) == "!records" and not playing:
 					recs = self.getAvailableRecordings()
 					if len(recs) == 0:
 						msg = "no recordings available!"
@@ -208,7 +217,7 @@ class Client(threading.Thread):
 					else:
 						msg = "available recordings: " + ', '.join(recs)
 						self.sendChat(msg)
-				elif str(packet.data)[:9] == "!playback":
+				elif str(packet.data)[:9] == "!playback" and not playing:
 					playbackname = str(packet.data)[9:].strip() + ".rec"
 					if self.recordExists(playbackname):
 						playbackFile = playbackname 
@@ -218,7 +227,7 @@ class Client(threading.Thread):
 				elif str(packet.data) == "!rejoin":
 					playbackFile = ''
 					run = False
-				elif str(packet.data) == "!stresstest":
+				elif str(packet.data) == "!stresstest" and not playing:
 					stressTest = not stressTest
 					if stressTest:
 						self.sendChat("stressTest enabled, with buffersize of %d"%buffersize)
@@ -303,7 +312,7 @@ class Client(threading.Thread):
 		
 	def getNextRecordedData(self, record):
 		if len(record.list) == 0:
-			return (None, None)
+			return (None, 0.1)
 		notfound = True
 		pos = record.playbackposition
 		while notfound:
@@ -326,8 +335,12 @@ class Client(threading.Thread):
 		if nextpos < len(record.list):
 			t = nextpacket.time - packet.time
 		
-		if t > 1 or t < 0: 
+		if t > 1: 
 			t = 0.2
+		if t < 0:
+			t = 1
+
+		self.logger.debug("sleep time: %f" % t)
 		packet.source = 0
 		return (packet, t)
 
@@ -365,7 +378,7 @@ class Client(threading.Thread):
 
 		#if not command in [MSG2_VEHICLE_DATA, MSG2_CHAT]:
 		self.logger.debug("RECV| %-16s, source %d, size %d, data-len: %d -- %s" % (commandNames[command], self.uid, size, len(content), note))
-		return DataPacket(command, self.uid, size, content)
+		return DataPacket(command, source, size, content)
 
 if __name__ == '__main__':
 	ip = sys.argv[1]

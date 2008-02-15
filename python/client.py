@@ -74,6 +74,55 @@ class Recording:
 		self.list = []
 		self.starttime = 0
 
+		
+class Playback(threading.Thread):
+	def __init__(self, client, record):
+		self.runcondition=True
+		self.client = client
+		self.record = record
+		threading.Thread.__init__(self)
+		
+	def getNextRecordedData(self, record):
+		if len(record.list) == 0:
+			return (None, 0.1)
+		notfound = True
+		pos = record.playbackposition
+		while notfound:
+			if record.list[pos].command in [MSG2_VEHICLE_DATA, MSG2_CHAT]:
+				notfound=False
+			pos += 1
+			if pos >= len(record.list):
+				pos = 0
+		record.playbackposition = pos
+		#self.logger.debug("played back position %d" % pos)
+		packet = record.list[pos]
+		
+		nextpos = pos+1
+		t = 0.2
+		if nextpos >= len(record.list):
+			nextpos = 0
+			t = 2
+			
+		nextpacket = record.list[nextpos]
+		if nextpos < len(record.list):
+			t = nextpacket.time - packet.time
+		
+		if t > 1: 
+			t = 0.2
+		if t < 0:
+			t = 1
+
+		#self.logger.debug("sleep time: %f" % t)
+		packet.source = 0
+		return (packet, t)
+		
+	def run(self):
+		while self.runcondition:
+			(packet, sleeptime) = self.getNextRecordedData(self.record)
+			if not packet is None:
+				self.client.sendMsg(packet)
+				time.sleep(sleeptime)
+	
 class Client(threading.Thread):
 	uid = 0
 	oclients = {}
@@ -149,8 +198,12 @@ class Client(threading.Thread):
 		self.sendMsg(DataPacket(MSG2_BUFFER_SIZE, 0, len(data), data))
 		
 		#self.sendChat("hi, this is my %d. start!" % self.restartnum)
+		playback = None
 		if playbackFile != '':
 			self.sendChat("playing recording %s ..." % playbackFile)
+			playback = Playback(self, record)
+			playback.start()
+			
 	
 		data = ""
 		for i in range(buffersize):
@@ -159,15 +212,8 @@ class Client(threading.Thread):
 		recordnum = -1
 		run = True
 		stressTest = False
-		playing=False
+		playing=(playbackFile != '')
 		while run:
-			if playbackFile != '':
-				playing=True
-				(packet, sleeptime) = self.getNextRecordedData(record)
-				if not packet is None:
-					self.sendMsg(packet)
-					time.sleep(sleeptime)
-
 			if stressTest:
 				# send random data
 				self.sendMsg(DataPacket(MSG2_VEHICLE_DATA, 0, len(data), data))
@@ -193,7 +239,6 @@ class Client(threading.Thread):
 				
 				
 			if packet.command == MSG2_CHAT:
-				print packet.source, recordnum
 				# check for commands
 				if str(packet.data) == "!recordme" and recordnum<0 and not playing:
 					record = Recording()
@@ -225,6 +270,8 @@ class Client(threading.Thread):
 					else:
 						self.sendChat("recording '%s' does not exist!" % playbackname)
 				elif str(packet.data) == "!rejoin":
+					if not playback is None:
+						playback.join(0)
 					playbackFile = ''
 					run = False
 				elif str(packet.data) == "!stresstest" and not playing:
@@ -310,39 +357,6 @@ class Client(threading.Thread):
 			traceback.print_exc(file=sys.stdout)
 			pass
 		
-	def getNextRecordedData(self, record):
-		if len(record.list) == 0:
-			return (None, 0.1)
-		notfound = True
-		pos = record.playbackposition
-		while notfound:
-			if record.list[pos].command in [MSG2_VEHICLE_DATA, MSG2_CHAT]:
-				notfound=False
-			pos += 1
-			if pos >= len(record.list):
-				pos = 0
-		record.playbackposition = pos
-		self.logger.debug("played back position %d" % pos)
-		packet = record.list[pos]
-		
-		nextpos = pos+1
-		t = 0.2
-		if nextpos >= len(record.list):
-			nextpos = 0
-			t = 2
-			
-		nextpacket = record.list[nextpos]
-		if nextpos < len(record.list):
-			t = nextpacket.time - packet.time
-		
-		if t > 1: 
-			t = 0.2
-		if t < 0:
-			t = 1
-
-		self.logger.debug("sleep time: %f" % t)
-		packet.source = 0
-		return (packet, t)
 
 	def sendMsg(self, packet):
 		self.logger.debug("SEND| %-16s, source %d, destination %d, size %d, data-len: %d" % (commandNames[packet.command], packet.source, self.uid, packet.size, len(str(packet.data))))

@@ -96,7 +96,7 @@ class Client(threading.Thread):
 		username = "ATC_"+str(self.cid)
 		password = ""
 		uniqueid = "1337"
-		buffersize = 50
+		buffersize = random.randint(50, 2000)
 		
 		data = struct.pack('20s40s40s', username, password, uniqueid)
 		self.sendMsg(DataPacket(MSG2_USER_CREDENTIALS, 0, len(data), data))
@@ -117,7 +117,7 @@ class Client(threading.Thread):
 			data += random.choice(string.letters + string.digits)
 
 		counter = 0
-		counter_max = random.randint(20, 50)
+		counter_max = random.randint(200, 500)
 		run = True
 		while run:
 			#self.logger.debug('sending truck data %d' % (counter))
@@ -182,8 +182,7 @@ class Client(threading.Thread):
 if __name__ == '__main__':
 	ip = sys.argv[1]
 	port = int(sys.argv[2])
-	
-	num = 50
+	num = int(sys.argv[3])
 	threads = []
 	for i in range(num):
 		threads.append(Client(ip, port, i))

@@ -64,10 +64,11 @@ class DataPacket:
 class Client(threading.Thread):
 	uid = 0
 	
-	def __init__(self, ip, port, cid):
+	def __init__(self, ip, port, cid, restartnum):
 		self.ip = ip
 		self.port = port
 		self.cid = cid
+		self.restartnum = restartnum
 		self.logger = logging.getLogger('client')
 		self.logger.debug('__init__')
 		threading.Thread.__init__(self)
@@ -111,6 +112,10 @@ class Client(threading.Thread):
 		
 		data = struct.pack('I', buffersize)
 		self.sendMsg(DataPacket(MSG2_BUFFER_SIZE, 0, len(data), data))
+	
+	
+		msg = "hi, this is my %d. restart!" % (self.restartnum)
+		self.sendMsg(DataPacket(MSG2_CHAT, 0, len(msg), msg))
 	
 		data = ""
 		for i in range(buffersize):
@@ -184,15 +189,19 @@ if __name__ == '__main__':
 	port = int(sys.argv[2])
 	num = int(sys.argv[3])
 	threads = []
+	restarts = {}
 	for i in range(num):
 		threads.append(Client(ip, port, i))
+		restarts[i] = 0
 	
 	while True:
 		for i in range(num):
 			if not threads[i].isAlive():
+				restarts[i]+=1
 				print "thread %d dead!" % i
-				threads[i] = Client(ip, port, i)
+				threads[i] = Client(ip, port, i, restarts[i])
 				threads[i].start()
+				
 			#else:
 			#	print "thread %d alive!" % i
 		

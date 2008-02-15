@@ -117,10 +117,10 @@ class Client(threading.Thread):
 			data += random.choice(string.letters + string.digits)
 
 		counter = 0
-		counter_max = random.randint(200, 500)
+		counter_max = random.randint(20, 50)
 		run = True
 		while run:
-			#self.logger.debug('sending truck data %d' % (counter))
+			self.logger.debug('sending truck data %d' % (counter))
 			self.sendMsg(DataPacket(MSG2_VEHICLE_DATA, 0, len(data), data))
 			time.sleep(0.2)
 			

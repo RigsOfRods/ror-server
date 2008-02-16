@@ -1,6 +1,6 @@
 #!/bin/env python
 # made by thomas in 5 hours - no guarantees ;)
-import sys, struct, logging, threading, socket, random, time, string, os, os.path, time
+import sys, struct, logging, threading, socket, random, time, string, os, os.path, time, math
 
 logging.basicConfig(level=logging.DEBUG, format='%(name)s: %(message)s')
 
@@ -373,7 +373,7 @@ class Client(threading.Thread):
 	def sendChat(self, msg):
 		maxsize = 50
 		if len(msg) > maxsize:
-			for i in range(0, ceil(float(len(msg)) / float(maxsize))):
+			for i in range(0, math.ceil(float(len(msg)) / float(maxsize))):
 				if i == 0:
 					msga = msg[maxsize*i:maxsize*(i+1)]
 					self.sendMsg(DataPacket(MSG2_CHAT, 0, len(msga), msga))

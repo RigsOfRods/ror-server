@@ -50,6 +50,7 @@ commandNames= {
 RORNET_VERSION = "RoRnet_2.1"
 restartClient = True
 playbackFile = ""
+startUpCommands = []
 
 class DataPacket:
 	source=0
@@ -134,12 +135,64 @@ class Client(threading.Thread):
 		self.restartnum = restartnum
 		self.logger = logging.getLogger('client')
 		self.logger.debug('__init__')
+		self.runCond = True
+		
+		self.recordnum = -1
+		self.record = None
+		
 		threading.Thread.__init__(self)
 
-		
+	def processCommand(self, cmd):
+		global restartClient, playbackFile, startUpCommands
+		if cmd == "!recordme" and self.recordnum<0 and not playing:
+			self.record = Recording()
+			self.recordnum = packet.source
+			self.record.vehicle = self.oclients[self.recordnum][0]
+			self.record.username = self.oclients[self.recordnum][1]
+			self.record.terrain = terrain
+			self.sendChat("recording player %d (%s, %s)  ..." % (self.recordnum, self.record.vehicle, self.record.username))
+		elif cmd == "!recordme" and self.recordnum>=0 and not playing:
+			self.sendChat("already recoding, only one recording a time possible")
+		elif cmd == "!stop" and self.recordnum>=0 and packet.source == self.recordnum:
+			fn = self.newRecordname()
+			self.saveRecording(fn, self.record)
+			self.sendChat("saved recording as %s" % os.path.basename(fn))
+			self.recordnum = -1
+		elif cmd == "!records" and not playing:
+			recs = self.getAvailableRecordings()
+			if len(recs) == 0:
+				msg = "no recordings available!"
+				self.sendChat(msg)
+			else:
+				msg = "available recordings: " + ', '.join(recs)
+				self.sendChat(msg)
+		elif cmd[:9] == "!playback" and not playing:
+			playbackname = str(packet.data)[9:].strip() + ".rec"
+			if self.recordExists(playbackname):
+				playbackFile = playbackname 
+				self.runCond=False
+			else:
+				self.sendChat("recording '%s' does not exist!" % playbackname)
+		elif cmd == "!rejoin":
+			if not playback is None:
+				playback.join(0)
+			playbackFile = ''
+			self.runCond = False
+		elif cmd == "!stresstest" and not playing:
+			stressTest = not stressTest
+			if stressTest:
+				self.sendChat("stressTest enabled, with buffersize of %d"%buffersize)
+			else:
+				self.sendChat("stressTest disabled")
+		elif cmd[:4] == "!say":
+			self.sendChat(cmd[4:].strip())
+			
+		elif cmd == "!shutdown":
+			restartClient=False
+			sys.exit(0)
+
 	def run(self):
-		global restartClient, playbackFile
-		record = None
+		global restartClient, playbackFile, startUpCommands
 		self.logger.debug('creating socket')
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.logger.debug('connecting to server')
@@ -160,10 +213,10 @@ class Client(threading.Thread):
 		
 		if playbackFile != '':
 			self.logger.debug('trying to play back %s' % playbackFile)
-			record = self.loadRecording(playbackFile)
-			self.logger.debug('# loaded record: %d' % len(record.list))
-			self.logger.debug('# %s, %s' % (record.vehicle, record.username))
-			if len(record.list) == 0:
+			self.record = self.loadRecording(playbackFile)
+			self.logger.debug('# loaded record: %d' % len(self.record.list))
+			self.logger.debug('# %s, %s' % (self.record.vehicle, self.record.username))
+			if len(self.record.list) == 0:
 				self.logger.debug('nothing to play back!')
 				playbackFile = ''
 				return
@@ -173,13 +226,13 @@ class Client(threading.Thread):
 		
 		username = "ATC_"+str(self.cid)
 		if playbackFile != '':
-			username = "rec_"+str(record.username[:14])
+			username = "rec_"+str(self.record.username[:14])
 			
 		password = ""
 		uniqueid = "1337"
 		buffersize = random.randint(500, 1000)
 		if playbackFile != '':
-			buffersize = record.buffersize
+			buffersize = self.record.buffersize
 		
 		data = struct.pack('20s40s40s', username, password, uniqueid)
 		self.sendMsg(DataPacket(MSG2_USER_CREDENTIALS, 0, len(data), data))
@@ -191,17 +244,26 @@ class Client(threading.Thread):
 		
 		truckname = "spectator"
 		if playbackFile != '':
-			truckname = record.vehicle
+			truckname = self.record.vehicle
 		self.sendMsg(DataPacket(MSG2_USE_VEHICLE, 0, len(truckname), truckname))
 		
 		data = struct.pack('I', buffersize)
 		self.sendMsg(DataPacket(MSG2_BUFFER_SIZE, 0, len(data), data))
 		
+		if len(startUpCommands) > 0:
+			repeat = True
+			while repeat:
+				cmd = startUpCommands.pop(0)
+				self.logger.debug('executing startup command %s' % cmd)
+				self.processCommand(cmd)
+				repeat = (len(startUpCommands) > 0)
+			
+
 		#self.sendChat("hi, this is my %d. start!" % self.restartnum)
 		playback = None
 		if playbackFile != '':
 			self.sendChat("playing recording %s ..." % playbackFile)
-			playback = Playback(self, record)
+			playback = Playback(self, self.record)
 			playback.start()
 			
 	
@@ -209,83 +271,35 @@ class Client(threading.Thread):
 		for i in range(buffersize):
 			data += random.choice(string.letters + string.digits)
 
-		recordnum = -1
-		run = True
-		stressTest = False
+		self.recordnum = -1
 		playing=(playbackFile != '')
-		while run:
-			if stressTest:
-				# send random data
-				self.sendMsg(DataPacket(MSG2_VEHICLE_DATA, 0, len(data), data))
-				time.sleep(0.2)
-
+		while self.runCond:
 			# record the used vehicles
 			if packet.command == MSG2_USE_VEHICLE:
 				data = str(packet.data).split('\0')
 				self.oclients[packet.source] = data
 				
 			packet = self.receiveMsg()
-			if recordnum>=0 and packet.source == recordnum and packet.command == MSG2_VEHICLE_DATA:
+			if self.recordnum>=0 and packet.source == self.recordnum and packet.command == MSG2_VEHICLE_DATA:
 				packet.time = time.time()
-				record.buffersize = packet.size
-				record.list.append(packet)
-				self.logger.debug('recorded frame %d of client %d, buffersize %d' % (len(record.list), packet.source, packet.size))
+				self.record.buffersize = packet.size
+				self.record.list.append(packet)
+				self.logger.debug('recorded frame %d of client %d, buffersize %d' % (len(self.record.list), packet.source, packet.size))
 			
-			if recordnum>=0 and packet.source == recordnum and packet.command == MSG2_DELETE:
-					fn = self.newRecordname()
-					self.saveRecording(fn, record)
-					self.sendChat("saved recording as %s (client exited)" % os.path.basename(fn))
-					recordnum = -1
+			if self.recordnum>=0 and packet.source == self.recordnum and packet.command == MSG2_DELETE:
+				fn = self.newRecordname()
+				self.saveRecording(fn, self.record)
+				self.sendChat("saved recording as %s (client exited)" % os.path.basename(fn))
+				self.recordnum = -1
 				
-				
+			if self.recordnum>=0 and len(self.record.list) > 1000:
+				fn = self.newRecordname()
+				self.saveRecording(fn, self.record)
+				self.sendChat("saved recording as %s (recording limit reached)" % os.path.basename(fn))
+				self.recordnum = -1
+			
 			if packet.command == MSG2_CHAT:
-				# check for commands
-				if str(packet.data) == "!recordme" and recordnum<0 and not playing:
-					record = Recording()
-					recordnum = packet.source
-					record.vehicle = self.oclients[recordnum][0]
-					record.username = self.oclients[recordnum][1]
-					record.terrain = terrain
-					self.sendChat("recording player %d (%s, %s)  ..." % (recordnum, record.vehicle, record.username))
-				elif str(packet.data) == "!recordme" and recordnum>=0 and not playing:
-					self.sendChat("already recoding, only one recording a time possible")
-				elif str(packet.data) == "!stop" and recordnum>=0 and packet.source == recordnum:
-					fn = self.newRecordname()
-					self.saveRecording(fn, record)
-					self.sendChat("saved recording as %s" % os.path.basename(fn))
-					recordnum = -1
-				elif str(packet.data) == "!records" and not playing:
-					recs = self.getAvailableRecordings()
-					if len(recs) == 0:
-						msg = "no recordings available!"
-						self.sendChat(msg)
-					else:
-						msg = "available recordings: " + ', '.join(recs)
-						self.sendChat(msg)
-				elif str(packet.data)[:9] == "!playback" and not playing:
-					playbackname = str(packet.data)[9:].strip() + ".rec"
-					if self.recordExists(playbackname):
-						playbackFile = playbackname 
-						run=False
-					else:
-						self.sendChat("recording '%s' does not exist!" % playbackname)
-				elif str(packet.data) == "!rejoin":
-					if not playback is None:
-						playback.join(0)
-					playbackFile = ''
-					run = False
-				elif str(packet.data) == "!stresstest" and not playing:
-					stressTest = not stressTest
-					if stressTest:
-						self.sendChat("stressTest enabled, with buffersize of %d"%buffersize)
-					else:
-						self.sendChat("stressTest disabled")
-					
-				elif str(packet.data) == "!shutdown":
-					restartClient=False
-					sys.exit(0)
-				#elif str(packet.data) == "!lt":
-				#	self.sendChat("stressTest disabledsgjasdkf haiskdgh sdkf hsadi,f hkgsb kfghsadbi fkgb 43iytrgfkdyiukw3qyuh458ir743 yetryg8i 4i35 47 iweryfhiwreku stdygtfuyker sdtyhf ni43qukweyth f7i4uk3w ythilifreukyhsdufyfoi ydf9lul hsdf")
+				self.processCommand(str(packet.data))
 				
 		
 		self.logger.debug('closing socket')
@@ -398,6 +412,9 @@ if __name__ == '__main__':
 	ip = sys.argv[1]
 	port = int(sys.argv[2])
 	num = int(sys.argv[3])
+	if len(sys.argv) == 5:
+		startUpCommands = sys.argv[4].split(';')
+	
 	threads = []
 	restarts = {}
 	for i in range(num):

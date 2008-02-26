@@ -56,8 +56,8 @@ private:
 
 
 #ifdef __WIN32__
-#define STACKLOG ScopeLog( LOG_DEBUG, __FUNCTION__ )
+#define STACKLOG ScopeLog( LOG_DEBUG, __FUNCTION__ );
 #else
-#define STACKLOG ScopeLog( LOG_DEBUG, __PRETTY_FUNCTION__ )
+#define STACKLOG ScopeLog( LOG_DEBUG, __PRETTY_FUNCTION__ );
 #endif
 #endif // LOGGER_H_

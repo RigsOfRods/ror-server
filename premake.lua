@@ -25,6 +25,11 @@ else
 	package.config["Debug"].defines = { "_DEBUG", "MYSOCKETW_EXPORTS"}
 	package.config["Release"].defines = { "NDEBUG", "MYSOCKETW_EXPORTS"}
 end
+
+package.config["Debug"].target = "SocketW_d"
+package.config["Release"].target = "SocketW"
+
+
 package.files = { matchfiles("SocketW/src/*.cxx") }
 package.objdir = "SocketW/obj"
 

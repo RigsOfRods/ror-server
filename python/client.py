@@ -1,6 +1,6 @@
 #!/bin/env python
 # made by thomas in 5 hours - no guarantees ;)
-import sys, struct, logging, threading, socket, random, time, string, os, os.path, time, math
+import sys, struct, logging, threading, socket, random, time, string, os, os.path, time, math, copy
 
 logging.basicConfig(level=logging.DEBUG, format='%(name)s: %(message)s')
 
@@ -141,7 +141,7 @@ class Client(threading.Thread):
 		self.port = port
 		self.cid = cid
 		self.restartnum = restartnum
-		self.logger = logging.getLogger('client')
+		self.logger = logging.getLogger('client-%02d' % cid)
 		self.logger.debug('__init__')
 		self.runCond = True
 		self.startupCommands = commands
@@ -466,10 +466,11 @@ if __name__ == '__main__':
 	threads = []
 	restarts = {}
 	for i in range(num):
-		threads.append(Client(ip, port, i, 0, startupCommands))
+		threads.append(Client(ip, port, i, 0, copy.copy(startupCommands)))
 		threads[i].start()
 		restarts[i] = 0
 	
+	print "all threads started. starting restart loop"
 	time.sleep(1)
 	
 	while restartClient:
@@ -478,7 +479,7 @@ if __name__ == '__main__':
 			if not threads[i].isAlive():
 				restarts[i]+=1
 				print "thread %d dead, restarting" % i
-				threads[i] = Client(ip, port, i, restarts[i], restartCommands)
+				threads[i] = Client(ip, port, i, restarts[i], copy.copy(restartCommands))
 				threads[i].start()
 				
 			#else:

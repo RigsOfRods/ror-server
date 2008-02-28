@@ -82,10 +82,11 @@ class Recording:
 
 		
 class Playback(threading.Thread):
-	def __init__(self, client, record):
+	def __init__(self, client, record, logger):
 		self.runcondition=True
 		self.client = client
 		self.record = record
+		self.logger = logger
 		threading.Thread.__init__(self)
 		
 	def getNextRecordedData(self, record):
@@ -93,12 +94,21 @@ class Playback(threading.Thread):
 			return (None, 0.1)
 		notfound = True
 		pos = record.playbackposition
-		while notfound:
-			if record.list[pos].command in [MSG2_VEHICLE_DATA, MSG2_CHAT]:
-				notfound=False
+		loops=0
+		pos += 1
+		while True:
+			if record.list[pos].command in [MSG2_VEHICLE_DATA]: # , MSG2_CHAT
+				break
+			else:
+				self.logger.debug("command not suitable, left out: %s"  % commandNames[record.list[pos].command])
 			pos += 1
 			if pos >= len(record.list):
+				loops+=1
 				pos = 0
+			if loops > 2:
+				# would loop forever otherwise
+				self.runCond=False
+				return
 		record.playbackposition = pos
 		#self.logger.debug("played back position %d" % pos)
 		packet = record.list[pos]
@@ -119,6 +129,8 @@ class Playback(threading.Thread):
 			t = 1
 
 		#self.logger.debug("sleep time: %f" % t)
+		self.logger.debug("played back position %d, frame time: %0.4f" % (pos, t))
+
 		packet.source = 0
 		return (packet, t)
 		
@@ -169,6 +181,7 @@ class Client(threading.Thread):
 	
 	def processCommand(self, cmd, packet=None):
 		global restartClient, restartCommands, eventStopThread
+		self.logger.debug("%s / %d" % (cmd, self.mode))
 		if cmd == "!recordme" and self.mode == MODE_NORMAL:
 			self.recordmask = [packet.source]
 			self.recordNow()
@@ -207,7 +220,7 @@ class Client(threading.Thread):
 				# rejoined
 				if self.loadRecord(playbackname + ".rec"):
 					self.sendChat("playing recording %s ..." % playbackname)
-					self.playback = Playback(self, self.record)
+					self.playback = Playback(self, self.record, self.logger)
 					self.connect()
 					self.playback.start()
 		
@@ -366,8 +379,8 @@ class Client(threading.Thread):
 			file.close		
 			self.logger.debug('record loaded with %d frames!' % (len(loaded.list)))
 			return loaded
-		except:
-			pass
+		except Exception, e:
+			self.logger.debug('error: '+str(e))
 			self.logger.debug('error while loading recording')
 		
 	def sendChat(self, msg):
@@ -411,7 +424,6 @@ class Client(threading.Thread):
 			self.logger.debug('sendMsg error: '+str(e))
 			import traceback
 			traceback.print_exc(file=sys.stdout)
-			pass
 		
 
 	def sendMsg(self, packet):
@@ -463,28 +475,40 @@ if __name__ == '__main__':
 	if len(sys.argv) == 5:
 		startupCommands = sys.argv[4].split(';')
 	
-	threads = []
-	restarts = {}
-	for i in range(num):
-		threads.append(Client(ip, port, i, 0, copy.copy(startupCommands)))
-		threads[i].start()
-		restarts[i] = 0
-	
-	print "all threads started. starting restart loop"
-	time.sleep(1)
-	
-	while restartClient:
-		eventStopThread.clear()
+	try:
+		# try for keyboard interrupt
+		threads = []
+		restarts = {}
 		for i in range(num):
-			if not threads[i].isAlive():
-				restarts[i]+=1
-				print "thread %d dead, restarting" % i
-				threads[i] = Client(ip, port, i, restarts[i], copy.copy(restartCommands))
-				threads[i].start()
-				
-			#else:
-			#	print "thread %d alive!" % i
+			threads.append(Client(ip, port, i, 0, copy.copy(startupCommands)))
+			threads[i].start()
+			restarts[i] = 0
+			# start with time inbetween, so you see all trucks ;)
+			time.sleep(0.2)
 
+	
+		print "all threads started. starting restart loop"
+		time.sleep(1)
+	
+		lastrestart = {}
+		while restartClient:
+			eventStopThread.clear()
+			for i in range(num):
+				if not threads[i].isAlive():
+					restarts[i]+=1
+					rcmd = copy.copy(restartCommands)
+					if time.time() - lastrestart[i] < 5:
+						rcmd = ['!connect', '!say i crashed, resetted to normal mode :|']
+					print "thread %d dead, restarting" % i
+					threads[i] = Client(ip, port, i, restarts[i], rcmd)
+					threads[i].start()
+					lastrestart[i] = time.time()
+					
+				#else:
+				#	print "thread %d alive!" % i
+	except KeyboardInterrupt:
+		print "exiting ..."
+		sys.exit(0)
 			
 			
 # old code (to be added):

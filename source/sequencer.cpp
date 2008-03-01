@@ -185,7 +185,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	//try to find a place for him
 	clients_mutex.lock();
 	
-	int pos=0;
+	int pos=-1;
 	for (int i = 0; i < maxclients; i++)
 	{
 	    // validate the requested nick against the slot that is being scanned
@@ -195,23 +195,21 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 			clients_mutex.unlock();
 			logmsgf(LOG_WARN,"Dupe nick found: '%s' rejecting!", user->username); //a dupe, kill it!
 			char *msg = "Duplicate name, please choose another one!";
-			Messaging::sendmessage(sock, MSG2_BANNED, 0, (unsigned int)strlen(msg), msg); //lack of proper protocol msg
-			return;
+			//lack of proper protocol msg
+			Messaging::sendmessage(sock, MSG2_BANNED, 0, strlen(msg), msg);
+			throw std::runtime_error("duplicate nick found");
 		}
 		// an open spot if found, store it's position
-		if (pos < 0 && clients[i].status != FREE)
+		if (pos < 0 && FREE == clients[i].status)
 			pos = i;
 	}
 	
-	// no dupes found, now look for an open position 
-	for (pos=0; pos < maxclients && clients[pos].status != FREE; pos++);
-
-	if (pos==maxclients)
+	if (pos < 0)
 	{
 		logmsgf(LOG_WARN,"join request from '%s' on full server: rejecting!", user->username);
 		clients_mutex.unlock();
 		Messaging::sendmessage(sock, MSG2_FULL, 0, 0, 0);
-		return;
+		throw std::runtime_error("Server is full");
 	}
 	
 	//okay, create the stuff
@@ -238,7 +236,8 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	clients[pos].broadcaster->reset(clients[pos].uid, sock); //this won't interlock
 	clients_mutex.unlock();
 	
-	Messaging::sendmessage(sock, MSG2_WELCOME, clients[pos].uid, 0, 0);
+	if( Messaging::sendmessage(sock, MSG2_WELCOME, clients[pos].uid, 0, 0) )
+		disconnect( clients[pos].uid, "error sending welcome message" );
 	logmsgf(LOG_VERBOSE,"Sequencer: New client created in slot %i", pos);
 	printStats();
 }
@@ -448,9 +447,12 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					        clients[player].status == BUSY)
 					{
 						char *error = "cannot kick free or busy client";
-						Messaging::sendmessage(clients[pos].sock,
-								MSG2_RCON_COMMAND_FAILED, 0,
-								(unsigned int)strlen(error), error);
+						if( Messaging::sendmessage(clients[pos].sock,
+								MSG2_RCON_COMMAND_FAILED, 0, strlen(error),
+								error) )
+						{
+							disconnect( pos, "error sending message to client");
+						}
 					} else if(clients[player].status == USED)
 					{
 						logmsgf(LOG_WARN, "user %d kicked by user %d via rcmd",
@@ -459,15 +461,22 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 						memset(tmp, 0, 255);
 						sprintf(tmp, "player '%s' kicked successfully.", clients[player].nickname);
 						serverSay(std::string(tmp));
-						Messaging::sendmessage(clients[pos].sock,
-						        MSG2_RCON_COMMAND_SUCCESS, 0,
-						        (unsigned int)strlen(tmp), tmp);
+						if( Messaging::sendmessage(clients[pos].sock,
+						        MSG2_RCON_COMMAND_SUCCESS, 0, strlen(tmp), tmp) )
+						{
+							disconnect( pos, "error sending message to client");
+						}
+						
 						disconnect(clients[player].uid, "kicked");
 					}
 				} else 
 				{
 					char *error = "invalid client number";
-					Messaging::sendmessage(clients[pos].sock, MSG2_RCON_COMMAND_FAILED, 0, (unsigned int)strlen(error), error);
+					if( Messaging::sendmessage(clients[pos].sock,
+							MSG2_RCON_COMMAND_FAILED, 0, strlen(error), error) )
+					{
+						disconnect( pos, "error sending message to client");
+					}
 				}
 			}
 		}

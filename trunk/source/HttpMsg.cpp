@@ -5,7 +5,42 @@
 #include <sstream>
 #include <iostream>
 
-HttpMsg::HttpMsg( std::string message )
+HttpMsg::HttpMsg()
+{// do nothing
+}
+
+HttpMsg::HttpMsg( const std::string& message )
+{
+	assign( message );
+}
+
+HttpMsg::~HttpMsg()
+{}
+
+
+HttpMsg& HttpMsg::operator=( const std::string& message )
+{
+	assign( message );
+	return *this;
+}
+
+HttpMsg& HttpMsg::operator=( const char* message )
+{
+	assign( message );
+	return *this;
+}
+
+const std::string& HttpMsg::getBody()
+{
+	return headermap["body"];
+}
+
+bool HttpMsg::isChunked()
+{
+	return "chunked" == headermap["Transfer-Encoding"];
+}
+
+void HttpMsg::assign( const std::string& message )
 {
 	std::size_t locHolder;
 	locHolder = message.find("\r\n\r\n");
@@ -28,6 +63,13 @@ HttpMsg::HttpMsg( std::string message )
 	
 	tmp.clear();
 	locHolder = message.find_first_not_of("\r\n", locHolder);
+	if( std::string::npos == locHolder )
+	{
+		std::string error_msg("Message does not appear to contain a body: \n");
+		error_msg +=message;
+		throw std::runtime_error( error_msg );
+	}
+	
 	strict_tokenize( message.substr( locHolder ), tmp, "\r\n" );
 	if( isChunked() )
 		headermap["body"] = tmp[1];
@@ -46,17 +88,4 @@ HttpMsg::HttpMsg( std::string message )
 				<< (*it).second << std::endl;
 		
 	}
-}
-
-HttpMsg::~HttpMsg()
-{}
-
-const std::string& HttpMsg::getBody()
-{
-	return headermap["body"];
-}
-
-bool HttpMsg::isChunked()
-{
-	return "chunked" == headermap["Transfer-Encoding"];
 }

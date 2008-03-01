@@ -23,13 +23,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "SocketW.h"
 #include "rornet.h"
 #include "sequencer.h"
+#include "HttpMsg.h"
+
+#include "sha1_util.h"
+#include "sha1.h"
 
 #include <stdlib.h>
 #include <iostream>
 #include <csignal>
-#include <memory>
-#include "sha1_util.h"
-#include "sha1.h"
+#include <stdexcept>
+
+
 
 // simpleopt by http://code.jellycan.com/simpleopt/
 // license: MIT
@@ -151,6 +155,8 @@ void getPublicIP(char *pubip)
 	SWBaseSocket::SWBaseError error;
 	SWInetSocket mySocket;
 
+	try
+	{
 	if (mySocket.connect(80, REPO_SERVER, &error))
 	{
 		char query[2048];
@@ -164,22 +170,20 @@ void getPublicIP(char *pubip)
 		else
 			return;
 		logmsgf(LOG_DEBUG, "Response from public IP request :'%s'", tmp);
-		//clean a bit
-		char *start=strstr(tmp, "\r\n\r\n");
-		start+=4;
-		//jump chunked size
-		start=strstr(start, "\r\n");
-		start+=2;
-		char* end=strstr(start, "\r\n");
-
-		int len = (int)(end-start);
-		strncpy(pubip, start, len);
+		
+		HttpMsg msg(tmp);
+		strncpy(pubip, msg.getBody().c_str(), msg.getBody().length());
 		//		printf("Response:'%s'\n", pubip);
+		
 		// disconnect
 		mySocket.disconnect();
 	}
-	else
-		return;
+	
+	}
+	catch( std::runtime_error e )
+	{
+		logmsgf( LOG_ERROR, e.what() );
+	}
 }
 
 int getRandomPort()

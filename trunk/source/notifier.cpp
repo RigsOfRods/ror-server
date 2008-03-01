@@ -19,11 +19,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "SocketW.h"
 #include "notifier.h"
 
+#include <stdexcept>
+
 #ifdef __GNUC__
 #include <unistd.h>
 #endif
 
-Notifier::Notifier(char* pubip, int port, int max_client, char* servname, char* terrname, bool pprotected, int smode, bool _rconenabled) : exit(false)
+
+
+Notifier::Notifier(char* pubip, int port, int max_client, char* servname,
+		char* terrname, bool pprotected, int smode, bool _rconenabled) 
+: exit(false)
 {
     STACKLOG;
 	lport=port;
@@ -51,24 +57,29 @@ bool Notifier::registerServer()
 {
     STACKLOG;
 	char regurl[1024];
-	sprintf(regurl, "%s/register/?name=%s&description=%s&ip=%s&port=%i&terrainname=%s&maxclients=%i&version=%s&pw=%d&rcon=%d", 
-		REPO_URLPREFIX, server_name, "", public_ip, lport, terrain_name, maxclient, RORNET_VERSION, passprotected, rconenabled);
-	logmsgf(LOG_INFO, "Trying to register at Master Server ... (this can take some seconds as your server is being checked by the Master server)");
+	sprintf(regurl, "%s/register/?name=%s&description=%s&ip=%s&port=%i&"
+			"terrainname=%s&maxclients=%i&version=%s&pw=%d&rcon=%d", 
+		REPO_URLPREFIX, server_name, "", public_ip, lport, terrain_name,
+		maxclient, RORNET_VERSION, passprotected, rconenabled);
+	logmsgf(LOG_INFO, "Trying to register at Master Server ... (this can take some "
+			"seconds as your server is being checked by the Master server)");
 	if (HTTPGET(regurl) < 0)
 		return false;
 
-	if(strncmp(httpresp+5, "error", 5) == 0 || strnlen(httpresp, 50) < 40) {
+	std::string body = getResponse().getBody();
+	if(body.find("error") != std::string::npos || body.length() < 40) {
 		// print out the error.
-		logmsgf(LOG_ERROR, "got that as registration response: %s", httpresp);
+		logmsgf(LOG_ERROR, "got that as registration response: %s", body.c_str());
 		logmsgf(LOG_ERROR, "!!! Server is NOT registered at the Master server !!!");
 		wasregistered=false;
 		return false;
 	}
 	else
 	{
-		logmsgf(LOG_DEBUG, "got that as registration response: %s", httpresp);
-		strncpy(challenge, httpresp+4, 40);
-		challenge[40]=0;
+		logmsgf(LOG_DEBUG, "got that as registration response: %s", body.c_str());
+		
+		memset(&challenge, 0, 40);
+		strncpy( challenge, body.c_str(), 40 );
 		logmsgf(LOG_INFO,"Server is registered at the Master server.");
 		wasregistered=true;
 		return true;
@@ -85,10 +96,7 @@ bool Notifier::unregisterServer()
 	if (HTTPGET(unregurl) < 0)
 		return false;
 
-	if(strncmp(httpresp, "2\r\nok", 5) >= 0)
-		return true;
-	else
-		return false;
+	return getResponse().getBody() == "ok";
 }
 
 bool Notifier::sendHearbeat()
@@ -100,13 +108,11 @@ bool Notifier::sendHearbeat()
 	if(SEQUENCER.getHeartbeatData(challenge, hearbeatdata))
 		return false;
 
+	logmsgf(LOG_INFO, "heartbeat data sent to master server: %s", hearbeatdata);
 	if (HTTPPOST(hearbeaturl, hearbeatdata) < 0)
 		return false;
-	// the server gives back "failed" or "ok"
-	if(strncmp(httpresp, "2\r\nok", 5) >= 0)
-		return true;
-	else
-		return false;
+	// the server gives back "failed" or "ok"	
+	return getResponse().getBody() == "ok";
 }
 
 void Notifier::loop()
@@ -185,11 +191,16 @@ int Notifier::HTTPGET(const char* URL)
 			logmsgf(LOG_ERROR,"Notifier: could not get a valid response (%s)", error.get_error().c_str());
 			res=-1;
 		}
-		//clean a bit
-		char* pt=strstr(httpresp, "\r\n\r\n");
-		pt+=4;
-		strncpy(httpresp, pt, 65536);
 		logmsgf(LOG_DEBUG,"Response from Master server:'%s'", httpresp);
+		try
+		{
+			resp = HttpMsg(httpresp);
+		}
+		catch( std::runtime_error e)
+		{
+			logmsgf(LOG_ERROR, e.what() );
+			res = -1;
+		}
 		// disconnect
 		mySocket.disconnect();
 	}
@@ -226,17 +237,26 @@ int Notifier::HTTPPOST(const char* URL, const char* data)
 			res=-1;
 		}
 		int rlen=mySocket.recv(httpresp, 65536, &error);
+		
+		
 		if (rlen>0 && rlen<65535) httpresp[rlen]=0;
 		else
 		{
-			logmsgf(LOG_ERROR,"Notifier: could not get a valid response (%s)", error.get_error().c_str());
+			logmsgf(LOG_ERROR,"Notifier: could not get a valid response (%s)",
+					error.get_error().c_str());
 			res=-1;
 		}
-		//clean a bit
-		char* pt=strstr(httpresp, "\r\n\r\n");
-		pt+=4;
-		strncpy(httpresp, pt, 65536);
 		logmsgf(LOG_DEBUG,"Response from Master server:'%s'", httpresp);
+		try
+		{
+			resp = HttpMsg(httpresp);
+		}
+		catch( std::runtime_error e)
+		{
+			logmsgf(LOG_ERROR, e.what() );
+			res = -1;
+		}
+		
 		// disconnect
 		mySocket.disconnect();
 	}

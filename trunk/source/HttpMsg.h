@@ -7,13 +7,19 @@
 class HttpMsg
 {
 public:
-	HttpMsg( std::string message );
+	HttpMsg();
+	HttpMsg( const std::string& message );
 	virtual ~HttpMsg();
 	
 	const std::string& getBody();
 	bool isChunked();
+
+	HttpMsg& operator=( const std::string& message );
+	HttpMsg& operator=( const char* message );
+	
 private:
 	std::map<std::string, std::string> headermap;
+	void assign( const std::string& message );
 };
 
 #endif /*HTTPMSG_H_*/

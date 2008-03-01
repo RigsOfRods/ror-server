@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "SocketW.h"
 #include "rornet.h"
 #include "sequencer.h"
+#include "HttpMsg.h"
 
 /**
  * The notifier class communicated with the master server, it is called from
@@ -46,6 +47,7 @@ private:
 	bool rconenabled;      //!< check is the remote console is eneabled
 	int servermode;        //!< Internet or LAN mode 
 	int error_count;       //!< ??
+	HttpMsg resp;          //!< holds the latest response fromt he master server 
 
 	bool registerServer(); //!< attempt to register with the master server
 	bool sendHearbeat();   //!< send a heart beat message to the master server
@@ -84,7 +86,7 @@ public:
 	/**
 	 * @return the respond from the last HTTP{GET,POST} method call
 	 */
-	char *getResponse() { return httpresp; };
+	HttpMsg getResponse() { return resp; }
 
 	//! notify the master server that this server is shutting down 
 	bool unregisterServer();

@@ -87,28 +87,28 @@ void handler(int signal)
 {
 	if (signal == SIGINT)
 	{
-		logmsgf(LOG_ERROR,"got interrupt signal, terminating ...");
+		Logger::log(LOG_ERROR,"got interrupt signal, terminating ...");
 	}
 	else if (signal == SIGTERM)
 	{
-		logmsgf(LOG_ERROR,"got termiante signal, terminating ...");
+		Logger::log(LOG_ERROR,"got termiante signal, terminating ...");
 	}
 	else
 	{
-		logmsgf(LOG_ERROR,"got unkown signal: %d", signal);
+		Logger::log(LOG_ERROR,"got unkown signal: %d", signal);
 	}
 
 	if(servermode != SERVER_LAN)
 	{
-		logmsgf(LOG_ERROR,"closing server ... unregistering ... ");
+		Logger::log(LOG_ERROR,"closing server ... unregistering ... ");
 		if(SEQUENCER.notifier)
 			SEQUENCER.notifier->unregisterServer();
-		logmsgf(LOG_ERROR," unregistered.");
+		Logger::log(LOG_ERROR," unregistered.");
 		SEQUENCER.cleanUp();
 	}
 	else if(servermode == SERVER_LAN)
 	{
-		logmsgf(LOG_ERROR,"closing server ... ");
+		Logger::log(LOG_ERROR,"closing server ... ");
 		SEQUENCER.cleanUp();
 	}
 	exit(0);
@@ -161,7 +161,7 @@ void getPublicIP(char *pubip)
 	{
 		char query[2048];
 		sprintf(query, "GET /getpublicip/ HTTP/1.1\r\nHost: %s\r\n\r\n", REPO_SERVER);
-		logmsgf(LOG_DEBUG, "Query to get public IP: %s\n", query);
+		Logger::log(LOG_DEBUG, "Query to get public IP: %s\n", query);
 		if (mySocket.sendmsg(query, &error)<0)
 			return;
 		int rlen=mySocket.recv(tmp, 250, &error);
@@ -169,7 +169,7 @@ void getPublicIP(char *pubip)
 			tmp[rlen]=0;
 		else
 			return;
-		logmsgf(LOG_DEBUG, "Response from public IP request :'%s'", tmp);
+		Logger::log(LOG_DEBUG, "Response from public IP request :'%s'", tmp);
 		
 		HttpMsg msg(tmp);
 		strncpy(pubip, msg.getBody().c_str(), msg.getBody().length());
@@ -182,7 +182,7 @@ void getPublicIP(char *pubip)
 	}
 	catch( std::runtime_error e )
 	{
-		logmsgf( LOG_ERROR, e.what() );
+		Logger::log( LOG_ERROR, e.what() );
 	}
 }
 
@@ -237,15 +237,15 @@ int main(int argc, char* argv[])
 			} else if (args.OptionId() == OPT_LAN) {
 				if(servermode != SERVER_AUTO)
 				{
-					logmsgf(LOG_ERROR, "you cannot use lan mode and internet mode at the same time!");
+					Logger::log(LOG_ERROR, "you cannot use lan mode and internet mode at the same time!");
 					exit(1);
 				}
 				servermode=SERVER_LAN;
-				logmsgf(LOG_WARN, "started in LAN mode.");
+				Logger::log(LOG_WARN, "started in LAN mode.");
 			} else if (args.OptionId() == OPT_INET) {
 				if(servermode != SERVER_AUTO)
 				{
-					logmsgf(LOG_ERROR, "you cannot use lan mode and internet mode at the same time!");
+					Logger::log(LOG_ERROR, "you cannot use lan mode and internet mode at the same time!");
 					exit(1);
 				}
 				servermode=SERVER_INET;
@@ -260,86 +260,86 @@ int main(int argc, char* argv[])
 
 	if(!sha1check() || sha1_self_test(1))
 	{
-		logmsgf(LOG_ERROR,"sha1 malfunction!");
+		Logger::log(LOG_ERROR,"sha1 malfunction!");
 		exit(-123);
 	}
 
 	if(servermode==SERVER_AUTO)
-		logmsgf(LOG_INFO, "server started in automatic mode.");
+		Logger::log(LOG_INFO, "server started in automatic mode.");
 	else if(servermode==SERVER_LAN)
-		logmsgf(LOG_INFO, "server started in LAN mode.");
+		Logger::log(LOG_INFO, "server started in LAN mode.");
 	else if(servermode==SERVER_INET)
-		logmsgf(LOG_INFO, "server started in Internet mode.");
+		Logger::log(LOG_INFO, "server started in Internet mode.");
 
 	// some workarounds for missing arguments
 	if(strnlen(pubip,250) == 0 && servermode != SERVER_LAN)
 	{
 		getPublicIP(pubip);
 		if(strnlen(pubip,250) == 0)
-			logmsgf(LOG_ERROR, "could not get public IP automatically!");
+			Logger::log(LOG_ERROR, "could not get public IP automatically!");
 		else
-			logmsgf(LOG_INFO, "got public IP automatically: '%s'", pubip);
+			Logger::log(LOG_INFO, "got public IP automatically: '%s'", pubip);
 
 	}
 	if(listenport == 0)
 	{
 		listenport = getRandomPort();
-		logmsgf(LOG_INFO, "using Port %d", listenport);
+		Logger::log(LOG_INFO, "using Port %d", listenport);
 	}
 
 	// now validity checks
 	if (strnlen(pubip,250) == 0 && servermode != SERVER_LAN)
 	{
-		logmsgf(LOG_ERROR, "You need to specify a IP where the server will be listening.");
+		Logger::log(LOG_ERROR, "You need to specify a IP where the server will be listening.");
 		showUsage();
 		return 1;
 	}
 	if (strnlen(servname,250) == 0 && servermode != SERVER_LAN)
 	{
-		logmsgf(LOG_ERROR, "You need to specify a server name.");
+		Logger::log(LOG_ERROR, "You need to specify a server name.");
 		showUsage();
 		return 1;
 	}
 	if (strnlen(terrname,250) == 0)
 	{
-		logmsgf(LOG_ERROR, "You need to specify a terrain name.");
+		Logger::log(LOG_ERROR, "You need to specify a terrain name.");
 		showUsage();
 		return 1;
 	}
 	if (max_clients < 2 || max_clients > 64)
 	{
-		logmsgf(LOG_ERROR, "You need to specify how much clients the server should support.");
+		Logger::log(LOG_ERROR, "You need to specify how much clients the server should support.");
 		showUsage();
 		return 1;
 	}
 	if (listenport == 0)
 	{
-		logmsgf(LOG_ERROR, "You need to specify a port to listen on.");
+		Logger::log(LOG_ERROR, "You need to specify a port to listen on.");
 		showUsage();
 		return 1;
 	}
 	if(max_clients > 16 && servermode != SERVER_LAN)
 	{
-		logmsgf(LOG_ERROR, "!!! more than 16 Players not supported in Internet mode.");
-		logmsgf(LOG_ERROR, "!!! under full load, you server will use %ikbit/s of upload and %ikbit/s of download", max_clients*(max_clients-1)*64, max_clients*64);
-		logmsgf(LOG_ERROR, "!!! that means that clients that have less bandwidth than %ikbit/s of upload and %ikbit/s of download will not be able to join!", 64, (max_clients-1)*64);
+		Logger::log(LOG_ERROR, "!!! more than 16 Players not supported in Internet mode.");
+		Logger::log(LOG_ERROR, "!!! under full load, you server will use %ikbit/s of upload and %ikbit/s of download", max_clients*(max_clients-1)*64, max_clients*64);
+		Logger::log(LOG_ERROR, "!!! that means that clients that have less bandwidth than %ikbit/s of upload and %ikbit/s of download will not be able to join!", 64, (max_clients-1)*64);
 	}
 	else if(max_clients <= 16)
 	{
-		logmsgf(LOG_WARN, "app. full load traffic: %ikbit/s upload and %ikbit/s download", max_clients*(max_clients-1)*64, max_clients*64);
+		Logger::log(LOG_WARN, "app. full load traffic: %ikbit/s upload and %ikbit/s download", max_clients*(max_clients-1)*64, max_clients*64);
 	}
 
 	// so ready to run, then set up signal handling
 	signal(SIGINT, handler);
 	signal(SIGTERM, handler);
 
-	logmsgf(LOG_WARN, "using terrain '%s'. maximum clients: %d", terrname, max_clients);
+	Logger::log(LOG_WARN, "using terrain '%s'. maximum clients: %d", terrname, max_clients);
 
 	if(strnlen(password, 250) > 0)
-		logmsgf(LOG_WARN, "server is password protected!");
+		Logger::log(LOG_WARN, "server is password protected!");
 
 	if(strnlen(rconpassword, 250) == 0)
-		logmsgf(LOG_WARN, "no RCON password set: RCON disabled!");
+		Logger::log(LOG_WARN, "no RCON password set: RCON disabled!");
 
 	SEQUENCER.initilize(pubip, max_clients, servname, terrname, listenport, servermode, password, rconpassword, guimode);
 

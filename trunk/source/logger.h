@@ -27,7 +27,9 @@ class Logger
 public:
 	virtual ~Logger();
 
+#if 0
 	static void log(const LogLevel& level, const char* format, va_list args);
+#endif
 	static void log(const LogLevel& level, const char* format, ...);
 	static void log(const LogLevel& level, const std::string& msg);
 	

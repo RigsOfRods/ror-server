@@ -45,7 +45,7 @@ void Receiver::reset(int pos, SWInetSocket *socky)
     STACKLOG;
 	if (alive)
 	{
-		logmsgf(LOG_ERROR,"Whoa, receiver is still alive!");
+		Logger::log(LOG_ERROR,"Whoa, receiver is still alive!");
 		return;
 	}
 	id=pos;
@@ -66,7 +66,7 @@ void Receiver::stop()
 void Receiver::threadstart()
 {
     STACKLOG;
-	logmsgf(LOG_DEBUG,"Receive thread %d started", id);
+	Logger::log(LOG_DEBUG,"Receive thread %d started", id);
 	//get the vehicle description
 	int type;
 	unsigned int source;
@@ -105,7 +105,7 @@ void Receiver::threadstart()
 	SEQUENCER.notifyAllVehicles(id);
 	//okay, we are ready, we can receive data frames
 	SEQUENCER.enableFlow(id);
-	logmsgf(LOG_VERBOSE,"UID %d is switching to FLOW", id);
+	Logger::log(LOG_VERBOSE,"UID %d is switching to FLOW", id);
 	while (1)
 	{
 		//	hmm for some reason this fails, 

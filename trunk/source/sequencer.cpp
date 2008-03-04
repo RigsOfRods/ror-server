@@ -89,10 +89,10 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 	{
 		if(!SHA1FromString(serverPassword, pass))
 		{
-			logmsgf(LOG_ERROR, "could not generate server SHA1 password hash!");
+			Logger::log(LOG_ERROR, "could not generate server SHA1 password hash!");
 			exit(1);
 		}
-		logmsgf(LOG_DEBUG,"sha1(%s) = %s", pass, serverPassword);
+		Logger::log(LOG_DEBUG,"sha1(%s) = %s", pass, serverPassword);
 		pwProtected = true;
 	}
 
@@ -101,10 +101,10 @@ void Sequencer::initilize(char *pubip, int max_clients, char* servname, char* te
 	{
 		if(!SHA1FromString(rconPassword, rconpass))
 		{
-			logmsgf(LOG_ERROR, "could not generate server SHA1 RCon password hash!");
+			Logger::log(LOG_ERROR, "could not generate server SHA1 RCon password hash!");
 			exit(1);
 		}
-		logmsgf(LOG_DEBUG,"sha1(%s) = %s", rconpass, rconPassword);
+		Logger::log(LOG_DEBUG,"sha1(%s) = %s", rconpass, rconPassword);
 		rconenabled = true;
 	}
 
@@ -147,19 +147,19 @@ void Sequencer::cleanUp()
 	if(notifier) delete notifier;
 	for (int i=0; i<maxclients && &clients[i]; i++) 
 	{
-		logmsgf(LOG_DEBUG,"clients[%d]", i);
+		Logger::log(LOG_DEBUG,"clients[%d]", i);
 		if(clients[i].broadcaster){
-			logmsgf(LOG_DEBUG,"delete clients[%d].broadcaster", i);
+			Logger::log(LOG_DEBUG,"delete clients[%d].broadcaster", i);
 			delete clients[i].broadcaster;
 		} else { 
-			logmsgf(LOG_DEBUG,"clients[%d].broadcaster is null", i);
+			Logger::log(LOG_DEBUG,"clients[%d].broadcaster is null", i);
 		}
 
 		if(clients[i].receiver) {
-			logmsgf(LOG_DEBUG,"delete clients[%d].receiver", i); 
+			Logger::log(LOG_DEBUG,"delete clients[%d].receiver", i); 
 			delete clients[i].receiver;
 		} else { 
-			logmsgf(LOG_DEBUG,"clients[%d].receiver is null", i);
+			Logger::log(LOG_DEBUG,"clients[%d].receiver is null", i);
 		}
 	}
 	delete listener;
@@ -193,7 +193,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 		if (!strcmp(user->username, clients[i].nickname)) 
 		{
 			clients_mutex.unlock();
-			logmsgf(LOG_WARN,"Dupe nick found: '%s' rejecting!", user->username); //a dupe, kill it!
+			Logger::log(LOG_WARN,"Dupe nick found: '%s' rejecting!", user->username); //a dupe, kill it!
 			char *msg = "Duplicate name, please choose another one!";
 			//lack of proper protocol msg
 			Messaging::sendmessage(sock, MSG2_BANNED, 0, strlen(msg), msg);
@@ -206,7 +206,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	
 	if (pos < 0)
 	{
-		logmsgf(LOG_WARN,"join request from '%s' on full server: rejecting!", user->username);
+		Logger::log(LOG_WARN,"join request from '%s' on full server: rejecting!", user->username);
 		clients_mutex.unlock();
 		Messaging::sendmessage(sock, MSG2_FULL, 0, 0, 0);
 		throw std::runtime_error("Server is full");
@@ -238,7 +238,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	
 	if( Messaging::sendmessage(sock, MSG2_WELCOME, clients[pos].uid, 0, 0) )
 		disconnect( clients[pos].uid, "error sending welcome message" );
-	logmsgf(LOG_VERBOSE,"Sequencer: New client created in slot %i", pos);
+	Logger::log(LOG_VERBOSE,"Sequencer: New client created in slot %i", pos);
 	printStats();
 }
 
@@ -283,12 +283,12 @@ int Sequencer::getNumClients()
 void Sequencer::killerthreadstart()
 {
     STACKLOG;
-	logmsgf(LOG_DEBUG,"Killer thread ready");
+	Logger::log(LOG_DEBUG,"Killer thread ready");
 	while (1)
 	{
 		SWBaseSocket::SWBaseError error;
 
-		logmsgf(LOG_DEBUG,"Killer entering cycle");
+		Logger::log(LOG_DEBUG,"Killer entering cycle");
 
 		killer_mutex.lock();
 		while (freekillqueue==0)
@@ -299,14 +299,14 @@ void Sequencer::killerthreadstart()
 		memcpy(killqueue, &killqueue[1], sizeof(int)*freekillqueue);
 		killer_mutex.unlock();
 
-		logmsgf(LOG_DEBUG,"Killer called to kill %i", pos);
+		Logger::log(LOG_DEBUG,"Killer called to kill %i", pos);
 		clients_mutex.lock(); //this won't interlock unless disconnect is called
 		                    //from a clients_mutex owning thread
-		logmsgf(LOG_DEBUG,"Killer got clients lock");
+		Logger::log(LOG_DEBUG,"Killer got clients lock");
 		if (clients[pos].status==USED)
 		{
 			clients[pos].status=BUSY;
-			logmsgf(LOG_DEBUG,"Killer notifying");
+			Logger::log(LOG_DEBUG,"Killer notifying");
 			//notify the others
 			for (int i=0; i<maxclients; i++)
 			{
@@ -315,23 +315,23 @@ void Sequencer::killerthreadstart()
 					clients[i].broadcaster->queueMessage(clients[pos].uid, MSG2_DELETE, 0, 0);
 				}
 			}
-			logmsgf(LOG_DEBUG,"Killer done notifying");
+			Logger::log(LOG_DEBUG,"Killer done notifying");
 
 			//things are less critical, we can take time to cleanup properly and synchronously
-			logmsgf(LOG_DEBUG,"Killer force disconnect");
+			Logger::log(LOG_DEBUG,"Killer force disconnect");
 			clients[pos].sock->disconnect(&error);
-			logmsgf(LOG_DEBUG,"Killer stopping receiver");
+			Logger::log(LOG_DEBUG,"Killer stopping receiver");
 			clients[pos].receiver->stop();
-			logmsgf(LOG_DEBUG,"Killer stopping broadcaster");
+			Logger::log(LOG_DEBUG,"Killer stopping broadcaster");
 			clients[pos].broadcaster->stop();
 			memset(clients[pos].nickname, 0, 20); // Clear the nick data or else nicks will only be able to be used once!
-			logmsgf(LOG_DEBUG,"Killer deleting socket");
+			Logger::log(LOG_DEBUG,"Killer deleting socket");
 			delete clients[pos].sock;
-			logmsgf(LOG_DEBUG,"Killer got second clients lock");
+			Logger::log(LOG_DEBUG,"Killer got second clients lock");
 			clients[pos].status=FREE;
 		}
 		clients_mutex.unlock();
-		logmsgf(LOG_DEBUG,"Killer has properly killed %i", pos);
+		Logger::log(LOG_DEBUG,"Killer has properly killed %i", pos);
 		printStats();
 	}
 }
@@ -342,7 +342,7 @@ void Sequencer::disconnect(int uid, char* errormsg)
     unsigned short pos = getPosfromUid(uid);
 	//this routine is a potential trouble maker as it can be called from many thread contexts
 	//so we use a killer thread
-	logmsgf(LOG_VERBOSE, "Disconnecting Slot %d: %s", pos, errormsg);
+	Logger::log(LOG_VERBOSE, "Disconnecting Slot %d: %s", pos, errormsg);
 	MutexLocker scoped_lock(killer_mutex);
 	//first check if not already queued
 	bool found=false;
@@ -390,7 +390,7 @@ void Sequencer::notifyAllVehicles(int uid)
 		// not possible to have flow enabled but not have a truck... disconnect 
 		if ( !strlen(clients[i].vehicle_name) && clients[i].flow )
 		{
-			logmsgf(LOG_ERROR, "Client has flow enable but no truck name, disconnecting");
+			Logger::log(LOG_ERROR, "Client has flow enable but no truck name, disconnecting");
 			disconnect(clients[i].uid, "client appears to be disconnected");
 		}
 	}
@@ -418,7 +418,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	{
 		data[len]=0;
 		strncpy(clients[pos].vehicle_name, data, 129);
-		logmsgf(LOG_VERBOSE,"On the fly vehicle registration for slot %d: %s",
+		Logger::log(LOG_VERBOSE,"On the fly vehicle registration for slot %d: %s",
 		            pos, clients[pos].vehicle_name);
 		//printStats();
 		//we alter the message to add user info
@@ -429,12 +429,12 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	
 	else if (type==MSG2_DELETE)
 	{
-		logmsgf(LOG_INFO, "user %d disconnects on request", pos);
+		Logger::log(LOG_INFO, "user %d disconnects on request", pos);
 		disconnect(clients[pos].uid, "disconnected on request");
 	}
 	else if (type==MSG2_RCON_COMMAND)
 	{
-		logmsgf(LOG_WARN, "user %d (%d) sends rcon command: %s", pos, clients[pos].rconauth, data);
+		Logger::log(LOG_WARN, "user %d (%d) sends rcon command: %s", pos, clients[pos].rconauth, data);
 		if(clients[pos].rconauth==1)
 		{
 			if(!strncmp(data, "kick", 4))
@@ -455,7 +455,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 						}
 					} else if(clients[player].status == USED)
 					{
-						logmsgf(LOG_WARN, "user %d kicked by user %d via rcmd",
+						Logger::log(LOG_WARN, "user %d kicked by user %d via rcmd",
 								player, pos);
 						char tmp[255]="";
 						memset(tmp, 0, 255);
@@ -486,7 +486,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	}
 	else if (type==MSG2_CHAT)
 	{
-		logmsgf(LOG_INFO, "CHAT| %s: %s", clients[pos].nickname, data);
+		Logger::log(LOG_INFO, "CHAT| %s: %s", clients[pos].nickname, data);
 		publishData=true;
 	}
 	else if (type==MSG2_RCON_LOGIN)
@@ -496,23 +496,23 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			char pw[255]="";
 			strncpy(pw, data, 255);
 			pw[len]=0;
-			logmsgf(LOG_DEBUG, "user %d  tries to log into RCON: server: %s, his: %s", pos, rconPassword, pw);
+			Logger::log(LOG_DEBUG, "user %d  tries to log into RCON: server: %s, his: %s", pos, rconPassword, pw);
 			if(pw && strnlen(pw, 250) > 20 && !strcmp(rconPassword, pw))
 			{
-				logmsgf(LOG_WARN, "user %d logged into RCON", pos);
+				Logger::log(LOG_WARN, "user %d logged into RCON", pos);
 				clients[pos].rconauth=1;
 				Messaging::sendmessage(clients[pos].sock, MSG2_RCON_LOGIN_SUCCESS, 0, 0, 0);
 			}else
 			{
 				// pw incorrect or failed
-				logmsgf(LOG_WARN, "user %d failed to login RCON, retry number %d", pos, clients[pos].rconretries);
+				Logger::log(LOG_WARN, "user %d failed to login RCON, retry number %d", pos, clients[pos].rconretries);
 				clients[pos].rconauth=0;
 				clients[pos].rconretries++;
 				Messaging::sendmessage(clients[pos].sock, MSG2_RCON_LOGIN_FAILED, 0, 0, 0);
 			}
 		}else
 		{
-			logmsgf(LOG_WARN, "user %d failed to login RCON, as RCON is disabled %d", pos, clients[pos].rconretries);
+			Logger::log(LOG_WARN, "user %d failed to login RCON, as RCON is disabled %d", pos, clients[pos].rconretries);
 			Messaging::sendmessage(clients[pos].sock, MSG2_RCON_LOGIN_NOTAV, 0, 0, 0);
 		}
 		publishData=false;
@@ -575,26 +575,26 @@ void Sequencer::printStats()
 #endif
 	} else
 	{
-		logmsgf(LOG_INFO, "Server occupancy:");
+		Logger::log(LOG_INFO, "Server occupancy:");
 
-		logmsgf(LOG_INFO, "Slot Status   UID IP              Nickname, Vehicle");
-		logmsgf(LOG_INFO, "--------------------------------------------------");
+		Logger::log(LOG_INFO, "Slot Status   UID IP              Nickname, Vehicle");
+		Logger::log(LOG_INFO, "--------------------------------------------------");
 		for (int i=0; i<maxclients; i++)
 		{
 			if (clients[i].status==FREE) 
-				logmsgf(LOG_INFO, "%4i Free", i);
+				Logger::log(LOG_INFO, "%4i Free", i);
 			else if (clients[i].status==BUSY)
-				logmsgf(LOG_INFO, "%4i Busy %5i %-16s %s, %s", i, clients[i].uid, "-", clients[i].nickname, clients[i].vehicle_name);
+				Logger::log(LOG_INFO, "%4i Busy %5i %-16s %s, %s", i, clients[i].uid, "-", clients[i].nickname, clients[i].vehicle_name);
 			else 
-				logmsgf(LOG_INFO, "%4i Used %5i %-16s %s, %s", i, clients[i].uid, clients[i].sock->get_peerAddr(&error).c_str(), clients[i].nickname, clients[i].vehicle_name);
+				Logger::log(LOG_INFO, "%4i Used %5i %-16s %s, %s", i, clients[i].uid, clients[i].sock->get_peerAddr(&error).c_str(), clients[i].nickname, clients[i].vehicle_name);
 		}
-		logmsgf(LOG_INFO, "--------------------------------------------------");
+		Logger::log(LOG_INFO, "--------------------------------------------------");
 		int timediff = Messaging::getTime()-startTime;
 		int uphours = timediff/60/60;
 		int upminutes = (timediff-(uphours*60*60))/60;
-		logmsgf(LOG_INFO, "- traffic statistics (uptime: %d hours, %d minutes):", uphours, upminutes);
-		logmsgf(LOG_INFO, "- total: incoming: %0.2fMB , outgoing: %0.2fMB", Messaging::getBandwitdthIncoming()/1024/1024, Messaging::getBandwidthOutgoing()/1024/1024);
-		logmsgf(LOG_INFO, "- rate (last minute): incoming: %0.1fkB/s , outgoing: %0.1fkB/s", Messaging::getBandwitdthIncomingRate()/1024, Messaging::getBandwidthOutgoingRate()/1024);
+		Logger::log(LOG_INFO, "- traffic statistics (uptime: %d hours, %d minutes):", uphours, upminutes);
+		Logger::log(LOG_INFO, "- total: incoming: %0.2fMB , outgoing: %0.2fMB", Messaging::getBandwitdthIncoming()/1024/1024, Messaging::getBandwidthOutgoing()/1024/1024);
+		Logger::log(LOG_INFO, "- rate (last minute): incoming: %0.1fkB/s , outgoing: %0.1fkB/s", Messaging::getBandwitdthIncomingRate()/1024, Messaging::getBandwidthOutgoingRate()/1024);
 	}
 }
 // used to access the clients from the array rather than using the array pos it's self.

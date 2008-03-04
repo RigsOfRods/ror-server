@@ -45,7 +45,7 @@ Listener::~Listener(void)
 void Listener::threadstart()
 {
     STACKLOG;
-	logmsgf(LOG_DEBUG,"Listerer thread starting");
+	Logger::log(LOG_DEBUG,"Listerer thread starting");
 	//here we start
 	SWInetSocket listSocket;
 	SWBaseSocket::SWBaseError error;
@@ -55,7 +55,7 @@ void Listener::threadstart()
 	if (error!=SWBaseSocket::ok)
 	{
 		//this is an error!
-		logmsgf(LOG_ERROR,"FATAL Listerer: %s", error.get_error().c_str());
+		Logger::log(LOG_ERROR,"FATAL Listerer: %s", error.get_error().c_str());
 		//there is nothing we can do here
 		exit(1);
 		return;
@@ -63,17 +63,17 @@ void Listener::threadstart()
 	listSocket.listen();
 	
 	//await connections
-	logmsgf(LOG_VERBOSE,"Listener ready");
+	Logger::log(LOG_VERBOSE,"Listener ready");
 	while (1)
 	{
-		logmsgf(LOG_VERBOSE,"Listener awaiting connections");
+		Logger::log(LOG_VERBOSE,"Listener awaiting connections");
 		SWInetSocket *ts=(SWInetSocket *)listSocket.accept(&error);
 
-		logmsgf(LOG_VERBOSE,"Listener got a new connection");
+		Logger::log(LOG_VERBOSE,"Listener got a new connection");
 		
 		if (error!=SWBaseSocket::ok) 
 		{
-			logmsgf(LOG_ERROR,"ERROR Listener: %s", error.get_error().c_str());
+			Logger::log(LOG_ERROR,"ERROR Listener: %s", error.get_error().c_str());
 			continue;
 		}
 		
@@ -94,11 +94,11 @@ void Listener::threadstart()
 				throw std::runtime_error("ERROR Listener: bad version");
 			
 			// send client the which version of rornet the server is running
-			logmsgf(LOG_DEBUG,"Listener sending version");
+			Logger::log(LOG_DEBUG,"Listener sending version");
 			if (Messaging::sendmessage(ts, MSG2_VERSION, 0, (unsigned int)strlen(RORNET_VERSION), RORNET_VERSION))
 				throw std::runtime_error("ERROR Listener: sending version");
 			
-			logmsgf(LOG_DEBUG,"Listener sending terrain");
+			Logger::log(LOG_DEBUG,"Listener sending terrain");
 			//send the terrain information back
 			if (Messaging::sendmessage( ts, MSG2_TERRAIN_RESP, 0,
 					(unsigned int)strlen( SEQUENCER.getTerrainName()),
@@ -124,12 +124,12 @@ void Listener::threadstart()
 			//correct a bit the client name (trucate, validate)
 			if (len>sizeof(user_credentials_t))
 				continue;
-			logmsgf(LOG_INFO,"Listener creating a new client...");
+			Logger::log(LOG_INFO,"Listener creating a new client...");
 			
 			user_credentials_t *user = (user_credentials_t *)buffer;
 			if(SEQUENCER.isPasswordProtected())
 			{
-				logmsgf(LOG_DEBUG,"password login: %s == %s?",
+				Logger::log(LOG_DEBUG,"password login: %s == %s?",
 						SEQUENCER.getServerPasswordHash(),
 						user->password);
 				if(strncmp(SEQUENCER.getServerPasswordHash(), user->password, 40))
@@ -138,17 +138,17 @@ void Listener::threadstart()
 					throw std::runtime_error( "ERROR Listener: wrong password" );
 				}
 				
-				logmsgf(LOG_DEBUG,"user used the correct password, creating client!");
+				Logger::log(LOG_DEBUG,"user used the correct password, creating client!");
 			}else
 			{
-				logmsgf(LOG_DEBUG,"creating client, no password protection, creating client");
+				Logger::log(LOG_DEBUG,"creating client, no password protection, creating client");
 			}
 			SEQUENCER.createClient(ts, user);
-			logmsgf(LOG_DEBUG,"listener returned!");
+			Logger::log(LOG_DEBUG,"listener returned!");
 		}
 		catch(std::runtime_error e)
 		{
-			logmsgf(LOG_ERROR, e.what());
+			Logger::log(LOG_ERROR, e.what());
 			ts->disconnect(&error);
 			delete ts;
 		}

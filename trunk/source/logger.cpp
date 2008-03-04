@@ -32,7 +32,7 @@ void logmsgf(const LogLevel& level, const char* format, ...)
 {
     va_list args;
     va_start(args, format);
-    Logger::log(level, format, args);
+    Logger::log(level, format_arg_list(format, args));
     va_end(args);
 }
 
@@ -44,17 +44,19 @@ Logger::~Logger()
 		fclose(file);
 }
 
+#if 0
 void Logger::log(const LogLevel& level, const char* format, va_list args)
 {
     std::string s = format_arg_list(format, args);
     Logger::log(level, s);   
 }
+#endif
 
 void Logger::log(const LogLevel& level, const char* format, ...)
 {
 	va_list args;
 	va_start(args, format);
-    Logger::log(level, format, args);
+    Logger::log(level, format_arg_list(format, args));
 	va_end(args);
 }
 

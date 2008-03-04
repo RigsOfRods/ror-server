@@ -33,12 +33,12 @@ public:
 	{
 		pthread_mutex_init(&m, NULL);
 		// this causes intercyclic calls, do NOT use it:
-		//logmsgf(LOG_VVERBOSE,"Mutex: [%x] was created", &m);
+		//Logger::log(LOG_VVERBOSE,"Mutex: [%x] was created", &m);
 	}
 	~Mutex()
 	{
 		pthread_mutex_destroy(&m);
-		logmsgf(LOG_DEBUG, "Mutex: [%x] was destroyed", &m);
+		Logger::log(LOG_DEBUG, "Mutex: [%x] was destroyed", &m);
 		
 	}
  
@@ -46,21 +46,21 @@ public:
 	{
 		pthread_mutex_lock(&m); 
 		// removed due to perfermance issues
-		//logmsgf(LOG_VVERBOSE,"Mutex: [%x] was locked", &m);
+		//Logger::log(LOG_VVERBOSE,"Mutex: [%x] was locked", &m);
 	}
  
 	void unlock()
 	{
 		pthread_mutex_unlock(&m);
 		// removed due to perfermance issues
-		//logmsgf(LOG_VVERBOSE,"Mutex: [%x] was unlocked", &m);
+		//Logger::log(LOG_VVERBOSE,"Mutex: [%x] was unlocked", &m);
 	}
  
 	void wait(Condition &c)
 	{
-		logmsgf(LOG_DEBUG, "Mutex: [%x] is waiting for condition: [%x]", &m, &c);
+		Logger::log(LOG_DEBUG, "Mutex: [%x] is waiting for condition: [%x]", &m, &c);
 		pthread_cond_wait(&(c.cond), &m);
-		logmsgf(LOG_DEBUG, "Condition: [%x] has been met, Mutex: [%x] is free", &c, &m);
+		Logger::log(LOG_DEBUG, "Condition: [%x] has been met, Mutex: [%x] is free", &c, &m);
 	}
 private:
 	pthread_mutex_t m;

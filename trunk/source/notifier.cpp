@@ -61,7 +61,7 @@ bool Notifier::registerServer()
 			"terrainname=%s&maxclients=%i&version=%s&pw=%d&rcon=%d", 
 		REPO_URLPREFIX, server_name, "", public_ip, lport, terrain_name,
 		maxclient, RORNET_VERSION, passprotected, rconenabled);
-	logmsgf(LOG_INFO, "Trying to register at Master Server ... (this can take some "
+	Logger::log(LOG_INFO, "Trying to register at Master Server ... (this can take some "
 			"seconds as your server is being checked by the Master server)");
 	if (HTTPGET(regurl) < 0)
 		return false;
@@ -69,18 +69,18 @@ bool Notifier::registerServer()
 	std::string body = getResponse().getBody();
 	if(body.find("error") != std::string::npos || body.length() < 40) {
 		// print out the error.
-		logmsgf(LOG_ERROR, "got that as registration response: %s", body.c_str());
-		logmsgf(LOG_ERROR, "!!! Server is NOT registered at the Master server !!!");
+		Logger::log(LOG_ERROR, "got that as registration response: %s", body.c_str());
+		Logger::log(LOG_ERROR, "!!! Server is NOT registered at the Master server !!!");
 		wasregistered=false;
 		return false;
 	}
 	else
 	{
-		logmsgf(LOG_DEBUG, "got that as registration response: %s", body.c_str());
+		Logger::log(LOG_DEBUG, "got that as registration response: %s", body.c_str());
 		
 		memset(&challenge, 0, 40);
 		strncpy( challenge, body.c_str(), 40 );
-		logmsgf(LOG_INFO,"Server is registered at the Master server.");
+		Logger::log(LOG_INFO,"Server is registered at the Master server.");
 		wasregistered=true;
 		return true;
 	}
@@ -108,7 +108,7 @@ bool Notifier::sendHearbeat()
 	if(SEQUENCER.getHeartbeatData(challenge, hearbeatdata))
 		return false;
 
-	logmsgf(LOG_INFO, "heartbeat data sent to master server: %s", hearbeatdata);
+	Logger::log(LOG_INFO, "heartbeat data sent to master server: %s", hearbeatdata);
 	if (HTTPPOST(hearbeaturl, hearbeatdata) < 0)
 		return false;
 	// the server gives back "failed" or "ok"	
@@ -121,11 +121,11 @@ void Notifier::loop()
 	bool advertised = registerServer();
 	if (!advertised && servermode == SERVER_AUTO)
 	{
-		logmsgf(LOG_WARN, "using LAN mode, probably no internet users will be able to join your server!");
+		Logger::log(LOG_WARN, "using LAN mode, probably no internet users will be able to join your server!");
 	}
 	else if (!advertised && servermode == SERVER_INET)
 	{
-		logmsgf(LOG_ERROR, "registration failed, exiting!");
+		Logger::log(LOG_ERROR, "registration failed, exiting!");
 		return;
 	}
 
@@ -152,15 +152,15 @@ void Notifier::loop()
 				error_count++;
 				if (error_count==5) 
 				{
-					logmsgf(LOG_ERROR,"heartbeat failed, exiting!");
+					Logger::log(LOG_ERROR,"heartbeat failed, exiting!");
 					break;
 				}
 				else
 				{
-					logmsgf(LOG_WARN,"heartbeat failed, will try again");
+					Logger::log(LOG_WARN,"heartbeat failed, will try again");
 				}
 			}else if(!result && servermode != SERVER_INET)
-				logmsgf(LOG_ERROR,"heartbeat failed!");
+				Logger::log(LOG_ERROR,"heartbeat failed!");
 		}
 	}
 
@@ -178,27 +178,27 @@ int Notifier::HTTPGET(const char* URL)
 	{
 		char query[2048];
 		sprintf(query, "GET %s HTTP/1.1\r\nHost: %s\r\n\r\n", URL, REPO_SERVER);
-		logmsgf(LOG_DEBUG,"Query to Master server: %s", query);
+		Logger::log(LOG_DEBUG,"Query to Master server: %s", query);
 		if (mySocket.sendmsg(query, &error)<0)
 		{
-			logmsgf(LOG_ERROR,"Notifier: could not send request (%s)", error.get_error().c_str());
+			Logger::log(LOG_ERROR,"Notifier: could not send request (%s)", error.get_error().c_str());
 			res=-1;
 		}
 		int rlen=mySocket.recv(httpresp, 65536, &error);
 		if (rlen>0 && rlen<65535) httpresp[rlen]=0;
 		else
 		{
-			logmsgf(LOG_ERROR,"Notifier: could not get a valid response (%s)", error.get_error().c_str());
+			Logger::log(LOG_ERROR,"Notifier: could not get a valid response (%s)", error.get_error().c_str());
 			res=-1;
 		}
-		logmsgf(LOG_DEBUG,"Response from Master server:'%s'", httpresp);
+		Logger::log(LOG_DEBUG,"Response from Master server:'%s'", httpresp);
 		try
 		{
 			resp = HttpMsg(httpresp);
 		}
 		catch( std::runtime_error e)
 		{
-			logmsgf(LOG_ERROR, e.what() );
+			Logger::log(LOG_ERROR, e.what() );
 			res = -1;
 		}
 		// disconnect
@@ -206,7 +206,7 @@ int Notifier::HTTPGET(const char* URL)
 	}
 	else
 	{
-		logmsgf(LOG_ERROR,"Notifier: could not connect to the Master server (%s)", error.get_error().c_str());
+		Logger::log(LOG_ERROR,"Notifier: could not connect to the Master server (%s)", error.get_error().c_str());
 		res=-1;
 	}
 	return res;
@@ -230,10 +230,10 @@ int Notifier::HTTPPOST(const char* URL, const char* data)
 					   "\r\n" \
 					   "%s", \
 					   URL, REPO_SERVER, len, data);
-		logmsgf(LOG_DEBUG,"Query to Master server: %s", query);
+		Logger::log(LOG_DEBUG,"Query to Master server: %s", query);
 		if (mySocket.sendmsg(query, &error)<0)
 		{
-			logmsgf(LOG_ERROR,"Notifier: could not send request (%s)", error.get_error().c_str());
+			Logger::log(LOG_ERROR,"Notifier: could not send request (%s)", error.get_error().c_str());
 			res=-1;
 		}
 		int rlen=mySocket.recv(httpresp, 65536, &error);
@@ -242,18 +242,18 @@ int Notifier::HTTPPOST(const char* URL, const char* data)
 		if (rlen>0 && rlen<65535) httpresp[rlen]=0;
 		else
 		{
-			logmsgf(LOG_ERROR,"Notifier: could not get a valid response (%s)",
+			Logger::log(LOG_ERROR,"Notifier: could not get a valid response (%s)",
 					error.get_error().c_str());
 			res=-1;
 		}
-		logmsgf(LOG_DEBUG,"Response from Master server:'%s'", httpresp);
+		Logger::log(LOG_DEBUG,"Response from Master server:'%s'", httpresp);
 		try
 		{
 			resp = HttpMsg(httpresp);
 		}
 		catch( std::runtime_error e)
 		{
-			logmsgf(LOG_ERROR, e.what() );
+			Logger::log(LOG_ERROR, e.what() );
 			res = -1;
 		}
 		
@@ -262,7 +262,7 @@ int Notifier::HTTPPOST(const char* URL, const char* data)
 	}
 	else
 	{
-		logmsgf(LOG_ERROR,"Notifier: could not connect to the Master server (%s)", error.get_error().c_str());
+		Logger::log(LOG_ERROR,"Notifier: could not connect to the Master server (%s)", error.get_error().c_str());
 		res=-1;
 	}
 	return res;

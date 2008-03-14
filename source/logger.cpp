@@ -65,12 +65,10 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 	time_t lotime = time(NULL);
 	char timestr[50];
 	memset(timestr, 0, 50);
-	
-#ifndef __GNUC__ 
-	ctime_s(timestr, 50, &lotime);
-#else
+
+	// if compiling without gcc this is a macro
 	ctime_r(&lotime, timestr);
-#endif
+	
 	// remove trailing new line
 	timestr[strlen(timestr)-1]=0;
 

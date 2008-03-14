@@ -100,7 +100,7 @@ Logger::Logger()
 Logger Logger::theLog;
 FILE *Logger::file = 0;
 LogLevel Logger::log_level[2] = {LOG_VERBOSE, LOG_INFO};
-char *Logger::loglevelname[5] = {"DEBUG", "VERBO", "INFO", "WARN", "ERROR"};
+char *Logger::loglevelname[] = {"STACK", "DEBUG", "VERBO", "INFO", "WARN", "ERROR"};
 
 
 // SCOPELOG

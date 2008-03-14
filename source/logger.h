@@ -6,7 +6,8 @@
 
 enum LogLevel
 {
-	LOG_DEBUG=0,
+	LOG_STACK=0,
+	LOG_DEBUG,
 	LOG_VERBOSE,
 	LOG_INFO,
 	LOG_WARN,
@@ -42,7 +43,7 @@ private:
 	static Logger theLog;
 	static FILE *file;
 	static LogLevel log_level[2];
-	static char *loglevelname[5];
+	static char *loglevelname[];
 };
 
 class ScopeLog
@@ -63,5 +64,5 @@ private:
 	#define ctime_r(lotime, timestr) ctime_s(timestr, 50, &lotime);
 #endif
 
-#define STACKLOG ScopeLog stacklog( Logger::LOG_STACK, __PRETTY_FUNCTION__ )
+#define STACKLOG ScopeLog stacklog( LOG_STACK, __PRETTY_FUNCTION__ )
 #endif // LOGGER_H_

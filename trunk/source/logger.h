@@ -57,9 +57,11 @@ private:
 };
 
 
-#ifdef __WIN32__
-#define STACKLOG ScopeLog( LOG_DEBUG, __FUNCTION__ )
-#else
-#define STACKLOG ScopeLog( LOG_DEBUG, __PRETTY_FUNCTION__ )
+// macros for crossplatform compiling
+#ifndef __GNUC__
+	#define __PRETTY_FUNCTION__ __FUNCTION__
+	#define ctime_r(lotime, timestr) ctime_s(timestr, 50, &lotime);
 #endif
+
+#define STACKLOG ScopeLog stacklog( Logger::LOG_STACK, __PRETTY_FUNCTION__ )
 #endif // LOGGER_H_

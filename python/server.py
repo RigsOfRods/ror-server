@@ -10,6 +10,8 @@ PORT = int(sys.argv[3])
 #PORT = 12000
 IP = '78.47.152.220'
 
+MOTD = """^1 hi ^2and welcome to ^3our ^4little ^5server!"""
+
 logging.basicConfig(level=logging.DEBUG, format='%(name)s: %(message)s')
 
 MSG2_HELLO = 1000
@@ -35,6 +37,7 @@ MSG2_RCON_LOGIN_NOTAV = 1024
 MSG2_RCON_COMMAND = 1025
 MSG2_RCON_COMMAND_FAILED = 1026
 MSG2_RCON_COMMAND_SUCCESS = 1027
+MSG2_GAME_CMD = 1028
 
 APISERVER = "api.rigsofrods.com"
 
@@ -55,6 +58,7 @@ commandNames= {
 	1017:"USER_CREDENTIALS",
 	1019:"TERRAIN_RESP",
 	1020:"WRONG_PW",
+	1028:"GAME_CMD"
 }
 
 RORNET_VERSION = "RoRnet_2.1"
@@ -102,8 +106,8 @@ class Sequencer:
 		
 		# push the client to all existing clients
 		self.logger.debug('announcing new client to all other clients')
-		self.sendClientList()
-		
+		self.sendClientList()		
+
 		self.uidcounter+=1
 		return cuid
 	
@@ -153,9 +157,9 @@ class Sequencer:
 		data = None
 		if packet.size == 0:
 			# just header
-			data = struct.pack('III', packet.command, packet.source, packet.size)
+			data = struct.pack('IiI', packet.command, packet.source, packet.size)
 		else:
-			data = struct.pack('III'+str(packet.size)+'s', packet.command, packet.source, packet.size, packet.data)
+			data = struct.pack('IiI'+str(packet.size)+'s', packet.command, packet.source, packet.size, packet.data)
 		
 		self.logger.debug("BRDC| %-16s, source %d, size %d, data-len: %d" % (commandNames[packet.command], packet.source, packet.size, len(str(packet.data))))
 		if destination < 0:
@@ -261,9 +265,9 @@ class RoRHandler(SocketServer.StreamRequestHandler):
 		self.logger.debug("SEND| %-16s, source %d, destination %d, size %d, data-len: %d" % (commandNames[packet.command], packet.source, self.uid, packet.size, len(str(packet.data))))
 		if packet.size == 0:
 			# just header
-			data = struct.pack('III', packet.command, packet.source, packet.size)
+			data = struct.pack('IiI', packet.command, packet.source, packet.size)
 		else:
-			data = struct.pack('III'+str(packet.size)+'s', packet.command, packet.source, packet.size, packet.data)
+			data = struct.pack('IiI'+str(packet.size)+'s', packet.command, packet.source, packet.size, packet.data)
 		try:
 			self.writelock.acquire()
 			self.wfile.write(data)
@@ -287,7 +291,7 @@ class RoRHandler(SocketServer.StreamRequestHandler):
 			
 	def receiveMsg(self):
 		note = ""
-		headersize = struct.calcsize('III')
+		headersize = struct.calcsize('IiI')
 		data = ""
 		readcounter = 0
 		while len(data) < headersize:
@@ -295,7 +299,7 @@ class RoRHandler(SocketServer.StreamRequestHandler):
 		if readcounter > 1:
 			note += "HEADER SEGMENTED INTO %s SEGMENTS!" % readcounter
 		
-		(command, source, size) = struct.unpack('III', data)
+		(command, source, size) = struct.unpack('IiI', data)
 		
 		data = ""
 		readcounter = 0
@@ -365,6 +369,12 @@ class RoRHandler(SocketServer.StreamRequestHandler):
 						self.buffersize = int(buffersize[0])
 						# init successfully, neter the main loop :)
 						self.uid = SEQUENCER.addClient(self.username, self.vehicle, self)
+						
+						self.sendMsg(DataPacket(MSG2_CHAT, -1, len(MOTD), MOTD))
+						
+						gametest = "newgoal 0,0,0, test123"
+						self.sendMsg(DataPacket(MSG2_GAME_CMD, -1, len(gametest), gametest))
+						
 						self.receiveLoop()
 				
 		return

@@ -482,6 +482,7 @@ if __name__ == '__main__':
 		for i in range(num):
 			threads.append(Client(ip, port, i, 0, copy.copy(startupCommands)))
 			threads[i].start()
+			lastrestart[i] = time.time() - 1000
 			restarts[i] = 0
 			# start with time inbetween, so you see all trucks ;)
 			time.sleep(0.2)

@@ -1,6 +1,6 @@
 #!/bin/env python
 # made by thomas in 5 hours - no guarantees ;)
-import sys, struct, logging, threading, SocketServer
+import sys, struct, logging, threading, SocketServer, time
 
 SERVERNAME = sys.argv[1]
 TERRAIN = sys.argv[2]
@@ -324,6 +324,10 @@ class RoRHandler(SocketServer.StreamRequestHandler):
 		while run:
 			try:
 				packet = self.receiveMsg()
+				
+				overlaytest4 = "setoverlayelementtext "+str(time.time())+" tracks/MP/testOverlay/text1"
+				self.sendMsg(DataPacket(MSG2_GAME_CMD, -1, len(overlaytest4), overlaytest4))
+				
 				if packet.command == MSG2_VEHICLE_DATA:
 					SEQUENCER.broadcastData(packet)
 				elif packet.command == MSG2_DELETE:
@@ -391,8 +395,7 @@ class RoRHandler(SocketServer.StreamRequestHandler):
 						print overlaytest3
 						self.sendMsg(DataPacket(MSG2_GAME_CMD, -1, len(overlaytest3), overlaytest3))
 						
-						overlaytest4 = "setoverlayelementtext test123 tracks/MP/testOverlay/text1"
-						print overlaytest4
+						overlaytest4 = "setoverlayelementtext "+str(time.time())+" tracks/MP/testOverlay/text1"
 						self.sendMsg(DataPacket(MSG2_GAME_CMD, -1, len(overlaytest4), overlaytest4))
 						
 						self.receiveLoop()

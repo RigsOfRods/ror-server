@@ -374,6 +374,26 @@ class RoRHandler(SocketServer.StreamRequestHandler):
 						
 						gametest = "newgoal 0,0,0, test123"
 						self.sendMsg(DataPacket(MSG2_GAME_CMD, -1, len(gametest), gametest))
+
+						f=open("testOverlay.overlay", "r")
+						overlay = f.read()
+						f.close()
+						
+						overlaytest = "createoverlay "+overlay
+						print overlaytest
+						self.sendMsg(DataPacket(MSG2_GAME_CMD, -1, len(overlaytest), overlaytest))
+						
+						overlaytest2 = "setoverlayvisible 1, tracks/MP/testOverlay"
+						print overlaytest2
+						self.sendMsg(DataPacket(MSG2_GAME_CMD, -1, len(overlaytest2), overlaytest2))
+
+						overlaytest3 = "setoverlayelementcolor 1,0,0,1, tracks/MP/testOverlay/text1"
+						print overlaytest3
+						self.sendMsg(DataPacket(MSG2_GAME_CMD, -1, len(overlaytest3), overlaytest3))
+						
+						overlaytest4 = "setoverlayelementtext test123 tracks/MP/testOverlay/text1"
+						print overlaytest4
+						self.sendMsg(DataPacket(MSG2_GAME_CMD, -1, len(overlaytest4), overlaytest4))
 						
 						self.receiveLoop()
 				

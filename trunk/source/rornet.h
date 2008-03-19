@@ -99,7 +99,7 @@ typedef struct
 typedef struct
 {
 	unsigned int command;
-	unsigned int source;
+	int source;
 	unsigned int size;
 } header_t;
 

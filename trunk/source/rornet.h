@@ -83,6 +83,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MSG2_RCON_COMMAND_FAILED 1026 // send to client
 #define MSG2_RCON_COMMAND_SUCCESS 1027 // send to client
 
+// 2.1 but only active in 0.35
+#define MSG2_GAME_CMD 1028 // send to client from server only
+
 // server modes
 enum {SERVER_LAN, SERVER_INET, SERVER_AUTO};
 

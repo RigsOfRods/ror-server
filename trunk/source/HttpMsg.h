@@ -16,6 +16,7 @@ public:
 
 	HttpMsg& operator=( const std::string& message );
 	HttpMsg& operator=( const char* message );
+	bool operator==( const std::string& message );
 	
 private:
 	std::map<std::string, std::string> headermap;

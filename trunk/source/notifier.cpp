@@ -96,7 +96,7 @@ bool Notifier::unregisterServer()
 	if (HTTPGET(unregurl) < 0)
 		return false;
 
-	return getResponse().getBody() == "ok";
+	return getResponse() == "ok";
 }
 
 bool Notifier::sendHearbeat()
@@ -112,7 +112,7 @@ bool Notifier::sendHearbeat()
 	if (HTTPPOST(hearbeaturl, hearbeatdata) < 0)
 		return false;
 	// the server gives back "failed" or "ok"	
-	return getResponse().getBody() == "ok";
+	return getResponse() == "ok";
 }
 
 void Notifier::loop()
@@ -121,7 +121,8 @@ void Notifier::loop()
 	bool advertised = registerServer();
 	if (!advertised && servermode == SERVER_AUTO)
 	{
-		Logger::log(LOG_WARN, "using LAN mode, probably no internet users will be able to join your server!");
+		Logger::log(LOG_WARN, "using LAN mode, probably no internet users will "
+				"be able to join your server!");
 	}
 	else if (!advertised && servermode == SERVER_INET)
 	{
@@ -134,7 +135,7 @@ void Notifier::loop()
 	{
 		// update some statistics (handy to use in here, as we have a minute-timer basically)
 		Messaging::updateMinuteStats();
-		SEQUENCER.printStats();
+		//SEQUENCER.printStats();
 
 		//every minute
 #ifndef __WIN32__

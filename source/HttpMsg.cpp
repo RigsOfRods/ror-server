@@ -30,6 +30,11 @@ HttpMsg& HttpMsg::operator=( const char* message )
 	return *this;
 }
 
+bool HttpMsg::operator==( const std::string& message )
+{
+	return getBody() == message;
+}
+
 const std::string& HttpMsg::getBody()
 {
 	return headermap["body"];

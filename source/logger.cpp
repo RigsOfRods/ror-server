@@ -7,6 +7,13 @@
 #include <cstdio>
 #include <cstdarg>
 
+#ifdef __WIN32__
+#ifndef __MINGW32__
+    #define ctime_r(lotime, timestr) ctime_s(timestr, 50, &lotime);
+#else
+    char *ctime_r( const time_t *clock, char * buf);
+#endif
+#endif
 
 // shamelessly taken from:
 // http://senzee.blogspot.com/2006/05/c-formatting-stdstring.html   

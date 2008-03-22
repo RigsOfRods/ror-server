@@ -15,6 +15,26 @@
 #endif
 #endif
 
+static pthread_key_t key;
+static pthread_once_t key_once = PTHREAD_ONCE_INIT;
+static void make_key()
+{
+    (void) pthread_key_create(&key, NULL);
+}
+
+class ThreadKey
+{
+public:
+	ThreadKey() : thread_id( tuid ) 
+	{
+		tuid++;
+	}
+	unsigned int thread_id;
+	static unsigned int tuid;
+};
+unsigned int ThreadKey::tuid = 0;
+
+
 // shamelessly taken from:
 // http://senzee.blogspot.com/2006/05/c-formatting-stdstring.html   
 std::string format_arg_list(const char *fmt, va_list args)
@@ -78,12 +98,19 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 	
 	// remove trailing new line
 	timestr[strlen(timestr)-1]=0;
-
+	
+    ThreadKey *ptr = NULL;
+    (void) pthread_once(&key_once, make_key);
+	if ((ptr = (ThreadKey*)pthread_getspecific(key)) == NULL) {
+        ptr = new ThreadKey();
+        (void) pthread_setspecific(key, (void*)ptr);
+    }
+	
 	if (level >= log_level[LOGTYPE_DISPLAY])
-		printf("%s|%5s|%s\n", timestr, loglevelname[(int)level], msg.c_str());
+		printf("%s|t%02d|%5s|%s\n", timestr, ptr->thread_id, loglevelname[(int)level], msg.c_str());
 
 	if(file && level >= log_level[LOGTYPE_FILE])
-		fprintf(file, "%s|%5s| %s\n", timestr, loglevelname[(int)level], msg.c_str());
+		fprintf(file, "%s|t%02d|%5s| %s\n", timestr, ptr->thread_id, loglevelname[(int)level], msg.c_str());
 }
 
 void Logger::setOutputFile(const std::string& filename)
@@ -120,15 +147,15 @@ ScopeLog::ScopeLog(const LogLevel& level, const char* format, ...)
     msg += format_arg_list(format, args);
     va_end(args);
     
-    Logger::log(LOG_DEBUG, "STACK|ENTER - %s", msg.c_str());
+    Logger::log(LOG_STACK, "ENTER - %s", msg.c_str());
 }
 ScopeLog::ScopeLog(const LogLevel& level, const std::string& func)
 : msg(func), level(level)
 {
-    Logger::log(LOG_DEBUG, "STACK|ENTER - %s", msg.c_str());
+    Logger::log(LOG_STACK, "ENTER - %s", msg.c_str());
 }
 
 ScopeLog::~ScopeLog()
 {
-    Logger::log(LOG_DEBUG, "STACK|EXIT - %s", msg.c_str());
+    Logger::log(LOG_STACK, "EXIT - %s", msg.c_str());
 }

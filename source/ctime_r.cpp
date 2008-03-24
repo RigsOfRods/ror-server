@@ -119,3 +119,4 @@ char *ctime_r( const time_t *clock, char * buf)
     return asctime_r (localtime_r (clock, &tm), buf);
 }
 #endif // __MINGW32__
+

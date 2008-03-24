@@ -49,6 +49,7 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source, 
 {
     STACKLOG;
 	SWBaseSocket::SWBaseError error;
+	Logger::log(LOG_DEBUG, "error pointer (org): %p", &error);
 	header_t head;
 	memset(&head, 0, sizeof(header_t));
 	head.command=type;
@@ -65,6 +66,8 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source, 
 	int rlen=0;
 	while (rlen<(int)msgsize)
 	{
+		if(!socket)
+			return -3;
 		int sendnum=socket->send(buffer+rlen, msgsize-rlen, &error);
 		if (sendnum<0 || error!=SWBaseSocket::ok) 
 		{
@@ -91,6 +94,7 @@ int Messaging::receivemessage(SWInetSocket *socket, int *type, unsigned int *sou
 {
     STACKLOG;
 	SWBaseSocket::SWBaseError error;
+	Logger::log(LOG_DEBUG, "error pointer (org): %p", &error);
 	
 	char buffer[MAX_MESSAGE_LENGTH];
 	memset(buffer,0, MAX_MESSAGE_LENGTH);
@@ -98,6 +102,8 @@ int Messaging::receivemessage(SWInetSocket *socket, int *type, unsigned int *sou
 	int hlen=0;
 	while (hlen<(int)sizeof(header_t))
 	{
+		if(!socket)
+			return -3;
 		int recvnum=socket->recv(buffer+hlen, sizeof(header_t)-hlen,&error);
 		if (recvnum<0 || error!=SWBaseSocket::ok)
 		{
@@ -114,6 +120,8 @@ int Messaging::receivemessage(SWInetSocket *socket, int *type, unsigned int *sou
 	*wrotelen=head.size;
 	if(head.size>0)
 	{
+		if(!socket)
+			return -3;
 		//read the rest
 		while (hlen<(int)sizeof(header_t)+(int)head.size)
 		{

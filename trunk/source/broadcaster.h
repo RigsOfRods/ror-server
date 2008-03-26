@@ -39,13 +39,14 @@ class Broadcaster
 {
 private:
 	pthread_t thread;
+	pthread_mutex_t queue_mutex;
+	pthread_cond_t queue_cv;
+	
 	int id;
 	SWInetSocket *sock;
 	queue_entry_t queue[QUEUE_LENGTH];
 	int queue_start; //RING BUFFER BABY!
 	int queue_end;
-	pthread_mutex_t queue_mutex;
-	pthread_cond_t queue_cv;
 	bool finish;
 	char send_data[MAX_MESSAGE_LENGTH];
 	bool alive;

@@ -45,9 +45,17 @@ void Messaging::updateMinuteStats()
  * @param content message to send
  * @return dunno
  */
-int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source, unsigned int len, char* content)
+int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source,
+		unsigned int len, char* content)
 {
     STACKLOG;
+    if( NULL == socket )
+    {
+    	Logger::log( LOG_ERROR, "UID: %d - attempt to send a messaage over a"
+    			"null socket.", source );
+    	return -1;
+    }
+    
 	SWBaseSocket::SWBaseError error;
 	Logger::log(LOG_DEBUG, "error pointer (org): %p", &error);
 	header_t head;
@@ -90,9 +98,25 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source, 
  * @param bufferlen:
  * @return
  */
-int Messaging::receivemessage(SWInetSocket *socket, int *type, unsigned int *source, unsigned int *wrotelen, char* content, unsigned int bufferlen)
+int Messaging::receivemessage(SWInetSocket *socket, int *type,
+		unsigned int *source, unsigned int *wrotelen, char* content,
+		unsigned int bufferlen)
 {
     STACKLOG;
+
+    if( NULL == source )
+    {
+    	Logger::log( LOG_ERROR, "source is null, no where to send it.");
+    	return -1;
+    }
+    
+    if( NULL == socket )
+    {
+    	Logger::log( LOG_ERROR, "attempt to receive a messaage over a"
+    			"null socket." );
+    	return -1;
+    }
+    
 	SWBaseSocket::SWBaseError error;
 	Logger::log(LOG_DEBUG, "error pointer (org): %p", &error);
 	
@@ -123,15 +147,17 @@ int Messaging::receivemessage(SWInetSocket *socket, int *type, unsigned int *sou
 		if(!socket)
 			return -3;
 		//read the rest
-		while (hlen<(int)sizeof(header_t)+(int)head.size)
+		while (hlen < (int)sizeof(header_t) + (int)head.size)
 		{
-			int recvnum=socket->recv(buffer+hlen, (head.size+sizeof(header_t))-hlen,&error);
+			int recvnum = socket->recv(buffer + hlen,
+					(head.size+sizeof(header_t)) - hlen, &error);
 			if (recvnum<0 || error!=SWBaseSocket::ok)
 			{
-				Logger::log(LOG_ERROR, "receive error -1: %s", error.get_error().c_str());
+				Logger::log(LOG_ERROR, "receive error -1: %s",
+						error.get_error().c_str());
 				return -1;
 			}
-			hlen+=recvnum;
+			hlen += recvnum;
 		}
 	}
 	bandwidthIncoming += (int)sizeof(header_t)+(int)head.size;

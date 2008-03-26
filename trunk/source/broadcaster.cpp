@@ -43,11 +43,8 @@ Broadcaster::~Broadcaster(void)
 {
     STACKLOG;
 	stop();
-	Logger::log(LOG_DEBUG,"Cond destroy");
 	pthread_cond_destroy(&queue_cv); //this can block in certains situations!
-	Logger::log(LOG_DEBUG,"Mutex destroy");
 	pthread_mutex_destroy(&queue_mutex);
-	Logger::log(LOG_DEBUG,"Returning");
 }
 
 void Broadcaster::reset(int pos, SWInetSocket *socky)
@@ -60,6 +57,7 @@ void Broadcaster::reset(int pos, SWInetSocket *socky)
 		pthread_mutex_unlock(&queue_mutex);
 		return;
 	}
+	
 	pthread_mutex_unlock(&queue_mutex);
 	queue_start=0;
 	queue_end=0;
@@ -74,25 +72,21 @@ void Broadcaster::reset(int pos, SWInetSocket *socky)
 void Broadcaster::stop()
 {
     STACKLOG;
-	Logger::log(LOG_DEBUG,"Broadcaster stop called");
 	finish=true;
-	Logger::log(LOG_DEBUG,"Lock");
 	pthread_mutex_lock(&queue_mutex);
 	/*
 	Logger::log(LOG_DEBUG,"Signal");
 	pthread_cond_signal(&queue_cv); //try this
 	pthread_mutex_unlock(&queue_mutex);
 	*/
-	Logger::log(LOG_DEBUG,"Cancel");
+	//Logger::log(LOG_DEBUG,"Cancel");
 	//pthread_cancel(thread); //finish the bastard
 	
-	Logger::log(LOG_DEBUG,"Join");
+	//Logger::log(LOG_DEBUG,"Join");
 	//pthread_join(thread, NULL); //this can block the killer!
 	alive=false;
 	
-	Logger::log(LOG_DEBUG,"UnLock");
 	pthread_mutex_unlock(&queue_mutex);
-	Logger::log(LOG_DEBUG,"Done");
 }
 
 void Broadcaster::threadstart()

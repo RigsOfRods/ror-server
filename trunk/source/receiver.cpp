@@ -51,6 +51,7 @@ void Receiver::reset(int pos, SWInetSocket *socky)
 	id=pos;
 	sock=socky;
 	alive=true;
+	
 	//start a listener thread
 	pthread_create(&thread, NULL, s_lithreadstart, this);
 }
@@ -71,6 +72,13 @@ void Receiver::threadstart()
 	int type;
 	unsigned int source;
 	unsigned int len;
+	
+	Logger::log(LOG_VERBOSE,"%s: sending welcome message to uid %i", __FUNCTION__, id);
+	if( Messaging::sendmessage(sock, MSG2_WELCOME, id, 0, 0) )
+	{
+		SEQUENCER.disconnect( id, "error sending welcome message" );
+		pthread_exit(NULL);
+	}
 	
 	//security fix: we limit the size of the vehicle name to 128 characters <- from Luigi Auriemma
 	if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, 128)) {

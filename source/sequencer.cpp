@@ -235,9 +235,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	clients[pos].receiver->reset(clients[pos].uid, sock); //this won't interlock
 	clients[pos].broadcaster->reset(clients[pos].uid, sock); //this won't interlock
 	clients_mutex.unlock();
-	
-	if( Messaging::sendmessage(sock, MSG2_WELCOME, clients[pos].uid, 0, 0) )
-		disconnect( clients[pos].uid, "error sending welcome message" );
+
 	Logger::log(LOG_VERBOSE,"Sequencer: New client created in slot %i", pos);
 	printStats();
 }
@@ -247,9 +245,9 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 {
     STACKLOG;
 	SWBaseSocket::SWBaseError error;
+	int clientnum = getNumClients();
+	// lock this mutex after getNumClients is called to avoid a deadlock
 	MutexLocker scoped_lock(clients_mutex);
-	int clientnum =0;
-	for (int i=0; i<maxclients; i++) if (clients[i].status!=FREE) clientnum++;
 
 	sprintf(hearbeatdata, "%s\n" \
 	                      "version2\n" \
@@ -296,6 +294,7 @@ void Sequencer::killerthreadstart()
 		//pop the kill queue
 		int pos=killqueue[0];
 		freekillqueue--;
+		
 		memcpy(killqueue, &killqueue[1], sizeof(int)*freekillqueue);
 		killer_mutex.unlock();
 
@@ -317,18 +316,15 @@ void Sequencer::killerthreadstart()
 			}
 			Logger::log(LOG_DEBUG,"Killer done notifying");
 
-			//things are less critical, we can take time to cleanup properly and synchronously
-			Logger::log(LOG_DEBUG,"Killer force disconnect");
+			// things are less critical, we can take time to cleanup properly and
+			// synchronously
 			clients[pos].sock->disconnect(&error);
-			Logger::log(LOG_DEBUG,"Killer stopping receiver");
 			clients[pos].receiver->stop();
-			Logger::log(LOG_DEBUG,"Killer stopping broadcaster");
 			clients[pos].broadcaster->stop();
-			memset(clients[pos].nickname, 0, 20); // Clear the nick data or else nicks will only be able to be used once!
-			Logger::log(LOG_DEBUG,"Killer deleting socket");
+			memset(clients[pos].nickname, 0, 20);
 			delete clients[pos].sock;
-			Logger::log(LOG_DEBUG,"Killer got second clients lock");
-			clients[pos].status=FREE;
+			clients[pos].sock = NULL;
+			clients[pos].status = FREE;
 		}
 		clients_mutex.unlock();
 		Logger::log(LOG_DEBUG,"Killer has properly killed %i", pos);
@@ -344,6 +340,7 @@ void Sequencer::disconnect(int uid, char* errormsg)
 	//so we use a killer thread
 	Logger::log(LOG_VERBOSE, "Disconnecting Slot %d: %s", pos, errormsg);
 	MutexLocker scoped_lock(killer_mutex);
+	
 	//first check if not already queued
 	bool found=false;
 	for (int i=0; i<freekillqueue; i++)
@@ -611,3 +608,31 @@ unsigned short Sequencer::getPosfromUid(const unsigned int& uid)
     throw std::runtime_error(error_msg.str() );
 }
 
+#if 0
+// resets a client back to it's initial unused ready state.
+unsigned int resetClient( const client_t& client)
+{
+	client.flow = false;
+	if( client.broadcaster )
+	{
+		client.broadcaster->stop();
+		delete client.broadcaster;
+	}
+	client.broadcaster = new Broadcaster();
+
+	if( client.receiver )
+	{
+		client.receiver->stop();
+		delete client.receiver;
+	}
+	client.receiver = new Broadcaster();
+	
+	if( client.sock )
+	{
+		client.sock->disconnect();
+		delete client.sock;
+	}
+	client.sock = NULL;
+
+}
+#endif

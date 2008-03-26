@@ -68,14 +68,16 @@ void Listener::threadstart()
 	{
 		Logger::log(LOG_VERBOSE,"Listener awaiting connections");
 		SWInetSocket *ts=(SWInetSocket *)listSocket.accept(&error);
-
-		Logger::log(LOG_VERBOSE,"Listener got a new connection");
 		
 		if (error!=SWBaseSocket::ok) 
 		{
 			Logger::log(LOG_ERROR,"ERROR Listener: %s", error.get_error().c_str());
 			continue;
 		}
+
+		
+		Logger::log(LOG_VERBOSE,"Listener got a new connection");
+		ts->set_timeout(600, 0);
 		
 		//receive a magic
 		int type;

@@ -83,6 +83,7 @@ void HttpMsg::assign( const std::string& message )
 	
 
 	
+#if 0
 	// debuging stuff
 	std::cout << "headermap contents " << headermap.size() << ": \n"; 
 	for( std::map<std::string,std::string>::iterator it = headermap.begin();
@@ -93,4 +94,5 @@ void HttpMsg::assign( const std::string& message )
 				<< (*it).second << std::endl;
 		
 	}
+#endif
 }

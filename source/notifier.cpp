@@ -108,7 +108,7 @@ bool Notifier::sendHearbeat()
 	if(SEQUENCER.getHeartbeatData(challenge, hearbeatdata))
 		return false;
 
-	Logger::log(LOG_INFO, "heartbeat data sent to master server: %s", hearbeatdata);
+	Logger::log(LOG_DEBUG, "heartbeat data sent to master server: %s", hearbeatdata);
 	if (HTTPPOST(hearbeaturl, hearbeatdata) < 0)
 		return false;
 	// the server gives back "failed" or "ok"	

@@ -66,7 +66,8 @@ int getFileHash(char *filename, char *hash)
 	{
 		// obtain file size:
 		fseek (cfd , 0 , SEEK_END);
-		long lSize = ftell (cfd);
+		unsigned long lSize = ftell (cfd);
+		if( lSize <= 0 ) return 1;
 		rewind (cfd);
 
 		// allocate memory to contain the whole file:

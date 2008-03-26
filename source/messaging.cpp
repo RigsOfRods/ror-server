@@ -57,7 +57,6 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source,
     }
     
 	SWBaseSocket::SWBaseError error;
-	Logger::log(LOG_DEBUG, "error pointer (org): %p", &error);
 	header_t head;
 	memset(&head, 0, sizeof(header_t));
 	head.command=type;
@@ -118,7 +117,6 @@ int Messaging::receivemessage(SWInetSocket *socket, int *type,
     }
     
 	SWBaseSocket::SWBaseError error;
-	Logger::log(LOG_DEBUG, "error pointer (org): %p", &error);
 	
 	char buffer[MAX_MESSAGE_LENGTH];
 	memset(buffer,0, MAX_MESSAGE_LENGTH);

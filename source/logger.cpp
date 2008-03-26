@@ -1,18 +1,15 @@
 //Logger.cpp
 
 #include "logger.h"
+#include "pthread.h"
 
 #include <ctime>
 #include <cstring>
 #include <cstdio>
 #include <cstdarg>
 
-#ifdef __WIN32__
-#ifndef __MINGW32__
+#ifndef __GNUC__
     #define ctime_r(lotime, timestr) ctime_s(timestr, 50, &lotime);
-#else
-    char *ctime_r( const time_t *clock, char * buf);
-#endif
 #endif
 
 static pthread_key_t key;

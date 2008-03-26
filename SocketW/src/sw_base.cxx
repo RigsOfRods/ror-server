@@ -473,7 +473,10 @@ string SWBaseSocket::recvmsg(int bytes, SWBaseError *error)
 	delete[] buf;
 	
 	if( ret < 1 )
-		set_error(error, err, err.get_error());
+	// will generate proper error, instead of default 'ok' error after connection reset (which is not good)
+		set_error(error, SWBaseError(base_error::terminated), "remote resetted the connection");
+	// this is the faulty original implementation:
+	//	set_error(error, err, err.get_error());
 	
 	return msg;
 }

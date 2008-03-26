@@ -91,6 +91,7 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 	memset(timestr, 0, 50);
 
 	// if compiling without gcc this is a macro
+	// TODO: this fails under windows, please FIX!
 	ctime_r(&lotime, timestr);
 	
 	// remove trailing new line

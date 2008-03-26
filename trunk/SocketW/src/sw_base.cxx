@@ -474,7 +474,7 @@ string SWBaseSocket::recvmsg(int bytes, SWBaseError *error)
 	
 	if( ret < 1 )
 	// will generate proper error, instead of default 'ok' error after connection reset (which is not good)
-		set_error(error, SWBaseError(base_error::terminated), "remote resetted the connection");
+		set_error(error, SWBaseError(SWBaseSocket::base_error::terminated), "remote reset the connection");
 	// this is the faulty original implementation:
 	//	set_error(error, err, err.get_error());
 	

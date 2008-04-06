@@ -205,6 +205,7 @@ class Client(threading.Thread):
 				msg = "available recordings: " + ', '.join(recs)
 				self.sendChat(msg)
 		elif cmd[:8] == "!playrec" and self.mode == MODE_NORMAL:
+			print "playrec, mode: %d" % self.mode
 			playbackname = cmd[8:].strip()
 			if not self.socket is None:
 				# rejoin to be able to play back
@@ -475,10 +476,11 @@ if __name__ == '__main__':
 	if len(sys.argv) == 5:
 		startupCommands = sys.argv[4].split(';')
 	
+	threads = []
+	restarts = {}
+	lastrestart = {}
 	try:
 		# try for keyboard interrupt
-		threads = []
-		restarts = {}
 		for i in range(num):
 			threads.append(Client(ip, port, i, 0, copy.copy(startupCommands)))
 			threads[i].start()
@@ -487,19 +489,18 @@ if __name__ == '__main__':
 			# start with time inbetween, so you see all trucks ;)
 			time.sleep(0.2)
 
-	
 		print "all threads started. starting restart loop"
 		time.sleep(1)
 	
-		lastrestart = {}
 		while restartClient:
 			eventStopThread.clear()
 			for i in range(num):
 				if not threads[i].isAlive():
 					restarts[i]+=1
 					rcmd = copy.copy(restartCommands)
-					if time.time() - lastrestart[i] < 5:
-						rcmd = ['!connect', '!say i crashed, resetted to normal mode :|']
+					print "restart commands: ", rcmd
+					#if time.time() - lastrestart[i] < 5:
+					#	rcmd = ['!connect', '!say i crashed, resetted to normal mode :|']
 					print "thread %d dead, restarting" % i
 					threads[i] = Client(ip, port, i, restarts[i], rcmd)
 					threads[i].start()
@@ -507,6 +508,7 @@ if __name__ == '__main__':
 					
 				#else:
 				#	print "thread %d alive!" % i
+		print "exiting peacefully"
 	except KeyboardInterrupt:
 		print "exiting ..."
 		sys.exit(0)

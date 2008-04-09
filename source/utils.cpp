@@ -1,5 +1,6 @@
 
 #include "utils.h"
+#include "logger.h"
 #include <string>
 #include <sstream>
 #include <vector>
@@ -9,6 +10,7 @@ void tokenize(const std::string& str,
 				std::vector<std::string>& tokens,
 				const std::string& delimiters)
 {
+	STACKLOG;
 	// Skip delimiters at beginning.
 	std::string::size_type lastPos = str.find_first_not_of(delimiters, 0);
 	// Find first "non-delimiter".
@@ -32,6 +34,7 @@ void strict_tokenize(const std::string& str,
 				std::vector<std::string>& tokens,
 				const std::string& delimiter)
 {
+	STACKLOG;
 	// Skip delimiter at beginning.
 	std::string::size_type lastPos = str.find(delimiter, 0);
 	if( 0 == lastPos) lastPos = delimiter.length();

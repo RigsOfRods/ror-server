@@ -1,31 +1,40 @@
 #include "HttpMsg.h"
 #include "utils.h"
+#include "logger.h"
 
 #include <stdexcept>
+#include <string>
+#include <vector>
 #include <sstream>
 #include <iostream>
 
 HttpMsg::HttpMsg()
-{// do nothing
+{
+	STACKLOG;
 }
 
 HttpMsg::HttpMsg( const std::string& message )
 {
+	STACKLOG;
 	assign( message );
 }
 
 HttpMsg::~HttpMsg()
-{}
+{
+	STACKLOG;
+}
 
 
 HttpMsg& HttpMsg::operator=( const std::string& message )
 {
+	STACKLOG;
 	assign( message );
 	return *this;
 }
 
 HttpMsg& HttpMsg::operator=( const char* message )
 {
+	STACKLOG;
 	assign( message );
 	return *this;
 }
@@ -37,16 +46,19 @@ bool HttpMsg::operator==( const std::string& message )
 
 const std::string& HttpMsg::getBody()
 {
+	STACKLOG;
 	return headermap["body"];
 }
 
 bool HttpMsg::isChunked()
 {
+	STACKLOG;
 	return "chunked" == headermap["Transfer-Encoding"];
 }
 
 void HttpMsg::assign( const std::string& message )
 {
+	STACKLOG;
 	std::size_t locHolder;
 	locHolder = message.find("\r\n\r\n");
 	std::vector<std::string> header;
@@ -55,7 +67,9 @@ void HttpMsg::assign( const std::string& message )
 	strict_tokenize( message.substr( 0, locHolder ), header, "\r\n" );
 	
 	headermap["httpcode"] = header[0];
-	for( unsigned short index = 1; index < header.size(); index++ )
+	for( unsigned short index = 1;
+	header.size() >= 0 && index < header.size();
+	index++ )
 	{
 		tmp.clear();
 		tokenize( header[index], tmp, ":" );
@@ -80,8 +94,6 @@ void HttpMsg::assign( const std::string& message )
 		headermap["body"] = tmp[1];
 	else
 		headermap["body"] = tmp[0];
-	
-
 	
 #if 0
 	// debuging stuff

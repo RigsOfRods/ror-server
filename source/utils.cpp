@@ -34,11 +34,11 @@ void strict_tokenize(const std::string& str,
 {
 	size_t prev_loc = 0, new_loc = str.find( delimiter, prev_loc );
 	
-	do {
+	while( new_loc < str.length() && prev_loc < str.length() ) {
 		tokens.push_back( str.substr( prev_loc, new_loc - prev_loc ) );
 		prev_loc = ( new_loc > str.length() ? new_loc : new_loc + delimiter.length() );
-		new_loc = str.find( delimiter, prev_loc );
-	} while( new_loc < str.length() && prev_loc < str.length() );
+		new_loc = str.find( delimiter, prev_loc ); 
+	}
 	
 	tokens.push_back( str.substr( prev_loc, new_loc - prev_loc ) );
 }

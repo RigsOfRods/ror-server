@@ -12,6 +12,9 @@
  *  License as published by the Free Software Foundation; either       *
  *  version 2.1 of the License, or (at your option) any later version. *
  ***********************************************************************/
+
+// TSWA = thread safe work around
+#define TSWA
  
 #include "sw_base.h"
 #include <errno.h>
@@ -189,7 +192,9 @@ SWBaseSocket::SWBaseSocket()
 		WSAData wsaData;
 		int nCode;
     	if( (nCode = WSAStartup(MAKEWORD(1, 1), &wsaData)) != 0 ){
+#ifndef TSWA
 			handle_errno(NULL, "SWBaseSocket - WSAStartup() failed: ");
+#endif
         	exit(-1);  // Should never happend
     	}
 		
@@ -215,7 +220,9 @@ bool SWBaseSocket::listen(int qLimit, SWBaseError *error)
 	setsockopt(myfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 	
 	if(::listen(myfd, qLimit) == -1){		
+#ifndef TSWA
 		handle_errno(error, "SWBaseSocket::listen() error: ");
+#endif
 		return false;
 	}
 
@@ -234,7 +241,9 @@ SWBaseSocket* SWBaseSocket::accept(SWBaseError *error)
 	sw_socklen_t ssize = sizeof(sockaddr);
 
 	if((remotefd = ::accept(myfd, &remoteAdr, &ssize)) == int(INVALID_SOCKET)){
+#ifndef TSWA
 		handle_errno(error, "SWBaseSocket::accept() error: ");
+#endif
 		return NULL;
 	}
 	
@@ -263,7 +272,9 @@ bool SWBaseSocket::disconnect(SWBaseError *error)
 
 	//close WR (this signals the peer) 
 	if( shutdown(myfd, 1) != 0 ){
+#ifndef TSWA
 		handle_errno(error, "SWBaseSocket::disconnect() error: ");
+#endif
 		return false;
 	}
 	
@@ -330,12 +341,12 @@ int SWBaseSocket::send(const char *buf, int bytes, SWBaseError *error)
 		return -1;
 		
 	ret = ::send(myfd, buf, bytes, MSG_NOSIGNAL);
-	
+#ifndef TSWA
 	if( ret < 0 )
 		handle_errno(error, "SWBaseSocket::send() error: ");
 	else
 		no_error(error);
-	
+#endif	
 	return ret;
 }
 
@@ -403,6 +414,7 @@ int SWBaseSocket::recv(char *buf, int bytes, SWBaseError *error)
 	
  	ret = ::recv(myfd, buf, bytes, MSG_NOSIGNAL);
 
+#ifndef TSWA
 	if( ret < 0 )
 		handle_errno(error, "SWBaseSocket::recv() error: ");
 	else if( ret == 0 ){
@@ -410,7 +422,7 @@ int SWBaseSocket::recv(char *buf, int bytes, SWBaseError *error)
 		set_error(error, terminated, "SWBaseSocket::recv() - Connection terminated by peer");	
 	}else
 		no_error(error);
-
+#endif
 	return ret;
 }
 
@@ -506,7 +518,9 @@ bool SWBaseSocket::get_host(sockaddr *host, SWBaseError *error)
 	
 	sw_socklen_t tmp = sizeof(sockaddr);
 	if( getsockname(myfd, host, &tmp) != 0 ){
+#ifndef TSWA
 		handle_errno(error, "SWBaseSocket::get_host() error: ");
+#endif
 		return false;
 	}
 	
@@ -524,7 +538,9 @@ bool SWBaseSocket::get_peer(sockaddr *peer, SWBaseError *error)
 	if(myfd > 0){
 		sw_socklen_t tmp = sizeof(sockaddr);
 		if( getpeername(myfd, peer, &tmp) != 0 ){
+#ifndef TSWA
 			handle_errno(error, "SWBaseSocket::get_peer() error: ");
+#endif
 			return false;
 		}
 	}else{
@@ -594,7 +610,9 @@ bool SWBaseSocket::waitIO(io_type &type, SWBaseError *error)
 			
 	if( ret < 0 )
 	{
+#ifndef TSWA
 		handle_errno(error, "SWBaseSocket::waitIO() error: ");
+#endif
 		return false;
 	}
 	if( ret == 0 ){
@@ -642,6 +660,7 @@ void SWBaseSocket::print_error()
 
 void SWBaseSocket::handle_errno(SWBaseError *error, string msg)
 {
+#ifndef TSWA
 	printf("error pointer: %p", error);
 	#ifndef __WIN32__
 	msg += strerror(errno);
@@ -734,6 +753,7 @@ void SWBaseSocket::handle_errno(SWBaseError *error, string msg)
 		e = fatal; //default
 		
 	set_error(error, e, msg);
+#endif
 }
 
 void SWBaseSocket::no_error(SWBaseError *error)

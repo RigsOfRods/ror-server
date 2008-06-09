@@ -8,15 +8,19 @@ void Condition::signal() { pthread_cond_signal(&cond); }
 
 Mutex::Mutex() : lock_owner( 0 ) { pthread_mutex_init(&m, NULL); }
 Mutex::~Mutex() { pthread_mutex_destroy(&m); }
-void Mutex::lock() {
-	// check for deadlock, if this occurs raise an abort signal to stop the 
+void Mutex::lock()
+{
+	// check for deadlock, if this occurs raise an abort signal to stop the
 	// debugger
+	STACKLOG;
 	if( ThreadID::getID() == lock_owner )
 		raise( SIGABRT );
 	pthread_mutex_lock(&m);
 	lock_owner = ThreadID::getID(); 
 } 
-void Mutex::unlock() {
+void Mutex::unlock()
+{
+	STACKLOG;
 	pthread_mutex_unlock(&m);
 	lock_owner = 0;
 } 

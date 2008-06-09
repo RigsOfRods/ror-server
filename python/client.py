@@ -207,23 +207,15 @@ class Client(threading.Thread):
 		elif cmd[:8] == "!playrec" and self.mode == MODE_NORMAL and not startup:
 			print "playrec, mode: %d" % self.mode
 			playbackname = cmd[8:].strip()
-			if not self.socket is None:
-				# rejoin to be able to play back
-				if self.recordExists(playbackname + ".rec"):
-					#self.sendChat("recording '%s' does exist!" % playbackname)
-					restartCommands.append("!playrec %s"%playbackname)
-					self.runCond=False
-				else:
-					msg = "recording '%s' does not exist!" % playbackname
-					self.logger.debug(msg)
-					self.sendChat(msg)
-			elif self.socket is None:
-				# rejoined
-				if self.loadRecord(playbackname + ".rec"):
-					self.sendChat("playing recording %s ..." % playbackname)
-					self.playback = Playback(self, self.record, self.logger)
-					self.connect()
-					self.playback.start()
+			# rejoin to be able to play back
+			if self.recordExists(playbackname + ".rec"):
+				#self.sendChat("recording '%s' does exist!" % playbackname)
+				restartCommands.append("!playrec %s"%playbackname)
+				self.runCond=False
+			else:
+				msg = "recording '%s' does not exist!" % playbackname
+				self.logger.debug(msg)
+				self.sendChat(msg)
 		
 		elif cmd[:8] == "!playrec" and self.mode == MODE_NORMAL and startup:
 			# rejoined
@@ -240,7 +232,7 @@ class Client(threading.Thread):
 			eventStopThread.set()
 			self.playback.join(1)
 			self.disconnect()
-			restartCommands = ['!connect', '!say rejoined']
+			restartCommands.append('!say rejoined')
 			self.runCond = False
 		elif cmd == "!stresstest" and self.mode == MODE_NORMAL:
 			#stressTest = not stressTest

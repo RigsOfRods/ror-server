@@ -224,7 +224,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
     instance->clients_mutex.lock();
 	
 	bool dupeNick = Sequencer::checkNickUnique(user->username);
-	int dupecounter = 0;
+	int dupecounter = 2;
 	if(dupeNick)
 	{
 		char buf[20] = "";
@@ -241,6 +241,8 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 		}
 		Logger::log(LOG_WARN,"chose alternate username: %s\n", buf);
 		strncpy(user->username, buf, 20);
+		
+		// we should send him a message about the nickchange later...
 	}
 	
 	// search a free slot

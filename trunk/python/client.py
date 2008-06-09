@@ -53,7 +53,7 @@ restartClient = False
 restartCommands = ['!connect'] # important ;)
 eventStopThread = None
 
-VERBOSELOG = True
+VERBOSELOG = False
 RECORDLIMIT = 20000
 
 MODE_NORMAL = 0

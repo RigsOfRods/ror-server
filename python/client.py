@@ -49,9 +49,11 @@ commandNames= {
 
 RORNET_VERSION = "RoRnet_2.1"
  
-restartClient=True
-restartCommands=['!connect'] # important ;)
+restartClient = True
+restartCommands = ['!connect'] # important ;)
 eventStopThread = None
+
+VERBOSELOG = False
 
 MODE_NORMAL = 0
 MODE_PLAYBACK = 1
@@ -129,7 +131,8 @@ class Playback(threading.Thread):
 			t = 1
 
 		#self.logger.debug("sleep time: %f" % t)
-		self.logger.debug("played back position %d, frame time: %0.4f" % (pos, t))
+		if VERBOSELOG:
+			self.logger.debug("played back position %d, frame time: %0.4f" % (pos, t))
 
 		packet.source = 0
 		return (packet, t)
@@ -433,7 +436,8 @@ class Client(threading.Thread):
 	def sendMsg(self, packet):
 		if self.socket is None:
 			return
-		self.logger.debug("SEND| %-16s, source %d, destination %d, size %d, data-len: %d" % (commandNames[packet.command], packet.source, self.uid, packet.size, len(str(packet.data))))
+		if VERBOSELOG:
+			self.logger.debug("SEND| %-16s, source %d, destination %d, size %d, data-len: %d" % (commandNames[packet.command], packet.source, self.uid, packet.size, len(str(packet.data))))
 		if packet.size == 0:
 			# just header
 			data = struct.pack('III', packet.command, packet.source, packet.size)

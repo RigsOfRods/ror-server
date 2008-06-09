@@ -328,11 +328,11 @@ class Client(threading.Thread):
 		self.uniqueid = "1337"
 		self.password = ""
 		self.username = "GameBot_"+str(self.cid)
-		self.buffersize = 4 # 'data' - String
+		self.buffersize = 1 # 'data' - String
 		self.truckname = "spectator"
 		
 		# dummy data to prevent timeouts
-		dummydata = self.packPacket(DataPacket(MSG2_VEHICLE_DATA, 0, 1, "data"))
+		dummydata = self.packPacket(DataPacket(MSG2_VEHICLE_DATA, 0, 1, "1"))
 
 		while self.runCond:
 			if len(self.startupCommands) > 0:
@@ -372,7 +372,6 @@ class Client(threading.Thread):
 		
 			# to prevent timeouts
 			self.sendRaw(dummydata)
-			time.sleep(0.3)
 		
 
 

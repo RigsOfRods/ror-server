@@ -148,8 +148,7 @@ void Listener::threadstart()
 				Logger::log(LOG_DEBUG,"user used the correct password, "
 						"creating client!");
 			} else {
-				Logger::log(LOG_DEBUG,"creating client, no password "
-						"protection, creating client");
+				Logger::log(LOG_DEBUG,"no password protection, creating client");
 			}
 
 			//create a new client

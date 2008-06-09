@@ -332,7 +332,7 @@ class Client(threading.Thread):
 		self.truckname = "spectator"
 		
 		# dummy data to prevent timeouts
-		dummydata = packPacket(DataPacket(MSG2_VEHICLE_DATA, 0, 1, "data"))
+		dummydata = self.packPacket(DataPacket(MSG2_VEHICLE_DATA, 0, 1, "data"))
 
 		while self.runCond:
 			if len(self.startupCommands) > 0:

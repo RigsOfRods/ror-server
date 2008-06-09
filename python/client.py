@@ -54,6 +54,7 @@ restartCommands = ['!connect'] # important ;)
 eventStopThread = None
 
 VERBOSELOG = False
+RECORDLIMIT = 100000
 
 MODE_NORMAL = 0
 MODE_PLAYBACK = 1
@@ -274,7 +275,7 @@ class Client(threading.Thread):
 		if len(self.record.list) == 0:
 			self.logger.debug('nothing to play back!')
 			return False
-		self.username = "[REC]"+str(self.record.username[:14])
+		self.username = "[REC"+("%d"%self.cid)+"]"+str(self.record.username[:14])
 		self.buffersize = self.record.list[0].size
 		self.truckname = self.record.vehicle
 		return True
@@ -357,7 +358,7 @@ class Client(threading.Thread):
 					self.sendChat("saved recording as %s (client exited)" % os.path.basename(fn))
 					self.mode = MODE_NORMAL
 					
-				if self.mode == MODE_RECORD and len(self.record.list) > 1000:
+				if self.mode == MODE_RECORD and len(self.record.list) > RECORDLIMIT:
 					fn = self.newRecordname()
 					self.saveRecording(fn, self.record)
 					self.sendChat("saved recording as %s (recording limit reached)" % os.path.basename(fn))
@@ -494,7 +495,7 @@ if __name__ == '__main__':
 			lastrestart[i] = time.time() - 1000
 			restarts[i] = 0
 			# start with time inbetween, so you see all trucks ;)
-			time.sleep(0.5)
+			time.sleep(2.0)
 
 		print "all threads started. starting restart loop"
 		time.sleep(1)

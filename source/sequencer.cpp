@@ -200,6 +200,7 @@ void Sequencer::notifyRoutine()
 
 bool Sequencer::checkNickUnique(char *nick)
 {
+    STACKLOG;
 	// WARNING: be sure that this is only called within a clients_mutex lock!
 	
 	// check for duplicate names

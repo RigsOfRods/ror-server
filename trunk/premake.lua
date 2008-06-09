@@ -1,17 +1,17 @@
 project.name = "RoRserver"
 
-package = newpackage()
-package.name = "PDCurses"
-package.kind = "lib"
-package.language = "c++"
-package.includepaths = { "PDCurses-3.3" }
-if windows then
-	package.files = { matchfiles("PDCurses-3.3/win32/*.c", "PDCurses-3.3/pdcurses/*.c")}
-	package.defines = { "_CRT_SECURE_NO_WARNINGS" }
-else
-	package.files = { matchfiles("PDCurses-3.3/*.c") }
-end
-package.objdir = "PDCurses-3.3/obj"
+--package = newpackage()
+--package.name = "PDCurses"
+--package.kind = "lib"
+--package.language = "c++"
+--package.includepaths = { "PDCurses-3.3" }
+--if windows then
+--	package.files = { matchfiles("PDCurses-3.3/win32/*.c", "PDCurses-3.3/pdcurses/*.c")}
+--	package.defines = { "_CRT_SECURE_NO_WARNINGS" }
+--else
+--	package.files = { matchfiles("PDCurses-3.3/*.c") }
+--end
+--package.objdir = "PDCurses-3.3/obj"
 
 package = newpackage()
 package.name = "SocketW"
@@ -42,14 +42,12 @@ package.files = { matchfiles("source/*.cpp"), matchfiles("source/*.c") }
 package.objdir = "source/obj"
 
 if windows then
-	package.includepaths = { "SocketW/src/", "win32_pthread", "PDCurses-3.3"}
+	package.includepaths = { "SocketW/src/", "win32_pthread"}
 	package.libpaths = { "win32_pthread"}
 	package.defines = { "__WIN32__", "_CRT_SECURE_NO_WARNINGS" }
-	package.links = { "kernel32", "wsock32", "SocketW", "pthreadVC2", "WSOCK32", "PDCurses"}
+	package.links = { "kernel32", "wsock32", "SocketW", "pthreadVC2", "WSOCK32"}
 else
-	package.includepaths = { "SocketW/src/", "PDCurses-3.3"}
-	package.defines = {"NCURSES"}
-	package.libpaths = { "PDCurses-3.3"}
-	package.links = { "SocketW", "pthread", "PDCurses", "curses"}
+	package.includepaths = { "SocketW/src/"}
+	package.links = { "SocketW", "pthread"}
 end
 

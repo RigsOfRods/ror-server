@@ -490,7 +490,7 @@ if __name__ == '__main__':
 			lastrestart[i] = time.time() - 1000
 			restarts[i] = 0
 			# start with time inbetween, so you see all trucks ;)
-			time.sleep(0.2)
+			time.sleep(0.5)
 
 		print "all threads started. starting restart loop"
 		time.sleep(1)
@@ -502,8 +502,8 @@ if __name__ == '__main__':
 					restarts[i]+=1
 					rcmd = copy.copy(restartCommands)
 					print "restart commands: ", rcmd
-					#if time.time() - lastrestart[i] < 5:
-					#	rcmd = ['!connect', '!say i crashed, resetted to normal mode :|']
+					if time.time() - lastrestart[i] < 1:
+						rcmd = ['!connect', '!say i crashed, resetted to normal mode :|']
 					print "thread %d dead, restarting" % i
 					threads[i] = Client(ip, port, i, restarts[i], rcmd)
 					threads[i].start()

@@ -328,9 +328,12 @@ class Client(threading.Thread):
 		self.uniqueid = "1337"
 		self.password = ""
 		self.username = "GameBot_"+str(self.cid)
-		self.buffersize = 1
+		self.buffersize = 4 # 'data' - String
 		self.truckname = "spectator"
-			
+		
+		# dummy data to prevent timeouts
+		dummydata = packPacket(DataPacket(MSG2_VEHICLE_DATA, 0, 1, "data"))
+
 		while self.runCond:
 			if len(self.startupCommands) > 0:
 				cmd = self.startupCommands.pop(0).strip()
@@ -367,6 +370,9 @@ class Client(threading.Thread):
 				if packet.command == MSG2_CHAT:
 					self.processCommand(str(packet.data), packet)
 		
+			# to prevent timeouts
+			self.client.sendRaw(dummydata)
+			time.sleep(0.3)
 		
 
 
@@ -434,17 +440,20 @@ class Client(threading.Thread):
 			traceback.print_exc(file=sys.stdout)
 		
 
-	def sendMsg(self, packet):
-		if self.socket is None:
-			return
-		if VERBOSELOG:
-			self.logger.debug("SEND| %-16s, source %d, destination %d, size %d, data-len: %d" % (commandNames[packet.command], packet.source, self.uid, packet.size, len(str(packet.data))))
+	def packPacket(self, packet):
 		if packet.size == 0:
 			# just header
 			data = struct.pack('III', packet.command, packet.source, packet.size)
 		else:
 			data = struct.pack('III'+str(packet.size)+'s', packet.command, packet.source, packet.size, str(packet.data))
-		self.sendRaw(data)
+		return data
+		
+	def sendMsg(self, packet):
+		if self.socket is None:
+			return
+		if VERBOSELOG:
+			self.logger.debug("SEND| %-16s, source %d, destination %d, size %d, data-len: %d" % (commandNames[packet.command], packet.source, self.uid, packet.size, len(str(packet.data))))
+		self.sendRaw(self.packPacket(packet))
 
 	def receiveMsg(self):
 		if self.socket is None:
@@ -520,15 +529,3 @@ if __name__ == '__main__':
 	except KeyboardInterrupt:
 		print "exiting ..."
 		sys.exit(0)
-			
-			
-# old code (to be added):
-"""
-		buffersize = random.randint(500, 1000)
-		if playbackFile != '':
-			buffersize = self.record.buffersize
-			
-		data = ""
-		for i in range(buffersize):
-			data += random.choice(string.letters + string.digits)
-"""

@@ -248,6 +248,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 		// we should send him a message about the nickchange later...
 	}
 	
+	Logger::log(LOG_WARN,"searching free slot for new client...\n");
 	// search a free slot
 	int pos=-1;
 	for (int i = 0; i < instance->maxclients; i++)

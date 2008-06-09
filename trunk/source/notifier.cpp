@@ -103,11 +103,12 @@ bool Notifier::sendHearbeat()
     STACKLOG;
 	char hearbeaturl[1024] = "";
 	char hearbeatdata[16384] = "";
+	memset(hearbeatdata, 0, 16384);
 	sprintf(hearbeaturl, "%s/heartbeat/", REPO_URLPREFIX);
 	if(Sequencer::getHeartbeatData(challenge, hearbeatdata))
 		return false;
 
-	Logger::log(LOG_DEBUG, "heartbeat data sent to master server: %s", hearbeatdata);
+	Logger::log(LOG_DEBUG, "heartbeat data (%d bytes long) sent to master server: >>%s<<", strnlen(hearbeatdata, 16384), hearbeatdata);
 	if (HTTPPOST(hearbeaturl, hearbeatdata) < 0)
 		return false;
 	// the server gives back "failed" or "ok"	

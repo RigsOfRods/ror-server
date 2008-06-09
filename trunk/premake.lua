@@ -48,6 +48,8 @@ if windows then
 	package.config["Release"].links = { "kernel32", "wsock32", "SocketW", "pthreadVC2", "WSOCK32"}
 else
 	package.includepaths = { "SocketW/src/"}
+--	package.defines = { "NOTIMEOUT" }
+	
 	package.config["Debug"].links = { "SocketW_d", "pthread"}
 	package.config["Release"].links = { "SocketW", "pthread"}
 end

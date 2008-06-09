@@ -119,7 +119,10 @@ void Receiver::threadstart()
 	Sequencer::enableFlow(id);
 	
 	Logger::log(LOG_VERBOSE,"UID %d is switching to FLOW", id);
+#ifndef NOTIMEOUT
 	sock->set_timeout(6, 0);
+#endif
+	
 	while (1)
 	{
 		//	hmm for some reason this fails, 

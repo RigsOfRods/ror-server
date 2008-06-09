@@ -19,13 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef __Messaging_H__
 #define __Messaging_H__
 
-#include "SocketW.h"
-#include "rornet.h"
-#include "logger.h"
-
-#ifdef __WIN32__
-#include <time.h>
-#endif
+class SWInetSocket;
 
 //TODO: does this even need to be a class? couldn't it be done just as well
 //	using two functions outside of a class? 
@@ -35,16 +29,19 @@ public:
 	Messaging(void) {;}
 	~Messaging(void) {;}
 	
-	static int sendmessage(SWInetSocket *socket, int type, unsigned int  source, unsigned int len, char* content);
-	static int receivemessage(SWInetSocket *socket, int *type, unsigned int *source, unsigned int *wrotelen, char* content, unsigned int bufferlen);
+	static int sendmessage(SWInetSocket *socket, int type, unsigned int source,
+			unsigned int len, char* content);
+	static int receivemessage(SWInetSocket *socket, int *type,
+			unsigned int *source, unsigned int *wrotelen, char* content, 
+			unsigned int bufferlen);
 
-	static double getBandwitdthIncoming() { return bandwidthIncoming; };
-	static double getBandwidthOutgoing() { return bandwidthOutgoing; };
-	static double getBandwitdthIncomingRate() { return bandwidthIncomingRate; };
-	static double getBandwidthOutgoingRate() { return bandwidthOutgoingRate; };
+	static double getBandwitdthIncoming();
+	static double getBandwidthOutgoing();
+	static double getBandwitdthIncomingRate();
+	static double getBandwidthOutgoingRate();
 
 	static void updateMinuteStats();
-	static int getTime() { return (int)time(NULL); };
+	static int getTime();
 
 protected:
 	static double bandwidthIncoming;

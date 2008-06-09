@@ -2,85 +2,60 @@
 #define MUTEXUTILS_H_
 
 #include <pthread.h>
-#include "messaging.h"
+#include "logger.h"
+#define USE_THREADID
 
 class Condition
 {
 	friend class Mutex;
 public:
-	Condition()
-	{
-		pthread_cond_init(&cond, NULL);
-	}
-	
-	~Condition()
-	{
-		pthread_cond_destroy(&cond);
-	}
-
-	void signal()
-	{
-		pthread_cond_signal(&cond);
-	}
+	Condition();
+	~Condition();
+	void signal();
 private:
 	pthread_cond_t cond;
 };
 
+
 class Mutex
 {
 public:
-	Mutex()
-	{
-		pthread_mutex_init(&m, NULL);
-		// this causes intercyclic calls, do NOT use it:
-		//Logger::log(LOG_VVERBOSE,"Mutex: [%x] was created", &m);
-	}
-	~Mutex()
-	{
-		pthread_mutex_destroy(&m);
-		Logger::log(LOG_DEBUG, "Mutex: [%x] was destroyed", &m);
-		
-	}
- 
-	void lock()
-	{
-		pthread_mutex_lock(&m); 
-		// removed due to perfermance issues
-		//Logger::log(LOG_VVERBOSE,"Mutex: [%x] was locked", &m);
-	}
- 
-	void unlock()
-	{
-		pthread_mutex_unlock(&m);
-		// removed due to perfermance issues
-		//Logger::log(LOG_VVERBOSE,"Mutex: [%x] was unlocked", &m);
-	}
- 
-	void wait(Condition &c)
-	{
-		Logger::log(LOG_DEBUG, "Mutex: [%x] is waiting for condition: [%x]", &m, &c);
-		pthread_cond_wait(&(c.cond), &m);
-		Logger::log(LOG_DEBUG, "Condition: [%x] has been met, Mutex: [%x] is free", &c, &m);
-	}
+	Mutex();
+	~Mutex();
+	void lock();
+	void unlock();
+	void wait(Condition &c);
+	
 private:
 	pthread_mutex_t m;
+	unsigned int lock_owner;
 };
 
 
 class MutexLocker
 {
 public:
-	MutexLocker(Mutex& pm): m(pm)
-	{
-		m.lock();
-	}
-	
-	~MutexLocker() 
-	{
-		m.unlock();
-	}
+	MutexLocker(Mutex& pm);
+	~MutexLocker() ;
 private:
 	Mutex& m;
 };
+
+class ThreadID
+{
+	
+public:
+	static unsigned int getID();
+	
+private:
+	ThreadID();
+	static void make_key();
+	
+	unsigned int thread_id;
+	static pthread_key_t key;
+	static pthread_once_t key_once;
+	static unsigned int tuid;
+};
+
 
 #endif /*MUTEXUTILS_HPP_*/

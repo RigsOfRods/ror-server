@@ -17,6 +17,10 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "receiver.h"
+#include "SocketW.h"
+#include "sequencer.h"
+#include "messaging.h"
+#include "logger.h"
 
 void *s_lithreadstart(void* vid)
 {
@@ -27,11 +31,9 @@ void *s_lithreadstart(void* vid)
 
 
 Receiver::Receiver()
+: id( 0 ), sock( NULL ), alive ( false ), finish( false )
 {
     STACKLOG;
-	id=0;
-	sock=0;
-	alive=false;
 }
 
 Receiver::~Receiver(void)
@@ -48,9 +50,10 @@ void Receiver::reset(int pos, SWInetSocket *socky)
 		Logger::log(LOG_ERROR,"Whoa, receiver is still alive!");
 		return;
 	}
-	id=pos;
-	sock=socky;
-	alive=true;
+	id    = pos;
+	sock  = socky;
+	alive = true;
+	finish = false;
 	
 	//start a listener thread
 	pthread_create(&thread, NULL, s_lithreadstart, this);
@@ -59,79 +62,83 @@ void Receiver::reset(int pos, SWInetSocket *socky)
 void Receiver::stop()
 {
     STACKLOG;
-	//pthread_cancel(thread);
-	//pthread_join(thread, NULL);
-	alive=false;
+    finish = true;
+	pthread_join(thread, NULL);
+	alive = false;
 }
 
 void Receiver::threadstart()
 {
     STACKLOG;
-	Logger::log(LOG_DEBUG,"Receive thread %d started", id);
+	Logger::log( LOG_DEBUG, "receiver thread %d owned by uid %d", ThreadID::getID(), id);
 	//get the vehicle description
 	int type;
 	unsigned int source;
 	unsigned int len;
 	
-	Logger::log(LOG_VERBOSE,"%s: sending welcome message to uid %i", __FUNCTION__, id);
+	Logger::log(LOG_VERBOSE,"Sending welcome message to uid %i", id);
 	if( Messaging::sendmessage(sock, MSG2_WELCOME, id, 0, 0) )
 	{
-		SEQUENCER.disconnect( id, "error sending welcome message" );
-		pthread_exit(NULL);
+		Sequencer::disconnect( id, "error sending welcome message" );
+		return;
 	}
 	
 	//security fix: we limit the size of the vehicle name to 128 characters <- from Luigi Auriemma
 	if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, 128)) {
-		SEQUENCER.disconnect(id, "Messaging abuse 1");
-		pthread_exit(NULL);
+		Sequencer::disconnect(id, "Messaging abuse 1");
+		return;
 	}
 	
 	if (type!=MSG2_USE_VEHICLE) {
-		SEQUENCER.disconnect(id, "Protocol error 1");
-		pthread_exit(NULL);
+		Sequencer::disconnect(id, "Protocol error 1");
+		return;
 	}
 	//security
 	dbuffer[len]=0;
 	//we queue the use vehicle message for others
-	SEQUENCER.queueMessage(id, type, dbuffer, len);
+	Sequencer::queueMessage(id, type, dbuffer, len);
+	
 	//get the buffer size, not really usefull but a good way to detect errors
 	if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, 4)) {
-		SEQUENCER.disconnect(id, "Messaging abuse 2"); 
-		pthread_exit(NULL);
+		Sequencer::disconnect(id, "Messaging abuse 2"); 
+		return;
 	}
 	
 	if (type!=MSG2_BUFFER_SIZE) {
-		SEQUENCER.disconnect(id, "Protocol error 2");
-		pthread_exit(NULL);
+		Sequencer::disconnect(id, "Protocol error 2");
+		return;
 	}
 	unsigned int buffersize=*((unsigned int*)dbuffer);
 	if (buffersize>MAX_MESSAGE_LENGTH) {
-		SEQUENCER.disconnect(id, "Memory error from client");
-		pthread_exit(NULL);
+		Sequencer::disconnect(id, "Memory error from client");
+		return;
 	}
 	//notify the client of all pre-existing vehicles
-	SEQUENCER.notifyAllVehicles(id);
+	Sequencer::notifyAllVehicles(id);
 	//okay, we are ready, we can receive data frames
-	SEQUENCER.enableFlow(id);
+	Sequencer::enableFlow(id);
+	
 	Logger::log(LOG_VERBOSE,"UID %d is switching to FLOW", id);
+	sock->set_timeout(6, 0);
 	while (1)
 	{
 		//	hmm for some reason this fails, 
 		if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, MAX_MESSAGE_LENGTH)) {
-			SEQUENCER.disconnect(id, "Game connection closed");
-			pthread_exit(NULL);
+			Sequencer::disconnect(id, "Game connection closed");
+			return;
 		}
-		//shouldn't we already have truck data at this point?? 
+		
+		if( finish ) break;
+		
 		if (type!=MSG2_VEHICLE_DATA && 
 				type!=MSG2_CHAT &&
 				type!=MSG2_FORCE &&
 				type!=MSG2_RCON_LOGIN &&
 				type!=MSG2_RCON_COMMAND &&
 				type!=MSG2_DELETE) {
-			SEQUENCER.disconnect(id, "Protocol error 3");
-			pthread_exit(NULL);
+			Sequencer::disconnect(id, "Protocol error 3");
+			return;
 		}
-		SEQUENCER.queueMessage(id, type, dbuffer, len);
+		Sequencer::queueMessage(id, type, dbuffer, len);
 	}
-	pthread_exit(NULL);
 }

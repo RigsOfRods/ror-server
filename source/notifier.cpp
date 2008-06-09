@@ -18,6 +18,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "SocketW.h"
 #include "notifier.h"
+#include "sequencer.h"
+#include "rornet.h"
+#include "messaging.h"
+#include "logger.h"
 
 #include <stdexcept>
 
@@ -29,19 +33,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Notifier::Notifier(char* pubip, int port, int max_client, char* servname,
 		char* terrname, bool pprotected, int smode, bool _rconenabled) 
-: exit(false)
+:lport( port ), maxclient( max_client ), public_ip( pubip ), server_name( servname ),
+terrain_name( terrname ), exit(false), passprotected( pprotected ),
+wasregistered( false ), rconenabled( _rconenabled ), servermode( smode ),
+error_count( 0 )
 {
     STACKLOG;
-	lport=port;
-	maxclient=max_client;
-	server_name=servname;
-	terrain_name=terrname;
-	public_ip=pubip;
-	passprotected=pprotected;
-	wasregistered=false;
-	servermode=smode;
-	rconenabled=_rconenabled;
-	error_count=0;
+	memset( &httpresp, 0, 65536);
+	memset( &challenge, 0, 256); 
 }
 
 Notifier::~Notifier(void)
@@ -105,7 +104,7 @@ bool Notifier::sendHearbeat()
 	char hearbeaturl[1024] = "";
 	char hearbeatdata[16384] = "";
 	sprintf(hearbeaturl, "%s/heartbeat/", REPO_URLPREFIX);
-	if(SEQUENCER.getHeartbeatData(challenge, hearbeatdata))
+	if(Sequencer::getHeartbeatData(challenge, hearbeatdata))
 		return false;
 
 	Logger::log(LOG_DEBUG, "heartbeat data sent to master server: %s", hearbeatdata);
@@ -135,7 +134,7 @@ void Notifier::loop()
 	{
 		// update some statistics (handy to use in here, as we have a minute-timer basically)
 		Messaging::updateMinuteStats();
-		//SEQUENCER.printStats();
+		//Sequencer::printStats();
 
 		//every minute
 #ifndef __WIN32__

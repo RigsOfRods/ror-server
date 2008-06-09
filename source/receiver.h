@@ -20,8 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define __Receiver_H__
 
 #include <pthread.h>
-#include "SocketW.h"
-#include "sequencer.h"
+#include "rornet.h"
+class SWInetSocket;
 
 class Receiver
 {
@@ -31,6 +31,7 @@ private:
 	SWInetSocket *sock;
 	char dbuffer[MAX_MESSAGE_LENGTH];
 	bool alive;
+	bool finish;
 public:
 	Receiver();
 	~Receiver(void);

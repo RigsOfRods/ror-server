@@ -1,8 +1,8 @@
 #ifndef HTTPMSG_H_
 #define HTTPMSG_H_
 #include <string>
-#include <vector>
 #include <map>
+
 
 class HttpMsg
 {

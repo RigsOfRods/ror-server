@@ -4,7 +4,7 @@
 // Started 020316
 //
 // License: LGPL v2.1+ (see the file LICENSE)
-// (c)2002-2003 Anders Lindström
+// (c)2002-2003 Anders Lindstrï¿½m
 
 /***********************************************************************
  *  This library is free software; you can redistribute it and/or      *
@@ -14,7 +14,7 @@
  ***********************************************************************/
 
 // TSWA = thread safe work around
-#define TSWA
+//#define TSWA
  
 #include "sw_base.h"
 #include <errno.h>

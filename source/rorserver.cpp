@@ -19,11 +19,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // RoRserver.cpp : Defines the entry point for the console application.
 //
-
 #include "SocketW.h"
 #include "rornet.h"
 #include "sequencer.h"
 #include "HttpMsg.h"
+#include "logger.h"
 
 #include "sha1_util.h"
 #include "sha1.h"
@@ -101,15 +101,14 @@ void handler(int signal)
 	if(servermode != SERVER_LAN)
 	{
 		Logger::log(LOG_ERROR,"closing server ... unregistering ... ");
-		if(SEQUENCER.notifier)
-			SEQUENCER.notifier->unregisterServer();
+		Sequencer::unregisterServer();
 		Logger::log(LOG_ERROR," unregistered.");
-		SEQUENCER.cleanUp();
+		Sequencer::cleanUp();
 	}
 	else if(servermode == SERVER_LAN)
 	{
 		Logger::log(LOG_ERROR,"closing server ... ");
-		SEQUENCER.cleanUp();
+		Sequencer::cleanUp();
 	}
 	exit(0);
 } 
@@ -139,10 +138,10 @@ void showUsage()
 		"  Public IP address to register with.\n" \
 		" -port <port>\n" \
 		"  Port to use (defaults to random 12000-12500)\n" \
-		" -verbosity {0-4}\n" \
-		"  Sets displayed log verbosity: 0 = debug, 1 = verbosity, 2 = info, 3 = warn, 4 = error\n" \
-		" -logverbosity {0-4}\n" \
-		"  Sets file log verbosity: 0 = debug, 1 = verbosity, 2 = info, 3 = warn, 4 = error\n" \
+		" -verbosity {0-5}\n" \
+		"  Sets displayed log verbosity: 0 = stack, 1 = debug, 2 = verbosity, 3 = info, 4 = warn, 5 = error\n" \
+		" -logverbosity {0-5}\n" \
+		"  Sets file log verbosity: 0 = stack, 1 = debug, 2 = verbosity, 3 = info, 4 = warn, 5 = error\n" \
 		" -logfilename <server.log>" \
 		"  sets the filename of the log" \
 		" -help\n" \
@@ -341,7 +340,7 @@ int main(int argc, char* argv[])
 	if(strnlen(rconpassword, 250) == 0)
 		Logger::log(LOG_WARN, "no RCON password set: RCON disabled!");
 
-	SEQUENCER.initilize(pubip, max_clients, servname, terrname, listenport, servermode, password, rconpassword, guimode);
+	Sequencer::initilize(pubip, max_clients, servname, terrname, listenport, servermode, password, rconpassword, guimode);
 
 	// start the main program loop
     // if we need to communiate to the master user the notifier routine 
@@ -349,7 +348,7 @@ int main(int argc, char* argv[])
 	{
 		//the main thread is used by the notifier
 	    //this should not return untill the server shuts down
-		SEQUENCER.notifyRoutine(); 
+		Sequencer::notifyRoutine(); 
 	}
 	// if not just idle... forever 
 	else if(servermode == SERVER_LAN)
@@ -367,6 +366,6 @@ int main(int argc, char* argv[])
 
 	// delete all (needed in here, if not shutdown due to signal)
 	// stick in destructor perhaps? 
-	SEQUENCER.cleanUp();
+	Sequencer::cleanUp();
 	return 0;
 }

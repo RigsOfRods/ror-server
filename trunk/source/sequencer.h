@@ -124,6 +124,8 @@ public:
     //! prints the Stats view, of who is connected and what slot they are in
     static void printStats();
     static void serverSay(std::string msg, int notto=-1, int type=0);
+	
+	static bool checkNickUnique(char *nick);
 
     static char* getTerrainName();
     static bool  isPasswordProtected();

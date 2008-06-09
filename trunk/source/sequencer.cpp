@@ -198,29 +198,55 @@ void Sequencer::notifyRoutine()
     instance->notifier->loop();
 }
 
+bool Sequencer::checkNickUnique(char *nick)
+{
+	//check for duplicate names
+	bool found = false;
+	Sequencer* instance = Instance();
+	for (int i = 0; i < instance->maxclients; i++)
+	{
+		if (!strcmp(nick, instance->clients[i].nickname)) 
+		{
+			found = true;
+			break;
+		}
+	}
+	return found;
+}
+
 //this is called by the Listener thread
 void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 {
     STACKLOG;
-    Sequencer* instance = Instance(); 
+    Sequencer* instance = Instance();
 	//we have a confirmed client that wants to play
 	//try to find a place for him
     instance->clients_mutex.lock();
 	
+	bool dupeNick = Sequencer::checkNickUnique(user->username);
+	int dupecounter = 0;
+	if(dupeNick)
+	{
+		char buf[20] = "";
+		strncpy(buf, user->username, 20);
+		if(strnlen(buf, 20) == 20)
+			//shorten the string
+			buf[18]=0;
+		printf("dupe1: %s\n", buf);
+		while(dupeNick)
+		{
+			sprintf(buf+strnlen(buf, 18), "%d", dupecounter++);
+			printf("dupecheck2: %s\n", buf);
+			dupeNick = Sequencer::checkNickUnique(buf);
+		}
+		printf("chose alt username: %s\n", buf);
+		strncpy(user->username, buf, 20);
+	}
+	
+	// search a free slot
 	int pos=-1;
 	for (int i = 0; i < instance->maxclients; i++)
 	{
-	    // validate the requested nick against the slot that is being scanned
-	    // for openings.
-		if (!strcmp(user->username, instance->clients[i].nickname)) 
-		{
-			instance->clients_mutex.unlock();
-			Logger::log(LOG_WARN,"Dupe nick found: '%s' rejecting!", user->username); //a dupe, kill it!
-			char *msg = "Duplicate name, please choose another one!";
-			//lack of proper protocol msg
-			Messaging::sendmessage(sock, MSG2_BANNED, 0, strlen(msg), msg);
-			throw std::runtime_error("duplicate nick found");
-		}
 		// an open spot if found, store it's position
 		if (pos < 0 && FREE == instance->clients[i].status)
 			pos = i;

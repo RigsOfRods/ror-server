@@ -4,6 +4,7 @@
 #define __Vector3_H__
 
 #include <cmath>
+#include <cstdio>
 
 class Vector3
 {

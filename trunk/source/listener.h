@@ -19,11 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef __Listener_H__
 #define __Listener_H__
 
-#include "pthread.h"
-#include "SocketW.h"
-#include "rornet.h"
-#include "messaging.h"
-#include "sequencer.h"
+#include <pthread.h>
 
 class Listener
 {

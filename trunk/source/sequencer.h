@@ -19,15 +19,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef __Sequencer_H__
 #define __Sequencer_H__
 
-#include <iostream>
-
-#include "SocketW.h"
-#include "listener.h"
-#include "receiver.h"
-#include "broadcaster.h"
-#include "notifier.h"
+#include "rornet.h"
 #include "Vector3.h"
 #include "mutexutils.h"
+#include <string>
 
 #ifdef NCURSES
 #include "curses.h"
@@ -37,6 +32,7 @@ class Broadcaster;
 class Receiver;
 class Listener;
 class Notifier;
+class SWInetSocket;
 
 #define FREE 0
 #define BUSY 1
@@ -45,7 +41,7 @@ class Notifier;
 #define SEQUENCER Sequencer::Instance()
 
 //! A struct to hold information about a client
-typedef struct
+struct client_t
 {
     int status;                 //!< current status of the client, options are
                                 //!< FREE, BUSY or USED
@@ -62,7 +58,7 @@ typedef struct
     char uniqueid[60];          //!< users unique id
     int rconretries;            //!< rcon password retries
     int rconauth;               //!< rcon authenticated mode
-} client_t;
+};
 
 class Sequencer
 {
@@ -71,8 +67,10 @@ private:
     Condition killer_cv;    //!< wait condition that there are clients to kill
     Mutex killer_mutex;     //!< mutex used for locking access to the killqueue
     Mutex clients_mutex;    //!< mutex used for locking access to the clients array
-    Listener *listener;     //!< 
-    client_t *clients;      //!< clients is a list of all the available client
+    
+    Listener* listener;     //!< 
+    Notifier* notifier;     //!<
+    client_t* clients;      //!< clients is a list of all the available client
                             //!< connections, it is allocated
     int maxclients;         //!< maximum number of clients allowed to connect to
                             //!< the server.
@@ -88,59 +86,63 @@ private:
     char rconPassword[41];
     bool rconenabled;
     bool isSandbox;
-    bool guimode;
-
-    unsigned short getPosfromUid(const unsigned int& uid);
-#ifdef NCURSES
-    WINDOW *win_info;
-    WINDOW *win_slots;
-    WINDOW *win_log;
-    WINDOW *win_chat;
-#endif
     int startTime;
+    unsigned short getPosfromUid(const unsigned int& uid);
 
 protected:
     Sequencer();
     ~Sequencer();
-
-    static Sequencer *mInstance;
+    //! method to access the singleton instance
+    static Sequencer* Instance();
+    static Sequencer* mInstance;
     
 public:
-    //! method to access the singleton instance
-    static Sequencer& Instance();
     //!    initilize theSequencers information
-    void initilize(char *pubip, int listenport, char* servname, char* terrname,
-            int max_clients, int servermode, char *password, char *rconpassword,
-            bool guimode);
+    static void initilize(char *pubip, int listenport, char* servname,
+    		char*terrname, int max_clients, int servermode, char *password,
+    		char *rconpassword, bool guimode);
+    
     //! destructor call, used for clean up
-    void cleanUp();
+    static void cleanUp();
+    
     //! initilize client information
-    void createClient(SWInetSocket *sock, user_credentials_t *user);
+    static void createClient(SWInetSocket *sock, user_credentials_t *user);
+    
     //! call to start the thread to disconnect clients from the server.
-    void killerthreadstart();
+    static void killerthreadstart();
     
-    //! call to initiate the disconnect processes for a client.
-    void disconnect(int pos, char* error);
-    void queueMessage(int pos, int type, char* data, unsigned int len);
-    void enableFlow(int id);
+    //! queue client for disconenct
+    static void disconnect(int pos, char* error);
+    static void queueMessage(int pos, int type, char* data, unsigned int len);
+    static void enableFlow(int id);
     
-    void notifyRoutine();
-    void notifyAllVehicles(int id);
-    //! returns the number of clients connected to this server
-    int getNumClients();
-    int getHeartbeatData(char *challenge, char *hearbeatdata);
+    static void notifyRoutine();
+    static void notifyAllVehicles(int id);
+    
+    static int getNumClients(); //! number of clients connected to this server
+    static int getHeartbeatData(char *challenge, char *hearbeatdata);
     //! prints the Stats view, of who is connected and what slot they are in
-    void printStats();
-    void serverSay(std::string msg, int notto=-1, int type=0);
+    static void printStats();
+    static void serverSay(std::string msg, int notto=-1, int type=0);
 
-    char *getTerrainName() { return terrainName; };
-    bool isPasswordProtected() { return pwProtected; };
-    char *getServerPasswordHash() { return serverPassword; };
-    bool getGUIMode() { return guimode; };
+    static char* getTerrainName();
+    static bool  isPasswordProtected();
+    static char* getServerPasswordHash();
+    static void  unregisterServer();
+
 #ifdef NCURSES
-    WINDOW *getLogWindow() { return win_log; };
+private:
+    bool guimode;
+    
+    WINDOW *win_info;
+    WINDOW *win_slots;
+    WINDOW *win_log;
+    WINDOW *win_chat;
+    
+public:
+    static bool getGUIMode();
+    static WINDOW *getLogWindow();
 #endif    
-    Notifier *notifier;
 };
 
 #endif

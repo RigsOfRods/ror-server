@@ -20,43 +20,59 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define __Broadcaster_H__
 
 #include <pthread.h>
-#include <SocketW.h>
-#include "sequencer.h"
+#include <queue>
+#include "rornet.h"
+#include "mutexutils.h"
+class SWInetSocket;
 
-#define QUEUE_LENGTH 25
-
-
-typedef struct
+struct queue_entry_t
 {
 	unsigned int uid;
 	int type;
 	char data[MAX_MESSAGE_LENGTH];
 	unsigned int datalen;
-} queue_entry_t;
+};
 
 ///TODO: Documents the broadcaster class
 class Broadcaster
 {
 private:
 	pthread_t thread;
-	pthread_mutex_t queue_mutex;
-	pthread_cond_t queue_cv;
+	Mutex queue_mutex;
+	Condition queue_cv;
 	
 	int id;
-	SWInetSocket *sock;
-	queue_entry_t queue[QUEUE_LENGTH];
-	int queue_start; //RING BUFFER BABY!
-	int queue_end;
-	bool finish;
-	char send_data[MAX_MESSAGE_LENGTH];
-	bool alive;
+	SWInetSocket *sock; // this needs to go away
+	std::queue<queue_entry_t> msg_queue;
+	
+	bool running;
+	void (*disconnect)(int, char*);
+	int (*sendmessage)(SWInetSocket *socket, int type, unsigned int source,
+			unsigned int len, char* content);
+
+	 void threadstart();
+	 friend void* s_brthreadstart(void* vid);
 
 public:
 	Broadcaster();
 	~Broadcaster(void);
-	void reset(int pos, SWInetSocket *socky);
+	/**
+	 * @param[in] uid   client id whom owns this broadcaster instance
+	 * @param[in] socky clients sockets pointer
+	 * @param[in] disconnect callback for disconnecting the client
+	 * @param[in] sendmessage callback for send a message
+	 */
+	void reset(int uid, SWInetSocket *socky,
+			void (*disconnect)(int uid, char*),
+			int (*sendmessage)(SWInetSocket *socket, int type,
+					unsigned int source, unsigned int len, char* content) );
 	void stop();
-	void threadstart();
+	/**
+	 * @param[in] uid  uid of the client sending the data??
+	 * @param[in] type Type of message being sent
+	 * @param[in] data the actually message being sent
+	 * @param[in] len  length of data in bytes
+	 */
 	void queueMessage(unsigned int uid, int type, char* data, unsigned int len);
 };
 #endif

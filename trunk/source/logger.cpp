@@ -2,6 +2,7 @@
 
 #include "logger.h"
 #include "pthread.h"
+#include "mutexutils.h"
 
 #include <ctime>
 #include <cstring>
@@ -11,25 +12,6 @@
 #ifndef __GNUC__
     #define ctime_r(lotime, timestr) ctime_s(timestr, 50, &lotime);
 #endif
-
-static pthread_key_t key;
-static pthread_once_t key_once = PTHREAD_ONCE_INIT;
-static void make_key()
-{
-    (void) pthread_key_create(&key, NULL);
-}
-
-class ThreadKey
-{
-public:
-	ThreadKey() : thread_id( tuid ) 
-	{
-		tuid++;
-	}
-	unsigned int thread_id;
-	static unsigned int tuid;
-};
-unsigned int ThreadKey::tuid = 0;
 
 
 // shamelessly taken from:
@@ -97,18 +79,11 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 	// remove trailing new line
 	timestr[strlen(timestr)-1]=0;
 	
-    ThreadKey *ptr = NULL;
-    (void) pthread_once(&key_once, make_key);
-	if ((ptr = (ThreadKey*)pthread_getspecific(key)) == NULL) {
-        ptr = new ThreadKey();
-        (void) pthread_setspecific(key, (void*)ptr);
-    }
-	
 	if (level >= log_level[LOGTYPE_DISPLAY])
-		printf("%s|t%02d|%5s|%s\n", timestr, ptr->thread_id, loglevelname[(int)level], msg.c_str());
+		printf("%s|t%02d|%5s|%s\n", timestr, ThreadID::getID(), loglevelname[(int)level], msg.c_str());
 
 	if(file && level >= log_level[LOGTYPE_FILE])
-		fprintf(file, "%s|t%02d|%5s| %s\n", timestr, ptr->thread_id, loglevelname[(int)level], msg.c_str());
+		fprintf(file, "%s|t%02d|%5s| %s\n", timestr, ThreadID::getID(), loglevelname[(int)level], msg.c_str());
 }
 
 void Logger::setOutputFile(const std::string& filename)

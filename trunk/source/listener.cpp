@@ -17,6 +17,11 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "listener.h"
+#include "rornet.h"
+#include "messaging.h"
+#include "sequencer.h"
+#include "SocketW.h"
+#include "logger.h"
 #include <stdexcept>
 #include <string>
 #include <sstream>
@@ -29,10 +34,9 @@ void *s_lsthreadstart(void* vid)
 }
 
 
-Listener::Listener(int port)
+Listener::Listener(int port): lport( port )
 {
     STACKLOG;
-	lport=port;
 	//start a listener thread
 	pthread_create(&thread, NULL, s_lsthreadstart, this);
 }
@@ -58,7 +62,6 @@ void Listener::threadstart()
 		Logger::log(LOG_ERROR,"FATAL Listerer: %s", error.get_error().c_str());
 		//there is nothing we can do here
 		exit(1);
-		return;
 	}
 	listSocket.listen();
 	
@@ -103,8 +106,8 @@ void Listener::threadstart()
 			Logger::log(LOG_DEBUG,"Listener sending terrain");
 			//send the terrain information back
 			if (Messaging::sendmessage( ts, MSG2_TERRAIN_RESP, 0,
-					(unsigned int)strlen( SEQUENCER.getTerrainName()),
-					SEQUENCER.getTerrainName()))
+					(unsigned int)strlen( Sequencer::getTerrainName()),
+					Sequencer::getTerrainName()))
 				throw std::runtime_error("ERROR Listener: sending terrain");
 	
 			if(strncmp(buffer, RORNET_VERSION, strlen(RORNET_VERSION)))
@@ -122,30 +125,33 @@ void Listener::threadstart()
 			
 			if (type != MSG2_USER_CREDENTIALS)
 				throw std::runtime_error("Warning Listener: no user name");
-			//create a new client
-			//correct a bit the client name (trucate, validate)
-			if (len>sizeof(user_credentials_t))
-				continue;
+			
+			if (len > sizeof(user_credentials_t))
+				throw std::runtime_error( "Error: did not receive proper user "
+						"credentials" );
 			Logger::log(LOG_INFO,"Listener creating a new client...");
 			
 			user_credentials_t *user = (user_credentials_t *)buffer;
-			if(SEQUENCER.isPasswordProtected())
+			if(Sequencer::isPasswordProtected())
 			{
 				Logger::log(LOG_DEBUG,"password login: %s == %s?",
-						SEQUENCER.getServerPasswordHash(),
+						Sequencer::getServerPasswordHash(),
 						user->password);
-				if(strncmp(SEQUENCER.getServerPasswordHash(), user->password, 40))
+				if(strncmp(Sequencer::getServerPasswordHash(), user->password, 40))
 				{
 					Messaging::sendmessage(ts, MSG2_WRONG_PW, 0, 0, 0);
 					throw std::runtime_error( "ERROR Listener: wrong password" );
 				}
 				
-				Logger::log(LOG_DEBUG,"user used the correct password, creating client!");
-			}else
-			{
-				Logger::log(LOG_DEBUG,"creating client, no password protection, creating client");
+				Logger::log(LOG_DEBUG,"user used the correct password, "
+						"creating client!");
+			} else {
+				Logger::log(LOG_DEBUG,"creating client, no password "
+						"protection, creating client");
 			}
-			SEQUENCER.createClient(ts, user);
+
+			//create a new client
+			Sequencer::createClient(ts, user);
 			Logger::log(LOG_DEBUG,"listener returned!");
 		}
 		catch(std::runtime_error e)

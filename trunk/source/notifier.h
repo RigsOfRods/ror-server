@@ -19,9 +19,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef __Notifier_H__
 #define __Notifier_H__
 
-#include "SocketW.h"
-#include "rornet.h"
-#include "sequencer.h"
 #include "HttpMsg.h"
 
 /**

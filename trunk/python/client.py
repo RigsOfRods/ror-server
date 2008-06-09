@@ -179,7 +179,7 @@ class Client(threading.Thread):
 		self.sendChat("recording player %d (%s, %s)  ..." % (self.recordmask[0], self.record.vehicle, self.record.username))
 		self.mode = MODE_RECORD
 	
-	def processCommand(self, cmd, packet=None):
+	def processCommand(self, cmd, packet=None, startup=False):
 		global restartClient, restartCommands, eventStopThread
 		self.logger.debug("%s / %d" % (cmd, self.mode))
 		if cmd == "!recordme" and self.mode == MODE_NORMAL:
@@ -204,7 +204,7 @@ class Client(threading.Thread):
 			else:
 				msg = "available recordings: " + ', '.join(recs)
 				self.sendChat(msg)
-		elif cmd[:8] == "!playrec" and self.mode == MODE_NORMAL:
+		elif cmd[:8] == "!playrec" and self.mode == MODE_NORMAL and not startup:
 			print "playrec, mode: %d" % self.mode
 			playbackname = cmd[8:].strip()
 			if not self.socket is None:
@@ -225,6 +225,17 @@ class Client(threading.Thread):
 					self.connect()
 					self.playback.start()
 		
+		elif cmd[:8] == "!playrec" and self.mode == MODE_NORMAL and startup:
+			# rejoined
+			self.mode = MODE_PLAYBACK
+			playbackname = cmd[8:].strip()
+			print "playing record " + playbackname
+			if self.loadRecord(playbackname + ".rec"):
+				self.sendChat("playing recording %s ..." % playbackname)
+				self.playback = Playback(self, self.record, self.logger)
+				self.connect()
+				self.playback.start()
+
 		elif cmd == "!rejoin":
 			eventStopThread.set()
 			self.playback.join(1)
@@ -329,7 +340,7 @@ class Client(threading.Thread):
 				cmd = self.startupCommands.pop(0).strip()
 				if cmd != "":
 					self.logger.debug('executing startup command %s' % cmd)
-					self.processCommand(cmd)
+					self.processCommand(cmd, None, True)
 				repeat = (len(startupCommands) > 0)
 		
 			packet = self.receiveMsg()

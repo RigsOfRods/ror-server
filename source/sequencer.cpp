@@ -200,7 +200,9 @@ void Sequencer::notifyRoutine()
 
 bool Sequencer::checkNickUnique(char *nick)
 {
-	//check for duplicate names
+	// WARNING: be sure that this is only called within a clients_mutex lock!
+	
+	// check for duplicate names
 	bool found = false;
 	Sequencer* instance = Instance();
 	for (int i = 0; i < instance->maxclients; i++)

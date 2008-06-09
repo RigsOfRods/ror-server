@@ -229,17 +229,17 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	{
 		char buf[20] = "";
 		strncpy(buf, user->username, 20);
+		Logger::log(LOG_WARN,"found duplicate nick, getting new one: %s\n", buf);
 		if(strnlen(buf, 20) == 20)
 			//shorten the string
 			buf[18]=0;
-		printf("dupe1: %s\n", buf);
 		while(dupeNick)
 		{
 			sprintf(buf+strnlen(buf, 18), "%d", dupecounter++);
-			printf("dupecheck2: %s\n", buf);
+			Logger::log(LOG_DEBUG,"checked for duplicate nick (2): %s\n", buf);
 			dupeNick = Sequencer::checkNickUnique(buf);
 		}
-		printf("chose alt username: %s\n", buf);
+		Logger::log(LOG_WARN,"chose alternate username: %s\n", buf);
 		strncpy(user->username, buf, 20);
 	}
 	

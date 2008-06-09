@@ -97,14 +97,14 @@ class Playback(threading.Thread):
 		loops=0
 		pos += 1
 		while True:
+			if pos >= len(record.list):
+				loops+=1
+				pos = 0
 			if record.list[pos].command in [MSG2_VEHICLE_DATA]: # , MSG2_CHAT
 				break
 			else:
 				self.logger.debug("command not suitable, left out: %s"  % commandNames[record.list[pos].command])
 			pos += 1
-			if pos >= len(record.list):
-				loops+=1
-				pos = 0
 			if loops > 2:
 				# would loop forever otherwise
 				self.runCond=False

@@ -371,7 +371,7 @@ class Client(threading.Thread):
 					self.processCommand(str(packet.data), packet)
 		
 			# to prevent timeouts
-			self.client.sendRaw(dummydata)
+			self.sendRaw(dummydata)
 			time.sleep(0.3)
 		
 
@@ -438,7 +438,6 @@ class Client(threading.Thread):
 			self.logger.debug('sendMsg error: '+str(e))
 			import traceback
 			traceback.print_exc(file=sys.stdout)
-		
 
 	def packPacket(self, packet):
 		if packet.size == 0:

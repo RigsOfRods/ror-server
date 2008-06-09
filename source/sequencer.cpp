@@ -224,7 +224,9 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
     Sequencer* instance = Instance();
 	//we have a confirmed client that wants to play
 	//try to find a place for him
+	Logger::log(LOG_DEBUG,"got instance in createClient()\n");
     instance->clients_mutex.lock();
+	Logger::log(LOG_DEBUG,"locked instance in createClient()\n");
 	
 	bool dupeNick = Sequencer::checkNickUnique(user->username);
 	int dupecounter = 2;

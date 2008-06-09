@@ -49,12 +49,12 @@ commandNames= {
 
 RORNET_VERSION = "RoRnet_2.1"
  
-restartClient = True
+restartClient = False
 restartCommands = ['!connect'] # important ;)
 eventStopThread = None
 
-VERBOSELOG = False
-RECORDLIMIT = 100000
+VERBOSELOG = True
+RECORDLIMIT = 20000
 
 MODE_NORMAL = 0
 MODE_PLAYBACK = 1
@@ -370,8 +370,10 @@ class Client(threading.Thread):
 				if packet.command == MSG2_CHAT:
 					self.processCommand(str(packet.data), packet)
 		
-			# to prevent timeouts
-			self.sendRaw(dummydata)
+		
+			if self.mode == MODE_NORMAL:
+				# to prevent timeouts in normal mode
+				self.sendRaw(dummydata)
 		
 
 

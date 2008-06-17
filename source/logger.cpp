@@ -10,7 +10,8 @@
 #include <cstdarg>
 
 #ifndef __GNUC__
-    #define ctime_r(lotime, timestr) ctime_s(timestr, 50, &lotime);
+// this is not required for windows, as its already defined by the pthread lib
+//    #define ctime_r(lotime, timestr) ctime_s(timestr, 50, &lotime);
 #endif
 
 

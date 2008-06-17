@@ -25,6 +25,7 @@ void *s_brthreadstart(void* vid)
 {
     STACKLOG;
 	((Broadcaster*)vid)->threadstart();
+	return NULL;
 }
 Broadcaster::Broadcaster()
 :   id( 0 ), sock( NULL ), running( false )

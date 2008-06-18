@@ -84,7 +84,10 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 		printf("%s|t%02d|%5s|%s\n", timestr, ThreadID::getID(), loglevelname[(int)level], msg.c_str());
 
 	if(file && level >= log_level[LOGTYPE_FILE])
+	{
 		fprintf(file, "%s|t%02d|%5s| %s\n", timestr, ThreadID::getID(), loglevelname[(int)level], msg.c_str());
+		fflush(file); // important, as if we crash, we want to be sure to have the last log entries in the log file!
+	}
 }
 
 void Logger::setOutputFile(const std::string& filename)

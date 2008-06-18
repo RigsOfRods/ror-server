@@ -98,13 +98,13 @@ void Listener::threadstart()
 			
 			// make sure our first message is a hello message
 			if (type != MSG2_HELLO)
-				throw std::runtime_error("ERROR Listener: bad version");
+				throw std::runtime_error("ERROR Listener: protocol error");
 			
 			// send client the which version of rornet the server is running
 			Logger::log(LOG_DEBUG,"Listener sending version");
 			if (Messaging::sendmessage(ts, MSG2_VERSION, 0, (unsigned int)strlen(RORNET_VERSION), RORNET_VERSION))
 				throw std::runtime_error("ERROR Listener: sending version");
-			
+
 			Logger::log(LOG_DEBUG,"Listener sending terrain");
 			//send the terrain information back
 			if (Messaging::sendmessage( ts, MSG2_TERRAIN_RESP, 0,
@@ -112,8 +112,14 @@ void Listener::threadstart()
 					Sequencer::getTerrainName()))
 				throw std::runtime_error("ERROR Listener: sending terrain");
 	
-			if(strncmp(buffer, RORNET_VERSION, strlen(RORNET_VERSION)))
-				throw std::runtime_error("ERROR Listener: bad version");
+			if(source = 5000 && std::string(buffer) == "MasterServ")
+			{
+				Logger::log(LOG_VERBOSE, "Master Server knocked ...");
+				continue;
+			}
+
+			if(strncmp(buffer, RORNET_VERSION, strlen(RORNET_VERSION)) && source != 5000) // source 5000 = master server (harcoded)
+				throw std::runtime_error("ERROR Listener: bad version: "+std::string(buffer));
 			
 			//receive user name
 			if (Messaging::receivemessage(ts, &type, &source, &len, buffer, 256))

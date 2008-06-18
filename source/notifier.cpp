@@ -94,11 +94,10 @@ bool Notifier::registerServer()
 	} else if (responseformat == 2)
 	{
 		// new format
-		std::string status_msg="";
 		std::vector<std::string> lines = getResponse().getBodyLines();
-		if(lines.size() < 4)
+		if(lines.size() < 2)
 		{
-			Logger::log(LOG_ERROR, "got wrong server response upon registration: only %d lines instead of minimal 4", lines.size());
+			Logger::log(LOG_ERROR, "got wrong server response upon registration: only %d lines instead of minimal 2", lines.size());
 			wasregistered=false;
 			return false;
 		}
@@ -107,20 +106,21 @@ bool Notifier::registerServer()
 		std::string status_short = lines[0];
 		// status message - an error message
 		std::string status_long = lines[1];
-		// server challenge
-		std::string challenge_response = lines[2].c_str();
-		// server trustness level
-		trustlevel = atoi(lines[3].c_str());
-		
+	
 		if(status_short == "ok")
 		{
 		}else if(status_short == "error")
 		{
-			Logger::log(LOG_ERROR, "error upon registration: %s", status_msg.c_str());
+			Logger::log(LOG_ERROR, "error upon registration: %s: %s", status_short.c_str(), status_long.c_str());
 			Logger::log(LOG_ERROR, "!!! Server is NOT registered at the Master server !!!");
 			wasregistered=false;
 			return false;
 		}
+
+		// server challenge
+		std::string challenge_response = lines[2].c_str();
+		// server trustness level
+		trustlevel = atoi(lines[3].c_str());
 
 		Logger::log(LOG_DEBUG, "server sucessfully registered at master server!");
 		Logger::log(LOG_DEBUG, "this server got trustlevel %d", trustlevel);

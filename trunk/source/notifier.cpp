@@ -41,6 +41,7 @@ error_count( 0 )
     STACKLOG;
 	memset( &httpresp, 0, 65536);
 	memset( &challenge, 0, 256); 
+	trustlevel=0;
 }
 
 Notifier::~Notifier(void)
@@ -56,33 +57,82 @@ bool Notifier::registerServer()
 {
     STACKLOG;
 	char regurl[1024];
+	int responseformat = 2;
 	sprintf(regurl, "%s/register/?name=%s&description=%s&ip=%s&port=%i&"
-			"terrainname=%s&maxclients=%i&version=%s&pw=%d&rcon=%d", 
+			"terrainname=%s&maxclients=%i&version=%s&pw=%d&rcon=%d&format=%d", 
 		REPO_URLPREFIX, server_name, "", public_ip, lport, terrain_name,
-		maxclient, RORNET_VERSION, passprotected, rconenabled);
+		maxclient, RORNET_VERSION, passprotected, rconenabled, responseformat);
+	// format = 2 will result in different response on registration format.
 	Logger::log(LOG_INFO, "Trying to register at Master Server ... (this can take some "
 			"seconds as your server is being checked by the Master server)");
 	if (HTTPGET(regurl) < 0)
 		return false;
 
-	std::string body = getResponse().getBody();
-	if(body.find("error") != std::string::npos || body.length() < 40) {
-		// print out the error.
-		Logger::log(LOG_ERROR, "got that as registration response: %s", body.c_str());
-		Logger::log(LOG_ERROR, "!!! Server is NOT registered at the Master server !!!");
-		wasregistered=false;
-		return false;
-	}
-	else
+
+	if(responseformat==1)
 	{
-		Logger::log(LOG_DEBUG, "got that as registration response: %s", body.c_str());
+		// old format
+		std::string body = getResponse().getBody();
+		if(body.find("error") != std::string::npos || body.length() < 40)
+		{
+			// print out the error.
+			Logger::log(LOG_ERROR, "got that as registration response: %s", body.c_str());
+			Logger::log(LOG_ERROR, "!!! Server is NOT registered at the Master server !!!");
+			wasregistered=false;
+			return false;
+		}
+		else
+		{
+			Logger::log(LOG_DEBUG, "got that as registration response: %s", body.c_str());
+			
+			memset(&challenge, 0, 40);
+			strncpy( challenge, body.c_str(), 40 );
+			Logger::log(LOG_INFO,"Server is registered at the Master server.");
+			wasregistered=true;
+			return true;
+		}
+	} else if (responseformat == 2)
+	{
+		// new format
+		std::string status_msg="";
+		std::vector<std::string> lines = getResponse().getBodyLines();
+		if(lines.size() < 4)
+		{
+			Logger::log(LOG_ERROR, "got wrong server response upon registration: only %d lines instead of minimal 4", lines.size());
+			wasregistered=false;
+			return false;
+		}
 		
+		// zero line = response to registration, 'ok' or 'error'
+		std::string status_short = lines[0];
+		// status message - an error message
+		std::string status_long = lines[1];
+		// server challenge
+		std::string challenge_response = lines[2].c_str();
+		// server trustness level
+		trustlevel = atoi(lines[3].c_str());
+		
+		if(status_short == "ok")
+		{
+		}else if(status_short == "error")
+		{
+			Logger::log(LOG_ERROR, "error upon registration: %s", status_msg.c_str());
+			Logger::log(LOG_ERROR, "!!! Server is NOT registered at the Master server !!!");
+			wasregistered=false;
+			return false;
+		}
+
+		Logger::log(LOG_DEBUG, "server sucessfully registered at master server!");
+		Logger::log(LOG_DEBUG, "this server got trustlevel %d", trustlevel);
+		
+		//copy data
 		memset(&challenge, 0, 40);
-		strncpy( challenge, body.c_str(), 40 );
+		strncpy( challenge, challenge_response.c_str(), 40 );
 		Logger::log(LOG_INFO,"Server is registered at the Master server.");
 		wasregistered=true;
 		return true;
 	}
+	return false;
 }
 
 bool Notifier::unregisterServer()

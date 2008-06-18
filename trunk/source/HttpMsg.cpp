@@ -50,6 +50,14 @@ const std::string& HttpMsg::getBody()
 	return headermap["body"];
 }
 
+const std::vector<std::string> HttpMsg::getBodyLines()
+{
+	STACKLOG;
+	std::vector<std::string> lines;
+	strict_tokenize( headermap["body"], lines, "\n" );
+	return lines;
+}
+
 bool HttpMsg::isChunked()
 {
 	STACKLOG;

@@ -538,7 +538,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					{
 						char *error = "cannot kick free or busy client";
 						instance->clients[pos].broadcaster->queueMessage( 0,
-							MSG2_RCON_COMMAND_FAILED, error, strlen(error) );
+							MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
 					} else if(instance->clients[player].status == USED) {
 						Logger::log(LOG_WARN, "user %d kicked by user %d via rcmd",
 								player, pos);
@@ -549,14 +549,14 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 						serverSay(std::string(tmp));
 
 						instance->clients[pos].broadcaster->queueMessage( 0,
-								MSG2_RCON_COMMAND_SUCCESS, tmp, strlen(tmp) );
+								MSG2_RCON_COMMAND_SUCCESS, tmp, (unsigned int)strlen(tmp) );
 						
 						disconnect( instance->clients[player].uid, "kicked" );
 					}
 				} else {
 					char *error = "invalid client number";
 					instance->clients[pos].broadcaster->queueMessage( 0,
-							MSG2_RCON_COMMAND_FAILED, error, strlen(error) );
+							MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
 				}
 			}
 		}

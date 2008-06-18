@@ -1,4 +1,5 @@
 //Logger.cpp
+// written by aperion
 
 #include "logger.h"
 #include "pthread.h"
@@ -20,7 +21,7 @@
 std::string format_arg_list(const char *fmt, va_list args)
 {
 	if (!fmt) return "";
-	int   result = -1, length = 256;
+	int   result = -1, length = 4096;
 	char *buffer = 0;
 	while (result == -1)
 	{
@@ -115,24 +116,49 @@ char *Logger::loglevelname[] = {"STACK", "DEBUG", "VERBO", "INFO", "WARN", "ERRO
 
 
 // SCOPELOG
+int ScopeLog::depth = 0;
+std::string ScopeLog::lastfunc = std::string("");
+int ScopeLog::lastdepth = -1;
 
 ScopeLog::ScopeLog(const LogLevel& level, const char* format, ...)
 : level(level)
 {
-    va_list args;
-    va_start(args, format);
-    msg += format_arg_list(format, args);
-    va_end(args);
-    
-    Logger::log(LOG_STACK, "ENTER - %s", msg.c_str());
+	va_list args;
+	va_start(args, format);
+	msg += format_arg_list(format, args);
+	va_end(args);
+	
+	//padding
+	std::string pad = "";
+	if(ScopeLog::depth>0)
+		pad.resize(ScopeLog::depth, ' ');
+	lastfunc = msg;
+	lastdepth = depth;
+	Logger::log(LOG_STACK, "%sENTER - %s", pad.c_str(), msg.c_str());
+	depth++;
 }
 ScopeLog::ScopeLog(const LogLevel& level, const std::string& func)
 : msg(func), level(level)
 {
-    Logger::log(LOG_STACK, "ENTER - %s", msg.c_str());
+	//padding
+	std::string pad = "";
+	if(ScopeLog::depth>0)
+		pad.resize(ScopeLog::depth, ' ');
+	lastfunc = msg;
+	lastdepth = depth;
+	Logger::log(LOG_STACK, "%sENTER - %s", pad.c_str(), msg.c_str());
+	depth++;
 }
 
 ScopeLog::~ScopeLog()
 {
-    Logger::log(LOG_STACK, "EXIT - %s", msg.c_str());
+	depth--;
+	//padding
+	std::string pad = "";
+	if(ScopeLog::depth>0)
+		pad.resize(ScopeLog::depth, ' ');
+	if(lastfunc == msg && lastdepth == depth)
+		Logger::log(LOG_STACK, "%sEXIT  - ^^^^ (same function as last entered function, see above)", pad.c_str());
+	else
+		Logger::log(LOG_STACK, "%sEXIT  - %s", pad.c_str(), msg.c_str());
 }

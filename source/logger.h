@@ -1,8 +1,12 @@
+// written by aperion
+
 #ifndef LOGGER_H_
 #define LOGGER_H_
 
 #include <string>
 
+// handy shortcut
+#define LOG Logger::log
 
 enum LogLevel
 {
@@ -53,6 +57,9 @@ public:
 	ScopeLog(const LogLevel& level, const std::string& func);
 	~ScopeLog();
 private:
+	static int depth;
+	static std::string lastfunc;
+	static int lastdepth;
 	std::string msg;
 	const LogLevel level;
 };

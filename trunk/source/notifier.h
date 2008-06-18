@@ -44,12 +44,12 @@ private:
 	bool wasregistered;    //!< is registered with the master server
 	bool rconenabled;      //!< check is the remote console is eneabled
 	int servermode;        //!< Internet or LAN mode 
-	int error_count;       //!< ??
+	int error_count;       //!< counter how many failed heartbeats we had 
 	HttpMsg resp;          //!< holds the latest response fromt he master server 
 
 	bool registerServer(); //!< attempt to register with the master server
 	bool sendHearbeat();   //!< send a heart beat message to the master server
-
+	bool advertised;
 public:
     
 	Notifier(char* pubip,
@@ -88,5 +88,9 @@ public:
 
 	//! notify the master server that this server is shutting down 
 	bool unregisterServer();
+	
+	std::string getChallenge() { return std::string(challenge); };
+	bool getAdvertised() { return advertised; };
+	int getTrustLevel() { return trustlevel; };
 };
 #endif

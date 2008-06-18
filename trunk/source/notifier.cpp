@@ -42,6 +42,8 @@ error_count( 0 )
 	memset( &httpresp, 0, 65536);
 	memset( &challenge, 0, 256); 
 	trustlevel=0;
+
+	advertised = registerServer();
 }
 
 Notifier::~Notifier(void)
@@ -168,7 +170,7 @@ bool Notifier::sendHearbeat()
 void Notifier::loop()
 {
     STACKLOG;
-	bool advertised = registerServer();
+	
 	if (!advertised && servermode == SERVER_AUTO)
 	{
 		Logger::log(LOG_WARN, "using LAN mode, probably no internet users will "

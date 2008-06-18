@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "receiver.h"
 #include "broadcaster.h"
 #include "notifier.h"
+#include "userauth.h"
 #include "SocketW.h"
 #include "logger.h"
 
@@ -52,7 +53,7 @@ Sequencer* Sequencer::Instance() {
 }
 
 
-Sequencer::Sequencer() :  listener( NULL ), notifier( NULL ), clients( NULL ),
+Sequencer::Sequencer() :  listener( NULL ), notifier( NULL ), authresolver(NULL), clients( NULL ),
 fuid( 1 ), freekillqueue( 0 ),  pwProtected(false), rconenabled( false ),
 isSandbox(false), startTime ( Messaging::getTime() )
 {
@@ -115,6 +116,7 @@ bool _guimode)
 	}
 	
 	if(instance->servermode == SERVER_INET || instance->servermode == SERVER_AUTO)
+	{
 		instance->notifier = new Notifier(
 				pubip,
 				listenport,
@@ -124,6 +126,12 @@ bool _guimode)
 		        instance->pwProtected,
 		        instance->servermode,
 		        instance->rconenabled);
+
+		// only start userauth if we are registered with the master server and if we have trustworthyness > 1
+		if(instance->notifier->getAdvertised() && instance->notifier->getTrustLevel()>1)
+			instance->authresolver = new UserAuth(instance->notifier->getChallenge());
+
+	}
 
 #ifdef NCURSES
 	instance->guimode = _guimode;
@@ -345,6 +353,19 @@ int Sequencer::getNumClients()
 			count++;
 	return count;
 }
+
+int Sequencer::authNick(std::string token, std::string &nickname)
+{
+    STACKLOG;
+    Sequencer* instance = Instance(); 
+	int count=0;
+	MutexLocker scoped_lock(instance->clients_mutex);
+	if(!instance->authresolver)
+		return -1;
+	instance->authresolver->resolve(token, nickname);
+	return 0;
+}
+
 
 void Sequencer::killerthreadstart()
 {

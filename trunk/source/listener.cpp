@@ -140,6 +140,14 @@ void Listener::threadstart()
 			Logger::log(LOG_INFO,"Listener creating a new client...");
 			
 			user_credentials_t *user = (user_credentials_t *)buffer;
+			std::string nickname = std::string(user->username);
+			int res = Sequencer::authNick(std::string(user->uniqueid), nickname);
+			if(!res)
+			{
+				Logger::log(LOG_INFO, "User %s is authed", nickname.c_str());
+				strncpy(user->username, nickname.c_str(), 20);
+			}
+
 			if(Sequencer::isPasswordProtected())
 			{
 				Logger::log(LOG_DEBUG,"password login: %s == %s?",

@@ -122,7 +122,7 @@ bool Notifier::registerServer()
 		// server trustness level
 		trustlevel = atoi(lines[3].c_str());
 
-		Logger::log(LOG_DEBUG, "server sucessfully registered at master server!");
+		Logger::log(LOG_DEBUG, "%s: %s", status_short.c_str(), status_long.c_str());
 		Logger::log(LOG_DEBUG, "this server got trustlevel %d", trustlevel);
 		
 		//copy data

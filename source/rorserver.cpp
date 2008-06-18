@@ -204,6 +204,11 @@ int main(int argc, char* argv[])
 	int max_clients=16;
 	bool guimode=false;
 
+	// det default verbose levels
+	Logger::setLogLevel(LOGTYPE_DISPLAY, LOG_INFO);
+	Logger::setLogLevel(LOGTYPE_FILE, LOG_VERBOSE);
+	Logger::setOutputFile("server.log");
+
 	// parse arguments
 	CSimpleOpt args(argc, argv, cmdline_options);
 	while (args.Next()) {

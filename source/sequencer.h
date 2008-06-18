@@ -32,6 +32,7 @@ class Broadcaster;
 class Receiver;
 class Listener;
 class Notifier;
+class UserAuth;
 class SWInetSocket;
 
 #define FREE 0
@@ -68,8 +69,9 @@ private:
     Mutex killer_mutex;     //!< mutex used for locking access to the killqueue
     Mutex clients_mutex;    //!< mutex used for locking access to the clients array
     
-    Listener* listener;     //!< 
-    Notifier* notifier;     //!<
+    Listener* listener;     //!< listens for incoming connections
+    Notifier* notifier;     //!< registers and handles the master server
+	UserAuth* authresolver; //!< authenticates users
     client_t* clients;      //!< clients is a list of all the available client
                             //!< connections, it is allocated
     int maxclients;         //!< maximum number of clients allowed to connect to
@@ -126,6 +128,7 @@ public:
     static void serverSay(std::string msg, int notto=-1, int type=0);
 	
 	static bool checkNickUnique(char *nick);
+	static int authNick(std::string token, std::string &nickname);
 
     static char* getTerrainName();
     static bool  isPasswordProtected();

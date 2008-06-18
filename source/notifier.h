@@ -37,7 +37,8 @@ private:
 	char* server_name;     //!< name of the server
 	char* terrain_name;    //!< name of the terrain
 	char httpresp[65536];  //!< http response from the master server
-	char challenge[256];   //!< ??
+	char trustlevel;       //!< the server's trustworthiness level, received upon registration
+	char challenge[256];   //!< the server's token to identify itself to the master server
 	bool exit;             //!< exit the server
 	bool passprotected;    //!< password protection for logging into this server 
 	bool wasregistered;    //!< is registered with the master server

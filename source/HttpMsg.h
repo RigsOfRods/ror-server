@@ -2,6 +2,7 @@
 #define HTTPMSG_H_
 #include <string>
 #include <map>
+#include <vector>
 
 
 class HttpMsg
@@ -12,6 +13,7 @@ public:
 	virtual ~HttpMsg();
 	
 	const std::string& getBody();
+	const std::vector<std::string> getBodyLines();
 	bool isChunked();
 
 	HttpMsg& operator=( const std::string& message );

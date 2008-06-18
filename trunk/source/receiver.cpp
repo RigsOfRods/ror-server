@@ -31,7 +31,7 @@ void *s_lithreadstart(void* vid)
 
 
 Receiver::Receiver()
-: id( 0 ), sock( NULL ), alive ( false ), finish( false )
+: id(0), sock(NULL), alive (false), finish(false), started(false)
 {
     STACKLOG;
 }
@@ -57,13 +57,15 @@ void Receiver::reset(int pos, SWInetSocket *socky)
 	
 	//start a listener thread
 	pthread_create(&thread, NULL, s_lithreadstart, this);
+	started=true;
 }
 
 void Receiver::stop()
 {
     STACKLOG;
     finish = true;
-	pthread_join(thread, NULL);
+	if(started)
+		pthread_join(thread, NULL);
 	alive = false;
 }
 

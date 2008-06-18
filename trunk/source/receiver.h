@@ -32,6 +32,7 @@ private:
 	char dbuffer[MAX_MESSAGE_LENGTH];
 	bool alive;
 	bool finish;
+	bool started;
 public:
 	Receiver();
 	~Receiver(void);

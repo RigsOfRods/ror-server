@@ -1,6 +1,10 @@
-//Logger.cpp
-// written by aperion
-
+/**
+ * Logger Class imlpementation
+ * @file logger.cpp
+ * @author Christopher Ritchey (aka Aperion) 
+ * A simple Logger with different logging levels. As well as an easy to use
+ * stack log
+ */
 #include "logger.h"
 #include "pthread.h"
 #include "mutexutils.h"
@@ -10,10 +14,6 @@
 #include <cstdio>
 #include <cstdarg>
 
-#ifndef __GNUC__
-// this is not required for windows, as its already defined by the pthread lib
-//    #define ctime_r(lotime, timestr) ctime_s(timestr, 50, &lotime);
-#endif
 
 
 // shamelessly taken from:
@@ -21,7 +21,7 @@
 std::string format_arg_list(const char *fmt, va_list args)
 {
 	if (!fmt) return "";
-	int   result = -1, length = 4096;
+	int   result = -1, length = 256;
 	char *buffer = 0;
 	while (result == -1)
 	{
@@ -51,14 +51,6 @@ Logger::~Logger()
 	if(file)
 		fclose(file);
 }
-
-#if 0
-void Logger::log(const LogLevel& level, const char* format, va_list args)
-{
-    std::string s = format_arg_list(format, args);
-    Logger::log(level, s);   
-}
-#endif
 
 void Logger::log(const LogLevel& level, const char* format, ...)
 {
@@ -112,53 +104,28 @@ Logger::Logger()
 Logger Logger::theLog;
 FILE *Logger::file = 0;
 LogLevel Logger::log_level[2] = {LOG_VERBOSE, LOG_INFO};
-char *Logger::loglevelname[] = {"STACK", "DEBUG", "VERBO", "INFO", "WARN", "ERROR"};
+const char *Logger::loglevelname[] = {"STACK", "DEBUG", "VERBO", "INFO", "WARN", "ERROR"};
 
 
 // SCOPELOG
-int ScopeLog::depth = 0;
-std::string ScopeLog::lastfunc = std::string("");
-int ScopeLog::lastdepth = -1;
 
 ScopeLog::ScopeLog(const LogLevel& level, const char* format, ...)
 : level(level)
 {
-	va_list args;
-	va_start(args, format);
-	msg += format_arg_list(format, args);
-	va_end(args);
-	
-	//padding
-	std::string pad = "";
-	if(ScopeLog::depth>0)
-		pad.resize(ScopeLog::depth, ' ');
-	lastfunc = msg;
-	lastdepth = depth;
-	Logger::log(LOG_STACK, "%sENTER - %s", pad.c_str(), msg.c_str());
-	depth++;
+    va_list args;
+    va_start(args, format);
+    msg += format_arg_list(format, args);
+    va_end(args);
+    
+    Logger::log(LOG_STACK, "ENTER - %s", msg.c_str());
 }
 ScopeLog::ScopeLog(const LogLevel& level, const std::string& func)
 : msg(func), level(level)
 {
-	//padding
-	std::string pad = "";
-	if(ScopeLog::depth>0)
-		pad.resize(ScopeLog::depth, ' ');
-	lastfunc = msg;
-	lastdepth = depth;
-	Logger::log(LOG_STACK, "%sENTER - %s", pad.c_str(), msg.c_str());
-	depth++;
+    Logger::log(LOG_STACK, "ENTER - %s", msg.c_str());
 }
 
 ScopeLog::~ScopeLog()
 {
-	depth--;
-	//padding
-	std::string pad = "";
-	if(ScopeLog::depth>0)
-		pad.resize(ScopeLog::depth, ' ');
-	if(lastfunc == msg && lastdepth == depth)
-		Logger::log(LOG_STACK, "%sEXIT  - ^^^^ (same function as last entered function, see above)", pad.c_str());
-	else
-		Logger::log(LOG_STACK, "%sEXIT  - %s", pad.c_str(), msg.c_str());
+    Logger::log(LOG_STACK, "EXIT - %s", msg.c_str());
 }

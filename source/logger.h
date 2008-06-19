@@ -1,12 +1,15 @@
-// written by aperion
-
+/**
+ * Logger Class Header file
+ * @file logger.h
+ * @author Christopher Ritchey (aka Aperion) 
+ * A simple Logger with different logging levels. As well as an easy to use
+ * stack log
+ */
 #ifndef LOGGER_H_
 #define LOGGER_H_
 
 #include <string>
 
-// handy shortcut
-#define LOG Logger::log
 
 enum LogLevel
 {
@@ -32,9 +35,6 @@ class Logger
 public:
 	virtual ~Logger();
 
-#if 0
-	static void log(const LogLevel& level, const char* format, va_list args);
-#endif
 	static void log(const LogLevel& level, const char* format, ...);
 	static void log(const LogLevel& level, const std::string& msg);
 	
@@ -47,7 +47,7 @@ private:
 	static Logger theLog;
 	static FILE *file;
 	static LogLevel log_level[2];
-	static char *loglevelname[];
+	static const char *loglevelname[];
 };
 
 class ScopeLog
@@ -57,9 +57,6 @@ public:
 	ScopeLog(const LogLevel& level, const std::string& func);
 	~ScopeLog();
 private:
-	static int depth;
-	static std::string lastfunc;
-	static int lastdepth;
 	std::string msg;
 	const LogLevel level;
 };

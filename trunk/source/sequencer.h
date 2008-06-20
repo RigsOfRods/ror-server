@@ -24,6 +24,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "mutexutils.h"
 #include <string>
 
+#include <queue>
+#include <vector>
+
+
 #ifdef NCURSES
 #include "curses.h"
 #endif
@@ -72,14 +76,13 @@ private:
     Listener* listener;     //!< listens for incoming connections
     Notifier* notifier;     //!< registers and handles the master server
 	UserAuth* authresolver; //!< authenticates users
-    client_t* clients;      //!< clients is a list of all the available client
-                            //!< connections, it is allocated
-    int maxclients;         //!< maximum number of clients allowed to connect to
+    std::vector<client_t*> clients; //!< clients is a list of all the available 
+                            //!< client connections, it is allocated
+    unsigned short maxclients; //!< maximum number of clients allowed to connect to
                             //!< the server.
     unsigned int fuid;      //!< next userid
-    int killqueue[256];     //!< which position in the queue to kill
-    int freekillqueue;      //!< freekillqueue holds the number of spots
-                            //!< available in the killqueue
+    std::queue<client_t*> killqueue; //!< holds pointer for client deletion
+    
     int servermode;
     char terrainName[255];
     char serverPassword[41];
@@ -89,7 +92,7 @@ private:
     bool rconenabled;
     bool isSandbox;
     int startTime;
-    unsigned short getPosfromUid(const unsigned int& uid);
+    unsigned short getPosfromUid(unsigned int uid);
 
 protected:
     Sequencer();
@@ -114,7 +117,7 @@ public:
     static void killerthreadstart();
     
     //! queue client for disconenct
-    static void disconnect(int pos, char* error);
+    static void disconnect(int pos, const char* error);
     static void queueMessage(int pos, int type, char* data, unsigned int len);
     static void enableFlow(int id);
     

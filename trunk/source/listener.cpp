@@ -86,7 +86,7 @@ void Listener::threadstart()
 		
 		//receive a magic
 		int type;
-		int source;
+		unsigned int source;
 		unsigned int len;
 		char buffer[256];
 		
@@ -112,7 +112,9 @@ void Listener::threadstart()
 					Sequencer::getTerrainName()))
 				throw std::runtime_error("ERROR Listener: sending terrain");
 	
-			if(source = 5000 && std::string(buffer) == "MasterServ")
+			// original code was source  = 5000 should it be left like this
+			// or was the intention source == 5000?
+			if( source == 5000 && (std::string(buffer) == "MasterServ") )
 			{
 				Logger::log(LOG_VERBOSE, "Master Server knocked ...");
 				continue;

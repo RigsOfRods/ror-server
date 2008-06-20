@@ -39,7 +39,7 @@ Broadcaster::~Broadcaster()
 }
 
 void Broadcaster::reset(int uid, SWInetSocket *socky,
-		void (*disconnect_func)(int, char*),
+		void (*disconnect_func)(int, const char*),
 		int (*sendmessage_func)(SWInetSocket*, int, int,
 				unsigned int, char*) )
 {

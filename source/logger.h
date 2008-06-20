@@ -40,6 +40,12 @@ public:
 	
 	static void setOutputFile(const std::string& filename);
 	static void setLogLevel(const LogType type, const LogLevel level);
+	//! sets the level at which manual file flushing occurs flushing at the 
+	//! stack level is a heavy hit on performance with only 2 clients connected
+	//! This prevents any messages below the specified level triggering manual
+	//! flushing.
+	//! if set to LOG_ERROR then flushing occurs only when an error is logged
+	static void setFlushLevel(const LogLevel level );
 	
 private:
 	Logger();
@@ -48,6 +54,7 @@ private:
 	static FILE *file;
 	static LogLevel log_level[2];
 	static const char *loglevelname[];
+	static LogLevel flush_level;
 };
 
 class ScopeLog
@@ -67,5 +74,10 @@ private:
 	#define __PRETTY_FUNCTION__ __FUNCTION__
 #endif
 
+#ifndef NOSTACKLOG
 #define STACKLOG ScopeLog stacklog( LOG_STACK, __PRETTY_FUNCTION__ )
+#else
+#define STACKLOG {}
+#endif
+
 #endif // LOGGER_H_

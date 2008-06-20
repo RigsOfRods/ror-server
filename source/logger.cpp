@@ -79,7 +79,11 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 	if(file && level >= log_level[LOGTYPE_FILE])
 	{
 		fprintf(file, "%s|t%02d|%5s| %s\n", timestr, ThreadID::getID(), loglevelname[(int)level], msg.c_str());
-		fflush(file); // important, as if we crash, we want to be sure to have the last log entries in the log file!
+		// flushing all the time is a serious performance hit, only flush when
+		// we get above the threshold, otherwise let the OS handel flushing 
+		if( level >= flush_level )
+			fflush(file); // important, as if we crash, we want to be sure to 
+			//have the last log entries in the log file!
 	}
 }
 
@@ -95,6 +99,11 @@ void Logger::setLogLevel(const LogType type, const LogLevel level)
 	log_level[(int)type] = level;
 }
 
+void Logger::setFlushLevel(const LogLevel level )
+{
+	flush_level = level;
+}
+
 // private:
 Logger::Logger()
 {
@@ -105,6 +114,7 @@ Logger Logger::theLog;
 FILE *Logger::file = 0;
 LogLevel Logger::log_level[2] = {LOG_VERBOSE, LOG_INFO};
 const char *Logger::loglevelname[] = {"STACK", "DEBUG", "VERBO", "INFO", "WARN", "ERROR"};
+LogLevel Logger::flush_level = LOG_ERROR;
 
 
 // SCOPELOG

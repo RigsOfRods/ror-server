@@ -31,8 +31,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <iostream>
 #include <stdexcept>
 #include <sstream>
-
 //#define REFLECT_DEBUG 
+#define UID_NOT_FOUND 0xFFFF
 
 void *s_klthreadstart(void* vid)
 {
@@ -53,8 +53,8 @@ Sequencer* Sequencer::Instance() {
 }
 
 
-Sequencer::Sequencer() :  listener( NULL ), notifier( NULL ), authresolver(NULL), clients( NULL ),
-fuid( 1 ), freekillqueue( 0 ),  pwProtected(false), rconenabled( false ),
+Sequencer::Sequencer() :  listener( NULL ), notifier( NULL ), authresolver(NULL),
+fuid( 1 ),  pwProtected(false), rconenabled( false ),
 isSandbox(false), startTime ( Messaging::getTime() )
 {
     STACKLOG;
@@ -78,21 +78,12 @@ bool _guimode)
 	instance->isSandbox  = !strcmp(terrname, "any");
 	instance->servermode = smode;
 	instance->maxclients = max_clients;
-	instance->clients    = (client_t*)malloc(sizeof(client_t)*instance->maxclients);
 	instance->listener   = new Listener(listenport);
+	strncpy(instance->terrainName, terrname, 250);
+	instance->clients.reserve( instance->maxclients );
 
 	pthread_create(&instance->killerthread, NULL, s_klthreadstart, &instance);
-	memset(instance->clients, 0, sizeof(client_t) * instance->maxclients);
-	strncpy(instance->terrainName, terrname, 250);
 
-
-	for (int i=0; i<instance->maxclients; i++) 
-	{
-		instance->clients[i].status      = FREE;
-		instance->clients[i].sock        = NULL;
-		instance->clients[i].broadcaster = new Broadcaster();
-		instance->clients[i].receiver    = new Receiver();
-	}
 	if(pass && strnlen(pass, 250) > 0)
 	{
 		if(!SHA1FromString(instance->serverPassword, pass))
@@ -168,29 +159,15 @@ void Sequencer::cleanUp()
     STACKLOG;
 
     Sequencer* instance = Instance();
-	for (int i=0; i<instance->maxclients && &instance->clients[i]; i++) 
+	for( unsigned int i = 0; i < instance->clients.size(); i++) 
 	{
-		Logger::log(LOG_DEBUG,"clients[%d]", i);
-		if(instance->clients[i].broadcaster){
-			Logger::log(LOG_DEBUG,"delete clients[%d].broadcaster", i);
-			delete instance->clients[i].broadcaster;
-		} else { 
-			Logger::log(LOG_DEBUG,"clients[%d].broadcaster is null", i);
-		}
-
-		if(instance->clients[i].receiver) {
-			Logger::log(LOG_DEBUG,"delete clients[%d].receiver", i); 
-			delete instance->clients[i].receiver;
-		} else { 
-			Logger::log(LOG_DEBUG,"clients[%d].receiver is null", i);
-		}
+		disconnect(instance->clients[i]->uid, "server shutting down");
 	}
 	
 	if( instance->notifier )
 		delete instance->notifier;
 	
 	delete instance->listener;
-	free(instance->clients);
 	delete instance->mInstance;
 
 #ifdef NCURSES
@@ -212,17 +189,15 @@ bool Sequencer::checkNickUnique(char *nick)
 	// WARNING: be sure that this is only called within a clients_mutex lock!
 	
 	// check for duplicate names
-	bool found = false;
 	Sequencer* instance = Instance();
-	for (int i = 0; i < instance->maxclients; i++)
+	for (unsigned int i = 0; i < instance->clients.size(); i++)
 	{
-		if (!strcmp(nick, instance->clients[i].nickname)) 
+		if (!strcmp(nick, instance->clients[i]->nickname)) 
 		{
-			found = true;
-			break;
+			return true;
 		}
 	}
-	return found;
+	return false;
 }
 
 //this is called by the Listener thread
@@ -232,24 +207,34 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
     Sequencer* instance = Instance();
 	//we have a confirmed client that wants to play
 	//try to find a place for him
-	Logger::log(LOG_DEBUG,"got instance in createClient()\n");
-    instance->clients_mutex.lock();
-	Logger::log(LOG_DEBUG,"locked instance in createClient()\n");
+	Logger::log(LOG_DEBUG,"got instance in createClient()");
 	
+	instance->clients_mutex.lock();
 	bool dupeNick = Sequencer::checkNickUnique(user->username);
+	instance->clients_mutex.unlock();
 	int dupecounter = 2;
+
+	// check if server is full
+	Logger::log(LOG_WARN,"searching free slot for new client...");
+	if( instance->clients.size() >= instance->maxclients )
+	{
+		Logger::log(LOG_WARN,"join request from '%s' on full server: rejecting!", user->username);
+		Messaging::sendmessage(sock, MSG2_FULL, 0, 0, 0);
+		throw std::runtime_error("Server is full");
+	}
+	
 	if(dupeNick)
 	{
 		char buf[20] = "";
 		strncpy(buf, user->username, 20);
-		Logger::log(LOG_WARN,"found duplicate nick, getting new one: %s\n", buf);
+		Logger::log(LOG_WARN,"found duplicate nick, getting new one: %s", buf);
 		if(strnlen(buf, 20) == 20)
 			//shorten the string
 			buf[18]=0;
 		while(dupeNick)
 		{
 			sprintf(buf+strnlen(buf, 18), "%d", dupecounter++);
-			Logger::log(LOG_DEBUG,"checked for duplicate nick (2): %s\n", buf);
+			Logger::log(LOG_DEBUG,"checked for duplicate nick (2): %s", buf);
 			dupeNick = Sequencer::checkNickUnique(buf);
 		}
 		Logger::log(LOG_WARN,"chose alternate username: %s\n", buf);
@@ -258,64 +243,41 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 		// we should send him a message about the nickchange later...
 	}
 	
-	Logger::log(LOG_WARN,"searching free slot for new client...\n");
-	// search a free slot
-	int pos=-1;
-	for (int i = 0; i < instance->maxclients; i++)
-	{
-		// an open spot if found, store it's position
-		if (pos < 0 && FREE == instance->clients[i].status)
-			pos = i;
-	}
 	
-	if (pos < 0)
-	{
-		Logger::log(LOG_WARN,"join request from '%s' on full server: rejecting!", user->username);
-		instance->clients_mutex.unlock();
-		Messaging::sendmessage(sock, MSG2_FULL, 0, 0, 0);
-		throw std::runtime_error("Server is full");
-	}
+	client_t* to_add = new client_t;
 	
 	//okay, create the stuff
-	instance->clients[pos].flow=false;
-	instance->clients[pos].status=USED;
-	instance->clients[pos].vehicle_name[0]=0;
-	instance->clients[pos].position=Vector3(0,0,0);
-	instance->clients[pos].rconretries=0;
-	
-	strncpy(instance->clients[pos].nickname, user->username, 20);
-	strncpy(instance->clients[pos].uniqueid, user->uniqueid, 40);
-
-	// auth stuff
-	instance->clients[pos].rconauth=0;
-	if(instance->authresolver)
-	{
-		int res = instance->authresolver->getUserModeByUserToken(std::string(user->uniqueid));
-		if(res>0)
-		{
-			Logger::log(LOG_INFO, "user authed because of valid admin token!");
-			instance->clients[pos].rconauth=res;
-		}
-	}
-	
+	to_add->flow=false;
+	to_add->status=USED;
+	to_add->vehicle_name[0]=0;
+	to_add->position=Vector3(0,0,0);
+	to_add->rconretries=0;
+	to_add->rconauth=0;
+	strncpy(to_add->nickname, user->username, 20);
+	strncpy(to_add->uniqueid, user->uniqueid, 60);
+	to_add->receiver = new Receiver();
+	to_add->broadcaster = new Broadcaster();
 
 	// replace bad characters
 	for (unsigned int i=0; i<20; i++)
 	{
-		if(instance->clients[pos].nickname[i] == 0)
+		if(to_add->nickname[i] == 0)
 			break;
 	}
 
-	instance->clients[pos].uid=instance->fuid;
+	to_add->uid=instance->fuid;
 	instance->fuid++;
-	instance->clients[pos].sock = sock;//this won't interlock
-	instance->clients[pos].receiver->reset(instance->clients[pos].uid, sock);
+	to_add->sock = sock;//this won't interlock
+	
+	instance->clients_mutex.lock();
+	instance->clients.push_back( to_add );
+	to_add->receiver->reset(to_add->uid, sock);
 	//this won't interlock
-	instance->clients[pos].broadcaster->reset(instance->clients[pos].uid, sock,
-			Sequencer::disconnect, Messaging::sendmessage); 
+	to_add->broadcaster->reset(to_add->uid, sock,
+			Sequencer::disconnect, Messaging::sendmessage);
 	instance->clients_mutex.unlock();
 
-	Logger::log(LOG_VERBOSE,"Sequencer: New client created in slot %i", pos);
+	Logger::log(LOG_VERBOSE,"Sequencer: New client added");
 	printStats();
 }
 
@@ -335,21 +297,18 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 	                      "%i\n", challenge, clientnum);
 	if(clientnum > 0)
 	{
-		for (int i=0; i<instance->maxclients; i++)
+		for( unsigned int i = 0; i < instance->clients.size(); i++)
 		{
-			if (instance->clients[i].status != FREE)
-			{
-				char playerdata[1024] = "";
-				char positiondata[128] = "";
-				instance->clients[i].position.toString(positiondata);
-				sprintf(playerdata, "%d;%s;%s;%s;%s;%s\n", i, 
-						instance->clients[i].vehicle_name, 
-						instance->clients[i].nickname,
-						positiondata, 
-						instance->clients[i].sock->get_peerAddr(&error).c_str(),
-						instance->clients[i].uniqueid);
-				strcat(hearbeatdata, playerdata);
-			}
+			char playerdata[1024] = "";
+			char positiondata[128] = "";
+			instance->clients[i]->position.toString(positiondata);
+			sprintf(playerdata, "%d;%s;%s;%s;%s;%s\n", i, 
+					instance->clients[i]->vehicle_name, 
+					instance->clients[i]->nickname,
+					positiondata, 
+					instance->clients[i]->sock->get_peerAddr(&error).c_str(),
+					instance->clients[i]->uniqueid);
+			strcat(hearbeatdata, playerdata);
 		}
 	}
 	return 0;
@@ -358,20 +317,15 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 int Sequencer::getNumClients()
 {
     STACKLOG;
-    Sequencer* instance = Instance(); 
-	int count=0;
+    Sequencer* instance = Instance();
 	MutexLocker scoped_lock(instance->clients_mutex);
-	for( int i = 0; i < instance->maxclients; i++)
-		if (instance->clients[i].status != FREE)
-			count++;
-	return count;
+	return instance->clients.size();
 }
 
 int Sequencer::authNick(std::string token, std::string &nickname)
 {
     STACKLOG;
-    Sequencer* instance = Instance(); 
-	int count=0;
+    Sequencer* instance = Instance();
 	MutexLocker scoped_lock(instance->clients_mutex);
 	if(!instance->authresolver)
 		return -1;
@@ -392,76 +346,58 @@ void Sequencer::killerthreadstart()
 		Logger::log(LOG_DEBUG,"Killer entering cycle");
 
 		instance->killer_mutex.lock();
-		while (instance->freekillqueue==0)
+		while( instance->killqueue.empty() )
 			instance->killer_mutex.wait(instance->killer_cv);
-		//pop the kill queue
-		int pos=instance->killqueue[0];
-		instance->freekillqueue--;
 		
-		memcpy(instance->killqueue, &instance->killqueue[1], 
-				sizeof(int) * instance->freekillqueue);
+		//pop the kill queue
+		client_t* to_del = instance->killqueue.front();
+		instance->killqueue.pop();
 		instance->killer_mutex.unlock();
 
-		Logger::log(LOG_DEBUG,"Killer called to kill %i", pos);
-		instance->clients_mutex.lock(); //this won't interlock unless disconnect is called
-		                    //from a clients_mutex owning thread
-		Logger::log(LOG_DEBUG,"Killer got clients lock");
-		if (instance->clients[pos].status==USED)
-		{
-			instance->clients[pos].status=BUSY;
-			Logger::log(LOG_DEBUG,"Killer notifying");
-			//notify the others
-			for (int i=0; i<instance->maxclients; i++)
-			{
-				if (instance->clients[i].status == USED &&
-						strlen(instance->clients[i].vehicle_name)>0)
-				{
-					instance->clients[i].broadcaster->queueMessage(
-							instance->clients[pos].uid, MSG2_DELETE, 0, 0);
-				}
-			}
-			Logger::log(LOG_DEBUG,"Killer done notifying");
-
-			// CRITICAL ORDER OF EVENTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			// stop the broadcaster first, then disconnect the socket.
-			// other wise there is a chance (being concurrent code) that the
-			// socket will attempt to send a message between the disconnect
-			// which makes the socket invalid) and the actual time of stoping
-			// the bradcaster
-			instance->clients[pos].broadcaster->stop();
-			instance->clients[pos].sock->disconnect(&error);
-			instance->clients[pos].receiver->stop();
-			delete instance->clients[pos].sock;
-			instance->clients[pos].sock = NULL;
-			// END CRITICAL ORDER OF EVENTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			memset(instance->clients[pos].nickname, 0, 20);
-			instance->clients[pos].status = FREE;
-		}
-		instance->clients_mutex.unlock();
-		Logger::log(LOG_DEBUG,"Killer has properly killed %i", pos);
+		Logger::log(LOG_DEBUG,"Killer called to kill %s", to_del->nickname );
+		// CRITICAL ORDER OF EVENTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		// stop the broadcaster first, then disconnect the socket.
+		// other wise there is a chance (being concurrent code) that the
+		// socket will attempt to send a message between the disconnect
+		// which makes the socket invalid) and the actual time of stoping
+		// the bradcaster
+		to_del->broadcaster->stop();
+		to_del->sock->disconnect(&error);
+		to_del->receiver->stop();
+		delete to_del->sock;
+		to_del->sock = NULL;
+		// END CRITICAL ORDER OF EVENTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		delete to_del;
+		to_del = NULL;
+		
 		printStats();
 	}
 }
 
-void Sequencer::disconnect(int uid, char* errormsg)
+void Sequencer::disconnect(int uid, const char* errormsg)
 {
     STACKLOG;
     Sequencer* instance = Instance(); 
     unsigned short pos = instance->getPosfromUid(uid);
+    if( UID_NOT_FOUND == pos ) return;
+    
 	//this routine is a potential trouble maker as it can be called from many thread contexts
 	//so we use a killer thread
 	Logger::log(LOG_VERBOSE, "Disconnecting Slot %d: %s", pos, errormsg);
 	MutexLocker scoped_lock(instance->killer_mutex);
 	
-	//first check if not already queued
-	for (int i = 0; i < instance->freekillqueue; i++)	{
-	    // check for duplicates
-        if (instance->killqueue[i]==pos) {
-            return;
-        }
+	instance->killqueue.push( instance->clients[pos] );
+	
+	//notify the others
+	for( unsigned int i = 0; i < instance->clients.size(); i++)
+	{
+		if( strlen(instance->clients[i]->vehicle_name) > 0 )
+		{
+			instance->clients[i]->broadcaster->queueMessage(
+					instance->clients[pos]->uid, MSG2_DELETE, 0, 0);
+		}
 	}
-	instance->killqueue[instance->freekillqueue]=pos;
-	instance->freekillqueue++;
+	instance->clients.erase( instance->clients.begin() + pos );
 	instance->killer_cv.signal();
 }
 
@@ -470,9 +406,11 @@ void Sequencer::enableFlow(int uid)
 {
     STACKLOG;
     Sequencer* instance = Instance(); 
-    unsigned short pos = instance->getPosfromUid(uid);
+    unsigned short pos = instance->getPosfromUid(uid);    
+    if( UID_NOT_FOUND == pos ) return;
+    
 	MutexLocker scoped_lock(instance->clients_mutex);
-	instance->clients[pos].flow=true;
+	instance->clients[pos]->flow=true;
 }
 
 //this is called from the listener thread initial handshake
@@ -480,31 +418,33 @@ void Sequencer::notifyAllVehicles(int uid)
 {
     STACKLOG;
     Sequencer* instance = Instance(); 
-    unsigned short pos = instance->getPosfromUid(uid);
+    unsigned short pos = instance->getPosfromUid(uid);     
+    if( UID_NOT_FOUND == pos ) return;
+    
 	MutexLocker scoped_lock(instance->clients_mutex);
-	for (int i=0; i<instance->maxclients; i++)
+	for (unsigned int i=0; i<instance->clients.size(); i++)
 	{
-		if (i!=pos && instance->clients[i].status == USED &&
-				strlen(instance->clients[i].vehicle_name)>0)
+		if (i!=pos && instance->clients[i]->status == USED &&
+				strlen(instance->clients[i]->vehicle_name)>0)
 		{
 			char message[512];
-			strcpy(message, instance->clients[i].vehicle_name);
-			strcpy(message + strlen(instance->clients[i].vehicle_name) + 1,
-					instance->clients[i].nickname);
-			instance->clients[pos].broadcaster->queueMessage(
-					instance->clients[i].uid, MSG2_USE_VEHICLE,
+			strcpy(message, instance->clients[i]->vehicle_name);
+			strcpy(message + strlen(instance->clients[i]->vehicle_name) + 1,
+					instance->clients[i]->nickname);
+			instance->clients[pos]->broadcaster->queueMessage(
+					instance->clients[i]->uid, MSG2_USE_VEHICLE,
 					message,
 					(unsigned int)(
-							strlen(instance->clients[i].vehicle_name) +
-							strlen(instance->clients[i].nickname) ) + 2);
+							strlen(instance->clients[i]->vehicle_name) +
+							strlen(instance->clients[i]->nickname) ) + 2);
 		}
 		// not possible to have flow enabled but not have a truck... disconnect 
-		if ( !strlen(instance->clients[i].vehicle_name) &&
-				instance->clients[i].flow )
+		if ( !strlen(instance->clients[i]->vehicle_name) &&
+				instance->clients[i]->flow )
 		{
 			Logger::log(LOG_ERROR, "Client has flow enable but no truck name, "
 					"disconnecting");
-			disconnect(instance->clients[i].uid, "client appears to be disconnected");
+			disconnect(instance->clients[i]->uid, "client appears to be disconnected");
 		}
 	}
 }
@@ -516,11 +456,11 @@ void Sequencer::serverSay(std::string msg, int notto, int type)
 	if(type==0)
 		msg = std::string("^1 SERVER: ^9") + msg;
 	//pthread_mutex_lock(&clients_mutex);
-	for (int i = 0; i < instance->maxclients; i++)
-		if (instance->clients[i].status == USED &&
-				instance->clients[i].flow &&
+	for (unsigned int i = 0; i < instance->clients.size(); i++)
+		if (instance->clients[i]->status == USED &&
+				instance->clients[i]->flow &&
 				(notto==-1 || notto!=i))
-			instance->clients[i].broadcaster->queueMessage(
+			instance->clients[i]->broadcaster->queueMessage(
 					0, MSG2_CHAT,
 					const_cast<char*>(msg.c_str()),
 					(unsigned int)msg.size());
@@ -532,34 +472,36 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 {
 	STACKLOG;
     Sequencer* instance = Instance(); 
-    unsigned short pos = instance->getPosfromUid(uid);
+    unsigned short pos = instance->getPosfromUid(uid);    
+    if( UID_NOT_FOUND == pos ) return;
+    
 	MutexLocker scoped_lock(instance->clients_mutex);
 	bool publishData=false;
 	if (type==MSG2_USE_VEHICLE) 
 	{
 		data[len]=0;
-		strncpy(instance->clients[pos].vehicle_name, data, 129);
+		strncpy(instance->clients[pos]->vehicle_name, data, 129);
 		Logger::log(LOG_VERBOSE,"On the fly vehicle registration for slot %d: %s",
-		            pos, instance->clients[pos].vehicle_name);
+		            pos, instance->clients[pos]->vehicle_name);
 		//printStats();
 		//we alter the message to add user info
-		strcpy(data + len + 1, instance->clients[pos].nickname);
-		len += (int)strlen(instance->clients[pos].nickname) + 2;
+		strcpy(data + len + 1, instance->clients[pos]->nickname);
+		len += (int)strlen(instance->clients[pos]->nickname) + 2;
 		publishData = true;
 	}
 	
 	else if (type==MSG2_DELETE)
 	{
-		Logger::log(LOG_INFO, "user %d disconnects on request", pos);
-		disconnect(instance->clients[pos].uid, "disconnected on request");
+		Logger::log(LOG_INFO, "user %d disconnects on request", instance->clients[pos]->uid);
+		disconnect(instance->clients[pos]->uid, "disconnected on request");
 	}
 	else if (type==MSG2_RCON_COMMAND)
 	{
 		Logger::log(LOG_WARN, "user %d (%d) sends rcon command: %s",
 				pos,
-				instance->clients[pos].rconauth,
+				instance->clients[pos]->rconauth,
 				data);
-		if(instance->clients[pos].rconauth>0)
+		if(instance->clients[pos]->rconauth>0)
 		{
 			if(instance->clients[pos].rconauth>1)
 			{
@@ -694,44 +636,44 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			{
 				int player = -1;
 				int res = sscanf(data, "kick %d", &player); 
-				if(res == 1 && player != -1 && player < instance->maxclients)
+				if(res == 1 && player != -1 && player < instance->clients.size())
 				{
-					if(instance->clients[player].status == FREE ||
-							instance->clients[player].status == BUSY)
+					if(instance->clients[player]->status == FREE ||
+							instance->clients[player]->status == BUSY)
 					{
 						char *error = "cannot kick free or busy client";
-						instance->clients[pos].broadcaster->queueMessage( 0,
+						instance->clients[pos]->broadcaster->queueMessage( 0,
 							MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
-					} else if(instance->clients[player].status == USED) {
+					} else if(instance->clients[player]->status == USED) {
 						Logger::log(LOG_WARN, "user %d kicked by user %d via rcmd",
 								player, pos);
 						char tmp[255]="";
 						memset(tmp, 0, 255);
 						sprintf(tmp, "player '%s' kicked successfully.",
-								instance->clients[player].nickname);
+								instance->clients[player]->nickname);
 						serverSay(std::string(tmp));
 
-						instance->clients[pos].broadcaster->queueMessage( 0,
+						instance->clients[pos]->broadcaster->queueMessage( 0,
 								MSG2_RCON_COMMAND_SUCCESS, tmp, (unsigned int)strlen(tmp) );
 						
-						disconnect( instance->clients[player].uid, "kicked" );
+						disconnect( instance->clients[player]->uid, "kicked" );
 					}
 				} else {
 					char *error = "invalid client number";
-					instance->clients[pos].broadcaster->queueMessage( 0,
+					instance->clients[pos]->broadcaster->queueMessage( 0,
 							MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
 				}
 			}
 		}
 		else
-			instance->clients[pos].broadcaster->queueMessage( 0,
+			instance->clients[pos]->broadcaster->queueMessage( 0,
 					MSG2_RCON_COMMAND_FAILED, 0, 0 );
 		
 		publishData=false;
 	}
 	else if (type==MSG2_CHAT)
 	{
-		Logger::log(LOG_INFO, "CHAT| %s: %s", instance->clients[pos].nickname, data);
+		Logger::log(LOG_INFO, "CHAT| %s: %s", instance->clients[pos]->nickname, data);
 		publishData=true;
 	}
 	else if (type==MSG2_RCON_LOGIN)
@@ -742,36 +684,36 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			instance->clients[pos].broadcaster->queueMessage(0, MSG2_RCON_LOGIN_SUCCESS, 0, 0);
 			return;
 		}
-		if(instance->rconenabled && instance->clients[pos].rconretries < 3)
+		if(instance->rconenabled && instance->clients[pos]->rconretries < 3)
 		{
 			char pw[255]="";
 			strncpy(pw, data, 255);
 			pw[len]=0;
 			Logger::log(LOG_DEBUG, "user %d  tries to log into RCON: server: "
 					"%s, his: %s", pos, instance->rconPassword, pw);
-			if(pw && strnlen(pw, 250) > 20 && !strcmp(instance->rconPassword, pw))
+			if(strnlen(pw, 250) > 20 && !strcmp(instance->rconPassword, pw))
 			{
 				Logger::log(LOG_WARN, "user %d logged into RCON", pos);
-				instance->clients[pos].rconauth=1;
-				instance->clients[pos].broadcaster->queueMessage( 0,
+				instance->clients[pos]->rconauth=1;
+				instance->clients[pos]->broadcaster->queueMessage( 0,
 						MSG2_RCON_LOGIN_SUCCESS, 0, 0 );
 			}else
 			{
 				// pw incorrect or failed
 				Logger::log(LOG_WARN, "user %d failed to login RCON, retry "
-						"number %d", pos, instance->clients[pos].rconretries);
-				instance->clients[pos].rconauth=0;
-				instance->clients[pos].rconretries++;
-				instance->clients[pos].broadcaster->queueMessage( 0,
+						"number %d", pos, instance->clients[pos]->rconretries);
+				instance->clients[pos]->rconauth=0;
+				instance->clients[pos]->rconretries++;
+				instance->clients[pos]->broadcaster->queueMessage( 0,
 						MSG2_RCON_LOGIN_FAILED, 0, 0 );
-				Messaging::sendmessage( instance->clients[pos].sock,
+				Messaging::sendmessage( instance->clients[pos]->sock,
 						MSG2_RCON_LOGIN_FAILED, 0, 0, 0);
 			}
 		}else
 		{
 			Logger::log(LOG_WARN, "user %d failed to login RCON, as RCON is "
-					"disabled %d", pos, instance->clients[pos].rconretries);
-			instance->clients[pos].broadcaster->queueMessage( 0,
+					"disabled %d", pos, instance->clients[pos]->rconretries);
+			instance->clients[pos]->broadcaster->queueMessage( 0,
 					MSG2_RCON_LOGIN_NOTAV, 0, 0 );
 		}
 		publishData=false;
@@ -779,20 +721,20 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	else if (type==MSG2_VEHICLE_DATA)
 	{
 		float* fpt=(float*)(data+sizeof(oob_t));
-		instance->clients[pos].position=Vector3(fpt[0], fpt[1], fpt[2]);
+		instance->clients[pos]->position=Vector3(fpt[0], fpt[1], fpt[2]);
 		publishData=true;
 	}
 	else if (type==MSG2_FORCE)
 	{
 		//this message is to be sent to only one destination
 		unsigned int destuid=((netforce_t*)data)->target_uid;
-		for (int i = 0; i < instance->maxclients; i++)
+		for ( unsigned int i = 0; i < instance->clients.size(); i++)
 		{
-			if (instance->clients[i].status == USED && 
-				instance->clients[i].flow &&
-				instance->clients[i].uid==destuid)
-				instance->clients[i].broadcaster->queueMessage(
-						instance->clients[pos].uid, type, data, len);
+			if (instance->clients[i]->status == USED && 
+				instance->clients[i]->flow &&
+				instance->clients[i]->uid==destuid)
+				instance->clients[i]->broadcaster->queueMessage(
+						instance->clients[pos]->uid, type, data, len);
 		}
 		publishData=false;
 	}
@@ -800,15 +742,15 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	if(publishData)
 	{
 		//just push to all the present clients
-		for (int i = 0; i < instance->maxclients; i++)
+		for (unsigned int i = 0; i < instance->clients.size(); i++)
 		{
-			if (instance->clients[i].status == USED &&
-					instance->clients[i].flow &&i!=pos)
-				instance->clients[i].broadcaster->queueMessage(
-						instance->clients[pos].uid, type, data, len);
+			if (instance->clients[i]->status == USED &&
+					instance->clients[i]->flow &&i!=pos)
+				instance->clients[i]->broadcaster->queueMessage(
+						instance->clients[pos]->uid, type, data, len);
 #ifdef REFLECT_DEBUG
 			if (clients[i].status==USED && i==pos)
-				clients[i].broadcaster->queueMessage(clients[pos].uid+100, type, data, len);
+				clients[i].broadcaster->queueMessage(clients[pos]->uid+100, type, data, len);
 #endif
 		}
 	}
@@ -825,7 +767,7 @@ void Sequencer::printStats()
 	{
 		mvwprintw(win_slots, 1, 1, "Slot Status UID IP              Nickname");
 		mvwprintw(win_slots, 2, 1, "------------------------------------------");
-		for (int i=0; i<maxclients; i++)
+		for (int i=0; i<clients.size(); i++)
 		{
 			//this is glitched: the rest of the line is not cleared !!!
 			//I used to know what the problem was but I forgot it... I'll figure it out, eventually :)
@@ -844,21 +786,21 @@ void Sequencer::printStats()
 
 		Logger::log(LOG_INFO, "Slot Status   UID IP              Nickname, Vehicle");
 		Logger::log(LOG_INFO, "--------------------------------------------------");
-		for (int i = 0; i < instance->maxclients; i++)
+		for (unsigned int i = 0; i < instance->clients.size(); i++)
 		{
-			if (instance->clients[i].status == FREE) 
+			if (instance->clients[i]->status == FREE) 
 				Logger::log(LOG_INFO, "%4i Free", i);
-			else if (instance->clients[i].status == BUSY)
+			else if (instance->clients[i]->status == BUSY)
 				Logger::log(LOG_INFO, "%4i Busy %5i %-16s %s, %s", i,
-						instance->clients[i].uid, "-", 
-						instance->clients[i].nickname, 
-						instance->clients[i].vehicle_name);
+						instance->clients[i]->uid, "-", 
+						instance->clients[i]->nickname, 
+						instance->clients[i]->vehicle_name);
 			else 
 				Logger::log(LOG_INFO, "%4i Used %5i %-16s %s, %s", i, 
-						instance->clients[i].uid, 
-						instance->clients[i].sock->get_peerAddr(&error).c_str(), 
-						instance->clients[i].nickname, 
-						instance->clients[i].vehicle_name);
+						instance->clients[i]->uid, 
+						instance->clients[i]->sock->get_peerAddr(&error).c_str(), 
+						instance->clients[i]->nickname, 
+						instance->clients[i]->vehicle_name);
 		}
 		Logger::log(LOG_INFO, "--------------------------------------------------");
 		int timediff = Messaging::getTime() - instance->startTime;
@@ -876,21 +818,19 @@ void Sequencer::printStats()
 	}
 }
 // used to access the clients from the array rather than using the array pos it's self.
-unsigned short Sequencer::getPosfromUid(const unsigned int& uid)
+unsigned short Sequencer::getPosfromUid(unsigned int uid)
 {
     STACKLOG;
     Sequencer* instance = Instance();
     
-    for (unsigned short i = 0; i < instance->maxclients; i++)
+    for (unsigned short i = 0; i < instance->clients.size(); i++)
     {
-        if(instance->clients[i].uid == uid)
+        if(instance->clients[i]->uid == uid)
             return i;
     }
     
-    // todo cleanup, this error would cause the program to crash unless caught 
-    std::stringstream error_msg;
-    error_msg << "could not find user id: " << uid;
-    throw std::runtime_error(error_msg.str() );
+    Logger::log( LOG_ERROR, "could not find uid %d", uid);    
+    return UID_NOT_FOUND;
 }
 
 char *Sequencer::getTerrainName()

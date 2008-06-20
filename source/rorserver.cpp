@@ -207,6 +207,7 @@ int main(int argc, char* argv[])
 	// det default verbose levels
 	Logger::setLogLevel(LOGTYPE_DISPLAY, LOG_INFO);
 	Logger::setLogLevel(LOGTYPE_FILE, LOG_VERBOSE);
+	Logger::setFlushLevel( LOG_ERROR );
 	Logger::setOutputFile("server.log");
 
 	// parse arguments

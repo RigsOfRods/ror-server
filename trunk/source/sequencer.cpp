@@ -364,9 +364,14 @@ void Sequencer::killerthreadstart()
 		to_del->broadcaster->stop();
 		to_del->sock->disconnect(&error);
 		to_del->receiver->stop();
-		delete to_del->sock;
-		to_del->sock = NULL;
 		// END CRITICAL ORDER OF EVENTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		delete to_del->broadcaster;
+		delete to_del->receiver;
+		delete to_del->sock;
+		to_del->broadcaster = NULL;
+		to_del->receiver = NULL;
+		to_del->sock = NULL;
+		
 		delete to_del;
 		to_del = NULL;
 		
@@ -503,7 +508,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 				data);
 		if(instance->clients[pos]->rconauth>0)
 		{
-			if(instance->clients[pos].rconauth>1)
+			if(instance->clients[pos]->rconauth>1)
 			{
 				// bot commands
 				if(!strncmp(data, "newgoal", 4))
@@ -524,11 +529,11 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					try
 					{
 						int pos = instance->getPosfromUid(userid);
-						instance->clients[pos].broadcaster->queueMessage(-1, MSG2_GAME_CMD, txtbuf, (unsigned int)strlen(txtbuf));
+						instance->clients[pos]->broadcaster->queueMessage(-1, MSG2_GAME_CMD, txtbuf, (unsigned int)strlen(txtbuf));
 					} catch(...)
 					{
 						char *error = "no user with that ID found!";
-						instance->clients[pos].broadcaster->queueMessage(0, MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
+						instance->clients[pos]->broadcaster->queueMessage(0, MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
 					}
 					return;
 				}
@@ -547,11 +552,11 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					try
 					{
 						int pos = instance->getPosfromUid(userid);
-						instance->clients[pos].broadcaster->queueMessage(-1, MSG2_GAME_CMD, newbuf, (unsigned int)strlen(newbuf));
+						instance->clients[pos]->broadcaster->queueMessage(-1, MSG2_GAME_CMD, newbuf, (unsigned int)strlen(newbuf));
 					} catch(...)
 					{
 						char *error = "no user with that ID found!";
-						instance->clients[pos].broadcaster->queueMessage(0, MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
+						instance->clients[pos]->broadcaster->queueMessage(0, MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
 					}
 					return;
 				}
@@ -573,11 +578,11 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					try
 					{
 						int pos = instance->getPosfromUid(userid);
-						instance->clients[pos].broadcaster->queueMessage(-1, MSG2_GAME_CMD, txtbuf, (unsigned int)strlen(txtbuf));
+						instance->clients[pos]->broadcaster->queueMessage(-1, MSG2_GAME_CMD, txtbuf, (unsigned int)strlen(txtbuf));
 					} catch(...)
 					{
 						char *error = "no user with that ID found!";
-						instance->clients[pos].broadcaster->queueMessage(0, MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
+						instance->clients[pos]->broadcaster->queueMessage(0, MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
 					}
 				}
 				if(!strncmp(data, "setoverlayelementcolor", 22))
@@ -598,11 +603,11 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					try
 					{
 						int pos = instance->getPosfromUid(userid);
-						instance->clients[pos].broadcaster->queueMessage(-1, MSG2_GAME_CMD, txtbuf, (unsigned int)strlen(txtbuf));
+						instance->clients[pos]->broadcaster->queueMessage(-1, MSG2_GAME_CMD, txtbuf, (unsigned int)strlen(txtbuf));
 					} catch(...)
 					{
 						char *error = "no user with that ID found!";
-						instance->clients[pos].broadcaster->queueMessage(0, MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
+						instance->clients[pos]->broadcaster->queueMessage(0, MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
 					}
 				}
 				if(!strncmp(data, "setoverlayelementtext", 21))
@@ -624,11 +629,11 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					try
 					{
 						int pos = instance->getPosfromUid(userid);
-						instance->clients[pos].broadcaster->queueMessage(-1, MSG2_GAME_CMD, txtbuf, (unsigned int)strlen(txtbuf));
+						instance->clients[pos]->broadcaster->queueMessage(-1, MSG2_GAME_CMD, txtbuf, (unsigned int)strlen(txtbuf));
 					} catch(...)
 					{
 						char *error = "no user with that ID found!";
-						instance->clients[pos].broadcaster->queueMessage(0, MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
+						instance->clients[pos]->broadcaster->queueMessage(0, MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
 					}
 				}
 			}
@@ -678,10 +683,10 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	}
 	else if (type==MSG2_RCON_LOGIN)
 	{
-		if(instance->clients[pos].rconauth != 0)
+		if(instance->clients[pos]->rconauth != 0)
 		{
 			// already logged in
-			instance->clients[pos].broadcaster->queueMessage(0, MSG2_RCON_LOGIN_SUCCESS, 0, 0);
+			instance->clients[pos]->broadcaster->queueMessage(0, MSG2_RCON_LOGIN_SUCCESS, 0, 0);
 			return;
 		}
 		if(instance->rconenabled && instance->clients[pos]->rconretries < 3)

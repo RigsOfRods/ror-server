@@ -20,6 +20,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define __Userauth_H__
 
 #include "HttpMsg.h"
+#include <vector>
+
+#define ADMINCONFIGFILE "admins.txt"
 
 class UserAuth
 {
@@ -27,10 +30,14 @@ private:
 	std::map< std::string, std::string > cache;
 	int HTTPGET(const char* URL, HttpMsg &resp);
 	std::string challenge;
+	std::vector<std::string> admin_entries;
+	int readConfig();
 public:
 	UserAuth(std::string challenge);
 	~UserAuth();
 	
+	int getUserModeByUserToken(std::string token);
+
 	int resolve(std::string user_token, std::string &user_nick);
 };
 #endif

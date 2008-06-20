@@ -70,7 +70,7 @@ void Messaging::updateMinuteStats()
  * @param content message to send
  * @return dunno
  */
-int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source,
+int Messaging::sendmessage(SWInetSocket *socket, int type, int source,
 		unsigned int len,  char* content)
 {
     STACKLOG;
@@ -134,7 +134,7 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, unsigned int source,
  * @return
  */
 int Messaging::receivemessage(SWInetSocket *socket, int *type,
-		unsigned int *source, unsigned int *wrotelen, char* content,
+		int *source, unsigned int *wrotelen, char* content,
 		unsigned int bufferlen)
 {
     STACKLOG;

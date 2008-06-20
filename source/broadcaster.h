@@ -27,7 +27,7 @@ class SWInetSocket;
 
 struct queue_entry_t
 {
-	unsigned int uid;
+	int uid;
 	int type;
 	char data[MAX_MESSAGE_LENGTH];
 	unsigned int datalen;
@@ -47,8 +47,7 @@ private:
 	
 	bool running;
 	void (*disconnect)(int, char*);
-	int (*sendmessage)(SWInetSocket *socket, int type, unsigned int source,
-			unsigned int len, char* content);
+	int (*sendmessage)(SWInetSocket *socket, int type, int source, unsigned int len, char* content);
 
 	 void threadstart();
 	 friend void* s_brthreadstart(void* vid);
@@ -65,7 +64,7 @@ public:
 	void reset(int uid, SWInetSocket *socky,
 			void (*disconnect)(int uid, char*),
 			int (*sendmessage)(SWInetSocket *socket, int type,
-					unsigned int source, unsigned int len, char* content) );
+					int source, unsigned int len, char* content) );
 	void stop();
 	/**
 	 * @param[in] uid  uid of the client sending the data??
@@ -73,6 +72,6 @@ public:
 	 * @param[in] data the actually message being sent
 	 * @param[in] len  length of data in bytes
 	 */
-	void queueMessage(unsigned int uid, int type, char* data, unsigned int len);
+	void queueMessage(int uid, int type, char* data, unsigned int len);
 };
 #endif

@@ -86,7 +86,7 @@ void Listener::threadstart()
 		
 		//receive a magic
 		int type;
-		unsigned int source;
+		int source;
 		unsigned int len;
 		char buffer[256];
 		

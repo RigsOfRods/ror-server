@@ -29,10 +29,10 @@ public:
 	Messaging(void) {;}
 	~Messaging(void) {;}
 	
-	static int sendmessage(SWInetSocket *socket, int type, unsigned int source,
+	static int sendmessage(SWInetSocket *socket, int type, int source,
 			unsigned int len, char* content);
 	static int receivemessage(SWInetSocket *socket, int *type,
-			unsigned int *source, unsigned int *wrotelen, char* content, 
+			int *source, unsigned int *wrotelen, char* content, 
 			unsigned int bufferlen);
 
 	static double getBandwitdthIncoming();

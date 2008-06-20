@@ -282,9 +282,22 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	instance->clients[pos].vehicle_name[0]=0;
 	instance->clients[pos].position=Vector3(0,0,0);
 	instance->clients[pos].rconretries=0;
-	instance->clients[pos].rconauth=0;
+	
 	strncpy(instance->clients[pos].nickname, user->username, 20);
-	strncpy(instance->clients[pos].uniqueid, user->uniqueid, 60);
+	strncpy(instance->clients[pos].uniqueid, user->uniqueid, 40);
+
+	// auth stuff
+	instance->clients[pos].rconauth=0;
+	if(instance->authresolver)
+	{
+		int res = instance->authresolver->getUserModeByUserToken(std::string(user->uniqueid));
+		if(res>0)
+		{
+			Logger::log(LOG_INFO, "user authed because of valid admin token!");
+			instance->clients[pos].rconauth=res;
+		}
+	}
+	
 
 	// replace bad characters
 	for (unsigned int i=0; i<20; i++)

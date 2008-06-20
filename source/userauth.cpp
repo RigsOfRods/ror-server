@@ -35,11 +35,67 @@ UserAuth::UserAuth(std::string _challenge)
 {
     STACKLOG;
 	challenge=_challenge;
+	readConfig();
 }
 
 UserAuth::~UserAuth(void)
 {
     STACKLOG;
+}
+
+int UserAuth::readConfig()
+{
+	STACKLOG;
+	FILE *f = fopen(ADMINCONFIGFILE, "r");
+	if (!f)
+	{
+		Logger::log(LOG_ERROR, "error opening admin configuration file '%s'", ADMINCONFIGFILE);
+		return -1;
+	}
+	Logger::log(LOG_INFO, "reading admin configuration file...");
+	int linecounter=0;
+	while(!feof(f))
+	{
+		char line[2048] = "";
+		memset(line, 0, 2048);
+		fgets (line, 2048, f);
+		linecounter++;
+		
+		if(strnlen(line, 2048) <= 2)
+			continue;
+
+		if(line[0] == ';')
+			// ignore comment lines
+			continue;
+		
+		// this is setup mode (server)
+		// strip line (newline char)
+		char *ptr = line;
+		while(*ptr)
+		{
+			if(*ptr == '\n')
+			{
+				*ptr=0;
+				break;
+			}
+			ptr++;
+		}
+		admin_entries.push_back(std::string(line));
+	}
+	Logger::log(LOG_INFO, "found %d admins!", admin_entries.size());
+	fclose (f);
+	return 0;
+}
+
+int UserAuth::getUserModeByUserToken(std::string token)
+{
+	std::vector<std::string>::iterator it;
+	for(it=admin_entries.begin(); it!=admin_entries.end(); it++)
+	{
+		if(token == *it)
+			return 2;
+	}
+	return 0;
 }
 
 int UserAuth::resolve(std::string user_token, std::string &user_nick)

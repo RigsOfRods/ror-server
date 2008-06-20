@@ -1,0 +1,118 @@
+tracks/MP/gameoverlay
+{
+	zorder 10
+	container BorderPanel(tracks/MP/gameoverlay/MainPanel)
+	{
+        metrics_mode pixels
+		horz_align right
+		vert_align top
+		left -500
+		top 0
+		width 500
+		height 200
+        
+		material Core/StatsBlockCenter
+            border_size 0 1 0 0
+            border_material Core/StatsBlockBorder
+            border_topleft_uv     0.0000 1.0000 0.0039 0.9961
+            border_top_uv         0.0039 1.0000 0.9961 0.9961
+            border_topright_uv    0.9961 1.0000 1.0000 0.9961
+            border_left_uv        0.0000 0.9961 0.0039 0.0039
+            border_right_uv       0.9961 0.9961 1.0000 0.0039
+            border_bottomleft_uv  0.0000 0.0039 0.0039 0.0000
+            border_bottom_uv      0.0039 0.0039 0.9961 0.0000
+            border_bottomright_uv 0.9961 0.0039 1.0000 0.0000
+
+		container TextArea(tracks/MP/gameoverlay/text1)
+		{
+			metrics_mode pixels
+			left 10
+			top 10
+			width 200
+			height 20
+			font_name BlueHighway
+			char_height 20
+			caption text1
+			colour_top 1 1 0.7
+			colour_bottom 0.8 0.8 0.5
+		}
+		container TextArea(tracks/MP/gameoverlay/text2)
+		{
+			metrics_mode pixels
+			left 10
+			top 30
+			width 200
+			height 20
+			font_name BlueHighway
+			char_height 20
+			caption text2
+			colour_top 1 1 0.7
+			colour_bottom 0.8 0.8 0.5
+		}
+		container TextArea(tracks/MP/gameoverlay/text3)
+		{
+			metrics_mode pixels
+			left 10
+			top 50
+			width 200
+			height 20
+			font_name BlueHighway
+			char_height 20
+			caption text3
+			colour_top 1 1 0.7
+			colour_bottom 0.8 0.8 0.5
+		}		
+		container TextArea(tracks/MP/gameoverlay/text4)
+		{
+			metrics_mode pixels
+			left 10
+			top 70
+			width 200
+			height 20
+			font_name BlueHighway
+			char_height 20
+			caption text4
+			colour_top 1 1 0.7
+			colour_bottom 0.8 0.8 0.5
+		}
+		container TextArea(tracks/MP/gameoverlay/text5)
+		{
+			metrics_mode pixels
+			left 10
+			top 90
+			width 200
+			height 20
+			font_name BlueHighway
+			char_height 20
+			caption text5
+			colour_top 1 1 0.7
+			colour_bottom 0.8 0.8 0.5
+		}
+		container TextArea(tracks/MP/gameoverlay/text6)
+		{
+			metrics_mode pixels
+			left 10
+			top 110
+			width 200
+			height 20
+			font_name BlueHighway
+			char_height 20
+			caption text6
+			colour_top 1 1 0.7
+			colour_bottom 0.8 0.8 0.5
+		}
+		container TextArea(tracks/MP/gameoverlay/text7)
+		{
+			metrics_mode pixels
+			left 10
+			top 130
+			width 200
+			height 20
+			font_name BlueHighway
+			char_height 20
+			caption text7
+			colour_top 1 1 0.7
+			colour_bottom 0.8 0.8 0.5
+		}
+	}
+}

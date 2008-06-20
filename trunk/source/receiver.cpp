@@ -75,7 +75,7 @@ void Receiver::threadstart()
 	Logger::log( LOG_DEBUG, "receiver thread %d owned by uid %d", ThreadID::getID(), id);
 	//get the vehicle description
 	int type;
-	unsigned int source;
+	int source;
 	unsigned int len;
 	
 	Logger::log(LOG_VERBOSE,"Sending welcome message to uid %i", id);

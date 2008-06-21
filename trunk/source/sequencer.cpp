@@ -319,7 +319,7 @@ int Sequencer::getNumClients()
     STACKLOG;
     Sequencer* instance = Instance();
 	MutexLocker scoped_lock(instance->clients_mutex);
-	return instance->clients.size();
+	return (int)instance->clients.size();
 }
 
 int Sequencer::authNick(std::string token, std::string &nickname)
@@ -641,7 +641,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			{
 				int player = -1;
 				int res = sscanf(data, "kick %d", &player); 
-				if(res == 1 && player != -1 && player < instance->clients.size())
+				if(res == 1 && player != -1 && player < (int)instance->clients.size())
 				{
 					if(instance->clients[player]->status == FREE ||
 							instance->clients[player]->status == BUSY)

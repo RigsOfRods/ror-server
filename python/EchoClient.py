@@ -170,7 +170,7 @@ class Client(threading.Thread):
 						
 					elif packet.command == MSG2_CHAT:
 						self.processCommand(str(packet.data), packet)
-			
+				time.sleep( 0.1 )
 				self.sendRaw(dummydata)
 
 		except Exception, e:

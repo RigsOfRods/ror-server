@@ -22,6 +22,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "sequencer.h"
 #include "SocketW.h"
 #include "logger.h"
+#include "config.h"
+
 #include <stdexcept>
 #include <string>
 #include <sstream>
@@ -102,14 +104,15 @@ void Listener::threadstart()
 			
 			// send client the which version of rornet the server is running
 			Logger::log(LOG_DEBUG,"Listener sending version");
-			if (Messaging::sendmessage(ts, MSG2_VERSION, 0, (unsigned int)strlen(RORNET_VERSION), RORNET_VERSION))
+			if (Messaging::sendmessage(ts, MSG2_VERSION, 0,
+					strlen(RORNET_VERSION), RORNET_VERSION))
 				throw std::runtime_error("ERROR Listener: sending version");
 
 			Logger::log(LOG_DEBUG,"Listener sending terrain");
 			//send the terrain information back
-			if (Messaging::sendmessage( ts, MSG2_TERRAIN_RESP, 0,
-					(unsigned int)strlen( Sequencer::getTerrainName()),
-					Sequencer::getTerrainName()))
+			if( Messaging::sendmessage( ts, MSG2_TERRAIN_RESP, 0,
+					Config::getTerrainName().length(),
+					Config::getTerrainName().c_str() ) )
 				throw std::runtime_error("ERROR Listener: sending terrain");
 	
 			// original code was source  = 5000 should it be left like this
@@ -150,12 +153,12 @@ void Listener::threadstart()
 				strncpy(user->username, nickname.c_str(), 20);
 			}
 
-			if(Sequencer::isPasswordProtected())
+			if( Config::isPublic() )
 			{
 				Logger::log(LOG_DEBUG,"password login: %s == %s?",
-						Sequencer::getServerPasswordHash(),
+						Config::getPublicPassword().c_str(),
 						user->password);
-				if(strncmp(Sequencer::getServerPasswordHash(), user->password, 40))
+				if(strncmp(Config::getPublicPassword().c_str(), user->password, 40))
 				{
 					Messaging::sendmessage(ts, MSG2_WRONG_PW, 0, 0, 0);
 					throw std::runtime_error( "ERROR Listener: wrong password" );

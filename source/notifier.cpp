@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h"
 #include "messaging.h"
 #include "logger.h"
+#include "config.h"
 
 #include <stdexcept>
 
@@ -31,12 +32,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
 
-Notifier::Notifier(char* pubip, int port, int max_client, char* servname,
-		char* terrname, bool pprotected, int smode, bool _rconenabled) 
-:lport( port ), maxclient( max_client ), public_ip( pubip ), server_name( servname ),
-terrain_name( terrname ), exit(false), passprotected( pprotected ),
-wasregistered( false ), rconenabled( _rconenabled ), servermode( smode ),
-error_count( 0 )
+Notifier::Notifier() : wasregistered( false ), error_count( 0 )
 {
     STACKLOG;
 	memset( &httpresp, 0, 65536);
@@ -62,8 +58,18 @@ bool Notifier::registerServer()
 	int responseformat = 2;
 	sprintf(regurl, "%s/register/?name=%s&description=%s&ip=%s&port=%i&"
 			"terrainname=%s&maxclients=%i&version=%s&pw=%d&rcon=%d&format=%d", 
-		REPO_URLPREFIX, server_name, "", public_ip, lport, terrain_name,
-		maxclient, RORNET_VERSION, passprotected, rconenabled, responseformat);
+		REPO_URLPREFIX,
+		Config::getServerName().c_str(),
+		"",
+		Config::getIPAddr().c_str(), 
+		Config::getListenPort(),
+		Config::getTerrainName().c_str(),
+		Config::getMaxClients(),
+		RORNET_VERSION,
+		Config::isPublic(),
+		Config::hasAdmin(),
+		responseformat);
+	
 	// format = 2 will result in different response on registration format.
 	Logger::log(LOG_INFO, "Trying to register at Master Server ... (this can take some "
 			"seconds as your server is being checked by the Master server)");
@@ -171,12 +177,12 @@ void Notifier::loop()
 {
     STACKLOG;
 	
-	if (!advertised && servermode == SERVER_AUTO)
+	if (!advertised && Config::getServerMode() == SERVER_AUTO)
 	{
 		Logger::log(LOG_WARN, "using LAN mode, probably no internet users will "
 				"be able to join your server!");
 	}
-	else if (!advertised && servermode == SERVER_INET)
+	else if (!advertised && Config::getServerMode() == SERVER_INET)
 	{
 		Logger::log(LOG_ERROR, "registration failed, exiting!");
 		return;
@@ -200,7 +206,7 @@ void Notifier::loop()
 		{
 			bool result = sendHearbeat();
 			if (result) error_count=0;
-			if(!result && servermode == SERVER_INET)
+			if(!result && Config::getServerMode() == SERVER_INET)
 			{
 				error_count++;
 				if (error_count==5) 
@@ -212,7 +218,7 @@ void Notifier::loop()
 				{
 					Logger::log(LOG_WARN,"heartbeat failed, will try again");
 				}
-			}else if(!result && servermode != SERVER_INET)
+			}else if(!result && Config::getServerMode() != SERVER_INET)
 				Logger::log(LOG_ERROR,"heartbeat failed!");
 		}
 	}

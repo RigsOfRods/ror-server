@@ -27,6 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "userauth.h"
 #include "SocketW.h"
 #include "logger.h"
+#include "config.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -54,8 +55,7 @@ Sequencer* Sequencer::Instance() {
 
 
 Sequencer::Sequencer() :  listener( NULL ), notifier( NULL ), authresolver(NULL),
-fuid( 1 ),  pwProtected(false), rconenabled( false ),
-isSandbox(false), startTime ( Messaging::getTime() )
+fuid( 1 ), startTime ( Messaging::getTime() )
 {
     STACKLOG;
 }
@@ -68,86 +68,24 @@ Sequencer::~Sequencer()
 /**
  * Inililize, needs to be called before the class is used
  */ 
-void Sequencer::initilize(char *pubip, int max_clients, char* servname,
-char* terrname, int listenport, int smode, char *pass, char *rconpass,
-bool _guimode)
+void Sequencer::initilize()
 {
     STACKLOG;
     
     Sequencer* instance  = Instance();
-	instance->isSandbox  = !strcmp(terrname, "any");
-	instance->servermode = smode;
-	instance->maxclients = max_clients;
-	instance->listener   = new Listener(listenport);
-	strncpy(instance->terrainName, terrname, 250);
-	instance->clients.reserve( instance->maxclients );
+	instance->clients.reserve( Config::getMaxClients() );
 
 	pthread_create(&instance->killerthread, NULL, s_klthreadstart, &instance);
 
-	if(pass && strnlen(pass, 250) > 0)
+	if( Config::getServerMode() != SERVER_LAN )
 	{
-		if(!SHA1FromString(instance->serverPassword, pass))
-		{
-			Logger::log(LOG_ERROR, "could not generate server SHA1 password hash!");
-			exit(1);
-		}
-		Logger::log(LOG_DEBUG,"sha1(%s) = %s", pass, instance->serverPassword);
-		instance->pwProtected = true;
-	}
-
-	if(rconpass && strnlen(rconpass, 250) > 0)
-	{
-		if(!SHA1FromString(instance->rconPassword, rconpass))
-		{
-			Logger::log(LOG_ERROR, "could not generate server SHA1 RCon password hash!");
-			exit(1);
-		}
-		Logger::log(LOG_DEBUG,"sha1(%s) = %s", rconpass, instance->rconPassword);
-		instance->rconenabled = true;
-	}
-	
-	if(instance->servermode == SERVER_INET || instance->servermode == SERVER_AUTO)
-	{
-		instance->notifier = new Notifier(
-				pubip,
-				listenport,
-				instance->maxclients,
-				servname,
-				instance->terrainName,
-		        instance->pwProtected,
-		        instance->servermode,
-		        instance->rconenabled);
+		instance->notifier = new Notifier();
 
 		// only start userauth if we are registered with the master server and if we have trustworthyness > 1
 		if(instance->notifier->getAdvertised() && instance->notifier->getTrustLevel()>1)
 			instance->authresolver = new UserAuth(instance->notifier->getChallenge());
 
 	}
-
-#ifdef NCURSES
-	instance->guimode = _guimode;
-	if(instance->guimode)
-	{
-		initscr();
-		// begin info window
-		win_info = newwin(1, 80, 0, 0);
-
-		wprintw(win_info, "Name: %s | ", servname);
-		wprintw(win_info, "Port %d | ", listenport);
-		wprintw(win_info, "Terrain: %s", terrname, max_clients);
-
-		// now that we know max clients, we can actually make the box
-		win_slots = newwin((max_clients+4), 44, 1, 0);
-		win_log = newwin((max_clients+9), 80, (max_clients+5), 0);
-		win_chat = newwin((max_clients+4), 35, 1, 45);
-		scrollok(win_log, 1);
-		scrollok(win_chat, 1);
-		//box(win_slots, ACS_VLINE, ACS_HLINE);
-		wrefresh(win_info);
-		wrefresh(win_log);
-		wrefresh(win_chat);
-	}
-#endif
 }
 
 /**
@@ -169,10 +107,6 @@ void Sequencer::cleanUp()
 	
 	delete instance->listener;
 	delete instance->mInstance;
-
-#ifdef NCURSES
-	endwin();
-#endif
 }
 
 void Sequencer::notifyRoutine()
@@ -216,7 +150,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 
 	// check if server is full
 	Logger::log(LOG_WARN,"searching free slot for new client...");
-	if( instance->clients.size() >= instance->maxclients )
+	if( instance->clients.size() >= Config::getMaxClients() )
 	{
 		Logger::log(LOG_WARN,"join request from '%s' on full server: rejecting!", user->username);
 		Messaging::sendmessage(sock, MSG2_FULL, 0, 0, 0);
@@ -399,7 +333,7 @@ void Sequencer::disconnect(int uid, const char* errormsg)
 		if( strlen(instance->clients[i]->vehicle_name) > 0 )
 		{
 			instance->clients[i]->broadcaster->queueMessage(
-					instance->clients[pos]->uid, MSG2_DELETE, 0, 0);
+					instance->clients[pos]->uid, MSG2_DELETE, 0, (char*)0);
 		}
 	}
 	instance->clients.erase( instance->clients.begin() + pos );
@@ -438,10 +372,9 @@ void Sequencer::notifyAllVehicles(int uid)
 					instance->clients[i]->nickname);
 			instance->clients[pos]->broadcaster->queueMessage(
 					instance->clients[i]->uid, MSG2_USE_VEHICLE,
-					message,
-					(unsigned int)(
-							strlen(instance->clients[i]->vehicle_name) +
-							strlen(instance->clients[i]->nickname) ) + 2);
+					(	strlen(instance->clients[i]->vehicle_name) +
+						strlen(instance->clients[i]->nickname) + 2 ),
+					message );
 		}
 		// not possible to have flow enabled but not have a truck... disconnect 
 		if ( !strlen(instance->clients[i]->vehicle_name) &&
@@ -461,14 +394,14 @@ void Sequencer::serverSay(std::string msg, int notto, int type)
 	if(type==0)
 		msg = std::string("^1 SERVER: ^9") + msg;
 	//pthread_mutex_lock(&clients_mutex);
-	for (unsigned int i = 0; i < instance->clients.size(); i++)
+	for (int i = 0; i < instance->clients.size(); i++)
 		if (instance->clients[i]->status == USED &&
 				instance->clients[i]->flow &&
 				(notto==-1 || notto!=i))
 			instance->clients[i]->broadcaster->queueMessage(
 					0, MSG2_CHAT,
-					const_cast<char*>(msg.c_str()),
-					(unsigned int)msg.size());
+					msg.size(),
+					msg.c_str() );
 	//pthread_mutex_unlock(&clients_mutex);
 }
 
@@ -529,11 +462,15 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					try
 					{
 						int pos = instance->getPosfromUid(userid);
-						instance->clients[pos]->broadcaster->queueMessage(-1, MSG2_GAME_CMD, txtbuf, (unsigned int)strlen(txtbuf));
+						instance->clients[pos]->broadcaster->queueMessage(
+								-1, MSG2_GAME_CMD, 
+								strlen(txtbuf), txtbuf);
 					} catch(...)
 					{
-						char *error = "no user with that ID found!";
-						instance->clients[pos]->broadcaster->queueMessage(0, MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
+						const char *error = "no user with that ID found!";
+						instance->clients[pos]->broadcaster-> queueMessage(
+								0, MSG2_RCON_COMMAND_FAILED, 
+								strlen(error), error );
 					}
 					return;
 				}
@@ -552,11 +489,15 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					try
 					{
 						int pos = instance->getPosfromUid(userid);
-						instance->clients[pos]->broadcaster->queueMessage(-1, MSG2_GAME_CMD, newbuf, (unsigned int)strlen(newbuf));
+						instance->clients[pos]->broadcaster->queueMessage(
+								-1, MSG2_GAME_CMD,
+								strlen(newbuf), newbuf);
 					} catch(...)
 					{
-						char *error = "no user with that ID found!";
-						instance->clients[pos]->broadcaster->queueMessage(0, MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
+						const char *error = "no user with that ID found!";
+						instance->clients[pos]->broadcaster->queueMessage(
+								0, MSG2_RCON_COMMAND_FAILED,
+								strlen(error), error );
 					}
 					return;
 				}
@@ -578,11 +519,15 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					try
 					{
 						int pos = instance->getPosfromUid(userid);
-						instance->clients[pos]->broadcaster->queueMessage(-1, MSG2_GAME_CMD, txtbuf, (unsigned int)strlen(txtbuf));
+						instance->clients[pos]->broadcaster->queueMessage(
+								-1, MSG2_GAME_CMD,
+								strlen(txtbuf), txtbuf);
 					} catch(...)
 					{
-						char *error = "no user with that ID found!";
-						instance->clients[pos]->broadcaster->queueMessage(0, MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
+						const char *error = "no user with that ID found!";
+						instance->clients[pos]->broadcaster->queueMessage(
+								0, MSG2_RCON_COMMAND_FAILED,
+								strlen(error), error );
 					}
 				}
 				if(!strncmp(data, "setoverlayelementcolor", 22))
@@ -603,11 +548,15 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					try
 					{
 						int pos = instance->getPosfromUid(userid);
-						instance->clients[pos]->broadcaster->queueMessage(-1, MSG2_GAME_CMD, txtbuf, (unsigned int)strlen(txtbuf));
+						instance->clients[pos]->broadcaster->queueMessage(
+								-1, MSG2_GAME_CMD, 
+								strlen(txtbuf), txtbuf);
 					} catch(...)
 					{
-						char *error = "no user with that ID found!";
-						instance->clients[pos]->broadcaster->queueMessage(0, MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
+						const char *error = "no user with that ID found!";
+						instance->clients[pos]->broadcaster->queueMessage(
+								0, MSG2_RCON_COMMAND_FAILED,
+								strlen(error), error );
 					}
 				}
 				if(!strncmp(data, "setoverlayelementtext", 21))
@@ -629,11 +578,15 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					try
 					{
 						int pos = instance->getPosfromUid(userid);
-						instance->clients[pos]->broadcaster->queueMessage(-1, MSG2_GAME_CMD, txtbuf, (unsigned int)strlen(txtbuf));
+						instance->clients[pos]->broadcaster->queueMessage(
+								-1, MSG2_GAME_CMD,
+								strlen(txtbuf), txtbuf);
 					} catch(...)
 					{
-						char *error = "no user with that ID found!";
-						instance->clients[pos]->broadcaster->queueMessage(0, MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
+						const char *error = "no user with that ID found!";
+						instance->clients[pos]->broadcaster->queueMessage(
+								0, MSG2_RCON_COMMAND_FAILED,
+								strlen(error), error );
 					}
 				}
 			}
@@ -646,9 +599,10 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					if(instance->clients[player]->status == FREE ||
 							instance->clients[player]->status == BUSY)
 					{
-						char *error = "cannot kick free or busy client";
-						instance->clients[pos]->broadcaster->queueMessage( 0,
-							MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
+						const char *error = "cannot kick free or busy client";
+						instance->clients[pos]->broadcaster->queueMessage(
+								0, MSG2_RCON_COMMAND_FAILED, 
+								strlen(error), error );
 					} else if(instance->clients[player]->status == USED) {
 						Logger::log(LOG_WARN, "user %d kicked by user %d via rcmd",
 								player, pos);
@@ -658,15 +612,17 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 								instance->clients[player]->nickname);
 						serverSay(std::string(tmp));
 
-						instance->clients[pos]->broadcaster->queueMessage( 0,
-								MSG2_RCON_COMMAND_SUCCESS, tmp, (unsigned int)strlen(tmp) );
+						instance->clients[pos]->broadcaster->queueMessage(
+								0, MSG2_RCON_COMMAND_SUCCESS, 
+								strlen(tmp), tmp );
 						
 						disconnect( instance->clients[player]->uid, "kicked" );
 					}
 				} else {
-					char *error = "invalid client number";
-					instance->clients[pos]->broadcaster->queueMessage( 0,
-							MSG2_RCON_COMMAND_FAILED, error, (unsigned int)strlen(error) );
+					const char *error = "invalid client number";
+					instance->clients[pos]->broadcaster->queueMessage(
+							0, MSG2_RCON_COMMAND_FAILED, 
+							strlen(error), error );
 				}
 			}
 		}
@@ -686,22 +642,24 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		if(instance->clients[pos]->rconauth != 0)
 		{
 			// already logged in
-			instance->clients[pos]->broadcaster->queueMessage(0, MSG2_RCON_LOGIN_SUCCESS, 0, 0);
+			instance->clients[pos]->broadcaster->queueMessage(
+					0, MSG2_RCON_LOGIN_SUCCESS, 0, 0);
 			return;
 		}
-		if(instance->rconenabled && instance->clients[pos]->rconretries < 3)
+		
+		if( !Config::hasAdmin() && instance->clients[pos]->rconretries < 3)
 		{
 			char pw[255]="";
 			strncpy(pw, data, 255);
 			pw[len]=0;
 			Logger::log(LOG_DEBUG, "user %d  tries to log into RCON: server: "
-					"%s, his: %s", pos, instance->rconPassword, pw);
-			if(strnlen(pw, 250) > 20 && !strcmp(instance->rconPassword, pw))
+					"%s, his: %s", pos, Config::getAdminPassword().c_str(), pw);
+			if( strnlen(pw, 250) > 20 && Config::getAdminPassword() != pw)
 			{
 				Logger::log(LOG_WARN, "user %d logged into RCON", pos);
 				instance->clients[pos]->rconauth=1;
-				instance->clients[pos]->broadcaster->queueMessage( 0,
-						MSG2_RCON_LOGIN_SUCCESS, 0, 0 );
+				instance->clients[pos]->broadcaster->queueMessage( 
+						0, MSG2_RCON_LOGIN_SUCCESS, 0, 0 );
 			}else
 			{
 				// pw incorrect or failed
@@ -739,7 +697,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 				instance->clients[i]->flow &&
 				instance->clients[i]->uid==destuid)
 				instance->clients[i]->broadcaster->queueMessage(
-						instance->clients[pos]->uid, type, data, len);
+						instance->clients[pos]->uid, type, len, data);
 		}
 		publishData=false;
 	}
@@ -752,7 +710,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			if (instance->clients[i]->status == USED &&
 					instance->clients[i]->flow &&i!=pos)
 				instance->clients[i]->broadcaster->queueMessage(
-						instance->clients[pos]->uid, type, data, len);
+						instance->clients[pos]->uid, type, len, data);
 #ifdef REFLECT_DEBUG
 			if (clients[i].status==USED && i==pos)
 				clients[i].broadcaster->queueMessage(clients[pos]->uid+100, type, data, len);
@@ -838,65 +796,9 @@ unsigned short Sequencer::getPosfromUid(unsigned int uid)
     return UID_NOT_FOUND;
 }
 
-char *Sequencer::getTerrainName()
-{
-	return Instance()->terrainName;
-}
-
-bool Sequencer::isPasswordProtected()
-{
-	return Instance()->pwProtected;
-}
-
-char* Sequencer::getServerPasswordHash()
-{
-	return Instance()->serverPassword; 
-}
 void Sequencer::unregisterServer()
 {
 	if( Instance()->notifier )
 		Instance()->notifier->unregisterServer();
 }
 
-
-#ifdef NCURSES
-
-bool Sequencer::getGUIMode()
-{
-	return Instance()->guimode;
-}
-
-WINDOW* Sequencer::getLogWindow()
-{
-	return Instance()->win_log;
-}
-#endif 
-
-#if 0
-// resets a client back to it's initial unused ready state.
-unsigned int resetClient( const client_t& client)
-{
-	client.flow = false;
-	if( client.broadcaster )
-	{
-		client.broadcaster->stop();
-		delete client.broadcaster;
-	}
-	client.broadcaster = new Broadcaster();
-
-	if( client.receiver )
-	{
-		client.receiver->stop();
-		delete client.receiver;
-	}
-	client.receiver = new Broadcaster();
-	
-	if( client.sock )
-	{
-		client.sock->disconnect();
-		delete client.sock;
-	}
-	client.sock = NULL;
-
-}
-#endif

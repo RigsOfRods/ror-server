@@ -78,19 +78,9 @@ private:
 	UserAuth* authresolver; //!< authenticates users
     std::vector<client_t*> clients; //!< clients is a list of all the available 
                             //!< client connections, it is allocated
-    unsigned short maxclients; //!< maximum number of clients allowed to connect to
-                            //!< the server.
     unsigned int fuid;      //!< next userid
     std::queue<client_t*> killqueue; //!< holds pointer for client deletion
     
-    int servermode;
-    char terrainName[255];
-    char serverPassword[41];
-    bool pwProtected;
-    
-    char rconPassword[41];
-    bool rconenabled;
-    bool isSandbox;
     int startTime;
     unsigned short getPosfromUid(unsigned int uid);
 
@@ -103,9 +93,7 @@ protected:
     
 public:
     //!    initilize theSequencers information
-    static void initilize(char *pubip, int listenport, char* servname,
-    		char*terrname, int max_clients, int servermode, char *password,
-    		char *rconpassword, bool guimode);
+    static void initilize();
     
     //! destructor call, used for clean up
     static void cleanUp();
@@ -133,24 +121,8 @@ public:
 	static bool checkNickUnique(char *nick);
 	static int authNick(std::string token, std::string &nickname);
 
-    static char* getTerrainName();
-    static bool  isPasswordProtected();
-    static char* getServerPasswordHash();
     static void  unregisterServer();
 
-#ifdef NCURSES
-private:
-    bool guimode;
-    
-    WINDOW *win_info;
-    WINDOW *win_slots;
-    WINDOW *win_log;
-    WINDOW *win_chat;
-    
-public:
-    static bool getGUIMode();
-    static WINDOW *getLogWindow();
-#endif    
 };
 
 #endif

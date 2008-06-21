@@ -31,19 +31,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 class Notifier
 {
 private:
-	int lport;             //!< port to listen to for incoming connections
-	int maxclient;         //!< maximum number of clients this server can support
-	char* public_ip;       //!< public ip address of the server
-	char* server_name;     //!< name of the server
-	char* terrain_name;    //!< name of the terrain
 	char httpresp[65536];  //!< http response from the master server
 	char trustlevel;       //!< the server's trustworthiness level, received upon registration
 	char challenge[256];   //!< the server's token to identify itself to the master server
-	bool exit;             //!< exit the server
-	bool passprotected;    //!< password protection for logging into this server 
+	bool exit;             //!< exit the server 
 	bool wasregistered;    //!< is registered with the master server
-	bool rconenabled;      //!< check is the remote console is eneabled
-	int servermode;        //!< Internet or LAN mode 
 	int error_count;       //!< counter how many failed heartbeats we had 
 	HttpMsg resp;          //!< holds the latest response fromt he master server 
 
@@ -52,14 +44,7 @@ private:
 	bool advertised;
 public:
     
-	Notifier(char* pubip,
-	        int port,
-	        int max_client,
-	        char* servname,
-	        char* terrname,
-	        bool pwprotected,
-	        int servermode,
-	        bool rconenabled);
+	Notifier();
 	
 	~Notifier(void);
 	

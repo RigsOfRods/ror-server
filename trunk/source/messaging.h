@@ -30,7 +30,7 @@ public:
 	~Messaging(void) {;}
 	
 	static int sendmessage(SWInetSocket *socket, int type, int source,
-			unsigned int len, char* content);
+			unsigned int len, const char* content);
 	static int receivemessage(SWInetSocket *socket, int *type,
 			int *source, unsigned int *wrotelen, char* content, 
 			unsigned int bufferlen);

@@ -71,7 +71,7 @@ void Messaging::updateMinuteStats()
  * @return dunno
  */
 int Messaging::sendmessage(SWInetSocket *socket, int type, int source,
-		unsigned int len,  char* content)
+		unsigned int len,  const char* content)
 {
     STACKLOG;
     if( NULL == socket )

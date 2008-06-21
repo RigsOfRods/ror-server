@@ -41,7 +41,7 @@ Broadcaster::~Broadcaster()
 void Broadcaster::reset(int uid, SWInetSocket *socky,
 		void (*disconnect_func)(int, const char*),
 		int (*sendmessage_func)(SWInetSocket*, int, int,
-				unsigned int, char*) )
+				unsigned int, const char*) )
 {
     STACKLOG;
 	if( running )
@@ -107,8 +107,7 @@ void Broadcaster::threadstart()
 //and keep in mind that it is called crazily and concurently from lots of threads
 //we MUST copy the data too
 //also, this function can be called by threads owning clients_mutex !!!
-void Broadcaster::queueMessage(int uid, int type, char* data,
-		unsigned int len)
+void Broadcaster::queueMessage(int uid, int type, unsigned int len, const char* data)
 {
     STACKLOG;
 	// for now lets just queue msgs in the order received to make things simple

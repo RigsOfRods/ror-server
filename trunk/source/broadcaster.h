@@ -47,7 +47,7 @@ private:
 	
 	bool running;
 	void (*disconnect)(int, const char*);
-	int (*sendmessage)(SWInetSocket *socket, int type, int source, unsigned int len, char* content);
+	int (*sendmessage)(SWInetSocket *socket, int type, int source, unsigned int len, const char* content);
 
 	 void threadstart();
 	 friend void* s_brthreadstart(void* vid);
@@ -64,7 +64,7 @@ public:
 	void reset(int uid, SWInetSocket *socky,
 			void (*disconnect)(int uid, const char*),
 			int (*sendmessage)(SWInetSocket *socket, int type,
-					int source, unsigned int len, char* content) );
+					int source, unsigned int len, const char* content) );
 	void stop();
 	/**
 	 * @param[in] uid  uid of the client sending the data??
@@ -72,6 +72,6 @@ public:
 	 * @param[in] data the actually message being sent
 	 * @param[in] len  length of data in bytes
 	 */
-	void queueMessage(int uid, int type, char* data, unsigned int len);
+	void queueMessage(int uid, int type, unsigned int len, const char* data);
 };
 #endif

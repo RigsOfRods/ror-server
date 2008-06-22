@@ -459,18 +459,16 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					char txtbuf[1024] = "";
 					memset(txtbuf, 0, 1024);
 					sprintf(txtbuf, "newgoal %f, %f, %f, %s", x, y, z, text);
-					try
-					{
-						int pos = instance->getPosfromUid(userid);
-						instance->clients[pos]->broadcaster->queueMessage(
-								-1, MSG2_GAME_CMD, 
-								strlen(txtbuf), txtbuf);
-					} catch(...)
-					{
-						const char *error = "no user with that ID found!";
-						instance->clients[pos]->broadcaster-> queueMessage(
-								0, MSG2_RCON_COMMAND_FAILED, 
-								strlen(error), error );
+					int pos = instance->getPosfromUid(userid);
+				    if( UID_NOT_FOUND == pos ) {
+				    	const char *error = "no user with that ID found!";
+				    	instance->clients[pos]->broadcaster-> queueMessage(
+							0, MSG2_RCON_COMMAND_FAILED, 
+							strlen(error), error );
+				    } else {
+				    		instance->clients[pos]->broadcaster->queueMessage(
+							-1, MSG2_GAME_CMD, 
+							strlen(txtbuf), txtbuf);
 					}
 					return;
 				}
@@ -486,18 +484,16 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					char newbuf[8192] = ""; // max buffer size of RoR also
 					strcpy(newbuf, "createoverlay ");
 					strncpy(newbuf+14, data + 18, len-18);
-					try
-					{
-						int pos = instance->getPosfromUid(userid);
+					int pos = instance->getPosfromUid(userid);
+				    if( UID_NOT_FOUND == pos ) {
+				    	const char *error = "no user with that ID found!";
+				    	instance->clients[pos]->broadcaster-> queueMessage(
+							0, MSG2_RCON_COMMAND_FAILED, 
+							strlen(error), error );
+				    } else {
 						instance->clients[pos]->broadcaster->queueMessage(
-								-1, MSG2_GAME_CMD,
-								strlen(newbuf), newbuf);
-					} catch(...)
-					{
-						const char *error = "no user with that ID found!";
-						instance->clients[pos]->broadcaster->queueMessage(
-								0, MSG2_RCON_COMMAND_FAILED,
-								strlen(error), error );
+							-1, MSG2_GAME_CMD,
+							strlen(newbuf), newbuf);
 					}
 					return;
 				}
@@ -516,18 +512,16 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					char txtbuf[1024] = "";
 					memset(txtbuf, 0, 1024);
 					sprintf(txtbuf, "setoverlayvisible %d, %s", visible, oname);
-					try
-					{
-						int pos = instance->getPosfromUid(userid);
+					int pos = instance->getPosfromUid(userid);
+				    if( UID_NOT_FOUND == pos ) {
+				    	const char *error = "no user with that ID found!";
+				    	instance->clients[pos]->broadcaster-> queueMessage(
+							0, MSG2_RCON_COMMAND_FAILED, 
+							strlen(error), error );
+				    } else {
 						instance->clients[pos]->broadcaster->queueMessage(
-								-1, MSG2_GAME_CMD,
-								strlen(txtbuf), txtbuf);
-					} catch(...)
-					{
-						const char *error = "no user with that ID found!";
-						instance->clients[pos]->broadcaster->queueMessage(
-								0, MSG2_RCON_COMMAND_FAILED,
-								strlen(error), error );
+							-1, MSG2_GAME_CMD,
+							strlen(txtbuf), txtbuf);
 					}
 				}
 				if(!strncmp(data, "setoverlayelementcolor", 22))
@@ -545,18 +539,17 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					char txtbuf[1024] = "";
 					memset(txtbuf, 0, 1024);
 					sprintf(txtbuf, "setoverlayelementcolor %f, %f, %f, %f, %s", r, g, b, a, oname);
-					try
-					{
-						int pos = instance->getPosfromUid(userid);
-						instance->clients[pos]->broadcaster->queueMessage(
-								-1, MSG2_GAME_CMD, 
-								strlen(txtbuf), txtbuf);
-					} catch(...)
-					{
+					
+					int pos = instance->getPosfromUid(userid);
+				    if( UID_NOT_FOUND == pos ) {
 						const char *error = "no user with that ID found!";
 						instance->clients[pos]->broadcaster->queueMessage(
 								0, MSG2_RCON_COMMAND_FAILED,
 								strlen(error), error );
+					} else {
+						instance->clients[pos]->broadcaster->queueMessage(
+							-1, MSG2_GAME_CMD, 
+							strlen(txtbuf), txtbuf);
 					}
 				}
 				if(!strncmp(data, "setoverlayelementtext", 21))
@@ -575,18 +568,16 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					char txtbuf[1024] = "";
 					memset(txtbuf, 0, 1024);
 					sprintf(txtbuf, "setoverlayelementtext %s %s", text, oname);
-					try
-					{
-						int pos = instance->getPosfromUid(userid);
-						instance->clients[pos]->broadcaster->queueMessage(
-								-1, MSG2_GAME_CMD,
-								strlen(txtbuf), txtbuf);
-					} catch(...)
-					{
+					int pos = instance->getPosfromUid(userid);
+				    if( UID_NOT_FOUND == pos ) {
 						const char *error = "no user with that ID found!";
 						instance->clients[pos]->broadcaster->queueMessage(
-								0, MSG2_RCON_COMMAND_FAILED,
-								strlen(error), error );
+							0, MSG2_RCON_COMMAND_FAILED,
+							strlen(error), error );
+					} else {
+						instance->clients[pos]->broadcaster->queueMessage(
+							-1, MSG2_GAME_CMD,
+							strlen(txtbuf), txtbuf);
 					}
 				}
 			}

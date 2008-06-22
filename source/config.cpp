@@ -52,8 +52,6 @@ static CSimpleOpt::SOption cmdline_options[] = {
 	SO_END_OF_OPTIONS
 };
 
-Config Config::instance;
-
 //======== helper functions ====================================================
 int getRandomPort()
 {
@@ -92,39 +90,41 @@ static std::string getPublicIP()
 void showUsage()
 {
 	printf("\n" \
-		"Usage: rorserver [OPTIONS] <paramaters>\n" \
-		" Where [OPTIONS] and <parameters>\n" \
-		" REQUIRED:\n" \
-		" -name <name>\n" \
-		"  Name of the server, no spaces, only [a-z,0-9,A-Z]\n" \
-		" -terrain <mapname>\n" \
-		"  Map name (defaults to 'any')\n" \
-		" -maxclients|speed <clients|speed>\n" \
-		"  Maximum clients allowed or maximum upload speed (in kilobits)\n" \
-		" -lan|inet \n" \
-		"  Private or public server (defaults to inet)\n" \
-		" OPTIONAL:\n" \
-		" -gui (EXPERIMENTAL!)\n" \
-		"  Use organizational terminal GUI\n" \
-		" -password <password>\n" \
-		"  Private server password\n" \
-		" -rconpassword <password>\n" \
-		"  Set admin password. This is required for RCON to work. Otherwise RCON is disabled.\n" \
-		" -ip <ip>\n" \
-		"  Public IP address to register with.\n" \
-		" -port <port>\n" \
-		"  Port to use (defaults to random 12000-12500)\n" \
-		" -verbosity {0-5}\n" \
-		"  Sets displayed log verbosity: 0 = stack, 1 = debug, 2 = verbosity, 3 = info, 4 = warn, 5 = error\n" \
-		" -logverbosity {0-5}\n" \
-		"  Sets file log verbosity: 0 = stack, 1 = debug, 2 = verbosity, 3 = info, 4 = warn, 5 = error\n" \
-		" -logfilename <server.log>" \
-		"  sets the filename of the log" \
-		" -help\n" \
-		"  Show this list\n");
+"Usage: rorserver [OPTIONS] <paramaters>\n" \
+" Where [OPTIONS] and <parameters>\n" \
+" REQUIRED:\n" \
+" -name <name>                 Name of the server, no spaces, only \n"
+"                              [a-z,0-9,A-Z]\n"
+" -terrain <mapname>           Map name (defaults to 'any')\n"
+"Use maxclients OR speed, not both\n"
+" -maxclients|speed <clients>  Maximum clients allowed \n"
+" -speed <upload in kbps>      or maximum upload speed (in kilobits)\n"
+" -lan|inet                    Private or public server (defaults to inet)\n"
+"\n"
+" OPTIONAL:\n" 
+" -password <password>         Private server password\n"
+" -rconpassword <password>     Set admin password. This is required for RCON to\n"
+"                              work. Otherwise RCON is disabled.\n"
+" -ip <ip>                     Public IP address to register with.\n"
+" -port <port>                 Port to use (defaults to random 12000-12500)\n"
+" -verbosity {0-5}             Sets displayed log verbosity\n"
+" -logverbosity {0-5}          Sets file log verbositylog verbosity\n"
+"                              levels available to verbosity and logverbosity:\n"
+"                                  0 = stack\n"
+"                                  1 = debug\n"
+"                                  2 = verbosity\n"
+"                                  3 = info\n"
+"                                  4 = warn\n"
+"                                  5 = error\n" \
+" -logfilename <server.log>    Sets the filename of the log" \
+" -help                        Show this list\n");
 }
 
 //==============================================================================
+
+
+Config Config::instance;
+
 Config::Config():
 max_clients( 16 ),
 server_name( "" ),
@@ -244,11 +244,6 @@ bool Config::fromArgs( int argc, char* argv[] )
 		if (args.LastError() == SO_SUCCESS) {
 			switch( args.OptionId() ) 
 			{
-			case OPT_HELP: 
-				showUsage();
-				return 0;
-			break;
-			
 			case OPT_IP:
 				setIPAddr( args.OptionArg() );
 				break;
@@ -288,10 +283,11 @@ bool Config::fromArgs( int argc, char* argv[] )
 			case OPT_MAXCLIENTS:
 				setMaxClients( atoi(args.OptionArg()) );
 			break;
+			
+			case OPT_HELP: 
 			default:
-
 				showUsage();
-				return 1;
+				return false;
 			}
 		}
 	}

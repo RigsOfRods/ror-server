@@ -48,7 +48,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MSG2_WELCOME 1004   //!< we can proceed
 
 #define MSG2_USE_VEHICLE 1005 //!< the client says which vehicle it uses
-#define MSG2_SPAWN 1006       //!< the server asks to spawn a new vehicle
+//#define MSG2_SPAWN 1006       //!< the server asks to spawn a new vehicle / unused
 
 #define MSG2_BUFFER_SIZE 1007  //!< the clients tells the buffer size to use for
                                //!< the selected vehicle
@@ -68,7 +68,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // 2.1
 #define MSG2_USER_CREDENTIALS 1017 //!< improved user credentials
-//#define MSG2_TERRAIN 1018          //!< client asks server for the terrain name
 #define MSG2_TERRAIN_RESP 1019     //!< server send client the terrain name
 #define MSG2_WRONG_PW 1020         //!< server send that on wrong pw
 
@@ -82,14 +81,81 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MSG2_RCON_COMMAND_FAILED 1026  //!< send to client
 #define MSG2_RCON_COMMAND_SUCCESS 1027 //!< send to client
 
-// 2.1 but only active in 0.35
-#define MSG2_GAME_CMD 1028  //!< send to client from server only
+// 2.1 but only active in 0.35 and up
+#define MSG2_GAME_CMD 1028           //!< send to client from server only
+
+// 2.1 but only active in 0.36 and up
+#define MSG2_USER_CREDENTIALS2 1018   //!< improved user credentials
+#define MSG2_USER_INFO 1029           //!< improved user data that is sent from the server to the clients
+// new stream functions:
+#define MSG2_STREAM_REGISTER 1030           //!< create new stream
+#define MSG2_STREAM_REGISTER_RESP 1031      //!< reply from server to registering client
+#define MSG2_STREAM_CONTROL_FLOW 1032       //!< suspend/unsuspend streams
+#define MSG2_STREAM_CONTROL_FLOW_RESP 1033  //!< reply from server to requesting client
+#define MSG2_STREAM_UNREGISTER 1034         //!< remove stream
+#define MSG2_STREAM_UNREGISTER_RESP 1035    //!< remove stream response from server to requsting client
+#define MSG2_STREAM_TAKEOVER 1034           //!< stream takeover
+#define MSG2_STREAM_TAKEOVER_RESP 1034      //!< stream takeover response from server
+
+// structure to control flow of a stream, send in both directions
+typedef struct
+{
+	int sid;                  //!< the unique id of the stream
+	int old_uid;              //!< old owner
+	int new_uid;              //!< new owner
+} stream_takeover_t;
+
+// structure that is send from the cleint to server and vice versa, to broadcast a new stream
+typedef struct
+{
+	int sid;                  //!< the id of the stream
+	char truckname[128];      //!< the truck filename
+	int type;                 //!< stream type
+	int uid;                  //!< the id of the creating user
+	int status;               //!< initial stream status
+} stream_register_t;
+
+// structure to control flow of a stream, send in both directions
+typedef struct
+{
+	int sid;                  //!< the unique id of the stream
+	int status;               //!< the rquested / proposed status
+} stream_control_t;
+
+// structure sent to remove a stream
+typedef struct
+{
+	int sid;                  //!< the unique id of the stream
+} stream_unregister_t;
+
+// structure sent from server to clients to update their user information
+typedef struct
+{
+	char truckname[128];      //!< the truck filename
+	char username[20];        //!< the nickname of the user
+	char language[5];         //!< user's language. For example "de-DE" or "en-US"
+	char clientinfo[20];      //!< client info, like 'RoR-0.35'
+	unsigned int flagmask;    //!< flags. Like moderator/admin, authed/non-authed, etc
+} user_info_t;
+
 typedef struct
 {
 	char username[20];
 	char password[40];
 	char uniqueid[40];
 } user_credentials_t;
+
+typedef struct
+{
+	char username[20];         //!< the nickname of the user
+	char password[40];         //!< server password
+	char token[40];            //!< user token
+	char language[5];          //!< user's language. For example "de-DE" or "en-US"
+	char clientname[10];       //!< the name and version of the client. For exmaple: "ror" or "gamebot"
+	int  clientversion;        //!< a version number of the client. For example 1 for RoR 0.35
+	char sessiontype[10];      //!< the requested session type. For example "normal", "bot", "rcon"
+	char sessionoptions[128];  //!< reserved for future options
+} user_credentials2_t;
 
 typedef struct
 {

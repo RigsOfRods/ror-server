@@ -16,6 +16,14 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+// $LastChangedDate$
+// $LastChangedRevision$
+// $LastChangedBy$
+// $HeadURL$
+// $Id$
+// $Rev$
+
 #ifndef __Sequencer_H__
 #define __Sequencer_H__
 
@@ -44,6 +52,9 @@ class SWInetSocket;
 #define USED 2
 
 #define SEQUENCER Sequencer::Instance()
+
+
+#define VERSION "$Rev$"
 
 //! A struct to hold information about a client
 struct client_t

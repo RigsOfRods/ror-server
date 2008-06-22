@@ -32,6 +32,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <csignal>
 #include <stdexcept>
 
+#ifdef __WIN32__
+#include "windows.h"
+#endif
+
 void handler(int signal)
 {
 	if (signal == SIGINT)

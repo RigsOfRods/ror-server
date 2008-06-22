@@ -71,7 +71,8 @@ int main(int argc, char* argv[])
 	Logger::setOutputFile("server.log");
 
 
-	Config::fromArgs( argc, argv );
+	if( !Config::fromArgs( argc, argv ) ) 
+		return 0;
 	if( !Config::checkConfig() )
 		return 1;
 	

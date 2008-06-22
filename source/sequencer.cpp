@@ -338,7 +338,10 @@ void Sequencer::disconnect(int uid, const char* errormsg)
 	Logger::log(LOG_VERBOSE, "Disconnecting Slot %d: %s", pos, errormsg);
 	MutexLocker scoped_lock(instance->killer_mutex);
 	
-	instance->killqueue.push( instance->clients[pos] );
+	if(pos >= instance->clients.size()) // yes, this can happen if someone delete twice ...
+		return;
+	client_t *c = instance->clients[pos];
+	instance->killqueue.push(c);
 	
 	//notify the others
 	for( unsigned int i = 0; i < instance->clients.size(); i++)
@@ -713,6 +716,10 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		if(data[0] == '!')
 			// this enables bot commands that are not distributed
 			publishMode=2;
+		if(!strcmp(data, "!version"))
+		{
+			serverSay(std::string(VERSION), uid);
+		}
 	}
 	else if (type==MSG2_RCON_LOGIN)
 	{

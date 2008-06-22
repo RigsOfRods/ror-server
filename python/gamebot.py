@@ -27,7 +27,7 @@ MSG2_RCON_LOGIN_NOTAV = 1024
 MSG2_RCON_COMMAND = 1025
 MSG2_RCON_COMMAND_FAILED = 1026
 MSG2_RCON_COMMAND_SUCCESS = 1027
-
+MSG2_GAME_CMD = 1028
 commandNames= {
 	1000:"HELLO",
 	1001:"VERSION",
@@ -45,6 +45,11 @@ commandNames= {
 	1017:"USER_CREDENTIALS",
 	1019:"TERRAIN_RESP",
 	1020:"WRONG_PW",
+	1025:"RCON_COMMAND",
+	1026:"RCON_COMMAND_FAILED",
+	1027:"RCON_COMMAND_SUCCESS",
+	1028:"GAME_CMD",
+	
 }
 
 RORNET_VERSION = "RoRnet_2.1"
@@ -95,6 +100,14 @@ class DataPacket:
 		self.data = data
 		self.time = 0
 
+class MissionManager:
+	def __init__(self):
+		# find all mission files
+		import glob
+		files = glob.glob('missions/*.py')
+		print files
+		
+		
 class Client(threading.Thread):
 	uid = 0
 	oclients = {}
@@ -113,6 +126,8 @@ class Client(threading.Thread):
 		self.username = ''
 		self.socket = None
 		self.playback = None
+		
+		self.missionManager = MissionManager()
 		
 		self.mode = MODE_NORMAL
 		
@@ -247,6 +262,7 @@ class Client(threading.Thread):
 		# get bot's uid
 		s = hashlib.sha1()
 		s.update("GameBot")
+		#print s.hexdigest()
 	
 		# some default values
 		self.uniqueid = s.hexdigest()
@@ -280,7 +296,7 @@ class Client(threading.Thread):
 				if packet.command == MSG2_CHAT:
 					self.processCommand(str(packet.data), packet)
 		
-				if  time.time() - lasttime > 0.25:
+				if  time.time() - lasttime > 1:
 					oname = "gameOverlay.overlay"
 					if oname in self.overlays.keys() and packet.source in self.overlays[oname].keys() and self.overlays[oname][packet.source] == True:
 						self.updateStats(packet.source)

@@ -365,6 +365,58 @@ void Sequencer::enableFlow(int uid)
 	instance->clients[pos]->flow=true;
 }
 
+
+//this is called from the listener thread initial handshake
+int Sequencer::sendMOTD(int uid)
+{
+    STACKLOG;
+
+	std::vector<std::string> lines;
+	int res = readFile("motd.txt", lines);
+	if(res)
+		return res;
+
+	std::vector<std::string>::iterator it;
+	for(it=lines.begin(); it!=lines.end(); it++)
+	{
+		serverSay(*it, uid, 1);
+	}
+	return 0;
+}
+
+int Sequencer::readFile(std::string filename, std::vector<std::string> &lines)
+{
+	FILE *f = fopen(filename.c_str(), "r");
+	if (!f)
+		return -1;
+	int linecounter=0;
+	while(!feof(f))
+	{
+		char line[2048] = "";
+		memset(line, 0, 2048);
+		fgets (line, 2048, f);
+		linecounter++;
+		
+		if(strnlen(line, 2048) <= 2)
+			continue;
+		
+		// strip line (newline char)
+		char *ptr = line;
+		while(*ptr)
+		{
+			if(*ptr == '\n')
+			{
+				*ptr=0;
+				break;
+			}
+			ptr++;
+		}
+		lines.push_back(std::string(line));
+	}
+	fclose (f);
+	return 0;
+}
+
 //this is called from the listener thread initial handshake
 void Sequencer::notifyAllVehicles(int uid)
 {
@@ -412,7 +464,7 @@ void Sequencer::serverSay(std::string msg, int notto, int type)
 				instance->clients[i]->flow &&
 				(notto==-1 || notto!=i))
 			instance->clients[i]->broadcaster->queueMessage(
-					0, MSG2_CHAT,
+					-1, MSG2_CHAT,
 					msg.size(),
 					msg.c_str() );
 	//pthread_mutex_unlock(&clients_mutex);

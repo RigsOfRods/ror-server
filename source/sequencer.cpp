@@ -345,8 +345,9 @@ void Sequencer::disconnect(int uid, const char* errormsg)
 	{
 		if( strlen(instance->clients[i]->vehicle_name) > 0 )
 		{
+			char *forced = "forced";
 			instance->clients[i]->broadcaster->queueMessage(
-					instance->clients[pos]->uid, MSG2_DELETE, 0, (char*)0);
+					instance->clients[pos]->uid, MSG2_DELETE, (int)strlen(forced), forced);
 		}
 	}
 	instance->clients.erase( instance->clients.begin() + pos );
@@ -452,21 +453,23 @@ void Sequencer::notifyAllVehicles(int uid)
 	}
 }
 
-void Sequencer::serverSay(std::string msg, int notto, int type)
+void Sequencer::serverSay(std::string msg, int uid, int type)
 {
     STACKLOG;
     Sequencer* instance = Instance(); 
 	if(type==0)
 		msg = std::string("^1 SERVER: ^9") + msg;
 	//pthread_mutex_lock(&clients_mutex);
-	for (int i = 0; i < instance->clients.size(); i++)
+	for (int i = 0; i < (int)instance->clients.size(); i++)
+	{
 		if (instance->clients[i]->status == USED &&
 				instance->clients[i]->flow &&
-				(notto==-1 || notto!=i))
+				(uid==-1 || instance->clients[i]->uid == uid))
 			instance->clients[i]->broadcaster->queueMessage(
 					-1, MSG2_CHAT,
 					msg.size(),
 					msg.c_str() );
+	}
 	//pthread_mutex_unlock(&clients_mutex);
 }
 
@@ -479,7 +482,11 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
     if( UID_NOT_FOUND == pos ) return;
     
 	MutexLocker scoped_lock(instance->clients_mutex);
-	bool publishData=false;
+	int publishMode=0;
+	// publishMode = 0 no broadcast
+	// publishMode = 1 broadcast to all clients
+	// publishMode = 2 broadcast to authed users (bots)
+
 	if (type==MSG2_USE_VEHICLE) 
 	{
 		data[len]=0;
@@ -490,12 +497,20 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		//we alter the message to add user info
 		strcpy(data + len + 1, instance->clients[pos]->nickname);
 		len += (int)strlen(instance->clients[pos]->nickname) + 2;
-		publishData = true;
+		publishMode = 1;
 	}
 	
 	else if (type==MSG2_DELETE)
 	{
-		Logger::log(LOG_INFO, "user %d disconnects on request", instance->clients[pos]->uid);
+		if(len==0)
+		{
+			// from client
+			Logger::log(LOG_INFO, "user %s disconnects on request", instance->clients[pos]->nickname);
+
+			char tmp[1024];
+			sprintf(tmp, "user %d disconnects on request", instance->clients[pos]->uid);
+			serverSay(std::string(tmp), -1);
+		}
 		disconnect(instance->clients[pos]->uid, "disconnected on request");
 	}
 	else if (type==MSG2_RCON_COMMAND)
@@ -689,12 +704,15 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			serverSay("rcon command unkown");
 		}
 		
-		publishData=false;
+		publishMode=0;
 	}
 	else if (type==MSG2_CHAT)
 	{
 		Logger::log(LOG_INFO, "CHAT| %s: %s", instance->clients[pos]->nickname, data);
-		publishData=true;
+		publishMode=1;
+		if(data[0] == '!')
+			// this enables bot commands that are not distributed
+			publishMode=2;
 	}
 	else if (type==MSG2_RCON_LOGIN)
 	{
@@ -738,13 +756,13 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			instance->clients[pos]->broadcaster->queueMessage( 0,
 					MSG2_RCON_LOGIN_NOTAV, 0, 0 );
 		}
-		publishData=false;
+		publishMode=0;
 	}
 	else if (type==MSG2_VEHICLE_DATA)
 	{
 		float* fpt=(float*)(data+sizeof(oob_t));
 		instance->clients[pos]->position=Vector3(fpt[0], fpt[1], fpt[2]);
-		publishData=true;
+		publishMode=1;
 	}
 	else if (type==MSG2_FORCE)
 	{
@@ -758,22 +776,29 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 				instance->clients[i]->broadcaster->queueMessage(
 						instance->clients[pos]->uid, type, len, data);
 		}
-		publishData=false;
+		publishMode=0;
 	}
 	
-	if(publishData)
+	if(publishMode>0)
 	{
 		//just push to all the present clients
 		for (unsigned int i = 0; i < instance->clients.size(); i++)
 		{
 			if (instance->clients[i]->status == USED &&
-					instance->clients[i]->flow &&i!=pos)
-				instance->clients[i]->broadcaster->queueMessage(
+					instance->clients[i]->flow && i!=pos)
+			{
+				if(publishMode == 1)
+				{
+					instance->clients[i]->broadcaster->queueMessage(
 						instance->clients[pos]->uid, type, len, data);
-#ifdef REFLECT_DEBUG
-			if (clients[i].status==USED && i==pos)
-				clients[i].broadcaster->queueMessage(clients[pos]->uid+100, type, data, len);
-#endif
+				}
+				else if(publishMode == 2 && instance->clients[pos]->rconauth > 1)
+				{
+					instance->clients[i]->broadcaster->queueMessage(
+						instance->clients[pos]->uid, type, len, data);
+
+				}
+			}
 		}
 	}
 }

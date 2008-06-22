@@ -1,4 +1,4 @@
 === NOTICE ===
 This is a development server.
-It can reboot without notice at any time.
+It can reboot without further notice.
 ==============

@@ -54,7 +54,7 @@ commandNames= {
 
 RORNET_VERSION = "RoRnet_2.1"
  
-restartClient = False
+restartClient = False # this enabled auto restart of crashed bots
 restartCommands = ['!connect'] # important ;)
 eventStopThread = None
 
@@ -86,6 +86,7 @@ class ClientInfo:
 	engine_force=0
 	flagmask=0
 	position=None
+	truck=None
 
 class DataPacket:
 	source=0
@@ -101,18 +102,39 @@ class DataPacket:
 		self.time = 0
 
 class MissionManager:
-	def __init__(self):
+	missions = []
+	parentClient = None
+	
+	def __init__(self, clientClass):
+		parentClient = clientClass
 		# find all mission files
 		import glob
+		sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "missions"))
 		files = glob.glob('missions/*.py')
-		print files
+		#print files
+		for file in files:
+			print "adding mission "+os.path.basename(file)
+			mission = __import__(os.path.basename(file).rstrip(".py"))
+			#mission.MAINCLASS.startForClient(0)
+			self.missions.append(mission)
+		
+	def newClient(self, clientinfo):
+		print "got new client!"
+		 
+		#find valid missions
+		avMissions = []
+		for mission in self.missions:
+			if (clientinfo.truck in mission.CONFIG['fortruck'] or 'all' in mission.CONFIG['fortruck']) and \
+			   (parentClient.terrain in mission.CONFIG['forterrain'] or 'all' in mission.CONFIG['forterrain']):
+				avMissions.append(mission)
+		
 		
 		
 class Client(threading.Thread):
 	uid = 0
-	oclients = {}
 	overlays = {}
 	clientInfo = {}
+	connected=False
 	
 	def __init__(self, ip, port, cid, restartnum, commands):
 		self.ip = ip
@@ -127,7 +149,7 @@ class Client(threading.Thread):
 		self.socket = None
 		self.playback = None
 		
-		self.missionManager = MissionManager()
+		self.missionManager = MissionManager(self)
 		
 		self.mode = MODE_NORMAL
 		
@@ -198,7 +220,6 @@ class Client(threading.Thread):
 		else:
 			if cmd[0] == "!":
 				self.logger.debug('command not found: %s' % cmd)
-		
 
 	def updateStats(self, uid):
 		#self.logger.debug('updateStats()')
@@ -220,12 +241,19 @@ class Client(threading.Thread):
 			self.logger.debug('closing socket')
 			self.socket.close()
 		self.socket = None
+		self.connected=False
 	
 	def connect(self):
 		self.logger.debug('creating socket')
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.logger.debug('connecting to server')
-		self.socket.connect((self.ip, self.port))
+		try:
+			self.socket.connect((self.ip, self.port))
+		except Exception, e:
+			self.logger.debug('connect error: '+str(e))
+			return False
+
+		self.socket.settimeout(60)
 
 		self.sendMsg(DataPacket(MSG2_HELLO, 0, len(RORNET_VERSION), RORNET_VERSION))
 		packet = self.receiveMsg()
@@ -248,11 +276,17 @@ class Client(threading.Thread):
 		self.sendMsg(DataPacket(MSG2_USER_CREDENTIALS, 0, len(data), data))
 
 		packet = self.receiveMsg()
+		if packet.command == MSG2_FULL:
+			self.logger.debug('server is full!')
+			self.disconnect()
+			return
+		
 		if packet.command != MSG2_WELCOME:
 			self.logger.debug('invalid handshake: MSG2_WELCOME')
 			self.disconnect()
 			return
 		
+		self.connected=True
 		self.sendMsg(DataPacket(MSG2_USE_VEHICLE, 0, len(self.truckname), self.truckname))
 		
 		data = struct.pack('I', self.buffersize)
@@ -267,7 +301,7 @@ class Client(threading.Thread):
 		# some default values
 		self.uniqueid = s.hexdigest()
 		self.password = ""
-		self.username = "GameBot_"+str(self.cid)
+		self.username = "GameBot"
 		self.buffersize = 1 # 'data' - String
 		self.truckname = "spectator"
 		
@@ -276,37 +310,56 @@ class Client(threading.Thread):
 
 		lasttime = time.time()
 		while self.runCond:
-			if len(self.startupCommands) > 0:
-				cmd = self.startupCommands.pop(0).strip()
-				if cmd != "":
-					self.logger.debug('executing startup command %s' % cmd)
-					self.processCommand(cmd, None, True)
-				repeat = (len(startupCommands) > 0)
-		
-			packet = self.receiveMsg()
-			if not packet is None:
-				# record the used vehicles
-				if packet.command == MSG2_USE_VEHICLE:
-					data = str(packet.data).split('\0')
-					self.oclients[packet.source] = data
-					
-				if packet.command == MSG2_VEHICLE_DATA:
-					self.clientInfo[packet.source] = self.unPackClientInfo(packet.data)
-								
-				if packet.command == MSG2_CHAT:
-					self.processCommand(str(packet.data), packet)
-		
-				if  time.time() - lasttime > 1:
-					oname = "gameOverlay.overlay"
-					if oname in self.overlays.keys() and packet.source in self.overlays[oname].keys() and self.overlays[oname][packet.source] == True:
-						self.updateStats(packet.source)
+			if self.connected:		
+				if len(self.startupCommands) > 0:
+					cmd = self.startupCommands.pop(0).strip()
+					if cmd != "":
+						self.logger.debug('executing startup command %s' % cmd)
+						self.processCommand(cmd, None, True)
+					repeat = (len(startupCommands) > 0)
+			
+				packet = self.receiveMsg()
+				if packet == False:
+					self.logger.debug('server closed the connection')
+					self.disconnect()
+				if not packet is None:
+					# record the used vehicles
+					if packet.command == MSG2_USE_VEHICLE:
+						data = str(packet.data).split('\0')
+						self.clientInfo[packet.source] = ClientInfo()
+						self.clientInfo[packet.source].truck = data
+						print data
+						
+					if packet.command == MSG2_VEHICLE_DATA:
+						ci = self.unPackClientInfo(packet.data)
+						self.clientInfo[packet.source].time = ci.time
+						self.clientInfo[packet.source].engine_speed = ci.engine_speed
+						self.clientInfo[packet.source].engine_force = ci.engine_force
+						self.clientInfo[packet.source].flagmask = ci.flagmask						
+						self.clientInfo[packet.source].position = ci.position						
+									
+					if packet.command == MSG2_CHAT:
+						self.processCommand(str(packet.data), packet)
+			
+					if  time.time() - lasttime > 1:
+						oname = "gameOverlay.overlay"
+						if oname in self.overlays.keys() and packet.source in self.overlays[oname].keys() and self.overlays[oname][packet.source] == True:
+							self.updateStats(packet.source)
+						lasttime = time.time()
+			
+				if self.mode == MODE_NORMAL:
+					# to prevent timeouts in normal mode
+					if not self.sendRaw(dummydata):
+						self.logger.debug('server closed the connection')
+						self.disconnect()
+			else:
+				# retry connection
+				if time.time() - lasttime > 10:
+					self.logger.debug('retrying to connect...')
+					self.connect()
 					lasttime = time.time()
-		
-			if self.mode == MODE_NORMAL:
-				# to prevent timeouts in normal mode
-				self.sendRaw(dummydata)
 				
-	def sendChat(self, msg):
+	def sendChat(self, msg, uid=-1):
 		maxsize = 50
 		if len(msg) > maxsize:
 			for i in range(0, math.ceil(float(len(msg)) / float(maxsize))):
@@ -325,13 +378,16 @@ class Client(threading.Thread):
 	def sendRaw(self, data):
 		if self.socket is None:
 			self.logger.debug('cannot send: not connected!')
-			return
+			self.connceted = False
+			return False
 		try:
 			self.socket.send(data)
+			return True
 		except Exception, e:
 			self.logger.debug('sendMsg error: '+str(e))
 			import traceback
 			traceback.print_exc(file=sys.stdout)
+			return False
 
 	def packPacket(self, packet):
 		if packet.size == 0:
@@ -377,7 +433,12 @@ class Client(threading.Thread):
 		data = ""
 		readcounter = 0
 		while len(data) < headersize:
-			data += self.socket.recv(headersize-len(data))
+			try:
+				data += self.socket.recv(headersize-len(data))
+			except Exception, e:
+				self.logger.debug('receiveMsg error: '+str(e))
+				return False
+			
 		if readcounter > 1:
 			note += "HEADER SEGMENTED INTO %s SEGMENTS!" % readcounter
 		
@@ -406,6 +467,13 @@ if __name__ == '__main__':
 	startupCommands = ['!connect', '!say hello!']
 	if len(sys.argv) == 5:
 		startupCommands = sys.argv[4].split(';')
+	
+	# Import Psyco if available
+	#try:
+	#	import psyco
+	#	psyco.full()
+	#except ImportError:
+	#	pass	
 	
 	threads = []
 	restarts = {}

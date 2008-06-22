@@ -28,6 +28,7 @@ MSG2_RCON_COMMAND = 1025
 MSG2_RCON_COMMAND_FAILED = 1026
 MSG2_RCON_COMMAND_SUCCESS = 1027
 MSG2_GAME_CMD = 1028
+
 commandNames= {
 	1000:"HELLO",
 	1001:"VERSION",
@@ -102,56 +103,51 @@ class DataPacket:
 		self.data = data
 		self.time = 0
 
-class MissionManager:
-	missions = []
-	parentClient = None
-	
-	def __init__(self, clientClass):
-		parentClient = clientClass
-		# find all mission files
-		import glob
-		sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "missions"))
-		files = glob.glob('missions/*.py')
-		#print files
-		for file in files:
-			print "adding mission "+os.path.basename(file)
-			mission = __import__(os.path.basename(file).rstrip(".py"))
-			#mission.MAINCLASS.startForClient(0)
-			self.missions.append(mission)
-		
-	def newClient(self, clientinfo):
-		print "got new client!"
-		 
-		#find valid missions
-		avMissions = []
-		for mission in self.missions:
-			if (clientinfo.truck in mission.CONFIG['fortruck'] or 'all' in mission.CONFIG['fortruck']) and \
-			   (parentClient.terrain in mission.CONFIG['forterrain'] or 'all' in mission.CONFIG['forterrain']):
-				avMissions.append(mission)
-		
-		
-		
-class Client(threading.Thread):
+class Connector(threading.Thread):
 	uid = 0
 	overlays = {}
 	clientInfo = {}
 	connected=False
+	
+	loglines = []
+	
+	class logHandler(logging.Handler):
+		def __init__(self, _parent):
+			logging.Handler.__init__(self)
+			self.parent = _parent
+			
+		def emit(self, record):
+			msg = self.format(record)
+			#self.callback(msg)
+			self.parent.loglines.append(msg)
+			self.flush()
+
+			
+	def getLog(self):
+		return self.logger
 	
 	def __init__(self, ip, port, cid, restartnum, commands):
 		self.ip = ip
 		self.port = port
 		self.cid = cid
 		self.restartnum = restartnum
-		self.logger = logging.getLogger('client-%02d' % cid)
-		self.logger.debug('__init__')
+		loggername = 'client-%02d' % cid
+		self.logger = logging.getLogger(loggername)
+		
+		
+		lh = self.logHandler(self)
+		lh.setLevel(logging.DEBUG)
+		formatter = logging.Formatter('%(message)s')
+		lh.setFormatter(formatter)
+		self.logger.addHandler(lh)
+
+		#self.logger.debug('__init__')
 		self.runCond = True
 		self.startupCommands = commands
 		self.username = ''
 		self.socket = None
 		self.playback = None
-		
-		self.missionManager = MissionManager(self)
-		
+			
 		self.mode = MODE_NORMAL
 		
 		threading.Thread.__init__(self)
@@ -159,13 +155,17 @@ class Client(threading.Thread):
 	
 	def processCommand(self, cmd, packet=None, startup=False):
 		global restartClient, restartCommands, eventStopThread
-		self.logger.debug("%s / %d" % (cmd, self.mode))
+		try:
+			self.logger.debug("CHAT| %s: %s" % (self.clientInfo[packet.source].nickname, packet.data))
+		except:
+			pass
 		if cmd == "!rejoin":
 			eventStopThread.set()
 			self.playback.join(1)
 			self.disconnect()
 			restartCommands.append('!say rejoined')
 			self.runCond = False
+		
 		elif cmd[:4] == "!say":
 			self.sendChat(cmd[4:].strip())
 		
@@ -179,58 +179,10 @@ class Client(threading.Thread):
 		elif cmd == "!ping":
 			self.sendChat("pong!")
 		
-		elif cmd == "!overlaytest":
-			f=open("testOverlay.overlay", "r")
-			overlay = f.read()
-			f.close()
-			
-			self.sendRCon("createoverlay %04d "%(packet.source)+overlay)			
-			self.sendRCon("setoverlayvisible %d, 1, tracks/MP/testOverlay" % (packet.source))
-			self.sendRCon("setoverlayelementcolor %d, 1,0,0,1, tracks/MP/testOverlay/text1" % (packet.source))
-			self.sendRCon("setoverlayelementtext %d %d tracks/MP/testOverlay/text1" % (packet.source, time.time()))
-
-		elif cmd == "!showStats":
-			oname = "gameOverlay.overlay"
-			f=open(oname, "r")
-			overlay = f.read()
-			f.close()
-			if not oname in self.overlays.keys():
-				self.overlays[oname] = {}
-			if not packet.source in self.overlays[oname].keys():
-				# load overlay for that client
-				self.overlays[oname][packet.source] = True
-				self.sendRCon("createoverlay %04d "%(packet.source)+overlay)			
-				self.sendRCon("setoverlayelementcolor %d, 1,1,1,1, tracks/MP/gameoverlay/text1" % (packet.source))
-				self.sendRCon("setoverlayelementcolor %d, 1,1,1,1, tracks/MP/gameoverlay/text2" % (packet.source))
-				self.sendRCon("setoverlayelementtext %d _ tracks/MP/gameoverlay/text1" % (packet.source))
-				self.sendRCon("setoverlayelementtext %d _ tracks/MP/gameoverlay/text2" % (packet.source))
-			
-			self.sendRCon("setoverlayvisible %d, 1, tracks/MP/gameoverlay" % (packet.source))
-			self.updateStats(packet.source)
-			
-		elif cmd == "!hideStats":
-			oname = "gameOverlay.overlay"
-			if packet.source in self.overlays[oname].keys() and self.overlays[oname][packet.source] == True:
-				self.sendRCon("setoverlayvisible %d, 0, tracks/MP/gameoverlay" % (packet.source))
-		
 		else:
 			if cmd[0] == "!":
 				self.logger.debug('command not found: %s' % cmd)
 
-	def updateStats(self, uid):
-		#self.logger.debug('updateStats()')
-		
-		self.updateClientOverlayText(uid, "tracks/MP/gameoverlay/text1", "You_are_Player_number_%d" % (uid))
-		self.updateClientOverlayText(uid, "tracks/MP/gameoverlay/text2", time.ctime().replace(" ", "_"))
-		self.updateClientOverlayText(uid, "tracks/MP/gameoverlay/text3", "Your_position:_%s" % (self.clientInfo[uid].position.__str__()))
-		self.updateClientOverlayText(uid, "tracks/MP/gameoverlay/text4", "Playing_since:_%d_seconds" % (self.clientInfo[uid].time/1000))
-		self.updateClientOverlayText(uid, "tracks/MP/gameoverlay/text5", "Your_RPM:_%d" % (self.clientInfo[uid].engine_speed))
-		self.updateClientOverlayText(uid, "tracks/MP/gameoverlay/text6", ".")
-		self.updateClientOverlayText(uid, "tracks/MP/gameoverlay/text7", ".")
-	
-	def updateClientOverlayText(self, uid, oname, text):
-		self.sendRCon("setoverlayelementtext %d %s %s" % (uid, text, oname))
-		
 	def disconnect(self):
 		if not self.socket is None:
 			self.sendMsg(DataPacket(MSG2_DELETE, 0, 0, 0))
@@ -459,55 +411,261 @@ class Client(threading.Thread):
 			self.logger.debug("RECV| %-16s, source %d, size %d, data-len: %d -- %s" % (commandNames[command], self.uid, size, len(content), note))
 		return DataPacket(command, source, size, content)
 
-if __name__ == '__main__':
-	eventStopThread = threading.Event()
-	ip = sys.argv[1]
-	port = int(sys.argv[2])
-	num = 1
-	startupCommands = ['!say hello!']
-	if len(sys.argv) == 5:
-		startupCommands = sys.argv[4].split(';')
+def gui():
+	import wx
+	import os
+	ID_ABOUT=101
+	ID_OPEN=102
+	ID_BUTTON1=110
+	ID_EXIT=200
+	ID_TIMER=201
+
+	class ServerAdressWindow(wx.Dialog):
+		ID_LIST=300
+		ID_ADDSERVER=301
+		ID_DELSERVER=302
+		ID_CONSERVER=303
+		ID_CANCEL=304
+		servers = None
+		def __init__(self,parent,id,title):
+			wx.Dialog.__init__(self,parent,wx.ID_ANY, title)
+			sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+			#list
+			self.list = wx.ListCtrl(self, self.ID_LIST, wx.DefaultPosition, wx.DefaultSize) #, wx.LC_SMALL_ICON)
+			wx.EVT_LIST_ITEM_ACTIVATED(self, self.ID_LIST, self.OnConnServer)
+			sizer.Add(self.list, 1, wx.EXPAND)
+
+			# buttons
+			sizer2 = wx.BoxSizer(wx.VERTICAL)
+			btn = wx.Button(self, self.ID_ADDSERVER, "&Add Server")
+			wx.EVT_BUTTON(self, self.ID_ADDSERVER, self.OnAddServer)
+			sizer2.Add(btn, 0, wx.EXPAND)
+			
+			btn2 = wx.Button(self, self.ID_DELSERVER, "&Delete Server")
+			wx.EVT_BUTTON(self, self.ID_DELSERVER, self.OnDelServer)
+			sizer2.Add(btn2, 0, wx.EXPAND)
+
+			btn2 = wx.Button(self, self.ID_CONSERVER, "&Connect to server")
+			wx.EVT_BUTTON(self, self.ID_CONSERVER, self.OnConnServer)
+			sizer2.Add(btn2, 1, wx.EXPAND)
+
+			btn3 = wx.Button(self, self.ID_CANCEL, "Ca&ncel")
+			wx.EVT_BUTTON(self, self.ID_CANCEL, self.OnCancel)
+			sizer2.Add(btn3, 0, wx.EXPAND)
+			
+			sizer.Add(sizer2, 0, wx.EXPAND)
+			self.SetSizer(sizer)
+			
+			self.loadServers()
+			self.updateList()
+		
+		def OnCancel(self, e):
+			self.EndModal(wx.ID_CANCEL)
+			
+		def OnConnServer(self, e):
+			if self.list.GetSelectedItemCount() != 1:
+				return
+			itemno = self.list.GetFirstSelected()
+			if itemno < 0:
+				return
+			dataid = self.list.GetItemData(itemno)
+			self.result = self.servers[dataid]
+			self.EndModal(wx.ID_OK)
+		
+		def OnDelServer(self, e):
+			if self.list.GetSelectedItemCount() != 1:
+				return
+			itemno = self.list.GetFirstSelected()
+			if itemno < 0:
+				return
+			dataid = self.list.GetItemData(itemno)
+			del self.servers[dataid]
+			self.saveServers()
+			self.updateList()
+
+		def OnAddServer(self, e):
+			ted = wx.TextEntryDialog(self, "Server Address", "Please enter the server address", "127.0.0.1", wx.OK)
+			ted.ShowModal()
+			addr = ted.GetValue()
+			
+			ted3 = wx.TextEntryDialog(self, "Server Port", "Please enter the server port", "12000", wx.OK)
+			ted3.ShowModal()
+			port = ted3.GetValue()
+			
+			ted2 = wx.TextEntryDialog(self, "Server Name", "Please enter a server name", "my server", wx.OK)
+			ted2.ShowModal()
+			name = ted2.GetValue()
+			self.servers.append([addr, port, name])
+			self.saveServers()
+			self.updateList()
+
+		def updateList(self):
+			self.list.ClearAll()
+			for i in range(0, len(self.servers)):
+				try:
+					server = self.servers[i]
+					li = wx.ListItem()
+					li.SetText(server[0]+":"+server[1]+"\n"+server[2])
+					li.SetData(i)
+					self.list.InsertItem(li)
+				except:
+					pass
+			
+		def loadServers(self):
+			self.servers = []
+			try:
+				f = open('servers.txt', 'r')
+				lines = f.readlines()
+				f.close()
+			except:
+				return
+			for line in lines:
+				if line.strip() == '':
+					continue
+				self.servers.append(line.strip().split(';'))
+			
+		def saveServers(self):
+			lines = []
+			try:
+				for server in self.servers:
+					lines.append(';'.join(server)+'\n')
+				f = open('servers.txt', 'w')
+				f.writelines(lines)
+				f.close()
+			except:
+				return
 	
-	# Import Psyco if available
+	class ServerPage(wx.Panel):
+		ID_TXT=100
+		connector=None
+		def __init__(self, parent, connID, name, ip, port):
+			wx.Panel.__init__(self, parent)
+			self.connID = connID
+			self.name = name
+			self.ip = ip
+			self.port = port
+			#t = wx.StaticText(self, -1, "This is a PageOne object %s" % ip, (20,20))
+			sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+			#left side
+			panel_left = wx.Panel(self)
+			sizer_left = wx.BoxSizer(wx.VERTICAL)
+			self.text = wx.TextCtrl(panel_left, self.ID_TXT, "", wx.DefaultPosition, wx.DefaultSize, wx.TE_MULTILINE ^ wx.TE_READONLY ^ wx.SUNKEN_BORDER ^ wx.TE_RICH ^ wx.HSCROLL)
+			font = wx.Font(10, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, "fixedsys", wx.FONTENCODING_SYSTEM)
+			textattrib = wx.TextAttr(wx.BLACK, wx.NullColour, font, wx.TEXT_ALIGNMENT_DEFAULT)
+			self.text.SetDefaultStyle(textattrib)
+
+			sizer_left.Add(self.text, 1, wx.EXPAND)
+
+			self.texti = wx.TextCtrl(panel_left, self.ID_TXT, "", wx.DefaultPosition, wx.DefaultSize)
+			sizer_left.Add(self.texti, 0, wx.EXPAND)
+			panel_left.SetSizer(sizer_left)
+	
+			sizer.Add(panel_left, 1, wx.EXPAND)
+			
+			#right side
+			sizer_right = wx.BoxSizer(wx.VERTICAL)
+			sizer_right.SetMinSize((150,100))
+			panel_right = wx.Panel(self)
+			
+			box = wx.StaticBox(panel_right, -1, "Server Statistics")
+			box_sizer = wx.StaticBoxSizer(box, wx.VERTICAL)	
+			
+			self.servermode = wx.StaticText(panel_right, -1, "Mode: Internet")
+			box_sizer.Add(self.servermode, 1, wx.EXPAND)
+			
+			self.serveruptime = wx.StaticText(panel_right, -1, "Uptime: 0")
+			box_sizer.Add(self.serveruptime, 1, wx.EXPAND)
+
+			sizer_right.Add(box_sizer, 0, wx.EXPAND)
+			
+			panel_right.SetSizer(sizer_right)
+			sizer.Add(panel_right, 0, wx.EXPAND)
+			
+			self.SetSizer(sizer)
+
+			# main timer
+			self.timer = wx.Timer(self, ID_TIMER)
+			self.timer.Start(500)
+			wx.EVT_TIMER(self, ID_TIMER, self.OnTimer)
+
+			# connect
+			self.connect()
+		
+		def connect(self):
+			self.connector = Connector(self.ip, int(self.port), self.connID, 0, [])
+			#self.connector.getLog().addHandler(self.logtext)
+			self.connector.start()
+	    
+		def OnTimer(self,e):
+			pass
+			if not self.connector is None:
+				#print self.connector.loglines
+				msg = ""
+				if len(self.connector.loglines) > 0:
+					for line in self.connector.loglines:
+						msg+=line.strip()+"\n"
+					self.text.AppendText(msg)
+					self.connector.loglines = []
+			
+	class MainWindow(wx.Frame):
+		connCounter = 0
+		def __init__(self,parent,id,title):
+			wx.Frame.__init__(self,parent,wx.ID_ANY, title)
+			self.SetSize((500,300))
+			self.SetMinSize((500,300))
+
+			self.CreateStatusBar() # A Statusbar in the bottom of the window
+			
+			# Setting up the menu.
+			filemenu= wx.Menu()
+			filemenu.Append(ID_OPEN, "&New Connection"," Connect to a server")
+			filemenu.AppendSeparator()
+			filemenu.Append(ID_ABOUT, "&About"," Information about this program")
+			filemenu.AppendSeparator()
+			filemenu.Append(ID_EXIT,"E&xit"," Terminate the program")
+
+			# Creating the menubar.
+			menuBar = wx.MenuBar()
+			menuBar.Append(filemenu,"&Connection") # Adding the "filemenu" to the MenuBar
+			self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
+			#wx.EVT_MENU(self, ID_ABOUT, self.OnAbout)
+			wx.EVT_MENU(self, ID_EXIT, self.OnExit)
+			wx.EVT_MENU(self, ID_OPEN, self.OnOpen)
+
+
+			# Here we create a panel and a notebook on the panel
+			p = wx.Panel(self)
+			self.nb = wx.Notebook(p)
+			
+			# create the page windows as children of the notebook
+			sizer = wx.BoxSizer()
+			sizer.Add(self.nb, 1, wx.EXPAND)
+			p.SetSizer(sizer)
+			
+		def OnExit(self,e):
+			sys.exit(0)
+
+		def OnOpen(self,e):
+			serverSelectWindow = ServerAdressWindow(None, -1, "Select a server")
+			if serverSelectWindow.ShowModal() == wx.ID_OK:
+				server = serverSelectWindow.result
+				self.connCounter += 1
+				sp = ServerPage(self.nb, self.connCounter, server[2], server[0], server[1])
+				self.nb.AddPage(sp, server[2]+' ('+server[0]+':'+server[1]+')')
+			serverSelectWindow.Destroy()
+
+
+	app = wx.PySimpleApp()
+	frame = MainWindow(None, -1, "RoR Dedicated Server remote console")
+	frame.Show()
+	app.MainLoop()
+
+if __name__ == '__main__':
 	try:
 		import psyco
 		psyco.full()
 	except ImportError:
 		pass	
-	
-	threads = []
-	restarts = {}
-	lastrestart = {}
-	try:
-		# try for keyboard interrupt
-		for i in range(num):
-			threads.append(Client(ip, port, i, 0, copy.copy(startupCommands)))
-			threads[i].start()
-			lastrestart[i] = time.time() - 1000
-			restarts[i] = 0
-			# start with time inbetween, so you see all trucks ;)
-			time.sleep(2.0)
-
-		#print "all threads started. starting restart loop"
-		time.sleep(1)
-	
-		while restartClient:
-			eventStopThread.clear()
-			for i in range(num):
-				if not threads[i].isAlive():
-					restarts[i]+=1
-					rcmd = copy.copy(restartCommands)
-					print "restart commands: ", rcmd
-					if time.time() - lastrestart[i] < 1:
-						rcmd = ['!say i crashed, resetted to normal mode :|']
-					print "thread %d dead, restarting" % i
-					threads[i] = Client(ip, port, i, restarts[i], rcmd)
-					threads[i].start()
-					lastrestart[i] = time.time()
-					
-				#else:
-				#	print "thread %d alive!" % i
-		#print "exiting peacefully"
-	except KeyboardInterrupt:
-		print "exiting ..."
-		sys.exit(0)
+	gui()

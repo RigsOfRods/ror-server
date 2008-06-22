@@ -90,6 +90,9 @@ protected:
     //! method to access the singleton instance
     static Sequencer* Instance();
     static Sequencer* mInstance;
+	
+	
+	static int readFile(std::string filename, std::vector<std::string> &lines); //!< reads lines of a file
     
 public:
     //!    initilize theSequencers information
@@ -108,6 +111,7 @@ public:
     static void disconnect(int pos, const char* error);
     static void queueMessage(int pos, int type, char* data, unsigned int len);
     static void enableFlow(int id);
+    static int sendMOTD(int id);
     
     static void notifyRoutine();
     static void notifyAllVehicles(int id);

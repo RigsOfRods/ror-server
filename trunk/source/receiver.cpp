@@ -117,8 +117,12 @@ void Receiver::threadstart()
 	}
 	//notify the client of all pre-existing vehicles
 	Sequencer::notifyAllVehicles(id);
+	
 	//okay, we are ready, we can receive data frames
 	Sequencer::enableFlow(id);
+
+	//send motd
+	Sequencer::sendMOTD(id);
 	
 	Logger::log(LOG_VERBOSE,"UID %d is switching to FLOW", id);
 #ifndef NOTIMEOUT

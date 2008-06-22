@@ -32,7 +32,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
 
-Notifier::Notifier() : wasregistered( false ), error_count( 0 )
+Notifier::Notifier() : exit(false), wasregistered( false ), error_count( 0 )
 {
     STACKLOG;
 	memset( &httpresp, 0, 65536);

@@ -74,6 +74,7 @@ void Sequencer::initilize()
     
     Sequencer* instance  = Instance();
 	instance->clients.reserve( Config::getMaxClients() );
+	instance->listener = new Listener(Config::getListenPort());
 
 	pthread_create(&instance->killerthread, NULL, s_klthreadstart, &instance);
 
@@ -618,8 +619,11 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			}
 		}
 		else
+		{
 			instance->clients[pos]->broadcaster->queueMessage( 0,
 					MSG2_RCON_COMMAND_FAILED, 0, 0 );
+			serverSay("rcon command unkown");
+		}
 		
 		publishData=false;
 	}

@@ -11,6 +11,10 @@
 
 #include <cmath>
 
+#ifdef __WIN32__
+#include <windows.h>
+#include <time.h>
+#endif
 
 // option identifiers
 enum

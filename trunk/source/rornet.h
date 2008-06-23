@@ -87,6 +87,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // 2.1 but only active in 0.36 and up
 #define MSG2_USER_CREDENTIALS2 1018   //!< improved user credentials
 #define MSG2_USER_INFO 1029           //!< improved user data that is sent from the server to the clients
+#define MSG2_PRIVCHAT 1038            //!< sent from client to server to send private chat messages
+
 // new stream functions:
 #define MSG2_STREAM_REGISTER 1030           //!< create new stream
 #define MSG2_STREAM_REGISTER_RESP 1031      //!< reply from server to registering client
@@ -94,8 +96,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MSG2_STREAM_CONTROL_FLOW_RESP 1033  //!< reply from server to requesting client
 #define MSG2_STREAM_UNREGISTER 1034         //!< remove stream
 #define MSG2_STREAM_UNREGISTER_RESP 1035    //!< remove stream response from server to requsting client
-#define MSG2_STREAM_TAKEOVER 1034           //!< stream takeover
-#define MSG2_STREAM_TAKEOVER_RESP 1034      //!< stream takeover response from server
+#define MSG2_STREAM_TAKEOVER 1036           //!< stream takeover
+#define MSG2_STREAM_TAKEOVER_RESP 1037      //!< stream takeover response from server
 
 // structure to control flow of a stream, send in both directions
 typedef struct

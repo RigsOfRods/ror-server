@@ -28,6 +28,7 @@ MSG2_RCON_COMMAND = 1025
 MSG2_RCON_COMMAND_FAILED = 1026
 MSG2_RCON_COMMAND_SUCCESS = 1027
 MSG2_GAME_CMD = 1028
+MSG2_PRIVCHAT = 1038 
 commandNames= {
 	1000:"HELLO",
 	1001:"VERSION",
@@ -49,10 +50,11 @@ commandNames= {
 	1026:"RCON_COMMAND_FAILED",
 	1027:"RCON_COMMAND_SUCCESS",
 	1028:"GAME_CMD",
-	
+	1038:"PRIVCHAT",
 }
 
 RORNET_VERSION = "RoRnet_2.1"
+BOT_VERSION = "Gamebot version 0.1"
  
 restartClient = False # this enabled auto restart of crashed bots
 restartCommands = []
@@ -150,7 +152,9 @@ class Client(threading.Thread):
 		self.socket = None
 		self.playback = None
 		
+		self.logger.debug('loading missions')
 		self.missionManager = MissionManager(self)
+		self.logger.debug('missions loaded')
 		
 		self.mode = MODE_NORMAL
 		
@@ -159,7 +163,7 @@ class Client(threading.Thread):
 	
 	def processCommand(self, cmd, packet=None, startup=False):
 		global restartClient, restartCommands, eventStopThread
-		self.logger.debug("%s / %d" % (cmd, self.mode))
+		self.logger.debug("COMMAND: %s / %d" % (cmd, self.mode))
 		if cmd == "!rejoin":
 			eventStopThread.set()
 			self.playback.join(1)
@@ -177,7 +181,10 @@ class Client(threading.Thread):
 			sys.exit(0)
 		
 		elif cmd == "!ping":
-			self.sendChat("pong!")
+			self.sendChat("pong!", packet.source)
+		
+		elif cmd == "!version":
+			self.sendChat(BOT_VERSION, packet.source)
 		
 		elif cmd == "!overlaytest":
 			f=open("testOverlay.overlay", "r")
@@ -249,7 +256,7 @@ class Client(threading.Thread):
 			self.logger.debug('connect error: '+str(e))
 			return False
 
-		self.socket.settimeout(60)
+		self.socket.settimeout(2)
 
 		self.sendMsg(DataPacket(MSG2_HELLO, 0, len(RORNET_VERSION), RORNET_VERSION))
 		packet = self.receiveMsg()
@@ -310,7 +317,7 @@ class Client(threading.Thread):
 		# dummy data to prevent timeouts
 		dummydata = self.packPacket(DataPacket(MSG2_VEHICLE_DATA, 0, 1, "1"))
 
-		lasttime = time.time()
+		lasttime = time.time() - 10
 		while self.runCond:
 			if self.connected:		
 				if len(self.startupCommands) > 0:
@@ -360,16 +367,31 @@ class Client(threading.Thread):
 				
 	def sendChat(self, msg, uid=-1):
 		maxsize = 50
-		if len(msg) > maxsize:
-			for i in range(0, math.ceil(float(len(msg)) / float(maxsize))):
-				if i == 0:
-					msga = msg[maxsize*i:maxsize*(i+1)]
-					self.sendMsg(DataPacket(MSG2_CHAT, 0, len(msga), msga))
-				else:
-					msga = "| "+msg[maxsize*i:maxsize*(i+1)]
-					self.sendMsg(DataPacket(MSG2_CHAT, 0, len(msga), msga))
+		if uid == -1:
+			if len(msg) > maxsize:
+				for i in range(0, math.ceil(float(len(msg)) / float(maxsize))):
+					if i == 0:
+						msga = msg[maxsize*i:maxsize*(i+1)]
+						self.sendMsg(DataPacket(MSG2_CHAT, 0, len(msga), msga))
+					else:
+						msga = "| "+msg[maxsize*i:maxsize*(i+1)]
+						self.sendMsg(DataPacket(MSG2_CHAT, 0, len(msga), msga))
+			else:
+				self.sendMsg(DataPacket(MSG2_CHAT, 0, len(msg), msg))
 		else:
-			self.sendMsg(DataPacket(MSG2_CHAT, 0, len(msg), msg))
+			intsize = struct.calcsize('i')
+			destclient = struct.pack('i', uid)
+			if len(msg) > maxsize:
+				for i in range(0, math.ceil(float(len(msg)) / float(maxsize))):
+					if i == 0:
+						msga = msg[maxsize*i:maxsize*(i+1)]
+						self.sendMsg(DataPacket(MSG2_PRIVCHAT, 0, len(msga)+intsize, destclient+msga))
+					else:
+						msga = "| "+msg[maxsize*i:maxsize*(i+1)]
+						self.sendMsg(DataPacket(MSG2_PRIVCHAT, 0, len(msga)+intsize, destclient+msga))
+			else:
+				self.sendMsg(DataPacket(MSG2_PRIVCHAT, 0, len(msg)+intsize, destclient+msg))
+		
 		
 	def sendRCon(self, command):
 		self.sendMsg(DataPacket(MSG2_RCON_COMMAND, 0, len(command), command))
@@ -486,10 +508,12 @@ if __name__ == '__main__':
 			lastrestart[i] = time.time() - 1000
 			restarts[i] = 0
 			# start with time inbetween, so you see all trucks ;)
-			time.sleep(2.0)
+			if num > 1:
+				time.sleep(2.0)
 
 		#print "all threads started. starting restart loop"
-		time.sleep(1)
+		if num > 1:
+			time.sleep(1)
 	
 		while restartClient:
 			eventStopThread.clear()

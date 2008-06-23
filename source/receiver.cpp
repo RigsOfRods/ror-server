@@ -142,6 +142,7 @@ void Receiver::threadstart()
 		if (type!=MSG2_VEHICLE_DATA && 
 				type!=MSG2_CHAT &&
 				type!=MSG2_FORCE &&
+				type!=MSG2_PRIVCHAT &&
 				type!=MSG2_RCON_LOGIN &&
 				type!=MSG2_RCON_COMMAND &&
 				type!=MSG2_DELETE) {

@@ -441,8 +441,8 @@ void Sequencer::notifyAllVehicles(int uid)
 					instance->clients[i]->nickname);
 			instance->clients[pos]->broadcaster->queueMessage(
 					instance->clients[i]->uid, MSG2_USE_VEHICLE,
-					(	strlen(instance->clients[i]->vehicle_name) +
-						strlen(instance->clients[i]->nickname) + 2 ),
+					((int)(strlen(instance->clients[i]->vehicle_name) +
+						strlen(instance->clients[i]->nickname) + 2 )),
 					message );
 		}
 		// not possible to have flow enabled but not have a truck... disconnect 
@@ -461,7 +461,7 @@ void Sequencer::serverSay(std::string msg, int uid, int type)
     STACKLOG;
     Sequencer* instance = Instance(); 
 	if(type==0)
-		msg = std::string("^1 SERVER: ^9") + msg;
+		msg = std::string("SERVER: ") + msg;
 	//pthread_mutex_lock(&clients_mutex);
 	for (int i = 0; i < (int)instance->clients.size(); i++)
 	{
@@ -470,7 +470,7 @@ void Sequencer::serverSay(std::string msg, int uid, int type)
 				(uid==-1 || instance->clients[i]->uid == uid))
 			instance->clients[i]->broadcaster->queueMessage(
 					-1, MSG2_CHAT,
-					msg.size(),
+					(int)msg.size(),
 					msg.c_str() );
 	}
 	//pthread_mutex_unlock(&clients_mutex);
@@ -505,16 +505,26 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	
 	else if (type==MSG2_DELETE)
 	{
+		static int counter_crash=0, counter_deletes=0;
+		counter_deletes++;
 		if(len==0)
 		{
 			// from client
 			Logger::log(LOG_INFO, "user %s disconnects on request", instance->clients[pos]->nickname);
 
 			char tmp[1024];
-			sprintf(tmp, "user %d disconnects on request", instance->clients[pos]->uid);
+			sprintf(tmp, "user %s disconnects on request", instance->clients[pos]->nickname);
 			serverSay(std::string(tmp), -1);
+			disconnect(instance->clients[pos]->uid, "disconnected on request");
+		}else
+		{
+			counter_crash++;
+			char tmp[1024];
+			sprintf(tmp, "user %s crashed D:", instance->clients[pos]->nickname);
+			serverSay(std::string(tmp), -1);
+			disconnect(instance->clients[pos]->uid, "disconnected on crash");
 		}
-		disconnect(instance->clients[pos]->uid, "disconnected on request");
+		Logger::log(LOG_INFO, "crash statistic: %d of %d deletes crashed", counter_crash, counter_deletes);
 	}
 	else if (type==MSG2_RCON_COMMAND)
 	{
@@ -547,11 +557,11 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 				    	const char *error = "no user with that ID found!";
 				    	instance->clients[pos]->broadcaster-> queueMessage(
 							0, MSG2_RCON_COMMAND_FAILED, 
-							strlen(error), error );
+							(int)strlen(error), error );
 				    } else {
 				    		instance->clients[pos]->broadcaster->queueMessage(
 							-1, MSG2_GAME_CMD, 
-							strlen(txtbuf), txtbuf);
+							(int)strlen(txtbuf), txtbuf);
 					}
 					return;
 				}
@@ -572,11 +582,11 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 				    	const char *error = "no user with that ID found!";
 				    	instance->clients[pos]->broadcaster-> queueMessage(
 							0, MSG2_RCON_COMMAND_FAILED, 
-							strlen(error), error );
+							(int)strlen(error), error );
 				    } else {
 						instance->clients[pos]->broadcaster->queueMessage(
 							-1, MSG2_GAME_CMD,
-							strlen(newbuf), newbuf);
+							(int)strlen(newbuf), newbuf);
 					}
 					return;
 				}
@@ -600,11 +610,11 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 				    	const char *error = "no user with that ID found!";
 				    	instance->clients[pos]->broadcaster-> queueMessage(
 							0, MSG2_RCON_COMMAND_FAILED, 
-							strlen(error), error );
+							(int)strlen(error), error );
 				    } else {
 						instance->clients[pos]->broadcaster->queueMessage(
 							-1, MSG2_GAME_CMD,
-							strlen(txtbuf), txtbuf);
+							(int)strlen(txtbuf), txtbuf);
 					}
 				}
 				if(!strncmp(data, "setoverlayelementcolor", 22))
@@ -628,11 +638,11 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 						const char *error = "no user with that ID found!";
 						instance->clients[pos]->broadcaster->queueMessage(
 								0, MSG2_RCON_COMMAND_FAILED,
-								strlen(error), error );
+								(int)strlen(error), error );
 					} else {
 						instance->clients[pos]->broadcaster->queueMessage(
 							-1, MSG2_GAME_CMD, 
-							strlen(txtbuf), txtbuf);
+							(int)strlen(txtbuf), txtbuf);
 					}
 				}
 				if(!strncmp(data, "setoverlayelementtext", 21))
@@ -656,11 +666,11 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 						const char *error = "no user with that ID found!";
 						instance->clients[pos]->broadcaster->queueMessage(
 							0, MSG2_RCON_COMMAND_FAILED,
-							strlen(error), error );
+							(int)strlen(error), error );
 					} else {
 						instance->clients[pos]->broadcaster->queueMessage(
 							-1, MSG2_GAME_CMD,
-							strlen(txtbuf), txtbuf);
+							(int)strlen(txtbuf), txtbuf);
 					}
 				}
 			}
@@ -676,7 +686,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 						const char *error = "cannot kick free or busy client";
 						instance->clients[pos]->broadcaster->queueMessage(
 								0, MSG2_RCON_COMMAND_FAILED, 
-								strlen(error), error );
+								(int)strlen(error), error );
 					} else if(instance->clients[player]->status == USED) {
 						Logger::log(LOG_WARN, "user %d kicked by user %d via rcmd",
 								player, pos);
@@ -688,7 +698,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 
 						instance->clients[pos]->broadcaster->queueMessage(
 								0, MSG2_RCON_COMMAND_SUCCESS, 
-								strlen(tmp), tmp );
+								(int)strlen(tmp), tmp );
 						
 						disconnect( instance->clients[player]->uid, "kicked" );
 					}
@@ -696,7 +706,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					const char *error = "invalid client number";
 					instance->clients[pos]->broadcaster->queueMessage(
 							0, MSG2_RCON_COMMAND_FAILED, 
-							strlen(error), error );
+							(int)strlen(error), error );
 				}
 			}
 		}
@@ -719,6 +729,20 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		if(!strcmp(data, "!version"))
 		{
 			serverSay(std::string(VERSION), uid);
+		}
+	}
+	else if (type==MSG2_PRIVCHAT)
+	{
+		// private chat message
+		int destuid = *(int*)data;
+		int destpos = instance->getPosfromUid(destuid);
+		if(destpos != UID_NOT_FOUND)
+		{
+			char *chatmsg = data + sizeof(int);
+			int chatlen = len - sizeof(int);
+			instance->clients[destpos]->broadcaster->queueMessage(uid, MSG2_CHAT, chatlen, chatmsg);
+			// use MSG2_PRIVCHAT later here maybe?
+			publishMode=0;
 		}
 	}
 	else if (type==MSG2_RCON_LOGIN)
@@ -788,23 +812,21 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	
 	if(publishMode>0)
 	{
-		//just push to all the present clients
-		for (unsigned int i = 0; i < instance->clients.size(); i++)
+		if(publishMode == 1)
 		{
-			if (instance->clients[i]->status == USED &&
-					instance->clients[i]->flow && i!=pos)
+			// just push to all the present clients
+			for (unsigned int i = 0; i < instance->clients.size(); i++)
 			{
-				if(publishMode == 1)
-				{
-					instance->clients[i]->broadcaster->queueMessage(
-						instance->clients[pos]->uid, type, len, data);
-				}
-				else if(publishMode == 2 && instance->clients[pos]->rconauth > 1)
-				{
-					instance->clients[i]->broadcaster->queueMessage(
-						instance->clients[pos]->uid, type, len, data);
-
-				}
+				if (instance->clients[i]->status == USED && instance->clients[i]->flow && i!=pos)
+					instance->clients[i]->broadcaster->queueMessage(instance->clients[pos]->uid, type, len, data);
+			}
+		} else if(publishMode == 2)
+		{
+			// push to all bots and authed users above auth level 1
+			for (unsigned int i = 0; i < instance->clients.size(); i++)
+			{
+				if (instance->clients[i]->status == USED && instance->clients[i]->flow && i!=pos && instance->clients[i]->rconauth > 1)
+					instance->clients[i]->broadcaster->queueMessage(instance->clients[pos]->uid, type, len, data);
 			}
 		}
 	}

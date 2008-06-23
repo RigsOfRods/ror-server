@@ -1,6 +1,7 @@
 #!/bin/env python
 # made by thomas in 5 hours - no guarantees ;)
 import sys, struct, logging, threading, socket, random, time, string, os, os.path, time, math, copy, hashlib, math
+from vector3 import *
 
 logging.basicConfig(level=logging.DEBUG, format='%(name)s: %(message)s')
 
@@ -56,7 +57,7 @@ commandNames= {
 RORNET_VERSION = "RoRnet_2.1"
 BOT_VERSION = "Gamebot version 0.1"
  
-restartClient = False # this enabled auto restart of crashed bots
+restartClient = True # this enabled auto restart of crashed bots
 restartCommands = []
 eventStopThread = None
 
@@ -64,25 +65,8 @@ VERBOSELOG = False
 
 MODE_NORMAL = 0
 
-class Vector3:
-	x=0
-	y=0
-	z=0
-	def __init__(self, _x, _y, _z): 
-		self.x = _x
-		self.y = _y
-		self.z = _z
-
-	def length(self):
-		return math.sqrt(self.x*self.x + self.y*self.y + self.z*self.z);
-
-	def distanceTo(self, v):
-		return Vector3(self.x-v.x, self.y-v.y, self.z-v.z).length()
-
-	def __str__(self):
-		return "%.1f,_%.1f,_%.1f" % (self.x, self.y, self.z) # _ to be on the safe side
- 
 class ClientInfo:
+	uid=0
 	time=0
 	engine_speed=0
 	engine_force=0
@@ -104,12 +88,24 @@ class DataPacket:
 		self.data = data
 		self.time = 0
 
+class MissionState:
+	mid=0
+	client = None
+	mission = None
+	state = 0
+
+	# this is a fast addition to easily store custom mission data in this class
+	opts = {}
+
 class MissionManager:
-	missions = []
+	missions = {}
 	parentClient = None
 	
+	client_missions = {}
+	missioncounter = 0
+	
 	def __init__(self, clientClass):
-		parentClient = clientClass
+		self.parentClient = clientClass
 		# find all mission files
 		import glob
 		sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "missions"))
@@ -118,20 +114,44 @@ class MissionManager:
 		for file in files:
 			print "adding mission "+os.path.basename(file)
 			mission = __import__(os.path.basename(file).rstrip(".py"))
+			mission.startup(self)
 			#mission.MAINCLASS.startForClient(0)
-			self.missions.append(mission)
+			self.missions[mission.CONFIG['name']] = mission
 		
-	def newClient(self, clientinfo):
-		print "got new client!"
-		 
+	def playFirstMission(self, clientinfo):
+		res = self.listMissions(clientinfo)
+		if len(res) > 0:
+			self.startMission(res[0], clientinfo)
+
+	def listMissions(self, clientinfo):
 		#find valid missions
 		avMissions = []
-		for mission in self.missions:
+		for mission in self.missions.values():
+			#print mission.CONFIG['fortruck'], clientinfo.truck
+			#print mission.CONFIG['forterrain'], self.parentClient.terrain
 			if (clientinfo.truck in mission.CONFIG['fortruck'] or 'all' in mission.CONFIG['fortruck']) and \
-			   (parentClient.terrain in mission.CONFIG['forterrain'] or 'all' in mission.CONFIG['forterrain']):
-				avMissions.append(mission)
+			   (self.parentClient.terrain in mission.CONFIG['forterrain'] or 'all' in mission.CONFIG['forterrain']):
+				avMissions.append(mission.CONFIG['name'])
+		return avMissions
 		
-		
+	def startMission(self, missionname, clientinfo):
+		if not missionname in self.missions.keys():
+			print "no such mission: %s" % missionname
+			return False
+		ms = MissionState()
+		ms.client = clientinfo
+		ms.mission = self.missions[missionname]
+		ms.mission.MAINCLASS.startPlay(ms)
+		ms.state = 1
+		ms.mid = self.missioncounter
+		self.missioncounter += 1
+		self.client_missions[clientinfo.uid] = ms
+		print "startMission done"
+
+	def update(self):
+		# run an update call on all mission objects
+		for ms in self.client_missions.values():
+			ms.mission.MAINCLASS.update()
 		
 class Client(threading.Thread):
 	uid = 0
@@ -166,7 +186,6 @@ class Client(threading.Thread):
 		self.logger.debug("COMMAND: %s / %d" % (cmd, self.mode))
 		if cmd == "!rejoin":
 			eventStopThread.set()
-			self.playback.join(1)
 			self.disconnect()
 			restartCommands.append('!say rejoined')
 			self.runCond = False
@@ -182,7 +201,25 @@ class Client(threading.Thread):
 		
 		elif cmd == "!ping":
 			self.sendChat("pong!", packet.source)
-		
+
+		elif cmd[0:5] == "!play":
+			args = ""
+			if len(cmd) > 6:
+				args = cmd[6:]
+			if args == '':
+				self.missionManager.playFirstMission(self.clientInfo[packet.source])
+			elif args == 'list':
+				missions = self.missionManager.listMissions(self.clientInfo[packet.source])
+				msg = ""
+				for mission in missions:
+					msg+="%10s | %s\n" % (mission.CONFIG['name'], mission.CONFIG['description'])
+				self.sendChat("available missions: \n"+msg, packet.source)
+				self.sendChat("type !play <mission name here> to start a mission", packet.source)
+			else:
+				self.sendChat("starting mission: '%s'" % args, packet.source)
+				self.missionManager.startMission(args, self.clientInfo[packet.source])
+				#self.missionManager.playFirstMission(self.clientInfo[packet.source])
+			
 		elif cmd == "!version":
 			self.sendChat(BOT_VERSION, packet.source)
 		
@@ -256,7 +293,7 @@ class Client(threading.Thread):
 			self.logger.debug('connect error: '+str(e))
 			return False
 
-		self.socket.settimeout(2)
+		self.socket.settimeout(120) # if there are no clients connected, the bot tends to reconnect all the time, as the receiver thread times out :/
 
 		self.sendMsg(DataPacket(MSG2_HELLO, 0, len(RORNET_VERSION), RORNET_VERSION))
 		packet = self.receiveMsg()
@@ -318,6 +355,7 @@ class Client(threading.Thread):
 		dummydata = self.packPacket(DataPacket(MSG2_VEHICLE_DATA, 0, 1, "1"))
 
 		lasttime = time.time() - 10
+		lasttime2 = time.time() - 10
 		while self.runCond:
 			if self.connected:		
 				if len(self.startupCommands) > 0:
@@ -333,6 +371,7 @@ class Client(threading.Thread):
 					if packet.command == MSG2_USE_VEHICLE:
 						data = str(packet.data).split('\0')
 						self.clientInfo[packet.source] = ClientInfo()
+						self.clientInfo[packet.source].uid = packet.source
 						self.clientInfo[packet.source].truck = data[0]
 						self.clientInfo[packet.source].nickname = data[1]
 						
@@ -358,39 +397,39 @@ class Client(threading.Thread):
 					if not self.sendRaw(dummydata):
 						self.logger.debug('server closed the connection')
 						self.disconnect()
+				
+				if time.time() - lasttime2 > 1:
+					self.missionManager.update()
+					lasttime2 = time.time()
 			else:
 				# retry connection
 				if time.time() - lasttime > 10:
 					self.logger.debug('retrying to connect...')
 					self.connect()
 					lasttime = time.time()
+					
+					
 				
 	def sendChat(self, msg, uid=-1):
-		maxsize = 50
+		maxsize = 90
+		msgar = msg.split('\n')
+		newmsgar = []
+		for msg in msgar:
+			for i in range(0, int(math.ceil(float(len(msg)) / float(maxsize)))):
+				if i == 0:
+					newmsgar.append(msg[maxsize*i:maxsize*(i+1)])
+					
+				else:
+					newmsgar.append("| "+msg[maxsize*i:maxsize*(i+1)])
+		
 		if uid == -1:
-			if len(msg) > maxsize:
-				for i in range(0, math.ceil(float(len(msg)) / float(maxsize))):
-					if i == 0:
-						msga = msg[maxsize*i:maxsize*(i+1)]
-						self.sendMsg(DataPacket(MSG2_CHAT, 0, len(msga), msga))
-					else:
-						msga = "| "+msg[maxsize*i:maxsize*(i+1)]
-						self.sendMsg(DataPacket(MSG2_CHAT, 0, len(msga), msga))
-			else:
-				self.sendMsg(DataPacket(MSG2_CHAT, 0, len(msg), msg))
+			for msga in newmsgar:
+				self.sendMsg(DataPacket(MSG2_CHAT, 0, len(msga), msga))
 		else:
 			intsize = struct.calcsize('i')
 			destclient = struct.pack('i', uid)
-			if len(msg) > maxsize:
-				for i in range(0, math.ceil(float(len(msg)) / float(maxsize))):
-					if i == 0:
-						msga = msg[maxsize*i:maxsize*(i+1)]
-						self.sendMsg(DataPacket(MSG2_PRIVCHAT, 0, len(msga)+intsize, destclient+msga))
-					else:
-						msga = "| "+msg[maxsize*i:maxsize*(i+1)]
-						self.sendMsg(DataPacket(MSG2_PRIVCHAT, 0, len(msga)+intsize, destclient+msga))
-			else:
-				self.sendMsg(DataPacket(MSG2_PRIVCHAT, 0, len(msg)+intsize, destclient+msg))
+			for msga in newmsgar:
+				self.sendMsg(DataPacket(MSG2_PRIVCHAT, 0, len(msga)+intsize, destclient+msga))
 		
 		
 	def sendRCon(self, command):
@@ -486,7 +525,7 @@ if __name__ == '__main__':
 	ip = sys.argv[1]
 	port = int(sys.argv[2])
 	num = 1
-	startupCommands = ['!say hello!']
+	startupCommands = ['!say Im a bot :|']
 	if len(sys.argv) == 5:
 		startupCommands = sys.argv[4].split(';')
 	
@@ -524,6 +563,7 @@ if __name__ == '__main__':
 					print "restart commands: ", rcmd
 					if time.time() - lastrestart[i] < 1:
 						rcmd = ['!say i crashed, resetted to normal mode :|']
+					time.sleep(5)
 					print "thread %d dead, restarting" % i
 					threads[i] = Client(ip, port, i, restarts[i], rcmd)
 					threads[i].start()

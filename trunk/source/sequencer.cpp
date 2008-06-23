@@ -100,6 +100,8 @@ void Sequencer::cleanUp()
     Sequencer* instance = Instance();
 	for( unsigned int i = 0; i < instance->clients.size(); i++) 
 	{
+		if(i >= instance->clients.size())
+			break;
 		disconnect(instance->clients[i]->uid, "server shutting down");
 	}
 	
@@ -127,9 +129,12 @@ bool Sequencer::checkNickUnique(char *nick)
 	Sequencer* instance = Instance();
 	for (unsigned int i = 0; i < instance->clients.size(); i++)
 	{
-		if (!strcmp(nick, instance->clients[i]->nickname)) 
+		if(i < instance->clients.size())
 		{
-			return true;
+			if (!strcmp(nick, instance->clients[i]->nickname)) 
+			{
+				return true;
+			}
 		}
 	}
 	return false;
@@ -200,6 +205,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 		}
 	}
 
+	memset(to_add->nickname, 0, 32); // for 20 character long nicknames :)
 	strncpy(to_add->nickname, user->username, 20);
 	strncpy(to_add->uniqueid, user->uniqueid, 60);
 	to_add->receiver = new Receiver();
@@ -246,6 +252,8 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 	{
 		for( unsigned int i = 0; i < instance->clients.size(); i++)
 		{
+			if(i >= instance->clients.size())
+				break;
 			char playerdata[1024] = "";
 			char positiondata[128] = "";
 			instance->clients[i]->position.toString(positiondata);
@@ -346,6 +354,8 @@ void Sequencer::disconnect(int uid, const char* errormsg)
 	//notify the others
 	for( unsigned int i = 0; i < instance->clients.size(); i++)
 	{
+		if(i >= instance->clients.size())
+			break;
 		if( strlen(instance->clients[i]->vehicle_name) > 0 )
 		{
 			char *forced = "forced";
@@ -432,6 +442,8 @@ void Sequencer::notifyAllVehicles(int uid)
 	MutexLocker scoped_lock(instance->clients_mutex);
 	for (unsigned int i=0; i<instance->clients.size(); i++)
 	{
+		if(i >= instance->clients.size())
+			break;
 		if (i!=pos && instance->clients[i]->status == USED &&
 				strlen(instance->clients[i]->vehicle_name)>0)
 		{
@@ -465,6 +477,8 @@ void Sequencer::serverSay(std::string msg, int uid, int type)
 	//pthread_mutex_lock(&clients_mutex);
 	for (int i = 0; i < (int)instance->clients.size(); i++)
 	{
+		if(i >= instance->clients.size())
+			break;
 		if (instance->clients[i]->status == USED &&
 				instance->clients[i]->flow &&
 				(uid==-1 || instance->clients[i]->uid == uid))
@@ -801,6 +815,8 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		unsigned int destuid=((netforce_t*)data)->target_uid;
 		for ( unsigned int i = 0; i < instance->clients.size(); i++)
 		{
+			if(i >= instance->clients.size())
+				break;
 			if (instance->clients[i]->status == USED && 
 				instance->clients[i]->flow &&
 				instance->clients[i]->uid==destuid)
@@ -817,6 +833,8 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			// just push to all the present clients
 			for (unsigned int i = 0; i < instance->clients.size(); i++)
 			{
+				if(i >= instance->clients.size())
+					break;
 				if (instance->clients[i]->status == USED && instance->clients[i]->flow && i!=pos)
 					instance->clients[i]->broadcaster->queueMessage(instance->clients[pos]->uid, type, len, data);
 			}
@@ -825,6 +843,8 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			// push to all bots and authed users above auth level 1
 			for (unsigned int i = 0; i < instance->clients.size(); i++)
 			{
+				if(i >= instance->clients.size())
+					break;
 				if (instance->clients[i]->status == USED && instance->clients[i]->flow && i!=pos && instance->clients[i]->rconauth > 1)
 					instance->clients[i]->broadcaster->queueMessage(instance->clients[pos]->uid, type, len, data);
 			}
@@ -864,6 +884,8 @@ void Sequencer::printStats()
 		Logger::log(LOG_INFO, "--------------------------------------------------");
 		for (unsigned int i = 0; i < instance->clients.size(); i++)
 		{
+			if(i >= instance->clients.size())
+				break;
 			if (instance->clients[i]->status == FREE) 
 				Logger::log(LOG_INFO, "%4i Free", i);
 			else if (instance->clients[i]->status == BUSY)
@@ -901,6 +923,8 @@ unsigned short Sequencer::getPosfromUid(unsigned int uid)
     
     for (unsigned short i = 0; i < instance->clients.size(); i++)
     {
+		if(i >= instance->clients.size())
+			break;
         if(instance->clients[i]->uid == uid)
             return i;
     }

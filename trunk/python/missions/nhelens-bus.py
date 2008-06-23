@@ -2,7 +2,7 @@ from vector3 import *
 
 CONFIG = {
  'forterrain':  ['nhelensbus'],
- 'fortruck':    ['agoras.truck', 'agoral.truck'],
+ 'fortruck':    ['agoras.truck', 'agoral.truck', 'all'],
  'name':        'bus_route1',
  'description': 'This is the first ever written MP mission for Nhelens',
 }
@@ -41,19 +41,23 @@ class BusMissionTest:
 		msg = "started playing for uid %d" % missionState.client.uid
 		self.sendChat2(missionState, msg)
 		self.setNewDestionation(missionState, 'stop1')
+		self.debug(missionState, msg)
 		
 	def sendChat2(self, missionState, msg):
 		# this sends a message to the asocciated user
 		self.mm.parentClient.sendChat(msg, missionState.client.uid)
 
+	def debug(self, missionState, msg):
+		print "%02d| %20s | %s" %(missionState.client.uid, missionState.client.nickname, msg)
+		
 	def setDestinationArrow(self, missionState, v, text):
 		# this sends a message to the asocciated user
 		cmd = "newgoal %d, %f, %f, %f, %s" % (missionState.client.uid, v.x, v.y, v.z, text.replace(' ', '_'))
-		print "setDestinationArrow", cmd
+		self.debug(missionState, "setDestinationArrow: %s"%cmd)
 		self.mm.parentClient.sendRCon(cmd)
 		
 	def setNewDestionation(self, missionState, stopname):
-		print "setNewDestionation", stopname
+		self.debug(missionState, "setNewDestionation %s"%stopname)
 		if not stopname in NHELENS_ROUTE1.keys():
 			return
 		missionState.opts['targetStop'] = stopname
@@ -61,6 +65,7 @@ class BusMissionTest:
 		self.setDestinationArrow(missionState, stop['position'], stop['name'])
 	
 	def resetDestination(self, missionState):
+		self.debug(missionState, "reset destination")
 		self.mm.parentClient.sendRCon("newgoal %d,0,0,0" % (missionState.client.uid))
 		
 	def update(self):
@@ -68,10 +73,10 @@ class BusMissionTest:
 			if missionState.state == 1:
 				#check if near destination
 				targetStop = NHELENS_ROUTE1[missionState.opts['targetStop']]
-				dest = missionState.client.position.distanceTo(targetStop['position'])
+				dist = missionState.client.position.distanceTo(targetStop['position'])
 				nextStop = targetStop['next']
-				#print dest, nextStop
-				if dest < 10:
+				self.debug(missionState, "destination: %s (%f)"%(targetStop['name'], dist))
+				if dist < 10:
 					if nextStop is None:
 						#mission done, deactivate the mission
 						self.resetDestination(missionState)

@@ -150,16 +150,6 @@ bool Config::checkConfig()
 {
 	bool is_valid_config = true;
 	
-	if( getIPAddr().empty() )
-	{
-		Logger::log( LOG_WARN, "no IP address has been specified, attempting to "
-				"detect.");
-		setIPAddr( getPublicIP() );
-		
-		if( getIPAddr().empty() )
-			Logger::log(LOG_ERROR, "could not get public IP automatically!");
-	}
-	
 	switch ( getServerMode() )
 	{
 	case SERVER_AUTO:
@@ -176,7 +166,18 @@ bool Config::checkConfig()
 	// settings required by INET mode
 	if( getServerMode() != SERVER_LAN )
 	{
-		Logger::log( LOG_INFO, "Starting server in INET mode" );
+
+        Logger::log( LOG_INFO, "Starting server in INET mode" );
+	    if( getIPAddr().empty() )
+	    {
+	        Logger::log( LOG_WARN, "no IP address has been specified, attempting to "
+	                "detect.");
+	        setIPAddr( getPublicIP() );
+	        
+	        if( getIPAddr().empty() )
+	            Logger::log(LOG_ERROR, "could not get public IP automatically!");
+	    }
+	    
 		if( getIPAddr().empty() )
 		{
 			Logger::log( LOG_ERROR, "IP adddress not specified.");

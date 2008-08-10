@@ -100,8 +100,6 @@ void Sequencer::cleanUp()
     Sequencer* instance = Instance();
 	for( unsigned int i = 0; i < instance->clients.size(); i++) 
 	{
-		if(i >= instance->clients.size())
-			break;
 		disconnect(instance->clients[i]->uid, "server shutting down");
 	}
 	
@@ -129,12 +127,9 @@ bool Sequencer::checkNickUnique(char *nick)
 	Sequencer* instance = Instance();
 	for (unsigned int i = 0; i < instance->clients.size(); i++)
 	{
-		if(i < instance->clients.size())
+		if (!strcmp(nick, instance->clients[i]->nickname)) 
 		{
-			if (!strcmp(nick, instance->clients[i]->nickname)) 
-			{
-				return true;
-			}
+			return true;
 		}
 	}
 	return false;
@@ -148,10 +143,9 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	//we have a confirmed client that wants to play
 	//try to find a place for him
 	Logger::log(LOG_DEBUG,"got instance in createClient()");
-	
-	instance->clients_mutex.lock();
+
+    MutexLocker scoped_lock(instance->clients_mutex);
 	bool dupeNick = Sequencer::checkNickUnique(user->username);
-	instance->clients_mutex.unlock();
 	int dupecounter = 2;
 
 	// check if server is full
@@ -159,6 +153,9 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	if( instance->clients.size() >= Config::getMaxClients() )
 	{
 		Logger::log(LOG_WARN,"join request from '%s' on full server: rejecting!", user->username);
+		// set a low time out because we don't want to cause a back up of
+		// connecting clients
+		sock->set_timeout( 10, 0 );
 		Messaging::sendmessage(sock, MSG2_FULL, 0, 0, 0);
 		throw std::runtime_error("Server is full");
 	}
@@ -197,7 +194,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	to_add->rconauth=0;
 	if(instance->authresolver)
 	{
-		int res = instance->authresolver->getUserModeByUserToken(std::string(user->uniqueid));
+		int res = instance->authresolver->getUserModeByUserToken(user->uniqueid);
 		if(res>0)
 		{
 			Logger::log(LOG_INFO, "user authed because of valid admin token!");
@@ -222,16 +219,12 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	instance->fuid++;
 	to_add->sock = sock;//this won't interlock
 	
-	instance->clients_mutex.lock();
 	instance->clients.push_back( to_add );
 	to_add->receiver->reset(to_add->uid, sock);
-	//this won't interlock
 	to_add->broadcaster->reset(to_add->uid, sock,
 			Sequencer::disconnect, Messaging::sendmessage);
-	instance->clients_mutex.unlock();
 
 	Logger::log(LOG_VERBOSE,"Sequencer: New client added");
-	printStats();
 }
 
 //this is called from the hearbeat notifier thread
@@ -252,8 +245,6 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 	{
 		for( unsigned int i = 0; i < instance->clients.size(); i++)
 		{
-			if(i >= instance->clients.size())
-				break;
 			char playerdata[1024] = "";
 			char positiondata[128] = "";
 			instance->clients[i]->position.toString(positiondata);
@@ -284,8 +275,7 @@ int Sequencer::authNick(std::string token, std::string &nickname)
 	MutexLocker scoped_lock(instance->clients_mutex);
 	if(!instance->authresolver)
 		return -1;
-	instance->authresolver->resolve(token, nickname);
-	return 0;
+	return instance->authresolver->resolve(token, nickname);
 }
 
 
@@ -317,8 +307,8 @@ void Sequencer::killerthreadstart()
 		// which makes the socket invalid) and the actual time of stoping
 		// the bradcaster
 		to_del->broadcaster->stop();
-		to_del->sock->disconnect(&error);
 		to_del->receiver->stop();
+        to_del->sock->disconnect(&error);
 		// END CRITICAL ORDER OF EVENTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		delete to_del->broadcaster;
 		delete to_del->receiver;
@@ -329,8 +319,6 @@ void Sequencer::killerthreadstart()
 		
 		delete to_del;
 		to_del = NULL;
-		
-		printStats();
 	}
 }
 
@@ -338,24 +326,21 @@ void Sequencer::disconnect(int uid, const char* errormsg)
 {
     STACKLOG;
     Sequencer* instance = Instance(); 
+    
+    MutexLocker scoped_lock(instance->killer_mutex);
     unsigned short pos = instance->getPosfromUid(uid);
     if( UID_NOT_FOUND == pos ) return;
     
 	//this routine is a potential trouble maker as it can be called from many thread contexts
 	//so we use a killer thread
 	Logger::log(LOG_VERBOSE, "Disconnecting Slot %d: %s", pos, errormsg);
-	MutexLocker scoped_lock(instance->killer_mutex);
 	
-	if(pos >= instance->clients.size()) // yes, this can happen if someone delete twice ...
-		return;
 	client_t *c = instance->clients[pos];
 	instance->killqueue.push(c);
 	
 	//notify the others
 	for( unsigned int i = 0; i < instance->clients.size(); i++)
 	{
-		if(i >= instance->clients.size())
-			break;
 		if( strlen(instance->clients[i]->vehicle_name) > 0 )
 		{
 			char *forced = "forced";
@@ -365,18 +350,23 @@ void Sequencer::disconnect(int uid, const char* errormsg)
 	}
 	instance->clients.erase( instance->clients.begin() + pos );
 	instance->killer_cv.signal();
+    
+    printStats();
 }
 
 //this is called from the listener thread initial handshake
 void Sequencer::enableFlow(int uid)
 {
     STACKLOG;
-    Sequencer* instance = Instance(); 
+    Sequencer* instance = Instance();
+    
+    MutexLocker scoped_lock(instance->clients_mutex); 
     unsigned short pos = instance->getPosfromUid(uid);    
     if( UID_NOT_FOUND == pos ) return;
     
-	MutexLocker scoped_lock(instance->clients_mutex);
 	instance->clients[pos]->flow=true;
+	// now they are a bonified part of the server, show the new stats
+    printStats();
 }
 
 
@@ -435,15 +425,14 @@ int Sequencer::readFile(std::string filename, std::vector<std::string> &lines)
 void Sequencer::notifyAllVehicles(int uid)
 {
     STACKLOG;
-    Sequencer* instance = Instance(); 
+    Sequencer* instance = Instance();
+    
+    MutexLocker scoped_lock(instance->clients_mutex); 
     unsigned short pos = instance->getPosfromUid(uid);     
     if( UID_NOT_FOUND == pos ) return;
     
-	MutexLocker scoped_lock(instance->clients_mutex);
 	for (unsigned int i=0; i<instance->clients.size(); i++)
 	{
-		if(i >= instance->clients.size())
-			break;
 		if (i!=pos && instance->clients[i]->status == USED &&
 				strlen(instance->clients[i]->vehicle_name)>0)
 		{
@@ -468,17 +457,16 @@ void Sequencer::notifyAllVehicles(int uid)
 	}
 }
 
+// this does not lock the clients_mutex, make sure it is locked before hand
 void Sequencer::serverSay(std::string msg, int uid, int type)
 {
     STACKLOG;
     Sequencer* instance = Instance(); 
 	if(type==0)
 		msg = std::string("SERVER: ") + msg;
-	//pthread_mutex_lock(&clients_mutex);
+
 	for (int i = 0; i < (int)instance->clients.size(); i++)
 	{
-		if(i >= instance->clients.size())
-			break;
 		if (instance->clients[i]->status == USED &&
 				instance->clients[i]->flow &&
 				(uid==-1 || instance->clients[i]->uid == uid))
@@ -487,18 +475,18 @@ void Sequencer::serverSay(std::string msg, int uid, int type)
 					(int)msg.size(),
 					msg.c_str() );
 	}
-	//pthread_mutex_unlock(&clients_mutex);
 }
 
 //this is called by the receivers threads, like crazy & concurrently
 void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 {
 	STACKLOG;
-    Sequencer* instance = Instance(); 
+    Sequencer* instance = Instance();
+
+    MutexLocker scoped_lock(instance->clients_mutex);
     unsigned short pos = instance->getPosfromUid(uid);    
     if( UID_NOT_FOUND == pos ) return;
     
-	MutexLocker scoped_lock(instance->clients_mutex);
 	int publishMode=0;
 	// publishMode = 0 no broadcast
 	// publishMode = 1 broadcast to all clients
@@ -510,7 +498,6 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		strncpy(instance->clients[pos]->vehicle_name, data, 129);
 		Logger::log(LOG_VERBOSE,"On the fly vehicle registration for slot %d: %s",
 		            pos, instance->clients[pos]->vehicle_name);
-		//printStats();
 		//we alter the message to add user info
 		strcpy(data + len + 1, instance->clients[pos]->nickname);
 		len += (int)strlen(instance->clients[pos]->nickname) + 2;
@@ -852,11 +839,11 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	}
 }
 
+// clients_mutex needs to be locked wen calling this method
 void Sequencer::printStats()
 {
     STACKLOG;
     Sequencer* instance = Instance();
-	MutexLocker scoped_lock(instance->clients_mutex);
 	SWBaseSocket::SWBaseError error;
 #ifdef NCURSES
 	if(instance->guimode)
@@ -884,8 +871,6 @@ void Sequencer::printStats()
 		Logger::log(LOG_INFO, "--------------------------------------------------");
 		for (unsigned int i = 0; i < instance->clients.size(); i++)
 		{
-			if(i >= instance->clients.size())
-				break;
 			if (instance->clients[i]->status == FREE) 
 				Logger::log(LOG_INFO, "%4i Free", i);
 			else if (instance->clients[i]->status == BUSY)
@@ -923,8 +908,6 @@ unsigned short Sequencer::getPosfromUid(unsigned int uid)
     
     for (unsigned short i = 0; i < instance->clients.size(); i++)
     {
-		if(i >= instance->clients.size())
-			break;
         if(instance->clients[i]->uid == uid)
             return i;
     }

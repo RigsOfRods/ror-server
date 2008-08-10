@@ -30,9 +30,7 @@ private:
 	int id;
 	SWInetSocket *sock;
 	char dbuffer[MAX_MESSAGE_LENGTH];
-	bool alive;
-	bool finish;
-	bool started;
+	bool running;
 public:
 	Receiver();
 	~Receiver(void);

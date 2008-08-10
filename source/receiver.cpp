@@ -26,12 +26,14 @@ void *s_lithreadstart(void* vid)
 {
     STACKLOG;
 	((Receiver*)vid)->threadstart();
+	Logger::log( LOG_DEBUG, "Receiver thread %u:%u is exiting",
+	        (unsigned int) pthread_self(), ThreadID::getID() );
 	return NULL;
 }
 
 
 Receiver::Receiver()
-: id(0), sock(NULL), alive (false), finish(false), started(false)
+: id(0), sock(NULL), running( false )
 {
     STACKLOG;
 }
@@ -39,34 +41,26 @@ Receiver::Receiver()
 Receiver::~Receiver(void)
 {
     STACKLOG;
-	stop();
 }
 
 void Receiver::reset(int pos, SWInetSocket *socky)
 {
     STACKLOG;
-	if (alive)
-	{
-		Logger::log(LOG_ERROR,"Whoa, receiver is still alive!");
-		return;
-	}
 	id    = pos;
 	sock  = socky;
-	alive = true;
-	finish = false;
+	running = true;
 	
 	//start a listener thread
 	pthread_create(&thread, NULL, s_lithreadstart, this);
-	started=true;
 }
 
 void Receiver::stop()
 {
     STACKLOG;
-    finish = true;
-	if(started)
-		pthread_join(thread, NULL);
-	alive = false;
+    running = false;
+    Logger::log( LOG_DEBUG, "joining with receiver thread: %u",
+            (unsigned int) thread);
+	pthread_join(thread, NULL);
 }
 
 void Receiver::threadstart()
@@ -110,6 +104,7 @@ void Receiver::threadstart()
 		Sequencer::disconnect(id, "Protocol error 2");
 		return;
 	}
+	
 	unsigned int buffersize=*((unsigned int*)dbuffer);
 	if (buffersize>MAX_MESSAGE_LENGTH) {
 		Sequencer::disconnect(id, "Memory error from client");
@@ -125,19 +120,18 @@ void Receiver::threadstart()
 	Sequencer::sendMOTD(id);
 	
 	Logger::log(LOG_VERBOSE,"UID %d is switching to FLOW", id);
-#ifndef NOTIMEOUT
-	sock->set_timeout(6, 0);
-#endif
 	
-	while (1)
+	// this prevents the socket from hangingwhen sending data
+	// which is the cause of threads getting blocked
+	sock->set_timeout(60, 0);
+	while( running )
 	{
 		//	hmm for some reason this fails, 
 		if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, MAX_MESSAGE_LENGTH)) {
 			Sequencer::disconnect(id, "Game connection closed");
-			return;
+			break;
 		}
-		
-		if( finish ) break;
+		if( !running ) break;
 		
 		if (type!=MSG2_VEHICLE_DATA && 
 				type!=MSG2_CHAT &&
@@ -147,7 +141,7 @@ void Receiver::threadstart()
 				type!=MSG2_RCON_COMMAND &&
 				type!=MSG2_DELETE) {
 			Sequencer::disconnect(id, "Protocol error 3");
-			return;
+			break;
 		}
 		Sequencer::queueMessage(id, type, dbuffer, len);
 	}

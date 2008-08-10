@@ -99,6 +99,7 @@ int UserAuth::getUserModeByUserToken(std::string token)
 }
 
 int UserAuth::resolve(std::string user_token, std::string &user_nick)
+#ifdef UTOKEN
 {
     STACKLOG;
 
@@ -129,6 +130,11 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 
 	return 0;
 }
+#else
+{
+    return -2;
+}
+#endif
 
 int UserAuth::HTTPGET(const char* URL, HttpMsg &resp)
 {

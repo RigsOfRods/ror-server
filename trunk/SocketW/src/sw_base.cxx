@@ -661,7 +661,6 @@ void SWBaseSocket::print_error()
 void SWBaseSocket::handle_errno(SWBaseError *error, string msg)
 {
 #ifndef TSWA
-	printf("error pointer: %p", error);
 	#ifndef __WIN32__
 	msg += strerror(errno);
 	#else

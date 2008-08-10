@@ -13,6 +13,7 @@
 #include <cstring>
 #include <cstdio>
 #include <cstdarg>
+#include <zlib.h>
 
 
 
@@ -115,6 +116,7 @@ FILE *Logger::file = 0;
 LogLevel Logger::log_level[2] = {LOG_VERBOSE, LOG_INFO};
 const char *Logger::loglevelname[] = {"STACK", "DEBUG", "VERBO", "INFO", "WARN", "ERROR"};
 LogLevel Logger::flush_level = LOG_ERROR;
+bool Logger::compress_file = false;
 
 
 // SCOPELOG

@@ -55,6 +55,7 @@ private:
 	static LogLevel log_level[2];
 	static const char *loglevelname[];
 	static LogLevel flush_level;
+	static bool compress_file;
 };
 
 class ScopeLog

@@ -24,7 +24,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 void *s_brthreadstart(void* vid)
 {
     STACKLOG;
-	((Broadcaster*)vid)->threadstart();
+    Broadcaster* instance = ((Broadcaster*)vid); 
+    instance->threadstart();
+    
+    // check if are expecting to exit, if not running will still be true
+    // if so wait for the join request
+    if( instance->running )
+    {
+        MutexLocker scoped_lock( instance->queue_mutex );
+        instance->running = false;
+        instance->queue_mutex.wait( instance->queue_cv );
+    }
+    Logger::log( LOG_DEBUG, "broadcaster thread %u:%u is exiting",
+            (unsigned int) pthread_self(), ThreadID::getID() );
 	return NULL;
 }
 Broadcaster::Broadcaster()
@@ -43,13 +55,7 @@ void Broadcaster::reset(int uid, SWInetSocket *socky,
 		int (*sendmessage_func)(SWInetSocket*, int, int,
 				unsigned int, const char*) )
 {
-    STACKLOG;
-	if( running )
-	{
-		Logger::log(LOG_ERROR,"Whoa, broadcaster is still alive!");
-		return;
-	}
-	
+    STACKLOG;	
 	id          = uid;
 	sock        = socky;
 	running     = true;
@@ -71,6 +77,8 @@ void Broadcaster::stop()
 	running = false;
 	queue_cv.signal();
 	queue_mutex.unlock();
+    Logger::log( LOG_DEBUG, "joining with broadcaster thread: %u",
+            (unsigned int) thread);
 	pthread_join( thread, NULL );
 }
 
@@ -78,7 +86,7 @@ void Broadcaster::threadstart()
 {
     STACKLOG;
 	queue_entry_t msg;
-	Logger::log( LOG_DEBUG, "broadcaster thread %d owned by uid %d", ThreadID::getID(), id);
+	Logger::log( LOG_DEBUG, "broadcaster thread %u owned by uid %d", ThreadID::getID(), id);
 	while( running )
 	{
 		{   // define a new scope and use a scope lock
@@ -110,6 +118,7 @@ void Broadcaster::threadstart()
 void Broadcaster::queueMessage(int uid, int type, unsigned int len, const char* data)
 {
     STACKLOG;
+    if( !running ) return;
 	// for now lets just queue msgs in the order received to make things simple
 	queue_entry_t msg = { uid, type, "", len };
 	memset( msg.data, 0, MAX_MESSAGE_LENGTH );

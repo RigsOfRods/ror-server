@@ -13,8 +13,6 @@
 #include <cstring>
 #include <cstdio>
 #include <cstdarg>
-#include <zlib.h>
-
 
 
 // shamelessly taken from:

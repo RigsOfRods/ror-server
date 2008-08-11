@@ -27,7 +27,7 @@ void *s_lithreadstart(void* vid)
     STACKLOG;
 	((Receiver*)vid)->threadstart();
 	Logger::log( LOG_DEBUG, "Receiver thread %u:%u is exiting",
-	        (unsigned int) pthread_self(), ThreadID::getID() );
+	        (unsigned int) pthread_self().p, ThreadID::getID() );
 	return NULL;
 }
 
@@ -59,7 +59,7 @@ void Receiver::stop()
     STACKLOG;
     running = false;
     Logger::log( LOG_DEBUG, "joining with receiver thread: %u",
-            (unsigned int) thread);
+            (unsigned int) &thread.p);
 	pthread_join(thread, NULL);
 }
 

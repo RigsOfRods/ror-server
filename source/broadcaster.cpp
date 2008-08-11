@@ -36,7 +36,7 @@ void *s_brthreadstart(void* vid)
         instance->queue_mutex.wait( instance->queue_cv );
     }
     Logger::log( LOG_DEBUG, "broadcaster thread %u:%u is exiting",
-            (unsigned int) pthread_self(), ThreadID::getID() );
+		(unsigned int) &pthread_self().p, ThreadID::getID() );
 	return NULL;
 }
 Broadcaster::Broadcaster()
@@ -78,7 +78,7 @@ void Broadcaster::stop()
 	queue_cv.signal();
 	queue_mutex.unlock();
     Logger::log( LOG_DEBUG, "joining with broadcaster thread: %u",
-            (unsigned int) thread);
+            (unsigned int) &thread.p);
 	pthread_join( thread, NULL );
 }
 

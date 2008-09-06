@@ -32,7 +32,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <iostream>
 #include <stdexcept>
 #include <sstream>
-//#define REFLECT_DEBUG 
+//#define REFLECT_DEBUG
 #define UID_NOT_FOUND 0xFFFF
 
 void *s_klthreadstart(void* vid)
@@ -45,10 +45,10 @@ void *s_klthreadstart(void* vid)
 // init the singleton pointer
 Sequencer* Sequencer::mInstance = NULL;
 
-/// retreives the instance of the Sequencer
+/// Retrieves the instance of the Sequencer
 Sequencer* Sequencer::Instance() {
     STACKLOG;
-	if(!mInstance) 
+	if(!mInstance)
 		mInstance = new Sequencer;
 	return mInstance;
 }
@@ -67,11 +67,11 @@ Sequencer::~Sequencer()
 
 /**
  * Inililize, needs to be called before the class is used
- */ 
+ */
 void Sequencer::initilize()
 {
     STACKLOG;
-    
+
     Sequencer* instance  = Instance();
 	instance->clients.reserve( Config::getMaxClients() );
 	instance->listener = new Listener(Config::getListenPort());
@@ -98,14 +98,14 @@ void Sequencer::cleanUp()
     STACKLOG;
 
     Sequencer* instance = Instance();
-	for( unsigned int i = 0; i < instance->clients.size(); i++) 
+	for( unsigned int i = 0; i < instance->clients.size(); i++)
 	{
 		disconnect(instance->clients[i]->uid, "server shutting down");
 	}
-	
+
 	if( instance->notifier )
 		delete instance->notifier;
-	
+
 	delete instance->listener;
 	delete instance->mInstance;
 }
@@ -122,12 +122,12 @@ bool Sequencer::checkNickUnique(char *nick)
 {
     STACKLOG;
 	// WARNING: be sure that this is only called within a clients_mutex lock!
-	
+
 	// check for duplicate names
 	Sequencer* instance = Instance();
 	for (unsigned int i = 0; i < instance->clients.size(); i++)
 	{
-		if (!strcmp(nick, instance->clients[i]->nickname)) 
+		if (!strcmp(nick, instance->clients[i]->nickname))
 		{
 			return true;
 		}
@@ -145,8 +145,6 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	Logger::log(LOG_DEBUG,"got instance in createClient()");
 
     MutexLocker scoped_lock(instance->clients_mutex);
-	bool dupeNick = Sequencer::checkNickUnique(user->username);
-	int dupecounter = 2;
 
 	// check if server is full
 	Logger::log(LOG_WARN,"searching free slot for new client...");
@@ -159,7 +157,20 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 		Messaging::sendmessage(sock, MSG2_FULL, 0, 0, 0);
 		throw std::runtime_error("Server is full");
 	}
-	
+
+	if( Config::bannedUsername( std::string( user->username ) ) )
+	{
+
+        Logger::log(LOG_WARN,"username '%s' is banned!", user->username);
+        // set a low time out because we don't want to cause a back up of
+        // connecting clients
+        sock->set_timeout( 10, 0 );
+        Messaging::sendmessage(sock, MSG2_BANNED, 0, 0, 0);
+        throw std::runtime_error("Invalid username");
+	}
+
+    bool dupeNick = Sequencer::checkNickUnique(user->username);
+    int dupecounter = 2;
 	if(dupeNick)
 	{
 		char buf[20] = "";
@@ -176,13 +187,13 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 		}
 		Logger::log(LOG_WARN,"chose alternate username: %s\n", buf);
 		strncpy(user->username, buf, 20);
-		
-		// we should send him a message about the nickchange later...
+
+		// we should send him a message about the nick change later...
 	}
-	
-	
+
+
 	client_t* to_add = new client_t;
-	
+
 	//okay, create the stuff
 	to_add->flow=false;
 	to_add->status=USED;
@@ -218,7 +229,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	to_add->uid=instance->fuid;
 	instance->fuid++;
 	to_add->sock = sock;//this won't interlock
-	
+
 	instance->clients.push_back( to_add );
 	to_add->receiver->reset(to_add->uid, sock);
 	to_add->broadcaster->reset(to_add->uid, sock,
@@ -232,7 +243,7 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 {
     STACKLOG;
 
-    Sequencer* instance = Instance(); 
+    Sequencer* instance = Instance();
 	SWBaseSocket::SWBaseError error;
 	int clientnum = getNumClients();
 	// lock this mutex after getNumClients is called to avoid a deadlock
@@ -248,10 +259,10 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 			char playerdata[1024] = "";
 			char positiondata[128] = "";
 			instance->clients[i]->position.toString(positiondata);
-			sprintf(playerdata, "%d;%s;%s;%s;%s;%s\n", i, 
-					instance->clients[i]->vehicle_name, 
+			sprintf(playerdata, "%d;%s;%s;%s;%s;%s\n", i,
+					instance->clients[i]->vehicle_name,
 					instance->clients[i]->nickname,
-					positiondata, 
+					positiondata,
 					instance->clients[i]->sock->get_peerAddr(&error).c_str(),
 					instance->clients[i]->uniqueid);
 			strcat(hearbeatdata, playerdata);
@@ -282,7 +293,7 @@ int Sequencer::authNick(std::string token, std::string &nickname)
 void Sequencer::killerthreadstart()
 {
     STACKLOG;
-    Sequencer* instance = Instance(); 
+    Sequencer* instance = Instance();
 	Logger::log(LOG_DEBUG,"Killer thread ready");
 	while (1)
 	{
@@ -293,7 +304,7 @@ void Sequencer::killerthreadstart()
 		instance->killer_mutex.lock();
 		while( instance->killqueue.empty() )
 			instance->killer_mutex.wait(instance->killer_cv);
-		
+
 		//pop the kill queue
 		client_t* to_del = instance->killqueue.front();
 		instance->killqueue.pop();
@@ -316,7 +327,7 @@ void Sequencer::killerthreadstart()
 		to_del->broadcaster = NULL;
 		to_del->receiver = NULL;
 		to_del->sock = NULL;
-		
+
 		delete to_del;
 		to_del = NULL;
 	}
@@ -325,19 +336,19 @@ void Sequencer::killerthreadstart()
 void Sequencer::disconnect(int uid, const char* errormsg)
 {
     STACKLOG;
-    Sequencer* instance = Instance(); 
-    
+    Sequencer* instance = Instance();
+
     MutexLocker scoped_lock(instance->killer_mutex);
     unsigned short pos = instance->getPosfromUid(uid);
     if( UID_NOT_FOUND == pos ) return;
-    
+
 	//this routine is a potential trouble maker as it can be called from many thread contexts
 	//so we use a killer thread
 	Logger::log(LOG_VERBOSE, "Disconnecting Slot %d: %s", pos, errormsg);
-	
+
 	client_t *c = instance->clients[pos];
 	instance->killqueue.push(c);
-	
+
 	//notify the others
 	for( unsigned int i = 0; i < instance->clients.size(); i++)
 	{
@@ -350,7 +361,7 @@ void Sequencer::disconnect(int uid, const char* errormsg)
 	}
 	instance->clients.erase( instance->clients.begin() + pos );
 	instance->killer_cv.signal();
-    
+
     printStats();
 }
 
@@ -359,11 +370,11 @@ void Sequencer::enableFlow(int uid)
 {
     STACKLOG;
     Sequencer* instance = Instance();
-    
-    MutexLocker scoped_lock(instance->clients_mutex); 
-    unsigned short pos = instance->getPosfromUid(uid);    
+
+    MutexLocker scoped_lock(instance->clients_mutex);
+    unsigned short pos = instance->getPosfromUid(uid);
     if( UID_NOT_FOUND == pos ) return;
-    
+
 	instance->clients[pos]->flow=true;
 	// now they are a bonified part of the server, show the new stats
     printStats();
@@ -400,10 +411,10 @@ int Sequencer::readFile(std::string filename, std::vector<std::string> &lines)
 		memset(line, 0, 2048);
 		fgets (line, 2048, f);
 		linecounter++;
-		
+
 		if(strnlen(line, 2048) <= 2)
 			continue;
-		
+
 		// strip line (newline char)
 		char *ptr = line;
 		while(*ptr)
@@ -426,11 +437,11 @@ void Sequencer::notifyAllVehicles(int uid)
 {
     STACKLOG;
     Sequencer* instance = Instance();
-    
-    MutexLocker scoped_lock(instance->clients_mutex); 
-    unsigned short pos = instance->getPosfromUid(uid);     
+
+    MutexLocker scoped_lock(instance->clients_mutex);
+    unsigned short pos = instance->getPosfromUid(uid);
     if( UID_NOT_FOUND == pos ) return;
-    
+
 	for (unsigned int i=0; i<instance->clients.size(); i++)
 	{
 		if (i!=pos && instance->clients[i]->status == USED &&
@@ -446,7 +457,7 @@ void Sequencer::notifyAllVehicles(int uid)
 						strlen(instance->clients[i]->nickname) + 2 )),
 					message );
 		}
-		// not possible to have flow enabled but not have a truck... disconnect 
+		// not possible to have flow enabled but not have a truck... disconnect
 		if ( !strlen(instance->clients[i]->vehicle_name) &&
 				instance->clients[i]->flow )
 		{
@@ -461,7 +472,7 @@ void Sequencer::notifyAllVehicles(int uid)
 void Sequencer::serverSay(std::string msg, int uid, int type)
 {
     STACKLOG;
-    Sequencer* instance = Instance(); 
+    Sequencer* instance = Instance();
 	if(type==0)
 		msg = std::string("SERVER: ") + msg;
 
@@ -484,15 +495,15 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
     Sequencer* instance = Instance();
 
     MutexLocker scoped_lock(instance->clients_mutex);
-    unsigned short pos = instance->getPosfromUid(uid);    
+    unsigned short pos = instance->getPosfromUid(uid);
     if( UID_NOT_FOUND == pos ) return;
-    
+
 	int publishMode=0;
 	// publishMode = 0 no broadcast
 	// publishMode = 1 broadcast to all clients
 	// publishMode = 2 broadcast to authed users (bots)
 
-	if (type==MSG2_USE_VEHICLE) 
+	if (type==MSG2_USE_VEHICLE)
 	{
 		data[len]=0;
 		strncpy(instance->clients[pos]->vehicle_name, data, 129);
@@ -503,7 +514,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		len += (int)strlen(instance->clients[pos]->nickname) + 2;
 		publishMode = 1;
 	}
-	
+
 	else if (type==MSG2_DELETE)
 	{
 		static int counter_crash=0, counter_deletes=0;
@@ -557,11 +568,11 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 				    if( UID_NOT_FOUND == pos ) {
 				    	const char *error = "no user with that ID found!";
 				    	instance->clients[pos]->broadcaster-> queueMessage(
-							0, MSG2_RCON_COMMAND_FAILED, 
+							0, MSG2_RCON_COMMAND_FAILED,
 							(int)strlen(error), error );
 				    } else {
 				    		instance->clients[pos]->broadcaster->queueMessage(
-							-1, MSG2_GAME_CMD, 
+							-1, MSG2_GAME_CMD,
 							(int)strlen(txtbuf), txtbuf);
 					}
 					return;
@@ -582,7 +593,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 				    if( UID_NOT_FOUND == pos ) {
 				    	const char *error = "no user with that ID found!";
 				    	instance->clients[pos]->broadcaster-> queueMessage(
-							0, MSG2_RCON_COMMAND_FAILED, 
+							0, MSG2_RCON_COMMAND_FAILED,
 							(int)strlen(error), error );
 				    } else {
 						instance->clients[pos]->broadcaster->queueMessage(
@@ -610,7 +621,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 				    if( UID_NOT_FOUND == pos ) {
 				    	const char *error = "no user with that ID found!";
 				    	instance->clients[pos]->broadcaster-> queueMessage(
-							0, MSG2_RCON_COMMAND_FAILED, 
+							0, MSG2_RCON_COMMAND_FAILED,
 							(int)strlen(error), error );
 				    } else {
 						instance->clients[pos]->broadcaster->queueMessage(
@@ -633,7 +644,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					char txtbuf[1024] = "";
 					memset(txtbuf, 0, 1024);
 					sprintf(txtbuf, "setoverlayelementcolor %f, %f, %f, %f, %s", r, g, b, a, oname);
-					
+
 					int pos = instance->getPosfromUid(userid);
 				    if( UID_NOT_FOUND == pos ) {
 						const char *error = "no user with that ID found!";
@@ -642,7 +653,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 								(int)strlen(error), error );
 					} else {
 						instance->clients[pos]->broadcaster->queueMessage(
-							-1, MSG2_GAME_CMD, 
+							-1, MSG2_GAME_CMD,
 							(int)strlen(txtbuf), txtbuf);
 					}
 				}
@@ -678,7 +689,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			if(!strncmp(data, "kick", 4))
 			{
 				int player = -1;
-				int res = sscanf(data, "kick %d", &player); 
+				int res = sscanf(data, "kick %d", &player);
 				if(res == 1 && player != -1 && player < (int)instance->clients.size())
 				{
 					if(instance->clients[player]->status == FREE ||
@@ -686,7 +697,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					{
 						const char *error = "cannot kick free or busy client";
 						instance->clients[pos]->broadcaster->queueMessage(
-								0, MSG2_RCON_COMMAND_FAILED, 
+								0, MSG2_RCON_COMMAND_FAILED,
 								(int)strlen(error), error );
 					} else if(instance->clients[player]->status == USED) {
 						Logger::log(LOG_WARN, "user %d kicked by user %d via rcmd",
@@ -698,15 +709,15 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 						serverSay(std::string(tmp));
 
 						instance->clients[pos]->broadcaster->queueMessage(
-								0, MSG2_RCON_COMMAND_SUCCESS, 
+								0, MSG2_RCON_COMMAND_SUCCESS,
 								(int)strlen(tmp), tmp );
-						
+
 						disconnect( instance->clients[player]->uid, "kicked" );
 					}
 				} else {
 					const char *error = "invalid client number";
 					instance->clients[pos]->broadcaster->queueMessage(
-							0, MSG2_RCON_COMMAND_FAILED, 
+							0, MSG2_RCON_COMMAND_FAILED,
 							(int)strlen(error), error );
 				}
 			}
@@ -717,7 +728,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					MSG2_RCON_COMMAND_FAILED, 0, 0 );
 			serverSay("rcon command unkown");
 		}
-		
+
 		publishMode=0;
 	}
 	else if (type==MSG2_CHAT)
@@ -755,7 +766,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 					0, MSG2_RCON_LOGIN_SUCCESS, 0, 0);
 			return;
 		}
-		
+
 		if( !Config::hasAdmin() && instance->clients[pos]->rconretries < 3)
 		{
 			char pw[255]="";
@@ -767,7 +778,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			{
 				Logger::log(LOG_WARN, "user %d logged into RCON", pos);
 				instance->clients[pos]->rconauth=1;
-				instance->clients[pos]->broadcaster->queueMessage( 
+				instance->clients[pos]->broadcaster->queueMessage(
 						0, MSG2_RCON_LOGIN_SUCCESS, 0, 0 );
 			}else
 			{
@@ -804,7 +815,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		{
 			if(i >= instance->clients.size())
 				break;
-			if (instance->clients[i]->status == USED && 
+			if (instance->clients[i]->status == USED &&
 				instance->clients[i]->flow &&
 				instance->clients[i]->uid==destuid)
 				instance->clients[i]->broadcaster->queueMessage(
@@ -812,7 +823,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		}
 		publishMode=0;
 	}
-	
+
 	if(publishMode>0)
 	{
 		if(publishMode == 1)
@@ -854,7 +865,7 @@ void Sequencer::printStats()
 		{
 			//this is glitched: the rest of the line is not cleared !!!
 			//I used to know what the problem was but I forgot it... I'll figure it out, eventually :)
-			if (clients[i].status==FREE) 
+			if (clients[i].status==FREE)
 				mvwprintw(win_slots, (i+3), 1, "%4i Free", i);
 			else if (clients[i].status==BUSY)
 				mvwprintw(win_slots, (i+3), 1, "%4i Busy %5i %-15s %.10s", i, clients[i].uid, "n/a", clients[i].nickname);
@@ -871,18 +882,18 @@ void Sequencer::printStats()
 		Logger::log(LOG_INFO, "--------------------------------------------------");
 		for (unsigned int i = 0; i < instance->clients.size(); i++)
 		{
-			if (instance->clients[i]->status == FREE) 
+			if (instance->clients[i]->status == FREE)
 				Logger::log(LOG_INFO, "%4i Free", i);
 			else if (instance->clients[i]->status == BUSY)
 				Logger::log(LOG_INFO, "%4i Busy %5i %-16s %s, %s", i,
-						instance->clients[i]->uid, "-", 
-						instance->clients[i]->nickname, 
+						instance->clients[i]->uid, "-",
+						instance->clients[i]->nickname,
 						instance->clients[i]->vehicle_name);
-			else 
-				Logger::log(LOG_INFO, "%4i Used %5i %-16s %s, %s", i, 
-						instance->clients[i]->uid, 
-						instance->clients[i]->sock->get_peerAddr(&error).c_str(), 
-						instance->clients[i]->nickname, 
+			else
+				Logger::log(LOG_INFO, "%4i Used %5i %-16s %s, %s", i,
+						instance->clients[i]->uid,
+						instance->clients[i]->sock->get_peerAddr(&error).c_str(),
+						instance->clients[i]->nickname,
 						instance->clients[i]->vehicle_name);
 		}
 		Logger::log(LOG_INFO, "--------------------------------------------------");
@@ -891,12 +902,12 @@ void Sequencer::printStats()
 		int upminutes = (timediff-(uphours*60*60))/60;
 		Logger::log(LOG_INFO, "- traffic statistics (uptime: %d hours, %d "
 				"minutes):", uphours, upminutes);
-		Logger::log(LOG_INFO, "- total: incoming: %0.2fMB , outgoing: %0.2fMB", 
-				Messaging::getBandwitdthIncoming()/1024/1024, 
+		Logger::log(LOG_INFO, "- total: incoming: %0.2fMB , outgoing: %0.2fMB",
+				Messaging::getBandwitdthIncoming()/1024/1024,
 				Messaging::getBandwidthOutgoing()/1024/1024);
 		Logger::log(LOG_INFO, "- rate (last minute): incoming: %0.1fkB/s , "
-				"outgoing: %0.1fkB/s", 
-				Messaging::getBandwitdthIncomingRate()/1024, 
+				"outgoing: %0.1fkB/s",
+				Messaging::getBandwitdthIncomingRate()/1024,
 				Messaging::getBandwidthOutgoingRate()/1024);
 	}
 }
@@ -905,14 +916,14 @@ unsigned short Sequencer::getPosfromUid(unsigned int uid)
 {
     STACKLOG;
     Sequencer* instance = Instance();
-    
+
     for (unsigned short i = 0; i < instance->clients.size(); i++)
     {
         if(instance->clients[i]->uid == uid)
             return i;
     }
-    
-    Logger::log( LOG_ERROR, "could not find uid %d", uid);    
+
+    Logger::log( LOG_ERROR, "could not find uid %d", uid);
     return UID_NOT_FOUND;
 }
 
@@ -922,3 +933,46 @@ void Sequencer::unregisterServer()
 		Instance()->notifier->unregisterServer();
 }
 
+#if 0
+class student;
+
+class base_course
+{
+public:
+    virtual bool prereqs_met( const student& student ) { return false; }
+};
+
+class student
+{
+private:
+    std::vector<base_course> taken_courses;
+public:
+    bool has_taken( const base_course& course ) const
+    {
+        bool taken = false;
+        for( unsigned int i = 0; i < taken_courses.size() && !taken; i++ )
+            taken = ( taken_courses[i] == course );
+        return taken;
+    }
+};
+
+class elementary_course: public base_course
+{
+public:
+    bool prereqs_met( const student& student ) { return true;   }
+};
+
+class complex_course : public base_course
+{
+private:
+    std::vector<base_course> required_courses;
+public:
+    bool prereqs_met( const student& student )
+    {
+        bool reqs_met = true;
+        for( unsigned int i = 0; i < required_courses.size() && reqs_met; i++ )
+            reqs_met = student.has_taken( required_courses[i] );
+        return reqs_met;
+    }
+};
+#endif

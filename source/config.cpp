@@ -10,6 +10,7 @@
 #include "sha1_util.h"
 
 #include <cmath>
+#include <fstream>
 
 #ifdef __WIN32__
 #include <windows.h>
@@ -67,7 +68,7 @@ static std::string getPublicIP()
 {
 	SWBaseSocket::SWBaseError error;
 	SWInetSocket mySocket;
-	
+
 	if( !mySocket.connect(80, REPO_SERVER, &error) )
 		return "";
 
@@ -76,16 +77,16 @@ static std::string getPublicIP()
 	Logger::log(LOG_DEBUG, "Query to get public IP: %s\n", query);
 	if( mySocket.sendmsg(query, &error) < 0 )
 		return "";
-	
+
 	std::string retval = mySocket.recvmsg(250, &error);
 	if( error != SWBaseSocket::ok )
 		return "";
 	Logger::log(LOG_DEBUG, "Response from public IP request :'%s'", retval.c_str() );
-	
+
 	HttpMsg msg( retval );
 	retval = msg.getBody();
 	//		printf("Response:'%s'\n", pubip);
-	
+
 	// disconnect
 	mySocket.disconnect();
 	return retval;
@@ -100,12 +101,12 @@ void showUsage()
 " -name <name>                 Name of the server, no spaces, only \n"
 "                              [a-z,0-9,A-Z]\n"
 " -terrain <mapname>           Map name (defaults to 'any')\n"
-"Use maxclients OR speed, not both\n"
+"                              Use maxclients OR speed, not both\n"
 " -maxclients|speed <clients>  Maximum clients allowed \n"
 " -speed <upload in kbps>      or maximum upload speed (in kilobits)\n"
 " -lan|inet                    Private or public server (defaults to inet)\n"
 "\n"
-" OPTIONAL:\n" 
+" OPTIONAL:\n"
 " -password <password>         Private server password\n"
 " -rconpassword <password>     Set admin password. This is required for RCON to\n"
 "                              work. Otherwise RCON is disabled.\n"
@@ -149,7 +150,7 @@ Config::~Config()
 bool Config::checkConfig()
 {
 	bool is_valid_config = true;
-	
+
 	switch ( getServerMode() )
 	{
 	case SERVER_AUTO:
@@ -173,19 +174,19 @@ bool Config::checkConfig()
 	        Logger::log( LOG_WARN, "no IP address has been specified, attempting to "
 	                "detect.");
 	        setIPAddr( getPublicIP() );
-	        
+
 	        if( getIPAddr().empty() )
 	            Logger::log(LOG_ERROR, "could not get public IP automatically!");
 	    }
-	    
+
 		if( getIPAddr().empty() )
 		{
-			Logger::log( LOG_ERROR, "IP adddress not specified.");
+			Logger::log( LOG_ERROR, "IP address not specified.");
 			is_valid_config = false;
 		}
 		else
 			Logger::log( LOG_INFO, "ip address: %s", getIPAddr().c_str() );
-		
+
 		if( getMaxClients() > 16 )
 		{
 			Logger::log( LOG_ERROR, "max clients is set to greater than 16,"
@@ -194,24 +195,24 @@ bool Config::checkConfig()
 		}
 		else
 			Logger::log(LOG_WARN, "app. full load traffic: %ikbit/s upload and "
-					"%ikbit/s download", 
+					"%ikbit/s download",
 					getMaxClients()*(getMaxClients()-1)*64, getMaxClients()*64);
-		
+
 		if( getServerName().empty() )
 		{
 			Logger::log( LOG_ERROR, "Server name not specified.");
 			is_valid_config = false;
 		}
 		else
-			Logger::log( LOG_INFO, "servername: %s", getServerName().c_str() );		
+			Logger::log( LOG_INFO, "servername: %s", getServerName().c_str() );
 	}
 	if( !getListenPort() )
 	{
-		Logger::log( LOG_WARN, "No port supllied, randomly generating one");
+		Logger::log( LOG_WARN, "No port supplied, randomly generating one");
 		setListenPort( getRandomPort() );
 	}
 	Logger::log( LOG_INFO, "port:       %d", getListenPort() );
-	
+
 	if( getTerrainName().empty() )
 	{
 		Logger::log( LOG_ERROR, "terrain not specified" );
@@ -219,7 +220,7 @@ bool Config::checkConfig()
 	}
 	else
 		Logger::log( LOG_INFO, "terrain:    %s", getTerrainName().c_str() );
-	
+
 	if( getMaxClients() < 2 || getMaxClients() > 64 )
 	{
 		Logger::log( LOG_ERROR, "Max clients need to 2 or more, and 64 or less." );
@@ -227,18 +228,18 @@ bool Config::checkConfig()
 	}
 	else
 		Logger::log( LOG_INFO, "maxclients: %d", getMaxClients());
-	
+
 	Logger::log( LOG_INFO, "server is%s password protected",
 			getPublicPassword().empty() ? " NOT": "" );
 
 	Logger::log( LOG_INFO, "admin password %s admin console",
-			getAdminPassword().empty() ? "not set, disabling": 
+			getAdminPassword().empty() ? "not set, disabling":
 			"is set, enabling" );
-	
+
 	return is_valid_config;
-	return getMaxClients() && getListenPort() && !getIPAddr().empty() && 
+	return getMaxClients() && getListenPort() && !getIPAddr().empty() &&
 		!getServerName().empty() &&!getTerrainName().empty();
-	
+
 }
 
 bool Config::fromArgs( int argc, char* argv[] )
@@ -247,7 +248,7 @@ bool Config::fromArgs( int argc, char* argv[] )
 	CSimpleOpt args(argc, argv, cmdline_options);
 	while (args.Next()) {
 		if (args.LastError() == SO_SUCCESS) {
-			switch( args.OptionId() ) 
+			switch( args.OptionId() )
 			{
 			case OPT_IP:
 				setIPAddr( args.OptionArg() );
@@ -288,14 +289,15 @@ bool Config::fromArgs( int argc, char* argv[] )
 			case OPT_MAXCLIENTS:
 				setMaxClients( atoi(args.OptionArg()) );
 			break;
-			
-			case OPT_HELP: 
+
+			case OPT_HELP:
 			default:
 				showUsage();
 				return false;
 			}
 		}
 	}
+	Config::loadBannedUsernames( std::string("") );
 	return true;
 }
 
@@ -310,7 +312,7 @@ unsigned int       Config::getMaxClients()     { return instance.max_clients;   
 const std::string& Config::getServerName()     { return instance.server_name;     }
 const std::string& Config::getTerrainName()    { return instance.terrain_name;    }
 const std::string& Config::getPublicPassword() { return instance.public_password; }
-const std::string& Config::getAdminPassword()  { return instance.admin_password;  } 
+const std::string& Config::getAdminPassword()  { return instance.admin_password;  }
 const std::string& Config::getIPAddr()         { return instance.ip_addr;         }
 unsigned int       Config::getListenPort()     { return instance.listen_port;     }
 ServerType         Config::getServerMode()     { return instance.server_mode;     }
@@ -318,7 +320,7 @@ ServerType         Config::getServerMode()     { return instance.server_mode;   
 
 //! setter functions
 //!@{
-bool Config::setMaxClients(unsigned int num) { 
+bool Config::setMaxClients(unsigned int num) {
 	if( num < 2 || (getServerMode() == SERVER_INET) || num > 64 ) return false;
 	instance.max_clients = num;
  	return true;
@@ -334,27 +336,27 @@ bool Config::setTerrain( const std::string& tern ) {
 	return true;
 }
 bool Config::setPublicPass( const std::string& pub_pass ) {
-	if(pub_pass.length() > 0 && pub_pass.size() < 250  &&  
+	if(pub_pass.length() > 0 && pub_pass.size() < 250  &&
 			!SHA1FromString(instance.public_password, pub_pass))
 	{
 		Logger::log(LOG_ERROR, "could not generate server SHA1 password hash!");
 		instance.public_password = "";
 		return false;
 	}
-	Logger::log(LOG_DEBUG,"sha1(%s) = %s", pub_pass.c_str(), 
+	Logger::log(LOG_DEBUG,"sha1(%s) = %s", pub_pass.c_str(),
 			instance.public_password.c_str());
 	return true;
 }
 
 bool Config::setAdminPass( const std::string& admin_pass ) {
-	if(admin_pass.length() > 0 && admin_pass.length() < 250  &&  
+	if(admin_pass.length() > 0 && admin_pass.length() < 250  &&
 			!SHA1FromString(instance.admin_password, admin_pass))
 	{
 		Logger::log(LOG_ERROR, "could not generate server SHA1 password hash!");
 		instance.admin_password = "";
 		return false;
 	}
-	Logger::log(LOG_DEBUG,"sha1(%s) = %s", admin_pass.c_str(), 
+	Logger::log(LOG_DEBUG,"sha1(%s) = %s", admin_pass.c_str(),
 			instance.admin_password.c_str());
 	return true;
 }
@@ -375,3 +377,70 @@ bool Config::setServerMode( ServerType mode) {
 	return true;
 }
 //!@}
+
+
+bool Config::bannedUsername( const std::string& name ) {
+    return bannedRegex( name, instance.bannedNames );
+}
+bool Config::bannedTruck( const std::string& truck_file ) {
+    return bannedRegex( truck_file, instance.bannedTrucks );
+}
+bool Config::bannedIP( const std::string& ip_addr ) {
+    return bannedRegex( ip_addr, instance.bannedIPs );
+}
+
+void Config::loadBannedUsernames( const std::string& filename ) {
+    loadRegexFromFile( filename, instance.bannedNames );
+}
+void Config::loadBannedTrucks( const std::string& filename ) {
+    loadRegexFromFile( filename, instance.bannedTrucks );
+}
+void Config::loadBannedIPaddr( const std::string& filename ) {
+    loadRegexFromFile( filename, instance.bannedIPs );
+}
+
+
+bool Config::bannedRegex( const std::string& checkVal,
+        const std::vector<boost::regex>& regexs)
+{
+    bool match = false;
+    Logger::log( LOG_INFO,"checking %s against %d regular expressions",
+            checkVal.c_str(), regexs.size() );
+    for( std::vector<boost::regex>::const_iterator
+            current( regexs.begin() ), end( regexs.end() );
+        (current != end) && !match; current++ )
+    {
+        match = regex_match( checkVal, *current );
+    }
+    return match;
+}
+
+
+void Config::loadRegexFromFile(  const std::string& filename,
+        std::vector<boost::regex>& regexs)
+{
+#ifdef BANNING_TEST
+    if( filename.empty() )
+    {
+        regexs.push_back( boost::regex(".*") ); // block everything as a test
+        Logger::log( LOG_INFO, "no valid names provided, allowing all" );
+        return;
+    }
+#undef BANNING_TEST
+#endif
+
+    std::ifstream file( filename.c_str() );
+    std::string expression;
+    if( file.is_open() )
+    {
+        while ( !file.eof() )
+        {
+            getline( file,expression );
+            Logger::log( LOG_INFO, "got valid regular expression: %s",
+                    expression.c_str() );
+
+            regexs.push_back( boost::regex( expression ) );
+        }
+        file.close();
+    }
+}

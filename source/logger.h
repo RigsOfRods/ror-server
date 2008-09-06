@@ -1,7 +1,7 @@
 /**
  * Logger Class Header file
  * @file logger.h
- * @author Christopher Ritchey (aka Aperion) 
+ * @author Christopher Ritchey (aka Aperion)
  * A simple Logger with different logging levels. As well as an easy to use
  * stack log
  */
@@ -37,16 +37,16 @@ public:
 
 	static void log(const LogLevel& level, const char* format, ...);
 	static void log(const LogLevel& level, const std::string& msg);
-	
+
 	static void setOutputFile(const std::string& filename);
 	static void setLogLevel(const LogType type, const LogLevel level);
-	//! sets the level at which manual file flushing occurs flushing at the 
+	//! sets the level at which manual file flushing occurs flushing at the
 	//! stack level is a heavy hit on performance with only 2 clients connected
 	//! This prevents any messages below the specified level triggering manual
 	//! flushing.
 	//! if set to LOG_ERROR then flushing occurs only when an error is logged
 	static void setFlushLevel(const LogLevel level );
-	
+
 private:
 	Logger();
 	Logger instance();
@@ -71,7 +71,7 @@ private:
 
 
 // macros for crossplatform compiling
-#ifndef __GNUC__
+#ifndef __PRETTY_FUNCTION__
 	#define __PRETTY_FUNCTION__ __FUNCTION__
 #endif
 

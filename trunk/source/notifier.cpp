@@ -36,7 +36,7 @@ Notifier::Notifier() : exit(false), wasregistered( false ), error_count( 0 )
 {
     STACKLOG;
 	memset( &httpresp, 0, 65536);
-	memset( &challenge, 0, 256); 
+	memset( &challenge, 0, 256);
 	trustlevel=0;
 
 	advertised = registerServer();
@@ -57,19 +57,19 @@ bool Notifier::registerServer()
 	char regurl[1024];
 	int responseformat = 2;
 	sprintf(regurl, "%s/register/?name=%s&description=%s&ip=%s&port=%i&"
-			"terrainname=%s&maxclients=%i&version=%s&pw=%d&rcon=%d&format=%d", 
+			"terrainname=%s&maxclients=%i&version=%s&pw=%d&rcon=%d&format=%d",
 		REPO_URLPREFIX,
-		Config::getServerName().c_str(),
+		Config::ServerName().c_str(),
 		"",
-		Config::getIPAddr().c_str(), 
-		Config::getListenPort(),
-		Config::getTerrainName().c_str(),
-		Config::getMaxClients(),
+		Config::IPAddr().c_str(),
+		Config::ListenPort(),
+		Config::TerrainName().c_str(),
+		Config::MaxClients(),
 		RORNET_VERSION,
 		Config::isPublic(),
 		Config::hasAdmin(),
 		responseformat);
-	
+
 	// format = 2 will result in different response on registration format.
 	Logger::log(LOG_INFO, "Trying to register at Master Server ... (this can take some "
 			"seconds as your server is being checked by the Master server)");
@@ -92,7 +92,7 @@ bool Notifier::registerServer()
 		else
 		{
 			Logger::log(LOG_DEBUG, "got that as registration response: %s", body.c_str());
-			
+
 			memset(&challenge, 0, 40);
 			strncpy( challenge, body.c_str(), 40 );
 			Logger::log(LOG_INFO,"Server is registered at the Master server.");
@@ -109,12 +109,12 @@ bool Notifier::registerServer()
 			wasregistered=false;
 			return false;
 		}
-		
+
 		// zero line = response to registration, 'ok' or 'error'
 		std::string status_short = lines[0];
 		// status message - an error message
 		std::string status_long = lines[1];
-	
+
 		if(status_short == "ok")
 		{
 		}else if(status_short == "error")
@@ -132,7 +132,7 @@ bool Notifier::registerServer()
 
 		Logger::log(LOG_DEBUG, "%s: %s", status_short.c_str(), status_long.c_str());
 		Logger::log(LOG_DEBUG, "this server got trustlevel %d", trustlevel);
-		
+
 		//copy data
 		memset(&challenge, 0, 40);
 		strncpy( challenge, challenge_response.c_str(), 40 );
@@ -169,20 +169,20 @@ bool Notifier::sendHearbeat()
 	Logger::log(LOG_DEBUG, "heartbeat data (%d bytes long) sent to master server: >>%s<<", strnlen(hearbeatdata, 16384), hearbeatdata);
 	if (HTTPPOST(hearbeaturl, hearbeatdata) < 0)
 		return false;
-	// the server gives back "failed" or "ok"	
+	// the server gives back "failed" or "ok"
 	return getResponse() == "ok";
 }
 
 void Notifier::loop()
 {
     STACKLOG;
-	
-	if (!advertised && Config::getServerMode() == SERVER_AUTO)
+
+	if (!advertised && Config::ServerMode() == SERVER_AUTO)
 	{
 		Logger::log(LOG_WARN, "using LAN mode, probably no internet users will "
 				"be able to join your server!");
 	}
-	else if (!advertised && Config::getServerMode() == SERVER_INET)
+	else if (!advertised && Config::ServerMode() == SERVER_INET)
 	{
 		Logger::log(LOG_ERROR, "registration failed, exiting!");
 		return;
@@ -205,11 +205,11 @@ void Notifier::loop()
 		if(advertised)
 		{
 			bool result = sendHearbeat();
-			if (result) error_count=0;
-			if(!result && Config::getServerMode() == SERVER_INET)
+			if (result) error_count = 0;
+			if(!result && Config::ServerMode() == SERVER_INET)
 			{
 				error_count++;
-				if (error_count==5) 
+				if (error_count==5)
 				{
 					Logger::log(LOG_ERROR,"heartbeat failed, exiting!");
 					break;
@@ -218,7 +218,7 @@ void Notifier::loop()
 				{
 					Logger::log(LOG_WARN,"heartbeat failed, will try again");
 				}
-			}else if(!result && Config::getServerMode() != SERVER_INET)
+			}else if(!result && Config::ServerMode() != SERVER_INET)
 				Logger::log(LOG_ERROR,"heartbeat failed!");
 		}
 	}
@@ -296,8 +296,8 @@ int Notifier::HTTPPOST(const char* URL, const char* data)
 			res=-1;
 		}
 		int rlen=mySocket.recv(httpresp, 65536, &error);
-		
-		
+
+
 		if (rlen>0 && rlen<65535) httpresp[rlen]=0;
 		else
 		{
@@ -315,7 +315,7 @@ int Notifier::HTTPPOST(const char* URL, const char* data)
 			Logger::log(LOG_ERROR, e.what() );
 			res = -1;
 		}
-		
+
 		// disconnect
 		mySocket.disconnect();
 	}

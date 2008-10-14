@@ -24,9 +24,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 void *s_brthreadstart(void* vid)
 {
     STACKLOG;
-    Broadcaster* instance = ((Broadcaster*)vid); 
+    Broadcaster* instance = ((Broadcaster*)vid);
     instance->threadstart();
-    
+
     // check if are expecting to exit, if not running will still be true
     // if so wait for the join request
     if( instance->running )
@@ -35,7 +35,7 @@ void *s_brthreadstart(void* vid)
         instance->running = false;
         instance->queue_mutex.wait( instance->queue_cv );
     }
-#ifdef __GNUC__
+#ifndef __WIN32__
     Logger::log( LOG_DEBUG, "broadcaster thread %u:%u is exiting",
 		(unsigned int) pthread_self(), ThreadID::getID() );
 #else
@@ -60,7 +60,7 @@ void Broadcaster::reset(int uid, SWInetSocket *socky,
 		int (*sendmessage_func)(SWInetSocket*, int, int,
 				unsigned int, const char*) )
 {
-    STACKLOG;	
+    STACKLOG;
 	id          = uid;
 	sock        = socky;
 	running     = true;
@@ -82,12 +82,12 @@ void Broadcaster::stop()
 	running = false;
 	queue_cv.signal();
 	queue_mutex.unlock();
-#ifdef __GNUC__
+#ifndef __GNUC__
     Logger::log( LOG_DEBUG, "joining with broadcaster thread: %u",
             (unsigned int) thread);
 #else
     Logger::log( LOG_DEBUG, "joining with broadcaster thread: %u",
-            (unsigned int) &thread);
+            (unsigned int) &thread.p);
 #endif
 	pthread_join( thread, NULL );
 }
@@ -105,12 +105,12 @@ void Broadcaster::threadstart()
 				queue_mutex.wait( queue_cv );
 			}
 			if( !running ) return;
-			
+
 			//pop stuff
 			msg = msg_queue.front();
 			msg_queue.pop();
 		}   // unlock the mutex
-		
+
 		//Send message
 		// TODO WARNING THE SOCKET IS NOT PROTECTED!!!
 		if( sendmessage( sock, msg.type, msg.uid, msg.datalen, msg.data ) )
@@ -138,5 +138,5 @@ void Broadcaster::queueMessage(int uid, int type, unsigned int len, const char* 
 	msg_queue.push( msg );
 	//signal the thread that new data is waiting to be sent
 	queue_cv.signal();
-	
+
 }

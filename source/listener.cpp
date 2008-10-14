@@ -111,8 +111,8 @@ void Listener::threadstart()
 			Logger::log(LOG_DEBUG,"Listener sending terrain");
 			//send the terrain information back
 			if( Messaging::sendmessage( ts, MSG2_TERRAIN_RESP, 0,
-					(unsigned int) Config::getTerrainName().length(),
-					Config::getTerrainName().c_str() ) )
+					(unsigned int) Config::TerrainName().length(),
+					Config::TerrainName().c_str() ) )
 				throw std::runtime_error("ERROR Listener: sending terrain");
 	
 			// original code was source  = 5000 should it be left like this
@@ -156,9 +156,9 @@ void Listener::threadstart()
 			if( Config::isPublic() )
 			{
 				Logger::log(LOG_DEBUG,"password login: %s == %s?",
-						Config::getPublicPassword().c_str(),
+						Config::PublicPassword().c_str(),
 						user->password);
-				if(strncmp(Config::getPublicPassword().c_str(), user->password, 40))
+				if(strncmp(Config::PublicPassword().c_str(), user->password, 40))
 				{
 					Messaging::sendmessage(ts, MSG2_WRONG_PW, 0, 0, 0);
 					throw std::runtime_error( "ERROR Listener: wrong password" );

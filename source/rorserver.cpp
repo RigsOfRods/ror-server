@@ -51,7 +51,7 @@ void handler(int signal)
 		Logger::log(LOG_ERROR,"got unkown signal: %d", signal);
 	}
 
-	if(Config::getServerMode() == SERVER_LAN)
+	if(Config::ServerMode() == SERVER_LAN)
 	{
 		Logger::log(LOG_ERROR,"closing server ... ");
 		Sequencer::cleanUp();
@@ -96,7 +96,7 @@ int main(int argc, char* argv[])
 
 	// start the main program loop
     // if we need to communiate to the master user the notifier routine 
-	if(Config::getServerMode() != SERVER_LAN )
+	if(Config::ServerMode() != SERVER_LAN )
 	{
 		//the main thread is used by the notifier
 	    //this should not return untill the server shuts down

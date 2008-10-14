@@ -73,12 +73,12 @@ void Sequencer::initilize()
     STACKLOG;
 
     Sequencer* instance  = Instance();
-	instance->clients.reserve( Config::getMaxClients() );
-	instance->listener = new Listener(Config::getListenPort());
+	instance->clients.reserve( Config::MaxClients() );
+	instance->listener = new Listener(Config::ListenPort());
 
 	pthread_create(&instance->killerthread, NULL, s_klthreadstart, &instance);
 
-	if( Config::getServerMode() != SERVER_LAN )
+	if( Config::ServerMode() != SERVER_LAN )
 	{
 		instance->notifier = new Notifier();
 
@@ -148,7 +148,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 
 	// check if server is full
 	Logger::log(LOG_WARN,"searching free slot for new client...");
-	if( instance->clients.size() >= Config::getMaxClients() )
+	if( instance->clients.size() >= Config::MaxClients() )
 	{
 		Logger::log(LOG_WARN,"join request from '%s' on full server: rejecting!", user->username);
 		// set a low time out because we don't want to cause a back up of
@@ -773,8 +773,8 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			strncpy(pw, data, 255);
 			pw[len]=0;
 			Logger::log(LOG_DEBUG, "user %d  tries to log into RCON: server: "
-					"%s, his: %s", pos, Config::getAdminPassword().c_str(), pw);
-			if( strnlen(pw, 250) > 20 && Config::getAdminPassword() != pw)
+					"%s, his: %s", pos, Config::AdminPassword().c_str(), pw);
+			if( strnlen(pw, 250) > 20 && Config::AdminPassword() != pw)
 			{
 				Logger::log(LOG_WARN, "user %d logged into RCON", pos);
 				instance->clients[pos]->rconauth=1;

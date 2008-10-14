@@ -26,12 +26,12 @@ void *s_lithreadstart(void* vid)
 {
     STACKLOG;
 	((Receiver*)vid)->threadstart();
-#ifdef __GNUC__
+#ifndef __GNUC__
 	Logger::log( LOG_DEBUG, "Receiver thread %u:%u is exiting",
 	        (unsigned int) pthread_self(), ThreadID::getID() );
 #else
     Logger::log( LOG_DEBUG, "Receiver thread %u:%u is exiting",
-            (unsigned int) pthread_self().p, ThreadID::getID() );
+            (unsigned int) &pthread_self().p, ThreadID::getID() );
 #endif
 	return NULL;
 }
@@ -54,7 +54,7 @@ void Receiver::reset(int pos, SWInetSocket *socky)
 	id    = pos;
 	sock  = socky;
 	running = true;
-	
+
 	//start a listener thread
 	pthread_create(&thread, NULL, s_lithreadstart, this);
 }
@@ -63,7 +63,7 @@ void Receiver::stop()
 {
     STACKLOG;
     running = false;
-#ifdef __GNUC__
+#ifndef __GNUC__
     Logger::log( LOG_DEBUG, "joining with receiver thread: %u",
             (unsigned int) thread);
 #else
@@ -81,20 +81,20 @@ void Receiver::threadstart()
 	int type;
 	int source;
 	unsigned int len;
-	
+
 	Logger::log(LOG_VERBOSE,"Sending welcome message to uid %i", id);
 	if( Messaging::sendmessage(sock, MSG2_WELCOME, id, 0, 0) )
 	{
 		Sequencer::disconnect( id, "error sending welcome message" );
 		return;
 	}
-	
+
 	//security fix: we limit the size of the vehicle name to 128 characters <- from Luigi Auriemma
 	if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, 128)) {
 		Sequencer::disconnect(id, "Messaging abuse 1");
 		return;
 	}
-	
+
 	if (type!=MSG2_USE_VEHICLE) {
 		Sequencer::disconnect(id, "Protocol error 1");
 		return;
@@ -103,18 +103,18 @@ void Receiver::threadstart()
 	dbuffer[len]=0;
 	//we queue the use vehicle message for others
 	Sequencer::queueMessage(id, type, dbuffer, len);
-	
+
 	//get the buffer size, not really usefull but a good way to detect errors
 	if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, 4)) {
-		Sequencer::disconnect(id, "Messaging abuse 2"); 
+		Sequencer::disconnect(id, "Messaging abuse 2");
 		return;
 	}
-	
+
 	if (type!=MSG2_BUFFER_SIZE) {
 		Sequencer::disconnect(id, "Protocol error 2");
 		return;
 	}
-	
+
 	unsigned int buffersize=*((unsigned int*)dbuffer);
 	if (buffersize>MAX_MESSAGE_LENGTH) {
 		Sequencer::disconnect(id, "Memory error from client");
@@ -122,28 +122,28 @@ void Receiver::threadstart()
 	}
 	//notify the client of all pre-existing vehicles
 	Sequencer::notifyAllVehicles(id);
-	
+
 	//okay, we are ready, we can receive data frames
 	Sequencer::enableFlow(id);
 
 	//send motd
 	Sequencer::sendMOTD(id);
-	
+
 	Logger::log(LOG_VERBOSE,"UID %d is switching to FLOW", id);
-	
+
 	// this prevents the socket from hangingwhen sending data
 	// which is the cause of threads getting blocked
 	sock->set_timeout(60, 0);
 	while( running )
 	{
-		//	hmm for some reason this fails, 
+		//	hmm for some reason this fails,
 		if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, MAX_MESSAGE_LENGTH)) {
 			Sequencer::disconnect(id, "Game connection closed");
 			break;
 		}
 		if( !running ) break;
-		
-		if (type!=MSG2_VEHICLE_DATA && 
+
+		if (type!=MSG2_VEHICLE_DATA &&
 				type!=MSG2_CHAT &&
 				type!=MSG2_FORCE &&
 				type!=MSG2_PRIVCHAT &&

@@ -82,7 +82,7 @@ void Broadcaster::stop()
 	running = false;
 	queue_cv.signal();
 	queue_mutex.unlock();
-#ifndef __GNUC__
+#ifndef __WIN32__
     Logger::log( LOG_DEBUG, "joining with broadcaster thread: %u",
             (unsigned int) thread);
 #else

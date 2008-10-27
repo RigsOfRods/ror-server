@@ -52,6 +52,10 @@ class SWInetSocket;
 #define USED 2
 
 #define SEQUENCER Sequencer::Instance()
+#define MAX_USERNAME_LEN 20
+
+#define _QUOTEME(x) #x
+#define QUOTEME(x) _QUOTEME(x)
 
 
 #define VERSION "$Rev$"
@@ -67,13 +71,15 @@ struct client_t
     bool flow;                  //!< flag to see if the client should be sent
                                 //!< data?
     char vehicle_name[140];     //!< name of the vehicle
-    char nickname[32];          //!< Username, this is what they are called to
+    char nickname[MAX_USERNAME_LEN + 1]; //!< Username, this is what they are called to
                                 //!< other players
     unsigned int uid;           //!< userid
     Vector3 position;           //!< position on the map?
     char uniqueid[60];          //!< users unique id
     int rconretries;            //!< rcon password retries
     int rconauth;               //!< rcon authenticated mode
+
+    std::vector<unsigned int> ignore_list; //!< list of uids this client wishes to ignore
 };
 
 class Sequencer
@@ -83,17 +89,19 @@ private:
     Condition killer_cv;    //!< wait condition that there are clients to kill
     Mutex killer_mutex;     //!< mutex used for locking access to the killqueue
     Mutex clients_mutex;    //!< mutex used for locking access to the clients array
-    
+
     Listener* listener;     //!< listens for incoming connections
     Notifier* notifier;     //!< registers and handles the master server
 	UserAuth* authresolver; //!< authenticates users
-    std::vector<client_t*> clients; //!< clients is a list of all the available 
+    std::vector<client_t*> clients; //!< clients is a list of all the available
                             //!< client connections, it is allocated
     unsigned int fuid;      //!< next userid
     std::queue<client_t*> killqueue; //!< holds pointer for client deletion
-    
+
     int startTime;
     unsigned short getPosfromUid(unsigned int uid);
+    unsigned short getPosfromName( const std::string& name );
+    bool ignores( const client_t* ignorer, const client_t* ignoree);
 
 protected:
     Sequencer();
@@ -101,38 +109,60 @@ protected:
     //! method to access the singleton instance
     static Sequencer* Instance();
     static Sequencer* mInstance;
-	
-	
+
+
 	static int readFile(std::string filename, std::vector<std::string> &lines); //!< reads lines of a file
-    
+
 public:
     //!    initilize theSequencers information
     static void initilize();
-    
+
     //! destructor call, used for clean up
     static void cleanUp();
-    
+
     //! initilize client information
     static void createClient(SWInetSocket *sock, user_credentials_t *user);
-    
+
     //! call to start the thread to disconnect clients from the server.
     static void killerthreadstart();
-    
-    //! queue client for disconenct
-    static void disconnect(int pos, const char* error);
-    static void queueMessage(int pos, int type, char* data, unsigned int len);
-    static void enableFlow(int id);
+
+    /** queue client for disconenct
+     * @param uid of the user to disconnect
+     * @param error reason for disconnect
+     */
+    static void disconnect(int uid, const char* error);
+
+    /** processes a message and if appropriate places in the queue of the
+     * receiving client
+     *  @param uid  uid of the client that sent this message
+     *  @param type what kind of message have we received
+     *  @param data payload received from client
+     *  @param len  amount of data sent, this is how many bytes data contains
+     */
+    static void queueMessage(int uid, int type, char* data, unsigned int len);
+
+    static void processChatCmd( unsigned int sender_uid, const std::string& msg );
+
+    //! signals a client is ready to receive truck information
+    static void enableFlow(int uid);
     static int sendMOTD(int id);
-    
+
     static void notifyRoutine();
     static void notifyAllVehicles(int id);
-    
-    static int getNumClients(); //! number of clients connected to this server
+
+    static int getNumClients(); //!< number of clients connected to this server
     static int getHeartbeatData(char *challenge, char *hearbeatdata);
     //! prints the Stats view, of who is connected and what slot they are in
     static void printStats();
-    static void serverSay(std::string msg, int notto=-1, int type=0);
-	
+
+    /** sends a chat message to all clients
+     *  @param msg text to send to client(s)
+     *  @param uid send to the specified uid, if value is 0 the message is sent
+     *              to all connected clients
+     *  @param type 0 - attaches "SERVER: " to the beginning of the message
+     */
+    static void serverSay(std::string msg, unsigned int uid = 0, int type = 0);
+
 	static bool checkNickUnique(char *nick);
 	static int authNick(std::string token, std::string &nickname);
 

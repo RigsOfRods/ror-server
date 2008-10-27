@@ -26,7 +26,7 @@ void *s_lithreadstart(void* vid)
 {
     STACKLOG;
 	((Receiver*)vid)->threadstart();
-#ifndef __GNUC__
+#ifndef __WIN32__
 	Logger::log( LOG_DEBUG, "Receiver thread %u:%u is exiting",
 	        (unsigned int) pthread_self(), ThreadID::getID() );
 #else
@@ -63,7 +63,7 @@ void Receiver::stop()
 {
     STACKLOG;
     running = false;
-#ifndef __GNUC__
+#ifndef __WIN32__
     Logger::log( LOG_DEBUG, "joining with receiver thread: %u",
             (unsigned int) thread);
 #else

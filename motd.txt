@@ -1,4 +1,6 @@
 === NOTICE ===
 This is a development server.
 It can reboot without further notice.
+To ignore people type !ignore <username>
+To unignore type !ignore <username> 
 ==============

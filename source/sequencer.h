@@ -35,11 +35,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <queue>
 #include <vector>
 
-
-#ifdef NCURSES
-#include "curses.h"
-#endif
-
 class Broadcaster;
 class Receiver;
 class Listener;

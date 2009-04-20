@@ -206,11 +206,4 @@ typedef struct
 //used by configurator
 #define REPO_HTML_SERVERLIST "http://api.rigsofrods.com/serverlist/"
 
-//debugging
-//#define REFLECT_DEBUG 
-
-// strnlen is nto a std function, this macro can be used in place.
-#ifdef NO_STRNLEN
-#define strnlen(a, b) strlen(a)
-#endif
 #endif

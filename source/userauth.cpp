@@ -99,7 +99,6 @@ int UserAuth::getUserModeByUserToken(std::string token)
 }
 
 int UserAuth::resolve(std::string user_token, std::string &user_nick)
-#ifdef UTOKEN
 {
     STACKLOG;
 
@@ -128,13 +127,9 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 	cache[user_token] = body;
 	user_nick=body;
 
-	return 0;
+	// default = -2
+	return -2;
 }
-#else
-{
-    return -2;
-}
-#endif
 
 int UserAuth::HTTPGET(const char* URL, HttpMsg &resp)
 {

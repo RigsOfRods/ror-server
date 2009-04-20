@@ -13,6 +13,4 @@ ELSEIF(UNIX)
 ELSEIF(APPLE)
 ENDIF(WIN32)
 
-install(TARGETS socketw
-      RUNTIME DESTINATION ${rorserver_SOURCE_DIR}/bin
-      LIBRARY DESTINATION ${rorserver_SOURCE_DIR}/bin)
+install(TARGETS socketw DESTINATION ${rorserver_SOURCE_DIR}/bin)

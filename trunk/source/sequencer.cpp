@@ -845,25 +845,6 @@ void Sequencer::printStats()
     STACKLOG;
     Sequencer* instance = Instance();
 	SWBaseSocket::SWBaseError error;
-#ifdef NCURSES
-	if(instance->guimode)
-	{
-		mvwprintw(win_slots, 1, 1, "Slot Status UID IP              Nickname");
-		mvwprintw(win_slots, 2, 1, "------------------------------------------");
-		for (int i=0; i<clients.size(); i++)
-		{
-			//this is glitched: the rest of the line is not cleared !!!
-			//I used to know what the problem was but I forgot it... I'll figure it out, eventually :)
-			if (clients[i].status==FREE) 
-				mvwprintw(win_slots, (i+3), 1, "%4i Free", i);
-			else if (clients[i].status==BUSY)
-				mvwprintw(win_slots, (i+3), 1, "%4i Busy %5i %-15s %.10s", i, clients[i].uid, "n/a", clients[i].nickname);
-			else if (clients[i].status==USED)
-				mvwprintw(win_slots, (i+3), 1, "%4i Used %5i %-15s %.10s", i, clients[i].uid, clients[i].sock->get_peerAddr(&error).c_str(), clients[i].nickname);
-		}
-		wrefresh(win_slots);
-	} else
-#endif
 	{
 		Logger::log(LOG_INFO, "Server occupancy:");
 

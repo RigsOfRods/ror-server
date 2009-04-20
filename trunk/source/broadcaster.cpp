@@ -35,7 +35,7 @@ void *s_brthreadstart(void* vid)
         instance->running = false;
         instance->queue_mutex.wait( instance->queue_cv );
     }
-#ifdef __WIN32__
+#ifdef WIN32
     Logger::log( LOG_DEBUG, "broadcaster thread %u:%u is exiting",
 		(unsigned int) &pthread_self().p, ThreadID::getID() );
 #endif
@@ -79,7 +79,7 @@ void Broadcaster::stop()
 	running = false;
 	queue_cv.signal();
 	queue_mutex.unlock();
-#ifdef __WIN32__
+#ifdef WIN32
     Logger::log( LOG_DEBUG, "joining with broadcaster thread: %u",
             (unsigned int) &thread.p);
 #endif

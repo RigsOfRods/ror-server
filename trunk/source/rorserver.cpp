@@ -32,7 +32,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <csignal>
 #include <stdexcept>
 
-#ifdef __WIN32__
+#ifdef WIN32
 #include "windows.h"
 #endif
 
@@ -108,7 +108,7 @@ int main(int argc, char* argv[])
 		//or by some stupid sleep method in LAN mode
 		while (true)
 		{
-#ifndef __WIN32__
+#ifndef WIN32
 			sleep(60);
 #else
 			Sleep(60*1000);

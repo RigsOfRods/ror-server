@@ -81,7 +81,7 @@ int main(int argc, char* argv[])
 		return 1;
 	
 	
-	if(!sha1check() || sha1_self_test(1))
+	if(!sha1check())
 	{
 		Logger::log(LOG_ERROR,"sha1 malfunction!");
 		exit(-123);

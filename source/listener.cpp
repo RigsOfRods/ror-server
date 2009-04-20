@@ -55,7 +55,7 @@ void Listener::threadstart()
 	//here we start
 	SWInetSocket listSocket;
 	SWBaseSocket::SWBaseError error;
-
+	
 	//manage the listening socket
 	listSocket.bind(lport, &error);
 	if (error!=SWBaseSocket::ok)
@@ -66,51 +66,42 @@ void Listener::threadstart()
 		exit(1);
 	}
 	listSocket.listen();
-
+	
 	//await connections
 	Logger::log(LOG_VERBOSE,"Listener ready");
 	while (1)
 	{
 		Logger::log(LOG_VERBOSE,"Listener awaiting connections");
 		SWInetSocket *ts=(SWInetSocket *)listSocket.accept(&error);
-
-		if (error!=SWBaseSocket::ok)
+		
+		if (error!=SWBaseSocket::ok) 
 		{
 			Logger::log(LOG_ERROR,"ERROR Listener: %s", error.get_error().c_str());
 			continue;
 		}
 
-
+		
 		Logger::log(LOG_VERBOSE,"Listener got a new connection");
 #ifndef NOTIMEOUT
 		ts->set_timeout(600, 0);
 #endif
+		
 		//receive a magic
 		int type;
 		int source;
 		unsigned int len;
 		char buffer[256];
-
+		
 		try
 		{
-	        if( Config::bannedIP( ts->get_peerAddr(&error) ) )
-	        {
-	            Logger::log(LOG_WARN,"IP '%s' is banned!", ts->get_peerAddr(&error).c_str() );
-                // set a low time out because we don't want to cause a back up of
-                // connecting clients
-	            ts->set_timeout( 10, 0 );
-	            Messaging::sendmessage(ts, MSG2_BANNED, 0, 0, 0);
-	            throw std::runtime_error( "banned IP address" );
-	        }
-
 			// this is the start of it all, it all starts with a simple hello
 			if (Messaging::receivemessage(ts, &type, &source, &len, buffer, 256))
 				throw std::runtime_error("ERROR Listener: receiving first message");
-
+			
 			// make sure our first message is a hello message
 			if (type != MSG2_HELLO)
 				throw std::runtime_error("ERROR Listener: protocol error");
-
+			
 			// send client the which version of rornet the server is running
 			Logger::log(LOG_DEBUG,"Listener sending version");
 			if (Messaging::sendmessage(ts, MSG2_VERSION, 0,
@@ -120,10 +111,10 @@ void Listener::threadstart()
 			Logger::log(LOG_DEBUG,"Listener sending terrain");
 			//send the terrain information back
 			if( Messaging::sendmessage( ts, MSG2_TERRAIN_RESP, 0,
-					(unsigned int) Config::TerrainName().length(),
-					Config::TerrainName().c_str() ) )
+					(unsigned int) Config::getTerrainName().length(),
+					Config::getTerrainName().c_str() ) )
 				throw std::runtime_error("ERROR Listener: sending terrain");
-
+	
 			// original code was source  = 5000 should it be left like this
 			// or was the intention source == 5000?
 			if( source == 5000 && (std::string(buffer) == "MasterServ") )
@@ -134,7 +125,7 @@ void Listener::threadstart()
 
 			if(strncmp(buffer, RORNET_VERSION, strlen(RORNET_VERSION)) && source != 5000) // source 5000 = master server (harcoded)
 				throw std::runtime_error("ERROR Listener: bad version: "+std::string(buffer));
-
+			
 			//receive user name
 			if (Messaging::receivemessage(ts, &type, &source, &len, buffer, 256))
 			{
@@ -144,15 +135,15 @@ void Listener::threadstart()
 					<< type;
 				throw std::runtime_error(error_msg.str());
 			}
-
+			
 			if (type != MSG2_USER_CREDENTIALS)
 				throw std::runtime_error("Warning Listener: no user name");
-
+			
 			if (len > sizeof(user_credentials_t))
 				throw std::runtime_error( "Error: did not receive proper user "
 						"credentials" );
 			Logger::log(LOG_INFO,"Listener creating a new client...");
-
+			
 			user_credentials_t *user = (user_credentials_t *)buffer;
 			std::string nickname = std::string(user->username);
 			int res = Sequencer::authNick(std::string(user->uniqueid), nickname);
@@ -165,14 +156,14 @@ void Listener::threadstart()
 			if( Config::isPublic() )
 			{
 				Logger::log(LOG_DEBUG,"password login: %s == %s?",
-						Config::PublicPassword().c_str(),
+						Config::getPublicPassword().c_str(),
 						user->password);
-				if(strncmp(Config::PublicPassword().c_str(), user->password, 40))
+				if(strncmp(Config::getPublicPassword().c_str(), user->password, 40))
 				{
 					Messaging::sendmessage(ts, MSG2_WRONG_PW, 0, 0, 0);
 					throw std::runtime_error( "ERROR Listener: wrong password" );
 				}
-
+				
 				Logger::log(LOG_DEBUG,"user used the correct password, "
 						"creating client!");
 			} else {

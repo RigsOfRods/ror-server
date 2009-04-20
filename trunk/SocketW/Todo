@@ -1,5 +1,0 @@
--Implement a buffering class that handles data transfers.
-
--Perhaps implement a class wrapping select().
-
--Provide protocol classes for FTP and HTTP.

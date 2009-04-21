@@ -103,11 +103,11 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
     STACKLOG;
 
 	//check cache first
-	if(cache[user_token] != "")
+	if(cache.find(user_token) != cache.end())
 	{
 		// cache hit!
-		user_nick=cache[user_token];
-		return 0;
+		user_nick = cache[user_token].second;
+		return cache[user_token].first;
 	}
 
 	// not found in cache, get auth
@@ -117,20 +117,32 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 	if (HTTPGET(url, resp) < 0)
 		return -1;
 
+	char nickname[40] = "";
+	int authlevel = AUTH_NONE;
 	std::string body = resp.getBody();
-	if(body == "error")
-		return -1;
+	Logger::log(LOG_DEBUG,"UserAuth reply: " + body);
+	int res = sscanf(body.c_str(), "%d %s", &authlevel, nickname);
+	if(res != 2)
+	{
+		Logger::log(LOG_INFO,"UserAuth: invalid return value from server: " + body);
+		return authlevel;
+	}
 	
-	if(body == "notranked")
-		return -2;
+	if(authlevel == AUTH_NONE) Logger::log(LOG_INFO,"UserAuth: user " + user_nick + " has no auth flags!");
+	if(authlevel & AUTH_RANKED) Logger::log(LOG_INFO,"UserAuth: user " + user_nick + " is ranked");
+	if(authlevel & AUTH_ADMIN) Logger::log(LOG_INFO,"UserAuth: user " + user_nick + " is admin");
+	if(authlevel & AUTH_MOD) Logger::log(LOG_INFO,"UserAuth: user " + user_nick + " is moderator");
+	if(authlevel & AUTH_BOT) Logger::log(LOG_INFO,"UserAuth: user " + user_nick + " is bot");
+	
+	user_nick = std::string(nickname);
 
-	Logger::log(LOG_INFO,"UserAuth: user " + user_nick + " is ranked!");
-	Logger::log(LOG_INFO,"reply: " + body);
-	cache[user_token] = body;
-	user_nick=body;
+	// cache result
+	std::pair< int, std::string > p;
+	p.first = authlevel;
+	p.second = std::string(nickname);
+	cache[user_token] = p;
 
-	// default = -2
-	return -2;
+	return authlevel;
 }
 
 int UserAuth::HTTPGET(const char* URL, HttpMsg &resp)

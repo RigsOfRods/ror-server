@@ -240,21 +240,28 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 	MutexLocker scoped_lock(instance->clients_mutex);
 
 	sprintf(hearbeatdata, "%s\n" \
-	                      "version2\n" \
+	                      "version3\n" \
 	                      "%i\n", challenge, clientnum);
 	if(clientnum > 0)
 	{
 		for( unsigned int i = 0; i < instance->clients.size(); i++)
 		{
+			char authst[4] = "";
+			if(instance->clients[i]->authstate & AUTH_ADMIN) strcat(authst, "A");
+			if(instance->clients[i]->authstate & AUTH_MOD) strcat(authst, "M");			
+			if(instance->clients[i]->authstate & AUTH_RANKED) strcat(authst, "R");
+			if(instance->clients[i]->authstate & AUTH_BOT) strcat(authst, "B");
+
 			char playerdata[1024] = "";
 			char positiondata[128] = "";
 			instance->clients[i]->position.toString(positiondata);
-			sprintf(playerdata, "%d;%s;%s;%s;%s;%s\n", i, 
+			sprintf(playerdata, "%d;%s;%s;%s;%s;%s;%s\n", i, 
 					instance->clients[i]->vehicle_name, 
 					instance->clients[i]->nickname,
 					positiondata, 
 					instance->clients[i]->sock->get_peerAddr(&error).c_str(),
-					instance->clients[i]->uniqueid);
+					instance->clients[i]->uniqueid,
+					authst);
 			strcat(hearbeatdata, playerdata);
 		}
 	}
@@ -437,15 +444,17 @@ void Sequencer::notifyAllVehicles(int uid)
 		if (i!=pos && instance->clients[i]->status == USED &&
 				strlen(instance->clients[i]->vehicle_name)>0)
 		{
-			char message[512];
-			strcpy(message, instance->clients[i]->vehicle_name);
-			strcpy(message + strlen(instance->clients[i]->vehicle_name) + 1,
-					instance->clients[i]->nickname);
+			// construct info packet
+			client_info_on_join info;
+			memset(&info, 0, sizeof(client_info_on_join));
+			info.version = 1;
+			strncpy(info.vehiclename, instance->clients[i]->vehicle_name, 256);
+			strncpy(info.nickname, instance->clients[i]->nickname, 20);
+			info.authstatus = instance->clients[i]->authstate;
+
 			instance->clients[pos]->broadcaster->queueMessage(
-					instance->clients[i]->uid, MSG2_USE_VEHICLE,
-					((int)(strlen(instance->clients[i]->vehicle_name) +
-						strlen(instance->clients[i]->nickname) + 2 )),
-					message );
+					instance->clients[i]->uid, MSG2_USE_VEHICLE2,
+					 sizeof(client_info_on_join), (char*)&info );
 		}
 		// not possible to have flow enabled but not have a truck... disconnect 
 		if ( !strlen(instance->clients[i]->vehicle_name) &&
@@ -863,8 +872,9 @@ void Sequencer::printStats()
 			// some auth identifiers
 			char authst[4] = "";
 			if(instance->clients[i]->authstate & AUTH_ADMIN) strcat(authst, "A");
-			if(instance->clients[i]->authstate & AUTH_BOT) strcat(authst, "B");
+			if(instance->clients[i]->authstate & AUTH_MOD) strcat(authst, "M");			
 			if(instance->clients[i]->authstate & AUTH_RANKED) strcat(authst, "R");
+			if(instance->clients[i]->authstate & AUTH_BOT) strcat(authst, "B");
 
 			// construct screen
 			if (instance->clients[i]->status == FREE) 

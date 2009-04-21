@@ -48,6 +48,12 @@ class SWInetSocket;
 
 #define SEQUENCER Sequencer::Instance()
 
+#define AUTH_NONE              0x00000000
+#define AUTH_ADMIN             0x00000001
+#define AUTH_RANKED            0x00000002
+#define AUTH_MOD               0x00000004
+#define AUTH_BOT               0x00000008
+
 
 #define VERSION "$Rev$"
 
@@ -68,7 +74,8 @@ struct client_t
     Vector3 position;           //!< position on the map?
     char uniqueid[60];          //!< users unique id
     int rconretries;            //!< rcon password retries
-    int rconauth;               //!< rcon authenticated mode
+    
+	int authstate;              //!< authenticated state
 };
 
 class Sequencer

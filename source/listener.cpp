@@ -152,6 +152,7 @@ void Listener::threadstart()
 				Logger::log(LOG_INFO, "User %s is authed", nickname.c_str());
 				strncpy(user->username, nickname.c_str(), 20);
 			}
+			Logger::log(LOG_INFO, "User %s is NOT authed", nickname.c_str());
 
 			if( Config::isPublic() )
 			{

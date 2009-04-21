@@ -191,14 +191,15 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	to_add->rconretries=0;
 
 	// auth stuff
-	to_add->rconauth=0;
+	to_add->authstate = AUTH_NONE;
 	if(instance->authresolver)
 	{
-		int res = instance->authresolver->getUserModeByUserToken(user->uniqueid);
-		if(res>0)
+		Logger::log(LOG_DEBUG, "getting user auth level");
+		int auth_flags = instance->authresolver->getUserModeByUserToken(user->uniqueid);
+		if(auth_flags != AUTH_NONE)
 		{
 			Logger::log(LOG_INFO, "user authed because of valid admin token!");
-			to_add->rconauth=res;
+			to_add->authstate |= auth_flags;
 		}
 	}
 
@@ -531,148 +532,146 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	{
 		Logger::log(LOG_WARN, "user %d (%d) sends rcon command: %s",
 				pos,
-				instance->clients[pos]->rconauth,
+				instance->clients[pos]->authstate,
 				data);
-		if(instance->clients[pos]->rconauth>0)
+		if((instance->clients[pos]->authstate & AUTH_BOT) || (instance->clients[pos]->authstate & AUTH_ADMIN))
 		{
-			if(instance->clients[pos]->rconauth>1)
+			// TODO: rewrite THESE!
+			// bot commands
+			if(!strncmp(data, "newgoal", 4))
 			{
-				// bot commands
-				if(!strncmp(data, "newgoal", 4))
+				float x=0, y=0, z=0;
+				int userid=0;
+				char text[255];
+				memset(text, 0, 254);
+				int res = sscanf(data, "newgoal %d, %f, %f, %f, %s", &userid, &x, &y, &z, text);
+				if(res < 5)
 				{
-					float x=0, y=0, z=0;
-					int userid=0;
-					char text[255];
-					memset(text, 0, 254);
-					int res = sscanf(data, "newgoal %d, %f, %f, %f, %s", &userid, &x, &y, &z, text);
-					if(res < 5)
-					{
-						// discard, as its invalid
-						return;
-					}
-					char txtbuf[1024] = "";
-					memset(txtbuf, 0, 1024);
-					sprintf(txtbuf, "newgoal %f, %f, %f, %s", x, y, z, text);
-					int pos = instance->getPosfromUid(userid);
-				    if( UID_NOT_FOUND == pos ) {
-				    	const char *error = "no user with that ID found!";
-				    	instance->clients[pos]->broadcaster-> queueMessage(
-							0, MSG2_RCON_COMMAND_FAILED, 
-							(int)strlen(error), error );
-				    } else {
-				    		instance->clients[pos]->broadcaster->queueMessage(
-							-1, MSG2_GAME_CMD, 
-							(int)strlen(txtbuf), txtbuf);
-					}
+					// discard, as its invalid
 					return;
 				}
-				if(!strncmp(data, "createoverlay", 13))
+				char txtbuf[1024] = "";
+				memset(txtbuf, 0, 1024);
+				sprintf(txtbuf, "newgoal %f, %f, %f, %s", x, y, z, text);
+				int pos = instance->getPosfromUid(userid);
+			    if( UID_NOT_FOUND == pos ) {
+			    	const char *error = "no user with that ID found!";
+			    	instance->clients[pos]->broadcaster-> queueMessage(
+						0, MSG2_RCON_COMMAND_FAILED, 
+						(int)strlen(error), error );
+			    } else {
+			    		instance->clients[pos]->broadcaster->queueMessage(
+						-1, MSG2_GAME_CMD, 
+						(int)strlen(txtbuf), txtbuf);
+				}
+				return;
+			}
+			if(!strncmp(data, "createoverlay", 13))
+			{
+				int userid=0;
+				int res = sscanf(data, "createoverlay %04d", &userid);
+				if(res < 1)
 				{
-					int userid=0;
-					int res = sscanf(data, "createoverlay %04d", &userid);
-					if(res < 1)
-					{
-						// discard, as its invalid
-						return;
-					}
-					char newbuf[8192] = ""; // max buffer size of RoR also
-					strcpy(newbuf, "createoverlay ");
-					strncpy(newbuf+14, data + 18, len-18);
-					int pos = instance->getPosfromUid(userid);
-				    if( UID_NOT_FOUND == pos ) {
-				    	const char *error = "no user with that ID found!";
-				    	instance->clients[pos]->broadcaster-> queueMessage(
-							0, MSG2_RCON_COMMAND_FAILED, 
-							(int)strlen(error), error );
-				    } else {
-						instance->clients[pos]->broadcaster->queueMessage(
-							-1, MSG2_GAME_CMD,
-							(int)strlen(newbuf), newbuf);
-					}
+					// discard, as its invalid
 					return;
 				}
-				if(!strncmp(data, "setoverlayvisible", 17))
-				{
-					char oname[255];
-					int visible=0;
-					int userid=0;
-					memset(oname, 0, 254);
-					int res = sscanf(data, "setoverlayvisible %d, %d, %s", &userid, &visible, oname);
-					if(res < 3)
-					{
-						// discard, as its invalid
-						return;
-					}
-					char txtbuf[1024] = "";
-					memset(txtbuf, 0, 1024);
-					sprintf(txtbuf, "setoverlayvisible %d, %s", visible, oname);
-					int pos = instance->getPosfromUid(userid);
-				    if( UID_NOT_FOUND == pos ) {
-				    	const char *error = "no user with that ID found!";
-				    	instance->clients[pos]->broadcaster-> queueMessage(
-							0, MSG2_RCON_COMMAND_FAILED, 
-							(int)strlen(error), error );
-				    } else {
-						instance->clients[pos]->broadcaster->queueMessage(
-							-1, MSG2_GAME_CMD,
-							(int)strlen(txtbuf), txtbuf);
-					}
+				char newbuf[8192] = ""; // max buffer size of RoR also
+				strcpy(newbuf, "createoverlay ");
+				strncpy(newbuf+14, data + 18, len-18);
+				int pos = instance->getPosfromUid(userid);
+			    if( UID_NOT_FOUND == pos ) {
+			    	const char *error = "no user with that ID found!";
+			    	instance->clients[pos]->broadcaster-> queueMessage(
+						0, MSG2_RCON_COMMAND_FAILED, 
+						(int)strlen(error), error );
+			    } else {
+					instance->clients[pos]->broadcaster->queueMessage(
+						-1, MSG2_GAME_CMD,
+						(int)strlen(newbuf), newbuf);
 				}
-				if(!strncmp(data, "setoverlayelementcolor", 22))
+				return;
+			}
+			if(!strncmp(data, "setoverlayvisible", 17))
+			{
+				char oname[255];
+				int visible=0;
+				int userid=0;
+				memset(oname, 0, 254);
+				int res = sscanf(data, "setoverlayvisible %d, %d, %s", &userid, &visible, oname);
+				if(res < 3)
 				{
-					char oname[255];
-					int userid=0;
-					float r=0, g=0, b=0, a=0;
-					memset(oname, 0, 254);
-					int res = sscanf(data, "setoverlayelementcolor %d, %f, %f, %f, %f, %s", &userid, &r, &g, &b, &a, oname);
-					if(res < 6)
-					{
-						// discard, as its invalid
-						return;
-					}
-					char txtbuf[1024] = "";
-					memset(txtbuf, 0, 1024);
-					sprintf(txtbuf, "setoverlayelementcolor %f, %f, %f, %f, %s", r, g, b, a, oname);
-					
-					int pos = instance->getPosfromUid(userid);
-				    if( UID_NOT_FOUND == pos ) {
-						const char *error = "no user with that ID found!";
-						instance->clients[pos]->broadcaster->queueMessage(
-								0, MSG2_RCON_COMMAND_FAILED,
-								(int)strlen(error), error );
-					} else {
-						instance->clients[pos]->broadcaster->queueMessage(
-							-1, MSG2_GAME_CMD, 
-							(int)strlen(txtbuf), txtbuf);
-					}
+					// discard, as its invalid
+					return;
 				}
-				if(!strncmp(data, "setoverlayelementtext", 21))
+				char txtbuf[1024] = "";
+				memset(txtbuf, 0, 1024);
+				sprintf(txtbuf, "setoverlayvisible %d, %s", visible, oname);
+				int pos = instance->getPosfromUid(userid);
+			    if( UID_NOT_FOUND == pos ) {
+			    	const char *error = "no user with that ID found!";
+			    	instance->clients[pos]->broadcaster-> queueMessage(
+						0, MSG2_RCON_COMMAND_FAILED, 
+						(int)strlen(error), error );
+			    } else {
+					instance->clients[pos]->broadcaster->queueMessage(
+						-1, MSG2_GAME_CMD,
+						(int)strlen(txtbuf), txtbuf);
+				}
+			}
+			if(!strncmp(data, "setoverlayelementcolor", 22))
+			{
+				char oname[255];
+				int userid=0;
+				float r=0, g=0, b=0, a=0;
+				memset(oname, 0, 254);
+				int res = sscanf(data, "setoverlayelementcolor %d, %f, %f, %f, %f, %s", &userid, &r, &g, &b, &a, oname);
+				if(res < 6)
 				{
-					char oname[255];
-					memset(oname, 0, 254);
-					char text[1024];
-					memset(text, 0, 1023);
-					int userid=0;
-					int res = sscanf(data, "setoverlayelementtext %d %s %s", &userid, text, oname);
-					if(res < 3)
-					{
-						// discard, as its invalid
-						return;
-					}
-					char txtbuf[1024] = "";
-					memset(txtbuf, 0, 1024);
-					sprintf(txtbuf, "setoverlayelementtext %s %s", text, oname);
-					int pos = instance->getPosfromUid(userid);
-				    if( UID_NOT_FOUND == pos ) {
-						const char *error = "no user with that ID found!";
-						instance->clients[pos]->broadcaster->queueMessage(
+					// discard, as its invalid
+					return;
+				}
+				char txtbuf[1024] = "";
+				memset(txtbuf, 0, 1024);
+				sprintf(txtbuf, "setoverlayelementcolor %f, %f, %f, %f, %s", r, g, b, a, oname);
+				
+				int pos = instance->getPosfromUid(userid);
+			    if( UID_NOT_FOUND == pos ) {
+					const char *error = "no user with that ID found!";
+					instance->clients[pos]->broadcaster->queueMessage(
 							0, MSG2_RCON_COMMAND_FAILED,
 							(int)strlen(error), error );
-					} else {
-						instance->clients[pos]->broadcaster->queueMessage(
-							-1, MSG2_GAME_CMD,
-							(int)strlen(txtbuf), txtbuf);
-					}
+				} else {
+					instance->clients[pos]->broadcaster->queueMessage(
+						-1, MSG2_GAME_CMD, 
+						(int)strlen(txtbuf), txtbuf);
+				}
+			}
+			if(!strncmp(data, "setoverlayelementtext", 21))
+			{
+				char oname[255];
+				memset(oname, 0, 254);
+				char text[1024];
+				memset(text, 0, 1023);
+				int userid=0;
+				int res = sscanf(data, "setoverlayelementtext %d %s %s", &userid, text, oname);
+				if(res < 3)
+				{
+					// discard, as its invalid
+					return;
+				}
+				char txtbuf[1024] = "";
+				memset(txtbuf, 0, 1024);
+				sprintf(txtbuf, "setoverlayelementtext %s %s", text, oname);
+				int pos = instance->getPosfromUid(userid);
+			    if( UID_NOT_FOUND == pos ) {
+					const char *error = "no user with that ID found!";
+					instance->clients[pos]->broadcaster->queueMessage(
+						0, MSG2_RCON_COMMAND_FAILED,
+						(int)strlen(error), error );
+				} else {
+					instance->clients[pos]->broadcaster->queueMessage(
+						-1, MSG2_GAME_CMD,
+						(int)strlen(txtbuf), txtbuf);
 				}
 			}
 			if(!strncmp(data, "kick", 4))
@@ -748,7 +747,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	}
 	else if (type==MSG2_RCON_LOGIN)
 	{
-		if(instance->clients[pos]->rconauth != 0)
+		if(instance->clients[pos]->authstate & AUTH_ADMIN)
 		{
 			// already logged in
 			instance->clients[pos]->broadcaster->queueMessage(
@@ -766,7 +765,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			if( strnlen(pw, 250) > 20 && Config::getAdminPassword() != pw)
 			{
 				Logger::log(LOG_WARN, "user %d logged into RCON", pos);
-				instance->clients[pos]->rconauth=1;
+				instance->clients[pos]->authstate |= AUTH_ADMIN;
 				instance->clients[pos]->broadcaster->queueMessage( 
 						0, MSG2_RCON_LOGIN_SUCCESS, 0, 0 );
 			}else
@@ -774,7 +773,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 				// pw incorrect or failed
 				Logger::log(LOG_WARN, "user %d failed to login RCON, retry "
 						"number %d", pos, instance->clients[pos]->rconretries);
-				instance->clients[pos]->rconauth=0;
+				instance->clients[pos]->authstate = AUTH_NONE;
 				instance->clients[pos]->rconretries++;
 				instance->clients[pos]->broadcaster->queueMessage( 0,
 						MSG2_RCON_LOGIN_FAILED, 0, 0 );
@@ -832,7 +831,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			{
 				if(i >= instance->clients.size())
 					break;
-				if (instance->clients[i]->status == USED && instance->clients[i]->flow && i!=pos && instance->clients[i]->rconauth > 1)
+				if (instance->clients[i]->status == USED && instance->clients[i]->flow && i!=pos && (instance->clients[i]->authstate & AUTH_ADMIN))
 					instance->clients[i]->broadcaster->queueMessage(instance->clients[pos]->uid, type, len, data);
 			}
 		}
@@ -848,21 +847,29 @@ void Sequencer::printStats()
 	{
 		Logger::log(LOG_INFO, "Server occupancy:");
 
-		Logger::log(LOG_INFO, "Slot Status   UID IP              Nickname, Vehicle");
+		Logger::log(LOG_INFO, "Slot Status   UID IP                  Nickname, Vehicle");
 		Logger::log(LOG_INFO, "--------------------------------------------------");
 		for (unsigned int i = 0; i < instance->clients.size(); i++)
 		{
+			// some auth identifiers
+			char authst[4] = "";
+			if(instance->clients[i]->authstate & AUTH_ADMIN) strcat(authst, "A");
+			if(instance->clients[i]->authstate & AUTH_BOT) strcat(authst, "B");
+			if(instance->clients[i]->authstate & AUTH_RANKED) strcat(authst, "R");
+
+			// construct screen
 			if (instance->clients[i]->status == FREE) 
 				Logger::log(LOG_INFO, "%4i Free", i);
 			else if (instance->clients[i]->status == BUSY)
-				Logger::log(LOG_INFO, "%4i Busy %5i %-16s %s, %s", i,
+				Logger::log(LOG_INFO, "%4i Busy %5i %-16s     %s, %s", i,
 						instance->clients[i]->uid, "-", 
 						instance->clients[i]->nickname, 
 						instance->clients[i]->vehicle_name);
 			else 
-				Logger::log(LOG_INFO, "%4i Used %5i %-16s %s, %s", i, 
+				Logger::log(LOG_INFO, "%4i Used %5i %-16s % 4s %s, %s", i, 
 						instance->clients[i]->uid, 
 						instance->clients[i]->sock->get_peerAddr(&error).c_str(), 
+						authst,
 						instance->clients[i]->nickname, 
 						instance->clients[i]->vehicle_name);
 		}

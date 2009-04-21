@@ -495,6 +495,8 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 
 	if (type==MSG2_USE_VEHICLE) 
 	{
+		// register vehicle name
+		strncpy(instance->clients[pos]->vehicle_name, data, 129);
 		// construct a MSG2_USE_VEHICLE2 packet for the client that contains slightly more information!
 		type = MSG2_USE_VEHICLE2;
 		

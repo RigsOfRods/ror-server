@@ -495,13 +495,20 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 
 	if (type==MSG2_USE_VEHICLE) 
 	{
-		data[len]=0;
-		strncpy(instance->clients[pos]->vehicle_name, data, 129);
-		Logger::log(LOG_VERBOSE,"On the fly vehicle registration for slot %d: %s",
-		            pos, instance->clients[pos]->vehicle_name);
-		//we alter the message to add user info
-		strcpy(data + len + 1, instance->clients[pos]->nickname);
-		len += (int)strlen(instance->clients[pos]->nickname) + 2;
+		// construct a MSG2_USE_VEHICLE2 packet for the client that contains slightly more information!
+		type = MSG2_USE_VEHICLE2;
+		
+		client_info_on_join info;
+		memset(&info, 0, sizeof(client_info_on_join));
+		info.version = 1;
+		strncpy(info.vehiclename, data, len);
+		strncpy(info.nickname, instance->clients[pos]->nickname, 20);
+		info.authstatus = instance->clients[pos]->authstate;
+		memcpy(data, &info, sizeof(client_info_on_join));
+		len = sizeof(client_info_on_join);
+
+		Logger::log(LOG_VERBOSE,"On the fly vehicle registration for slot %d: %s", pos, instance->clients[pos]->vehicle_name);
+		
 		publishMode = 1;
 	}
 	

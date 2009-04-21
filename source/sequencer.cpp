@@ -275,7 +275,7 @@ int Sequencer::authNick(std::string token, std::string &nickname)
     Sequencer* instance = Instance();
 	MutexLocker scoped_lock(instance->clients_mutex);
 	if(!instance->authresolver)
-		return -1;
+		return AUTH_NONE;
 	return instance->authresolver->resolve(token, nickname);
 }
 

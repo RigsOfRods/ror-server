@@ -27,7 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 class UserAuth
 {
 private:
-	std::map< std::string, std::string > cache;
+	std::map< std::string, std::pair<int, std::string> > cache;
 	int HTTPGET(const char* URL, HttpMsg &resp);
 	std::string challenge;
 	std::vector<std::string> admin_entries;

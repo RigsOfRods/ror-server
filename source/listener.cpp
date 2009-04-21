@@ -146,13 +146,14 @@ void Listener::threadstart()
 			
 			user_credentials_t *user = (user_credentials_t *)buffer;
 			std::string nickname = std::string(user->username);
-			int res = Sequencer::authNick(std::string(user->uniqueid), nickname);
-			if(!res)
+			int authflags = Sequencer::authNick(std::string(user->uniqueid), nickname);
+			if(authflags & AUTH_RANKED)
 			{
-				Logger::log(LOG_INFO, "User %s is authed", nickname.c_str());
+				// we only auth here in order to overwrite the nickname!
+				Logger::log(LOG_INFO, "User %s is ranked", nickname.c_str());
 				strncpy(user->username, nickname.c_str(), 20);
-			}
-			Logger::log(LOG_INFO, "User %s is NOT authed", nickname.c_str());
+			} else
+				Logger::log(LOG_INFO, "User %s is NOT ranked", nickname.c_str());
 
 			if( Config::isPublic() )
 			{

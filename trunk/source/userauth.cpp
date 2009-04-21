@@ -124,6 +124,8 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 	if(body == "notranked")
 		return -2;
 
+	Logger::log(LOG_INFO,"UserAuth: user " + user_nick + " is ranked!");
+	Logger::log(LOG_INFO,"reply: " + body);
 	cache[user_token] = body;
 	user_nick=body;
 

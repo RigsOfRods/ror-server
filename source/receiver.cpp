@@ -131,7 +131,8 @@ void Receiver::threadstart()
 	while( running )
 	{
 		//	hmm for some reason this fails, 
-		if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, MAX_MESSAGE_LENGTH)) {
+		if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, MAX_MESSAGE_LENGTH))
+		{
 			Sequencer::disconnect(id, "Game connection closed");
 			break;
 		}

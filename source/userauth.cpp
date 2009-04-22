@@ -131,6 +131,16 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 	
 	user_nick = std::string(nickname);
 
+	// check for local admin flags
+	// XXX: improve this to allow just any local auth level override!
+	std::vector<std::string>::iterator it;
+	for(it=admin_entries.begin(); it!=admin_entries.end(); it++)
+	{
+		if(token == *it)
+			authlevel |= AUTH_ADMIN;
+	}
+
+
 	// cache result
 	std::pair< int, std::string > p;
 	p.first = authlevel;

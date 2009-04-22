@@ -153,7 +153,7 @@ bool Notifier::unregisterServer()
 	if (HTTPGET(unregurl) < 0)
 		return false;
 
-	return getResponse() == "ok";
+	return true; //getResponse() == "ok";
 }
 
 bool Notifier::sendHearbeat()

@@ -136,7 +136,7 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 	std::vector<std::string>::iterator it;
 	for(it=admin_entries.begin(); it!=admin_entries.end(); it++)
 	{
-		if(token == *it)
+		if(user_token == *it)
 			authlevel |= AUTH_ADMIN;
 	}
 

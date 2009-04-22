@@ -99,9 +99,12 @@ void Sequencer::cleanUp()
 
     Sequencer* instance = Instance();
 	Logger::log(LOG_INFO,"closing. disconnecting clients ...");
+	char *str = "server shutting down (try to reconnect later!)";
 	for( unsigned int i = 0; i < instance->clients.size(); i++) 
 	{
-		disconnect(instance->clients[i]->uid, "server shutting down (try to reconnect later!)");
+		// HACK-ISH override all thread stuff and directly send it!
+		Messaging::sendmessage(instance->clients[i]->sock, MSG2_DELETE, instance->clients[i]->uid, strlen(str), str);
+		//disconnect(instance->clients[i]->uid, );
 	}
 	Logger::log(LOG_INFO,"all clients disconnected. exiting.");
 

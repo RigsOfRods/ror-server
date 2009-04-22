@@ -51,6 +51,10 @@ void handler(int signal)
 		Logger::log(LOG_ERROR,"got unkown signal: %d", signal);
 	}
 
+	Logger::log(LOG_INFO,"closing. disconnecting clients ...");
+	Sequencer::cleanUp();
+	Logger::log(LOG_INFO,"all clients disconnected. exiting.");
+
 	if(Config::getServerMode() == SERVER_LAN)
 	{
 		Logger::log(LOG_ERROR,"closing server ... ");

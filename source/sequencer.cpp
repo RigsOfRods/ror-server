@@ -100,9 +100,15 @@ void Sequencer::cleanUp()
     Sequencer* instance = Instance();
 	for( unsigned int i = 0; i < instance->clients.size(); i++) 
 	{
-		disconnect(instance->clients[i]->uid, "server shutting down");
+		disconnect(instance->clients[i]->uid, "server shutting down (try to reconnect later!)");
 	}
-	
+
+#ifndef WIN32
+	sleep(2);
+#else
+	Sleep(2000);
+#endif
+
 	if( instance->notifier )
 		delete instance->notifier;
 	
@@ -355,9 +361,7 @@ void Sequencer::disconnect(int uid, const char* errormsg)
 	{
 		if( strlen(instance->clients[i]->vehicle_name) > 0 )
 		{
-			char *forced = "forced";
-			instance->clients[i]->broadcaster->queueMessage(
-					instance->clients[pos]->uid, MSG2_DELETE, (int)strlen(forced), forced);
+			instance->clients[i]->broadcaster->queueMessage(instance->clients[pos]->uid, MSG2_DELETE, (int)strlen(errormsg), errormsg);
 		}
 	}
 	instance->clients.erase( instance->clients.begin() + pos );
@@ -537,9 +541,9 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			// from client
 			Logger::log(LOG_INFO, "user %s disconnects on request", instance->clients[pos]->nickname);
 
-			char tmp[1024];
-			sprintf(tmp, "user %s disconnects on request", instance->clients[pos]->nickname);
-			serverSay(std::string(tmp), -1);
+			//char tmp[1024];
+			//sprintf(tmp, "user %s disconnects on request", instance->clients[pos]->nickname);
+			//serverSay(std::string(tmp), -1);
 			disconnect(instance->clients[pos]->uid, "disconnected on request");
 		}else
 		{

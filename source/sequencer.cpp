@@ -197,10 +197,8 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 		Logger::log(LOG_DEBUG, "getting user auth level");
 		int auth_flags = instance->authresolver->getUserModeByUserToken(user->uniqueid);
 		if(auth_flags != AUTH_NONE)
-		{
-			Logger::log(LOG_INFO, "user authed because of valid admin token!");
 			to_add->authstate |= auth_flags;
-		}
+
 		char authst[4] = "";
 		if(auth_flags & AUTH_ADMIN) strcat(authst, "A");
 		if(auth_flags & AUTH_MOD) strcat(authst, "M");
@@ -505,8 +503,9 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
     
 	int publishMode=0;
 	// publishMode = 0 no broadcast
-	// publishMode = 1 broadcast to all clients
+	// publishMode = 1 broadcast to all clients except sender
 	// publishMode = 2 broadcast to authed users (bots)
+	// publishMode = 3 broadcast to all clients including sender
 
 	if (type==MSG2_USE_VEHICLE) 
 	{
@@ -838,14 +837,15 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	
 	if(publishMode>0)
 	{
-		if(publishMode == 1)
+		if(publishMode == 1 || publishMode == 3)
 		{
+			bool toAll = (publishMode == 3);
 			// just push to all the present clients
 			for (unsigned int i = 0; i < instance->clients.size(); i++)
 			{
 				if(i >= instance->clients.size())
 					break;
-				if (instance->clients[i]->status == USED && instance->clients[i]->flow && i!=pos)
+				if (instance->clients[i]->status == USED && instance->clients[i]->flow && (i!=pos || toAll))
 					instance->clients[i]->broadcaster->queueMessage(instance->clients[pos]->uid, type, len, data);
 			}
 		} else if(publishMode == 2)

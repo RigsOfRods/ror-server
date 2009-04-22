@@ -146,6 +146,8 @@ bool Notifier::registerServer()
 bool Notifier::unregisterServer()
 {
     STACKLOG;
+	return true;
+	// this crashes the server, so disabled!
 	if(!wasregistered)
 		return false;
 	char unregurl[1024];
@@ -153,7 +155,7 @@ bool Notifier::unregisterServer()
 	if (HTTPGET(unregurl) < 0)
 		return false;
 
-	return true; //getResponse() == "ok";
+	return getResponse() == "ok";
 }
 
 bool Notifier::sendHearbeat()

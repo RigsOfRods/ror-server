@@ -80,9 +80,17 @@ int UserAuth::readConfig()
 			}
 			ptr++;
 		}
-		admin_entries.push_back(std::string(line));
+		int authmode = AUTH_NONE;
+		char token[256];
+		int res = sscanf(line, "%d %s", &authmode, token);
+		if(res != 2)
+		{
+			Logger::log(LOG_ERROR, "error parsing admins.txt file: " + std::string(line));
+			continue;
+		}
+		local_auth[std::string(token)] = authmode;
 	}
-	Logger::log(LOG_INFO, "found %d admins!", admin_entries.size());
+	Logger::log(LOG_INFO, "found %d auth overrides!",  local_auth.size());
 	fclose (f);
 	return 0;
 }
@@ -123,23 +131,19 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 		return authlevel;
 	}
 	
-	if(authlevel == AUTH_NONE) Logger::log(LOG_INFO,"UserAuth: user " + user_nick + " has no auth flags!");
-	if(authlevel & AUTH_RANKED) Logger::log(LOG_INFO,"UserAuth: user " + user_nick + " is ranked");
-	if(authlevel & AUTH_ADMIN) Logger::log(LOG_INFO,"UserAuth: user " + user_nick + " is admin");
-	if(authlevel & AUTH_MOD) Logger::log(LOG_INFO,"UserAuth: user " + user_nick + " is moderator");
-	if(authlevel & AUTH_BOT) Logger::log(LOG_INFO,"UserAuth: user " + user_nick + " is bot");
-	
 	user_nick = std::string(nickname);
 
-	// check for local admin flags
-	// XXX: improve this to allow just any local auth level override!
-	std::vector<std::string>::iterator it;
-	for(it=admin_entries.begin(); it!=admin_entries.end(); it++)
-	{
-		if(user_token == *it)
-			authlevel |= AUTH_ADMIN;
-	}
+	// check for local auth overrides (server admins, etc)
+	if(local_auth.find(user_token) != local_auth.end())
+		authlevel |= local_auth[user_token];
 
+	// debug output the auth status
+	char authst[4] = "";
+	if(authlevel & AUTH_ADMIN) strcat(authst, "A");
+	if(authlevel & AUTH_MOD) strcat(authst, "M");
+	if(authlevel & AUTH_RANKED) strcat(authst, "R");
+	if(authlevel & AUTH_BOT) strcat(authst, "B");
+	if(authlevel != AUTH_NONE) Logger::log(LOG_INFO,"User Auth Flags: " + std::string(authst));
 
 	// cache result
 	std::pair< int, std::string > p;

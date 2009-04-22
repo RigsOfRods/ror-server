@@ -36,8 +36,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "windows.h"
 #endif
 
+int terminate_triggered = 0;
+
 void handler(int signal)
 {
+	if(terminate_triggered) return;
+	terminate_triggered = 1;
 	if (signal == SIGINT)
 	{
 		Logger::log(LOG_ERROR,"got interrupt signal, terminating ...");

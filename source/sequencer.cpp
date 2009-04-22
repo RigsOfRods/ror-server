@@ -98,19 +98,22 @@ void Sequencer::cleanUp()
     STACKLOG;
 
     Sequencer* instance = Instance();
+
+	if( instance->notifier )
+		delete instance->notifier;
+
+	Logger::log(LOG_INFO,"closing. disconnecting clients ...");
 	for( unsigned int i = 0; i < instance->clients.size(); i++) 
 	{
 		disconnect(instance->clients[i]->uid, "server shutting down (try to reconnect later!)");
 	}
+	Logger::log(LOG_INFO,"all clients disconnected. exiting.");
 
 #ifndef WIN32
 	sleep(2);
 #else
 	Sleep(2000);
 #endif
-
-	if( instance->notifier )
-		delete instance->notifier;
 	
 	delete instance->listener;
 	delete instance->mInstance;
@@ -367,7 +370,7 @@ void Sequencer::disconnect(int uid, const char* errormsg)
 	instance->clients.erase( instance->clients.begin() + pos );
 	instance->killer_cv.signal();
     
-    printStats();
+	//printStats();
 }
 
 //this is called from the listener thread initial handshake

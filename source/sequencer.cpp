@@ -244,7 +244,7 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 	MutexLocker scoped_lock(instance->clients_mutex);
 
 	sprintf(hearbeatdata, "%s\n" \
-	                      "version3\n" \
+	                      "version4\n" \
 	                      "%i\n", challenge, clientnum);
 	if(clientnum > 0)
 	{
@@ -525,7 +525,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 
 		Logger::log(LOG_VERBOSE,"On the fly vehicle registration for slot %d: %s", pos, instance->clients[pos]->vehicle_name);
 		
-		publishMode = 1;
+		publishMode = 3;
 	}
 	
 	else if (type==MSG2_DELETE)

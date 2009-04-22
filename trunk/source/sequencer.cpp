@@ -445,7 +445,7 @@ void Sequencer::notifyAllVehicles(int uid)
     
 	for (unsigned int i=0; i<instance->clients.size(); i++)
 	{
-		if (i!=pos && instance->clients[i]->status == USED &&
+		if (instance->clients[i]->status == USED &&
 				strlen(instance->clients[i]->vehicle_name)>0)
 		{
 			// construct info packet

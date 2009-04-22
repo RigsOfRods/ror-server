@@ -201,6 +201,12 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 			Logger::log(LOG_INFO, "user authed because of valid admin token!");
 			to_add->authstate |= auth_flags;
 		}
+		char authst[4] = "";
+		if(auth_flags & AUTH_ADMIN) strcat(authst, "A");
+		if(auth_flags & AUTH_MOD) strcat(authst, "M");
+		if(auth_flags & AUTH_RANKED) strcat(authst, "R");
+		if(auth_flags & AUTH_BOT) strcat(authst, "B");
+		Logger::log(LOG_DEBUG, "user auth flags: " + std::string(authst));
 	}
 
 	memset(to_add->nickname, 0, 32); // for 20 character long nicknames :)

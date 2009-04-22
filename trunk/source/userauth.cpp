@@ -89,13 +89,8 @@ int UserAuth::readConfig()
 
 int UserAuth::getUserModeByUserToken(std::string token)
 {
-	std::vector<std::string>::iterator it;
-	for(it=admin_entries.begin(); it!=admin_entries.end(); it++)
-	{
-		if(token == *it)
-			return 2;
-	}
-	return 0;
+	std::string nick;
+	return resolve(token, nick);
 }
 
 int UserAuth::resolve(std::string user_token, std::string &user_nick)

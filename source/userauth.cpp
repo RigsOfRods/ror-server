@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h"
 #include "messaging.h"
 #include "logger.h"
+#include "utils.h"
 
 #include <stdexcept>
 
@@ -120,18 +121,21 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 	if (HTTPGET(url, resp) < 0)
 		return -1;
 
-	char nickname[40] = "";
 	int authlevel = AUTH_NONE;
 	std::string body = resp.getBody();
 	Logger::log(LOG_DEBUG,"UserAuth reply: " + body);
-	int res = sscanf(body.c_str(), "%d %s", &authlevel, nickname);
-	if(res != 2)
+	
+	std::vector<std::string> args;
+	strict_tokenize(body, args, "\t");
+
+	if(args.size() != 2)
 	{
 		Logger::log(LOG_INFO,"UserAuth: invalid return value from server: " + body);
-		return authlevel;
+		return AUTH_NONE;
 	}
 	
-	user_nick = std::string(nickname);
+	authlevel = atoi(args[0].c_str());
+	user_nick = args[1];
 
 	// check for local auth overrides (server admins, etc)
 	if(local_auth.find(user_token) != local_auth.end())
@@ -148,7 +152,7 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 	// cache result
 	std::pair< int, std::string > p;
 	p.first = authlevel;
-	p.second = std::string(nickname);
+	p.second = user_nick;
 	cache[user_token] = p;
 
 	return authlevel;

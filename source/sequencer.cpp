@@ -733,7 +733,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 				serverSay(std::string("You are not authorized to ban people!"), uid);
 			}
 		}
-		if(!strncmp(data, "!kick", 5) && strlen(data) > 6)
+		if(!strncmp(data, "!kick ", 6) && strlen(data) > 6)
 		{
 			if(instance->clients[pos]->authstate & AUTH_MOD || instance->clients[pos]->authstate & AUTH_ADMIN)
 			{

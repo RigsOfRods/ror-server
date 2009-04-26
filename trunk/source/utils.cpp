@@ -46,5 +46,6 @@ void strict_tokenize(const std::string& str,
 std::string trim(const std::string& str )
 {
 	STACKLOG;
+	if(!str.size()) return str;
 	return str.substr( str.find_first_not_of(" \t"), str.find_last_not_of(" \t")+1);
 }

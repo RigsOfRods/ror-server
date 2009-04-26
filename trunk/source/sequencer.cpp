@@ -762,6 +762,32 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		{
 			serverSay(std::string(VERSION), uid);
 		}
+		if(!strncmp(data, "!kick", 5) && strlen(data) > 6)
+		{
+			if(instance->clients[pos]->authstate & AUTH_MOD || instance->clients[pos]->authstate & AUTH_ADMIN)
+			{
+				char *kicknick = (data + 6);
+				bool kicked=false;
+				for (unsigned int i = 0; i < instance->clients.size(); i++)
+				{
+					if(i >= instance->clients.size())
+						break;
+					if(!strcmp(instance->clients[i]->nickname,kicknick))
+					{
+						char kickmsg[256]="";
+						strcat(kickmsg, "kicked by");
+						strcat(kickmsg, instance->clients[pos]->nickname);
+						disconnect(i, kickmsg);
+					}
+				}
+				if(!kicked)
+					serverSay(std::string("kick not successful, nick not found:")+std::string(kicknick), uid);
+			} else
+			{
+				// not allowed
+				serverSay(std::string("You are not authorized to kick people!"), uid);
+			}
+		}
 	}
 	else if (type==MSG2_PRIVCHAT)
 	{

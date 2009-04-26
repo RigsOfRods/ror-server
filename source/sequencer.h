@@ -53,6 +53,7 @@ class SWInetSocket;
 #define AUTH_RANKED            0x00000002
 #define AUTH_MOD               0x00000004
 #define AUTH_BOT               0x00000008
+#define AUTH_BANNED            0x00000010
 
 
 #define VERSION "$Rev$"

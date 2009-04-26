@@ -155,6 +155,7 @@ public:
 	static bool kick(int to_kick_uid, int modUID, const char *msg=0);
 	static bool ban(int to_ban_uid, int modUID, const char *msg=0);
 	static bool unban(int buid);
+	static bool isbanned(const char *ip);
 };
 
 #endif

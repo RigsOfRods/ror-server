@@ -516,6 +516,7 @@ bool Sequencer::kick(int kuid, int modUID, const char *msg)
 		strcat(kickmsg, ": ");
 		strcat(kickmsg, msg);
 	}
+	Logger::log(LOG_VERBOSE, "player '%s' kicked by '%s'",instance->clients[pos]->nickname, instance->clients[modUID]->nickname);
 	disconnect(instance->clients[pos]->uid, kickmsg);
 	return true;
 }
@@ -538,6 +539,7 @@ bool Sequencer::ban(int buid, int modUID, const char *msg)
 	strncpy(b->ip, instance->clients[pos]->sock->get_peerAddr(&error).c_str(), 16);
 	strncpy(b->nickname, instance->clients[pos]->nickname, 20);
 	instance->bans.push_back(b);
+	Logger::log(LOG_VERBOSE, "new ban added '%s' by '%s'", instance->clients[pos]->nickname, instance->clients[modUID]->nickname);
 
 	char tmp[1024]="banned";
 	if(msg)
@@ -557,8 +559,22 @@ bool Sequencer::unban(int buid)
 		if(instance->bans[i]->uid == buid)
 		{
 			instance->bans.erase(instance->bans.begin() + i);
+			Logger::log(LOG_VERBOSE, "uid unbanned: %d", buid);
 			return true;
 		}
+	}
+	return false;
+}
+
+bool Sequencer::isbanned(const char *ip)
+{
+	if(!ip) return false;
+    STACKLOG;
+    Sequencer* instance = Instance(); 
+	for (unsigned int i = 0; i < instance->bans.size(); i++)
+	{
+		if(!strcmp(instance->bans[i]->ip, ip))
+			return true;
 	}
 	return false;
 }

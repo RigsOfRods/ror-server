@@ -75,7 +75,16 @@ void Receiver::threadstart()
 	int type;
 	int source;
 	unsigned int len;
+	SWBaseSocket::SWBaseError error;
 	
+	if(Sequencer::isbanned(sock->get_peerAddr(&error).c_str()))
+	{
+		Logger::log( LOG_DEBUG, "receiver thread %d owned by uid %d terminated (banned user)", ThreadID::getID(), id);
+		Logger::log(LOG_VERBOSE,"banned user rejected: uid %i", id);
+		Messaging::sendmessage(sock, MSG2_BANNED, id, 0, 0);
+		return;
+	}
+
 	Logger::log(LOG_VERBOSE,"Sending welcome message to uid %i", id);
 	if( Messaging::sendmessage(sock, MSG2_WELCOME, id, 0, 0) )
 	{

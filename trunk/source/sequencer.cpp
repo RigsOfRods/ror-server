@@ -512,7 +512,7 @@ bool Sequencer::kick(int kuid, int modUID, const char *msg)
 
 	char kickmsg[1024] = "";
 	strcat(kickmsg, "kicked by ");
-	strcat(kickmsg, instance->clients[modUID]->nickname);
+	strcat(kickmsg, instance->clients[posMod]->nickname);
 	if(msg)
 	{
 		strcat(kickmsg, ": ");
@@ -543,7 +543,7 @@ bool Sequencer::ban(int buid, int modUID, const char *msg)
 	strncpy(b->ip, instance->clients[pos]->sock->get_peerAddr(&error).c_str(), 16);
 	strncpy(b->nickname, instance->clients[pos]->nickname, 20);
 	instance->bans.push_back(b);
-	Logger::log(LOG_VERBOSE, "new ban added '%s' by '%s'", instance->clients[pos]->nickname, instance->clients[modUID]->nickname);
+	Logger::log(LOG_VERBOSE, "new ban added '%s' by '%s'", instance->clients[pos]->nickname, instance->clients[posMod]->nickname);
 
 	char tmp[1024]="banned";
 	if(msg)

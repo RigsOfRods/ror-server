@@ -81,8 +81,8 @@ void Receiver::threadstart()
 	{
 		Logger::log( LOG_DEBUG, "receiver thread %d owned by uid %d terminated (banned user)", ThreadID::getID(), id);
 		Logger::log(LOG_VERBOSE,"banned user rejected: uid %i", id);
+		Messaging::sendmessage(sock, MSG2_BANNED, id, 0, 0);
 		Sequencer::disconnect(id, "you are banned");
-		//Messaging::sendmessage(sock, MSG2_BANNED, id, 0, 0);
 		return;
 	}
 

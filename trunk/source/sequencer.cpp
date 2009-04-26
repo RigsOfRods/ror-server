@@ -675,7 +675,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			}
 
 		}
-		if(!strncmp(data, "!bans ", 6) && strlen(data) > 6)
+		if(!strncmp(data, "!bans", 5))
 		{
 			serverSay(std::string("uid | IP              | nickname             | banned by"), uid);
 			for (unsigned int i = 0; i < instance->bans.size(); i++)

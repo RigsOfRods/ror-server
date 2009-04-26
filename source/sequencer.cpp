@@ -507,6 +507,8 @@ bool Sequencer::kick(int kuid, int modUID, const char *msg)
     Sequencer* instance = Instance(); 
     unsigned short pos = instance->getPosfromUid(kuid);    
     if( UID_NOT_FOUND == pos ) return false;
+    unsigned short posMod = instance->getPosfromUid(modUID);    
+    if( UID_NOT_FOUND == posMod ) return false;
 
 	char kickmsg[1024] = "";
 	strcat(kickmsg, "kicked by ");
@@ -516,7 +518,7 @@ bool Sequencer::kick(int kuid, int modUID, const char *msg)
 		strcat(kickmsg, ": ");
 		strcat(kickmsg, msg);
 	}
-	Logger::log(LOG_VERBOSE, "player '%s' kicked by '%s'",instance->clients[pos]->nickname, instance->clients[modUID]->nickname);
+	Logger::log(LOG_VERBOSE, "player '%s' kicked by '%s'",instance->clients[pos]->nickname, instance->clients[posMod]->nickname);
 	disconnect(instance->clients[pos]->uid, kickmsg);
 	return true;
 }
@@ -527,6 +529,8 @@ bool Sequencer::ban(int buid, int modUID, const char *msg)
     Sequencer* instance = Instance(); 
     unsigned short pos = instance->getPosfromUid(buid);    
     if( UID_NOT_FOUND == pos ) return false;
+    unsigned short posMod = instance->getPosfromUid(modUID);    
+    if( UID_NOT_FOUND == posMod ) return false;
 	SWBaseSocket::SWBaseError error;
 
 	// construct ban data and add it to the list
@@ -535,7 +539,7 @@ bool Sequencer::ban(int buid, int modUID, const char *msg)
 
 	b->uid = buid;
 	if(msg) strncpy(b->banmsg, msg, 256);
-	strncpy(b->bannedby_nick, instance->clients[modUID]->nickname, 20);
+	strncpy(b->bannedby_nick, instance->clients[posMod]->nickname, 20);
 	strncpy(b->ip, instance->clients[pos]->sock->get_peerAddr(&error).c_str(), 16);
 	strncpy(b->nickname, instance->clients[pos]->nickname, 20);
 	instance->bans.push_back(b);

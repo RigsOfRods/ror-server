@@ -28,6 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "SocketW.h"
 #include "logger.h"
 #include "config.h"
+#include "utils.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -500,6 +501,68 @@ void Sequencer::serverSay(std::string msg, int uid, int type)
 	}
 }
 
+bool Sequencer::kick(int kuid, int modUID, const char *msg)
+{
+    STACKLOG;
+    Sequencer* instance = Instance(); 
+    unsigned short pos = instance->getPosfromUid(kuid);    
+    if( UID_NOT_FOUND == pos ) return false;
+
+	char kickmsg[1024] = "";
+	strcat(kickmsg, "kicked by ");
+	strcat(kickmsg, instance->clients[modUID]->nickname);
+	if(msg)
+	{
+		strcat(kickmsg, ": ");
+		strcat(kickmsg, msg);
+	}
+	disconnect(instance->clients[pos]->uid, kickmsg);
+	return true;
+}
+
+bool Sequencer::ban(int buid, int modUID, const char *msg)
+{
+    STACKLOG;
+    Sequencer* instance = Instance(); 
+    unsigned short pos = instance->getPosfromUid(buid);    
+    if( UID_NOT_FOUND == pos ) return false;
+	SWBaseSocket::SWBaseError error;
+
+	// construct ban data and add it to the list
+	ban_t* b = new ban_t;
+	memset(b, 0, sizeof(ban_t));
+
+	b->uid = buid;
+	if(msg) strncpy(b->banmsg, msg, 256);
+	strncpy(b->bannedby_nick, instance->clients[modUID]->nickname, 20);
+	strncpy(b->ip, instance->clients[pos]->sock->get_peerAddr(&error).c_str(), 16);
+	strncpy(b->nickname, instance->clients[pos]->nickname, 20);
+	instance->bans.push_back(b);
+
+	char tmp[1024]="banned";
+	if(msg)
+	{
+		strcat(tmp, ": ");
+		strcat(tmp, msg);
+	}
+	return kick(buid, modUID, tmp);
+}
+
+bool Sequencer::unban(int buid)
+{
+    STACKLOG;
+    Sequencer* instance = Instance(); 
+	for (unsigned int i = 0; i < instance->bans.size(); i++)
+	{
+		if(instance->bans[i]->uid == buid)
+		{
+			instance->bans.erase(instance->bans.begin() + i);
+			return true;
+		}
+	}
+	return false;
+}
+
 //this is called by the receivers threads, like crazy & concurrently
 void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 {
@@ -591,41 +654,88 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 				if(instance->clients[i]->authstate & AUTH_BANNED) strcat(authst, "X");\
 
 				char tmp2[256]="";
-				sprintf(tmp2, "% 3d | %6s | % 20s | %s", instance->clients[i]->uid, authst, instance->clients[i]->nickname, instance->clients[i]->vehicle_name);
+				sprintf(tmp2, "% 3d | %-6s | %-20s | %s", instance->clients[i]->uid, authst, instance->clients[i]->nickname, instance->clients[i]->vehicle_name);
 				serverSay(std::string(tmp2), uid);
 			}
 
+		}
+		if(!strncmp(data, "!bans", 4) && strlen(data) > 5)
+		{
+			serverSay(std::string("uid | IP              | nickname             | banned by"), uid);
+			for (unsigned int i = 0; i < instance->bans.size(); i++)
+			{
+				char tmp[256]="";
+				sprintf(tmp, "% 3d | %-15s | %-20s | %-20s | %s", instance->bans[i]->uid, instance->bans[i]->ip, instance->bans[i]->nickname, instance->bans[i]->bannedby_nick);
+				serverSay(std::string(tmp), uid);
+			}
+		}
+		if(!strncmp(data, "!unban", 6) && strlen(data) > 7)
+		{
+			if(instance->clients[pos]->authstate & AUTH_MOD || instance->clients[pos]->authstate & AUTH_ADMIN)
+			{
+				int buid=-1;
+				int res = sscanf(data+7, "%d", &buid);
+				if(res != 1 || buid == -1)
+				{
+					serverSay(std::string("usage: !unban <uid>"), uid);
+					serverSay(std::string("example: !unban 3"), uid);
+				} else
+				{
+					if(unban(buid))
+						serverSay(std::string("ban not removed: error"), uid);
+					else
+						serverSay(std::string("ban removed"), uid);
+				}
+			} else
+			{
+				// not allowed
+				serverSay(std::string("You are not authorized to unban people!"), uid);
+			}		
+		}
+		if(!strncmp(data, "!ban", 4) && strlen(data) > 5)
+		{
+			if(instance->clients[pos]->authstate & AUTH_MOD || instance->clients[pos]->authstate & AUTH_ADMIN)
+			{
+				int buid=-1;
+				char banmsg_tmp[256]="";
+				int res = sscanf(data+5, "%d %s", &buid, banmsg_tmp);
+				std::string banMsg = std::string(banmsg_tmp);
+				banMsg = trim(banMsg);
+				if(res != 2 || buid == -1 || !banMsg.size())
+				{
+					serverSay(std::string("usage: !ban <uid> <message>"), uid);
+					serverSay(std::string("example: !ban 3 swearing"), uid);
+				} else
+				{
+					bool banned = ban(buid, uid, banMsg.c_str());
+					if(!banned)
+						serverSay(std::string("kick + ban not successful: uid not found!"), uid);
+				}
+			} else
+			{
+				// not allowed
+				serverSay(std::string("You are not authorized to ban people!"), uid);
+			}
 		}
 		if(!strncmp(data, "!kick", 5) && strlen(data) > 6)
 		{
 			if(instance->clients[pos]->authstate & AUTH_MOD || instance->clients[pos]->authstate & AUTH_ADMIN)
 			{
 				int kuid=-1;
-				char kickmsg_org[256]="";
-				int res = sscanf(data+6, "%d %s", &kuid, kickmsg_org);
-				if(res != 2 || kuid == -1 || strlen(kickmsg_org) == 0)
+				char kickmsg_tmp[256]="";
+				int res = sscanf(data+6, "%d %s", &kuid, kickmsg_tmp);
+				std::string kickMsg = std::string(kickmsg_tmp);
+				kickMsg = trim(kickMsg);
+				if(res != 2 || kuid == -1 || !kickMsg.size())
 				{
 					serverSay(std::string("usage: !kick <uid> <message>"), uid);
 					serverSay(std::string("example: !kick 3 bye!"), uid);
-				}
-				bool kicked=false;
-				for (unsigned int i = 0; i < instance->clients.size(); i++)
+				} else
 				{
-					if(i >= instance->clients.size()) break;
-					if(instance->clients[i]->uid == kuid)
-					{
-						char kickmsg[1024] = "";
-						strcat(kickmsg, "kicked by");
-						strcat(kickmsg, instance->clients[pos]->nickname);
-						strcat(kickmsg, ": ");
-						strcat(kickmsg, kickmsg_org);
-						disconnect(instance->clients[i]->uid, kickmsg);
-						kicked = true;
-						break;
-					}
+					bool kicked  = kick(kuid, uid, kickMsg.c_str());
+					if(!kicked)
+						serverSay(std::string("kick not successful: uid not found!"), uid);
 				}
-				if(!kicked)
-					serverSay(std::string("kick not successful: uid not found!"), uid);
 			} else
 			{
 				// not allowed

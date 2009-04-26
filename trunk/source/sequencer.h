@@ -79,6 +79,15 @@ struct client_t
 	int authstate;              //!< authenticated state
 };
 
+struct ban_t
+{
+    unsigned int uid;           //!< userid
+    char ip[40];                //!< ip of banned client
+    char nickname[32];          //!< Username, this is what they are called to
+    char bannedby_nick[32];     //!< Username, this is what they are called to	
+    char banmsg[256];           //!< why he got banned
+};
+
 class Sequencer
 {
 private:
@@ -91,6 +100,7 @@ private:
     Notifier* notifier;     //!< registers and handles the master server
 	UserAuth* authresolver; //!< authenticates users
     std::vector<client_t*> clients; //!< clients is a list of all the available 
+    std::vector<ban_t*> bans; //!< list of bans
                             //!< client connections, it is allocated
     unsigned int fuid;      //!< next userid
     std::queue<client_t*> killqueue; //!< holds pointer for client deletion
@@ -123,7 +133,8 @@ public:
     
     //! queue client for disconenct
     static void disconnect(int pos, const char* error);
-    static void queueMessage(int pos, int type, char* data, unsigned int len);
+
+	static void queueMessage(int pos, int type, char* data, unsigned int len);
     static void enableFlow(int id);
     static int sendMOTD(int id);
     
@@ -141,6 +152,9 @@ public:
 
     static void  unregisterServer();
 
+	static bool kick(int to_kick_uid, int modUID, const char *msg=0);
+	static bool ban(int to_ban_uid, int modUID, const char *msg=0);
+	static bool unban(int buid);
 };
 
 #endif

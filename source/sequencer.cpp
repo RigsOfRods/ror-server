@@ -562,226 +562,70 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	}
 	else if (type==MSG2_RCON_COMMAND)
 	{
-		Logger::log(LOG_WARN, "user %d (%d) sends rcon command: %s",
-				pos,
-				instance->clients[pos]->authstate,
-				data);
-		if((instance->clients[pos]->authstate & AUTH_BOT) || (instance->clients[pos]->authstate & AUTH_ADMIN))
-		{
-			// TODO: rewrite THESE!
-			// bot commands
-			if(!strncmp(data, "newgoal", 4))
-			{
-				float x=0, y=0, z=0;
-				int userid=0;
-				char text[255];
-				memset(text, 0, 254);
-				int res = sscanf(data, "newgoal %d, %f, %f, %f, %s", &userid, &x, &y, &z, text);
-				if(res < 5)
-				{
-					// discard, as its invalid
-					return;
-				}
-				char txtbuf[1024] = "";
-				memset(txtbuf, 0, 1024);
-				sprintf(txtbuf, "newgoal %f, %f, %f, %s", x, y, z, text);
-				int pos = instance->getPosfromUid(userid);
-			    if( UID_NOT_FOUND == pos ) {
-			    	const char *error = "no user with that ID found!";
-			    	instance->clients[pos]->broadcaster-> queueMessage(
-						0, MSG2_RCON_COMMAND_FAILED, 
-						(int)strlen(error), error );
-			    } else {
-			    		instance->clients[pos]->broadcaster->queueMessage(
-						-1, MSG2_GAME_CMD, 
-						(int)strlen(txtbuf), txtbuf);
-				}
-				return;
-			}
-			if(!strncmp(data, "createoverlay", 13))
-			{
-				int userid=0;
-				int res = sscanf(data, "createoverlay %04d", &userid);
-				if(res < 1)
-				{
-					// discard, as its invalid
-					return;
-				}
-				char newbuf[8192] = ""; // max buffer size of RoR also
-				strcpy(newbuf, "createoverlay ");
-				strncpy(newbuf+14, data + 18, len-18);
-				int pos = instance->getPosfromUid(userid);
-			    if( UID_NOT_FOUND == pos ) {
-			    	const char *error = "no user with that ID found!";
-			    	instance->clients[pos]->broadcaster-> queueMessage(
-						0, MSG2_RCON_COMMAND_FAILED, 
-						(int)strlen(error), error );
-			    } else {
-					instance->clients[pos]->broadcaster->queueMessage(
-						-1, MSG2_GAME_CMD,
-						(int)strlen(newbuf), newbuf);
-				}
-				return;
-			}
-			if(!strncmp(data, "setoverlayvisible", 17))
-			{
-				char oname[255];
-				int visible=0;
-				int userid=0;
-				memset(oname, 0, 254);
-				int res = sscanf(data, "setoverlayvisible %d, %d, %s", &userid, &visible, oname);
-				if(res < 3)
-				{
-					// discard, as its invalid
-					return;
-				}
-				char txtbuf[1024] = "";
-				memset(txtbuf, 0, 1024);
-				sprintf(txtbuf, "setoverlayvisible %d, %s", visible, oname);
-				int pos = instance->getPosfromUid(userid);
-			    if( UID_NOT_FOUND == pos ) {
-			    	const char *error = "no user with that ID found!";
-			    	instance->clients[pos]->broadcaster-> queueMessage(
-						0, MSG2_RCON_COMMAND_FAILED, 
-						(int)strlen(error), error );
-			    } else {
-					instance->clients[pos]->broadcaster->queueMessage(
-						-1, MSG2_GAME_CMD,
-						(int)strlen(txtbuf), txtbuf);
-				}
-			}
-			if(!strncmp(data, "setoverlayelementcolor", 22))
-			{
-				char oname[255];
-				int userid=0;
-				float r=0, g=0, b=0, a=0;
-				memset(oname, 0, 254);
-				int res = sscanf(data, "setoverlayelementcolor %d, %f, %f, %f, %f, %s", &userid, &r, &g, &b, &a, oname);
-				if(res < 6)
-				{
-					// discard, as its invalid
-					return;
-				}
-				char txtbuf[1024] = "";
-				memset(txtbuf, 0, 1024);
-				sprintf(txtbuf, "setoverlayelementcolor %f, %f, %f, %f, %s", r, g, b, a, oname);
-				
-				int pos = instance->getPosfromUid(userid);
-			    if( UID_NOT_FOUND == pos ) {
-					const char *error = "no user with that ID found!";
-					instance->clients[pos]->broadcaster->queueMessage(
-							0, MSG2_RCON_COMMAND_FAILED,
-							(int)strlen(error), error );
-				} else {
-					instance->clients[pos]->broadcaster->queueMessage(
-						-1, MSG2_GAME_CMD, 
-						(int)strlen(txtbuf), txtbuf);
-				}
-			}
-			if(!strncmp(data, "setoverlayelementtext", 21))
-			{
-				char oname[255];
-				memset(oname, 0, 254);
-				char text[1024];
-				memset(text, 0, 1023);
-				int userid=0;
-				int res = sscanf(data, "setoverlayelementtext %d %s %s", &userid, text, oname);
-				if(res < 3)
-				{
-					// discard, as its invalid
-					return;
-				}
-				char txtbuf[1024] = "";
-				memset(txtbuf, 0, 1024);
-				sprintf(txtbuf, "setoverlayelementtext %s %s", text, oname);
-				int pos = instance->getPosfromUid(userid);
-			    if( UID_NOT_FOUND == pos ) {
-					const char *error = "no user with that ID found!";
-					instance->clients[pos]->broadcaster->queueMessage(
-						0, MSG2_RCON_COMMAND_FAILED,
-						(int)strlen(error), error );
-				} else {
-					instance->clients[pos]->broadcaster->queueMessage(
-						-1, MSG2_GAME_CMD,
-						(int)strlen(txtbuf), txtbuf);
-				}
-			}
-			if(!strncmp(data, "kick", 4))
-			{
-				int player = -1;
-				int res = sscanf(data, "kick %d", &player); 
-				if(res == 1 && player != -1 && player < (int)instance->clients.size())
-				{
-					if(instance->clients[player]->status == FREE ||
-							instance->clients[player]->status == BUSY)
-					{
-						const char *error = "cannot kick free or busy client";
-						instance->clients[pos]->broadcaster->queueMessage(
-								0, MSG2_RCON_COMMAND_FAILED, 
-								(int)strlen(error), error );
-					} else if(instance->clients[player]->status == USED) {
-						Logger::log(LOG_WARN, "user %d kicked by user %d via rcmd",
-								player, pos);
-						char tmp[255]="";
-						memset(tmp, 0, 255);
-						sprintf(tmp, "player '%s' kicked successfully.",
-								instance->clients[player]->nickname);
-						serverSay(std::string(tmp));
-
-						instance->clients[pos]->broadcaster->queueMessage(
-								0, MSG2_RCON_COMMAND_SUCCESS, 
-								(int)strlen(tmp), tmp );
-						
-						disconnect( instance->clients[player]->uid, "kicked" );
-					}
-				} else {
-					const char *error = "invalid client number";
-					instance->clients[pos]->broadcaster->queueMessage(
-							0, MSG2_RCON_COMMAND_FAILED, 
-							(int)strlen(error), error );
-				}
-			}
-		}
-		else
-		{
-			instance->clients[pos]->broadcaster->queueMessage( 0,
-					MSG2_RCON_COMMAND_FAILED, 0, 0 );
-			serverSay("rcon command unkown");
-		}
-		
-		publishMode=0;
+		// not used anymore
 	}
 	else if (type==MSG2_CHAT)
 	{
 		Logger::log(LOG_INFO, "CHAT| %s: %s", instance->clients[pos]->nickname, data);
 		publishMode=1;
-		if(data[0] == '!')
-			// this enables bot commands that are not distributed
-			publishMode=2;
+		
+		// no broadcast of server commands!
+		if(data[0] == '!') publishMode=0;
+		
 		if(!strcmp(data, "!version"))
 		{
 			serverSay(std::string(VERSION), uid);
+		}
+		if(!strcmp(data, "!list"))
+		{
+			serverSay(std::string("uid | auth   | nick                 | vehicle"), uid);
+			for (unsigned int i = 0; i < instance->clients.size(); i++)
+			{
+				if(i >= instance->clients.size())
+					break;
+				char authst[5] = "";
+				if(instance->clients[i]->authstate & AUTH_ADMIN) strcat(authst, "A");
+				if(instance->clients[i]->authstate & AUTH_MOD) strcat(authst, "M");			
+				if(instance->clients[i]->authstate & AUTH_RANKED) strcat(authst, "R");
+				if(instance->clients[i]->authstate & AUTH_BOT) strcat(authst, "B");
+				if(instance->clients[i]->authstate & AUTH_BANNED) strcat(authst, "X");\
+
+				char tmp2[256]="";
+				sprintf(tmp2, "% 3d | %6s | % 20s | %s", instance->clients[i]->uid, authst, instance->clients[i]->nickname, instance->clients[i]->vehicle_name);
+				serverSay(std::string(tmp2), uid);
+			}
+
 		}
 		if(!strncmp(data, "!kick", 5) && strlen(data) > 6)
 		{
 			if(instance->clients[pos]->authstate & AUTH_MOD || instance->clients[pos]->authstate & AUTH_ADMIN)
 			{
-				char *kicknick = (data + 6);
+				int kuid=-1;
+				char kickmsg_org[256]="";
+				int res = sscanf(data+6, "%d %s", &kuid, kickmsg_org);
+				if(res != 2 || kuid == -1 || strlen(kickmsg_org) == 0)
+				{
+					serverSay(std::string("usage: !kick <uid> <message>"), uid);
+					serverSay(std::string("example: !kick 3 bye!"), uid);
+				}
 				bool kicked=false;
 				for (unsigned int i = 0; i < instance->clients.size(); i++)
 				{
-					if(i >= instance->clients.size())
-						break;
-					if(!strcmp(instance->clients[i]->nickname,kicknick))
+					if(i >= instance->clients.size()) break;
+					if(instance->clients[i]->uid == kuid)
 					{
-						char kickmsg[256]="";
+						char kickmsg[1024] = "";
 						strcat(kickmsg, "kicked by");
 						strcat(kickmsg, instance->clients[pos]->nickname);
-						disconnect(i, kickmsg);
+						strcat(kickmsg, ": ");
+						strcat(kickmsg, kickmsg_org);
+						disconnect(instance->clients[i]->uid, kickmsg);
+						kicked = true;
+						break;
 					}
 				}
 				if(!kicked)
-					serverSay(std::string("kick not successful, nick not found:")+std::string(kicknick), uid);
+					serverSay(std::string("kick not successful: uid not found!"), uid);
 			} else
 			{
 				// not allowed
@@ -911,11 +755,12 @@ void Sequencer::printStats()
 		for (unsigned int i = 0; i < instance->clients.size(); i++)
 		{
 			// some auth identifiers
-			char authst[4] = "";
+			char authst[5] = "";
 			if(instance->clients[i]->authstate & AUTH_ADMIN) strcat(authst, "A");
 			if(instance->clients[i]->authstate & AUTH_MOD) strcat(authst, "M");			
 			if(instance->clients[i]->authstate & AUTH_RANKED) strcat(authst, "R");
 			if(instance->clients[i]->authstate & AUTH_BOT) strcat(authst, "B");
+			if(instance->clients[i]->authstate & AUTH_BANNED) strcat(authst, "X");
 
 			// construct screen
 			if (instance->clients[i]->status == FREE) 

@@ -675,7 +675,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			}
 
 		}
-		if(!strncmp(data, "!bans", 4) && strlen(data) > 5)
+		if(!strncmp(data, "!bans ", 6) && strlen(data) > 6)
 		{
 			serverSay(std::string("uid | IP              | nickname             | banned by"), uid);
 			for (unsigned int i = 0; i < instance->bans.size(); i++)
@@ -708,7 +708,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 				serverSay(std::string("You are not authorized to unban people!"), uid);
 			}		
 		}
-		if(!strncmp(data, "!ban", 4) && strlen(data) > 5)
+		if(!strncmp(data, "!ban ", 5) && strlen(data) > 5)
 		{
 			if(instance->clients[pos]->authstate & AUTH_MOD || instance->clients[pos]->authstate & AUTH_ADMIN)
 			{

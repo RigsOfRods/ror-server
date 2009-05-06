@@ -662,7 +662,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			} else
 			{
 				// send valid beam data
-				Logger::log(LOG_VERBOSE,"Got beam data request from client %d for client %d. Valid data, sending response.", uid, uid_req);
+				Logger::log(LOG_VERBOSE,"Got beam data request from client %d for client %d. Valid data, sending response. (%d beams)", uid, uid_req, instance->clients[pos]->beamcount);
 				char buf_size = instance->clients[pos]->beamcount * sizeof(simple_beam_info);
 				simple_beam_info *bbuf = instance->clients[pos]->sbi;
 				instance->clients[pos]->broadcaster->queueMessage(uid_req, MSG2_VEHICLE_BEAMS, buf_size, (char*)bbuf);

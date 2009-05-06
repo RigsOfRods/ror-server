@@ -628,7 +628,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		instance->clients[pos]->sbi = (simple_beam_info*)malloc(len);
 		memcpy(instance->clients[pos]->sbi, data, len);
 
-		Logger::log(LOG_VERBOSE,"Got beam data (%d) for slot %d: %s", instance->clients[pos]->beamcount, pos, instance->clients[pos]->vehicle_name);
+		Logger::log(LOG_VERBOSE,"Got beam data (%d beams, %d kB) for slot %d: %s", instance->clients[pos]->beamcount, len/1024, pos, instance->clients[pos]->vehicle_name);
 		
 		publishMode = 3;
 	}

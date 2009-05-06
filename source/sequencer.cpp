@@ -200,7 +200,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	to_add->status=USED;
 	to_add->vehicle_name[0]=0;
 	to_add->position=Vector3(0,0,0);
-	to_add->beamcount=0;
+	to_add->beambuffersize=0;
 	to_add->sbi=0;
 
 	// auth stuff
@@ -332,12 +332,12 @@ void Sequencer::killerthreadstart()
 		// which makes the socket invalid) and the actual time of stoping
 		// the bradcaster
 
-		if(to_del->beamcount>0 && to_del->sbi)
+		if(to_del->beambuffersize>0 && to_del->sbi)
 		{
 			Logger::log(LOG_DEBUG,"freeing beam memory of %s", to_del->nickname );
 			// free beam memory
 			free(to_del->sbi);
-			to_del->beamcount=0;
+			to_del->beambuffersize=0;
 			to_del->sbi=0;
 		}
 
@@ -633,7 +633,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	else if (type==MSG2_VEHICLE_BEAMS) 
 	{
 		// store beam info in memory
-		instance->clients[pos]->beamcount = len / sizeof(simple_beam_info);
+		instance->clients[pos]->beambuffersize = len;
 		if(len > sizeof(simple_beam_info) * 5000) // 5000 = MAX_BEAMS
 		{
 			// message too big!
@@ -642,7 +642,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		instance->clients[pos]->sbi = (simple_beam_info*)malloc(len);
 		memcpy(instance->clients[pos]->sbi, data, len);
 
-		Logger::log(LOG_VERBOSE,"Got beam data (%d beams, %d kB) for slot %d: %s", instance->clients[pos]->beamcount, len/1024, pos, instance->clients[pos]->vehicle_name);
+		Logger::log(LOG_VERBOSE,"Got beam data (%d kB) for slot %d: %s", instance->clients[pos]->beambuffersize/1024, pos, instance->clients[pos]->vehicle_name);
 		
 		publishMode = 3;
 	}
@@ -653,7 +653,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		int req_pos = instance->getPosfromUid(uid_req);
 		if(req_pos != UID_NOT_FOUND)
 		{
-			if(!instance->clients[req_pos]->beamcount || !instance->clients[req_pos]->sbi)
+			if(!instance->clients[req_pos]->beambuffersize || !instance->clients[req_pos]->sbi)
 			{
 				// no data, send empty message
 				Logger::log(LOG_VERBOSE,"Got beam data request from client %d for client %d. No Data, discarding request.", uid, uid_req);
@@ -661,8 +661,8 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			} else
 			{
 				// send valid beam data
-				Logger::log(LOG_VERBOSE,"Got beam data request from client %d for client %d. Valid data, sending response. (%d beams)", uid, uid_req, instance->clients[pos]->beamcount);
-				char buf_size = instance->clients[pos]->beamcount * sizeof(simple_beam_info);
+				Logger::log(LOG_VERBOSE,"Got beam data request from client %d for client %d. Valid data, sending response. (%d kB)", uid, uid_req, instance->clients[pos]->beambuffersize/1024);
+				char buf_size = instance->clients[pos]->beambuffersize;
 				simple_beam_info *bbuf = instance->clients[pos]->sbi;
 				instance->clients[pos]->broadcaster->queueMessage(uid_req, MSG2_VEHICLE_BEAMS, buf_size, (char*)bbuf);
 				publishMode=0;

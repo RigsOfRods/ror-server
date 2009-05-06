@@ -156,6 +156,7 @@ void Receiver::threadstart()
 				type!=MSG2_FORCE &&
 				type!=MSG2_PRIVCHAT &&
 				type!=MSG2_VEHICLE_BEAMS &&
+				type!=MSG2_REQUEST_VEHICLE_BEAMS &&
 				type!=MSG2_DELETE)
 		{
 			Sequencer::disconnect(id, "Protocol error 3");

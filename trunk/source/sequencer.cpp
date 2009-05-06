@@ -200,7 +200,6 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	to_add->status=USED;
 	to_add->vehicle_name[0]=0;
 	to_add->position=Vector3(0,0,0);
-	to_add->rconretries=0;
 	to_add->beamcount=0;
 	to_add->sbi=0;
 
@@ -332,6 +331,16 @@ void Sequencer::killerthreadstart()
 		// socket will attempt to send a message between the disconnect
 		// which makes the socket invalid) and the actual time of stoping
 		// the bradcaster
+
+		if(to_del->beamcount>0 && to_del->sbi)
+		{
+			Logger::log(LOG_DEBUG,"freeing beam memory of %s", to_del->nickname );
+			// free beam memory
+			free(to_del->sbi);
+			to_del->beamcount=0;
+			to_del->sbi=0;
+		}
+
 		to_del->broadcaster->stop();
 		to_del->receiver->stop();
         to_del->sock->disconnect(&error);
@@ -625,6 +634,45 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	{
 		// store beam info in memory
 		instance->clients[pos]->beamcount = len / sizeof(simple_beam_info);
+		if(len > sizeof(simple_beam_info) * 5000) // 5000 = MAX_BEAMS
+		{
+			// message too big!
+			return;
+		}
+		instance->clients[pos]->sbi = (simple_beam_info*)malloc(len);
+		memcpy(instance->clients[pos]->sbi, data, len);
+
+		Logger::log(LOG_VERBOSE,"Got beam data (%d beams, %d kB) for slot %d: %s", instance->clients[pos]->beamcount, len/1024, pos, instance->clients[pos]->vehicle_name);
+		
+		publishMode = 3;
+	}
+	else if (type==MSG2_REQUEST_VEHICLE_BEAMS) 
+	{
+		// reply with beam info
+		int uid_req = *((int*)data);
+		int req_pos = instance->getPosfromUid(uid_req);
+		if(req_pos != UID_NOT_FOUND)
+		{
+			if(!instance->clients[req_pos]->beamcount || !instance->clients[req_pos]->sbi)
+			{
+				// no data, send empty message
+				instance->clients[pos]->broadcaster->queueMessage(uid_req, MSG2_VEHICLE_BEAMS, 0, 0);
+				publishMode=0;
+			} else
+			{
+				// send valid beam data
+				char buf_size = instance->clients[pos]->beamcount * sizeof(simple_beam_info);
+				simple_beam_info *bbuf = instance->clients[pos]->sbi;
+				instance->clients[pos]->broadcaster->queueMessage(uid_req, MSG2_VEHICLE_BEAMS, buf_size, (char*)bbuf);
+				publishMode=0;
+			}
+		} else
+		{
+			// no data, send empty message
+			instance->clients[pos]->broadcaster->queueMessage(uid_req, MSG2_VEHICLE_BEAMS, 0, 0);
+			publishMode=0;
+		}
+		instance->clients[pos]->beamcount = len / sizeof(simple_beam_info);
 		instance->clients[pos]->sbi = (simple_beam_info*)malloc(len);
 		memcpy(instance->clients[pos]->sbi, data, len);
 
@@ -784,50 +832,6 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			// use MSG2_PRIVCHAT later here maybe?
 			publishMode=0;
 		}
-	}
-	else if (type==MSG2_RCON_LOGIN)
-	{
-		if(instance->clients[pos]->authstate & AUTH_ADMIN)
-		{
-			// already logged in
-			instance->clients[pos]->broadcaster->queueMessage(
-					0, MSG2_RCON_LOGIN_SUCCESS, 0, 0);
-			return;
-		}
-		
-		if( !Config::hasAdmin() && instance->clients[pos]->rconretries < 3)
-		{
-			char pw[255]="";
-			strncpy(pw, data, 255);
-			pw[len]=0;
-			Logger::log(LOG_DEBUG, "user %d  tries to log into RCON: server: "
-					"%s, his: %s", pos, Config::getAdminPassword().c_str(), pw);
-			if( strnlen(pw, 250) > 20 && Config::getAdminPassword() != pw)
-			{
-				Logger::log(LOG_WARN, "user %d logged into RCON", pos);
-				instance->clients[pos]->authstate |= AUTH_ADMIN;
-				instance->clients[pos]->broadcaster->queueMessage( 
-						0, MSG2_RCON_LOGIN_SUCCESS, 0, 0 );
-			}else
-			{
-				// pw incorrect or failed
-				Logger::log(LOG_WARN, "user %d failed to login RCON, retry "
-						"number %d", pos, instance->clients[pos]->rconretries);
-				instance->clients[pos]->authstate = AUTH_NONE;
-				instance->clients[pos]->rconretries++;
-				instance->clients[pos]->broadcaster->queueMessage( 0,
-						MSG2_RCON_LOGIN_FAILED, 0, 0 );
-				Messaging::sendmessage( instance->clients[pos]->sock,
-						MSG2_RCON_LOGIN_FAILED, 0, 0, 0);
-			}
-		}else
-		{
-			Logger::log(LOG_WARN, "user %d failed to login RCON, as RCON is "
-					"disabled %d", pos, instance->clients[pos]->rconretries);
-			instance->clients[pos]->broadcaster->queueMessage( 0,
-					MSG2_RCON_LOGIN_NOTAV, 0, 0 );
-		}
-		publishMode=0;
 	}
 	else if (type==MSG2_VEHICLE_DATA)
 	{

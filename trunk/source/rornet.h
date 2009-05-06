@@ -49,7 +49,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define MSG2_USE_VEHICLE 1005 //!< the client says which vehicle it uses
 #define MSG2_USE_VEHICLE2 1040 //!< the client says which vehicle it uses, 2nd version
-#define MSG2_VEHICLE_BEAMS 1041 //!< the client says which vehicle it uses, 2nd version
+#define MSG2_VEHICLE_BEAMS 1041 //!< contains beam information
+#define MSG2_REQUEST_VEHICLE_BEAMS 1042 //!< sent by the client to request beam data
 //#define MSG2_SPAWN 1006       //!< the server asks to spawn a new vehicle / unused
 
 #define MSG2_BUFFER_SIZE 1007  //!< the clients tells the buffer size to use for
@@ -72,16 +73,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MSG2_USER_CREDENTIALS 1017 //!< improved user credentials
 #define MSG2_TERRAIN_RESP 1019     //!< server send client the terrain name
 #define MSG2_WRONG_PW 1020         //!< server send that on wrong pw
-
-#define MSG2_RCON_LOGIN 1021         //!< client send that the server with a
-                                     //!< sha1 password
-#define MSG2_RCON_LOGIN_FAILED 1022  //!< server sends that on wrong pw
-#define MSG2_RCON_LOGIN_SUCCESS 1023 //!< server sends that on correct pw
-#define MSG2_RCON_LOGIN_NOTAV 1024   //!< server sends that on disabled rcon
-
-#define MSG2_RCON_COMMAND 1025         //!< sends a rcon command
-#define MSG2_RCON_COMMAND_FAILED 1026  //!< send to client
-#define MSG2_RCON_COMMAND_SUCCESS 1027 //!< send to client
 
 // 2.1 but only active in 0.35 and up
 #define MSG2_GAME_CMD 1028           //!< send to client from server only

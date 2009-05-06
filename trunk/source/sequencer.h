@@ -74,7 +74,6 @@ struct client_t
     unsigned int uid;           //!< userid
     Vector3 position;           //!< position on the map?
     char uniqueid[60];          //!< users unique id
-    int rconretries;            //!< rcon password retries
     
 	int authstate;              //!< authenticated state
 

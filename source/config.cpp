@@ -30,7 +30,6 @@ enum
 	OPT_LOGVERBOSITY,
 	OPT_PASS,
 	OPT_INET,
-	OPT_RCONPASS,
 	OPT_GUI,
 	OPT_UPSPEED,
 	OPT_LOGFILENAME
@@ -42,7 +41,6 @@ static CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_PORT, ("-port"), SO_REQ_SEP },
 	{ OPT_NAME, ("-name"), SO_REQ_SEP },
 	{ OPT_PASS, ("-password"), SO_REQ_SEP },
-	{ OPT_RCONPASS, ("-rconpassword"), SO_REQ_SEP },
 	{ OPT_TERRAIN, ("-terrain"), SO_REQ_SEP },
 	{ OPT_MAXCLIENTS, ("-maxclients"), SO_REQ_SEP },
 	{ OPT_UPSPEED, ("-speed"), SO_REQ_SEP },
@@ -107,8 +105,6 @@ void showUsage()
 "\n"
 " OPTIONAL:\n" 
 " -password <password>         Private server password\n"
-" -rconpassword <password>     Set admin password. This is required for RCON to\n"
-"                              work. Otherwise RCON is disabled.\n"
 " -ip <ip>                     Public IP address to register with.\n"
 " -port <port>                 Port to use (defaults to random 12000-12500)\n"
 " -verbosity {0-5}             Sets displayed log verbosity\n"
@@ -266,9 +262,6 @@ bool Config::fromArgs( int argc, char* argv[] )
 			break;
 			case OPT_UPSPEED:
 				setMaxClients( (int)floor( (1 + sqrt(  ( float ) 1 - 4 * ( - (atoi(args.OptionArg())/64))))/2) );
-			break;
-			case OPT_RCONPASS:
-				setAdminPass( args.OptionArg() );
 			break;
 			case OPT_PORT:
 				setListenPort( atoi(args.OptionArg()) );

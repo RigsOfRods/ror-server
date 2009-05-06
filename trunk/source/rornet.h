@@ -24,7 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define MAX_PEERS 64
 //#define MAX_MLEN 1024
-#define MAX_MESSAGE_LENGTH 8192
+#define MAX_MESSAGE_LENGTH 32768 // higher value, since we also send around the beam data!
 
 #define RORNET_VERSION "RoRnet_2.2"
 
@@ -111,20 +111,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 typedef struct
 {
-	short int node1;
-	short int node2;
-	char type;
-} simple_beam_info;
-
-typedef struct
-{
 	char version;
 	char vehiclename[2048];
 	char nickname[20];
 	int authstatus;
-	int beamcount;
-	simple_beam_info *sbi;
 } client_info_on_join;
+
+typedef struct
+{
+	short int node1;
+	short int node2;
+	char type;
+} simple_beam_info;
 
 // structure to control flow of a stream, send in both directions
 typedef struct

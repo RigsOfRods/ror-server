@@ -49,6 +49,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define MSG2_USE_VEHICLE 1005 //!< the client says which vehicle it uses
 #define MSG2_USE_VEHICLE2 1040 //!< the client says which vehicle it uses, 2nd version
+#define MSG2_VEHICLE_BEAMS 1041 //!< the client says which vehicle it uses, 2nd version
 //#define MSG2_SPAWN 1006       //!< the server asks to spawn a new vehicle / unused
 
 #define MSG2_BUFFER_SIZE 1007  //!< the clients tells the buffer size to use for
@@ -100,13 +101,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MSG2_STREAM_TAKEOVER 1036           //!< stream takeover
 #define MSG2_STREAM_TAKEOVER_RESP 1037      //!< stream takeover response from server
 
-// structure to control flow of a stream, send in both directions
+
+#define AUTH_NONE              0x00000000
+#define AUTH_ADMIN             0x00000001
+#define AUTH_RANKED            0x00000002
+#define AUTH_MOD               0x00000004
+#define AUTH_BOT               0x00000008
+
+
 typedef struct
 {
-	int sid;                  //!< the unique id of the stream
-	int old_uid;              //!< old owner
-	int new_uid;              //!< new owner
-} stream_takeover_t;
+	short int node1;
+	short int node2;
+	char type;
+} simple_beam_info;
 
 typedef struct
 {
@@ -114,7 +122,17 @@ typedef struct
 	char vehiclename[2048];
 	char nickname[20];
 	int authstatus;
+	int beamcount;
+	simple_beam_info *sbi;
 } client_info_on_join;
+
+// structure to control flow of a stream, send in both directions
+typedef struct
+{
+	int sid;                  //!< the unique id of the stream
+	int old_uid;              //!< old owner
+	int new_uid;              //!< new owner
+} stream_takeover_t;
 
 // structure that is send from the cleint to server and vice versa, to broadcast a new stream
 typedef struct
@@ -214,5 +232,13 @@ typedef struct
 
 //used by configurator
 #define REPO_HTML_SERVERLIST "http://api.rigsofrods.com/serverlist/"
+#define NEWS_HTML_PAGE "http://api.rigsofrods.com/news/"
 
+//debugging
+//#define REFLECT_DEBUG 
+
+// strnlen is nto a std function, this macro can be used in place.
+#ifdef NO_STRNLEN
+#define strnlen(a, b) strlen(a)
+#endif
 #endif

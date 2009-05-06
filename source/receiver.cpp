@@ -99,7 +99,8 @@ void Receiver::threadstart()
 		return;
 	}
 	
-	if (type!=MSG2_USE_VEHICLE) {
+	if (type!=MSG2_USE_VEHICLE)
+	{
 		Sequencer::disconnect(id, "Protocol error 1");
 		return;
 	}
@@ -109,18 +110,21 @@ void Receiver::threadstart()
 	Sequencer::queueMessage(id, type, dbuffer, len);
 	
 	//get the buffer size, not really usefull but a good way to detect errors
-	if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, 4)) {
+	if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, 4))
+	{
 		Sequencer::disconnect(id, "Messaging abuse 2"); 
 		return;
 	}
 	
-	if (type!=MSG2_BUFFER_SIZE) {
+	if (type!=MSG2_BUFFER_SIZE)
+	{
 		Sequencer::disconnect(id, "Protocol error 2");
 		return;
 	}
 	
 	unsigned int buffersize=*((unsigned int*)dbuffer);
-	if (buffersize>MAX_MESSAGE_LENGTH) {
+	if (buffersize>MAX_MESSAGE_LENGTH)
+	{
 		Sequencer::disconnect(id, "Memory error from client");
 		return;
 	}
@@ -140,7 +144,6 @@ void Receiver::threadstart()
 	sock->set_timeout(60, 0);
 	while( running )
 	{
-		//	hmm for some reason this fails, 
 		if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, MAX_MESSAGE_LENGTH))
 		{
 			Sequencer::disconnect(id, "Game connection closed");
@@ -152,9 +155,9 @@ void Receiver::threadstart()
 				type!=MSG2_CHAT &&
 				type!=MSG2_FORCE &&
 				type!=MSG2_PRIVCHAT &&
-				type!=MSG2_RCON_LOGIN &&
-				type!=MSG2_RCON_COMMAND &&
-				type!=MSG2_DELETE) {
+				type!=MSG2_VEHICLE_BEAMS &&
+				type!=MSG2_DELETE)
+		{
 			Sequencer::disconnect(id, "Protocol error 3");
 			break;
 		}

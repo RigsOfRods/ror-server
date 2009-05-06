@@ -1,4 +1,4 @@
-FILE(GLOB_RECURSE server_src *.cpp *.c *.h)
+FILE(GLOB_RECURSE server_src *.cpp *.c *.h *.rc)
 
 # general flags
 add_definitions("-D_CRT_SECURE_NO_WARNINGS")

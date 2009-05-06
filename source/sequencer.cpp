@@ -207,7 +207,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	to_add->authstate = AUTH_NONE;
 	if(instance->authresolver)
 	{
-		Logger::log(LOG_DEBUG, "getting user auth level");
+		Logger::log(LOG_INFO, "getting user auth level");
 		int auth_flags = instance->authresolver->getUserModeByUserToken(user->uniqueid);
 		if(auth_flags != AUTH_NONE)
 			to_add->authstate |= auth_flags;
@@ -217,7 +217,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 		if(auth_flags & AUTH_MOD) strcat(authst, "M");
 		if(auth_flags & AUTH_RANKED) strcat(authst, "R");
 		if(auth_flags & AUTH_BOT) strcat(authst, "B");
-		Logger::log(LOG_DEBUG, "user auth flags: " + std::string(authst));
+		Logger::log(LOG_INFO, "user auth flags: " + std::string(authst));
 	}
 
 	memset(to_add->nickname, 0, 32); // for 20 character long nicknames :)
@@ -656,11 +656,13 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			if(!instance->clients[req_pos]->beamcount || !instance->clients[req_pos]->sbi)
 			{
 				// no data, send empty message
+				Logger::log(LOG_VERBOSE,"Got beam data request from client %d for client %d. No Data, sending empty response.", uid, uid_req);
 				instance->clients[pos]->broadcaster->queueMessage(uid_req, MSG2_VEHICLE_BEAMS, 0, 0);
 				publishMode=0;
 			} else
 			{
 				// send valid beam data
+				Logger::log(LOG_VERBOSE,"Got beam data request from client %d for client %d. Valid data, sending response.", uid, uid_req);
 				char buf_size = instance->clients[pos]->beamcount * sizeof(simple_beam_info);
 				simple_beam_info *bbuf = instance->clients[pos]->sbi;
 				instance->clients[pos]->broadcaster->queueMessage(uid_req, MSG2_VEHICLE_BEAMS, buf_size, (char*)bbuf);
@@ -669,6 +671,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		} else
 		{
 			// no data, send empty message
+			Logger::log(LOG_VERBOSE,"Got beam data request from client %d for client %d. Requested Client unknown. sending emptry response.", uid, uid_req);
 			instance->clients[pos]->broadcaster->queueMessage(uid_req, MSG2_VEHICLE_BEAMS, 0, 0);
 			publishMode=0;
 		}

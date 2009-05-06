@@ -77,7 +77,7 @@ struct client_t
     
 	int authstate;              //!< authenticated state
 
-	int beamcount;
+	int beambuffersize;
 	simple_beam_info *sbi;
 };
 

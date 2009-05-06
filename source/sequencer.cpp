@@ -673,13 +673,6 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			Logger::log(LOG_VERBOSE,"Got beam data request from client %d for client %d. Requested Client unknown, discarding request.", uid, uid_req);
 			publishMode=0;
 		}
-		instance->clients[pos]->beamcount = len / sizeof(simple_beam_info);
-		instance->clients[pos]->sbi = (simple_beam_info*)malloc(len);
-		memcpy(instance->clients[pos]->sbi, data, len);
-
-		Logger::log(LOG_VERBOSE,"Got beam data (%d beams, %d kB) for slot %d: %s", instance->clients[pos]->beamcount, len/1024, pos, instance->clients[pos]->vehicle_name);
-		
-		publishMode = 3;
 	}
 	else if (type==MSG2_DELETE)
 	{

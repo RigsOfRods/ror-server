@@ -201,6 +201,8 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	to_add->vehicle_name[0]=0;
 	to_add->position=Vector3(0,0,0);
 	to_add->rconretries=0;
+	to_add->beamcount=0;
+	to_add->sbi=0;
 
 	// auth stuff
 	to_add->authstate = AUTH_NONE;
@@ -619,7 +621,17 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		
 		publishMode = 3;
 	}
-	
+	else if (type==MSG2_VEHICLE_BEAMS) 
+	{
+		// store beam info in memory
+		instance->clients[pos]->beamcount = len / sizeof(simple_beam_info);
+		instance->clients[pos]->sbi = (simple_beam_info*)malloc(len);
+		memcpy(instance->clients[pos]->sbi, data, len);
+
+		Logger::log(LOG_VERBOSE,"Got beam data (%d) for slot %d: %s", instance->clients[pos]->beamcount, pos, instance->clients[pos]->vehicle_name);
+		
+		publishMode = 3;
+	}
 	else if (type==MSG2_DELETE)
 	{
 		static int counter_crash=0, counter_deletes=0;
@@ -642,10 +654,6 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			disconnect(instance->clients[pos]->uid, "disconnected on crash");
 		}
 		Logger::log(LOG_INFO, "crash statistic: %d of %d deletes crashed", counter_crash, counter_deletes);
-	}
-	else if (type==MSG2_RCON_COMMAND)
-	{
-		// not used anymore
 	}
 	else if (type==MSG2_CHAT)
 	{

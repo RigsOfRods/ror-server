@@ -77,6 +77,9 @@ struct client_t
     int rconretries;            //!< rcon password retries
     
 	int authstate;              //!< authenticated state
+
+	int beamcount;
+	simple_beam_info *sbi;
 };
 
 struct ban_t

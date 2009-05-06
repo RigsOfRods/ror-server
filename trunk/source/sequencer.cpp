@@ -656,8 +656,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			if(!instance->clients[req_pos]->beamcount || !instance->clients[req_pos]->sbi)
 			{
 				// no data, send empty message
-				Logger::log(LOG_VERBOSE,"Got beam data request from client %d for client %d. No Data, sending empty response.", uid, uid_req);
-				instance->clients[pos]->broadcaster->queueMessage(uid_req, MSG2_VEHICLE_BEAMS, 0, 0);
+				Logger::log(LOG_VERBOSE,"Got beam data request from client %d for client %d. No Data, discarding request.", uid, uid_req);
 				publishMode=0;
 			} else
 			{
@@ -671,8 +670,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		} else
 		{
 			// no data, send empty message
-			Logger::log(LOG_VERBOSE,"Got beam data request from client %d for client %d. Requested Client unknown. sending emptry response.", uid, uid_req);
-			instance->clients[pos]->broadcaster->queueMessage(uid_req, MSG2_VEHICLE_BEAMS, 0, 0);
+			Logger::log(LOG_VERBOSE,"Got beam data request from client %d for client %d. Requested Client unknown, discarding request.", uid, uid_req);
 			publishMode=0;
 		}
 		instance->clients[pos]->beamcount = len / sizeof(simple_beam_info);

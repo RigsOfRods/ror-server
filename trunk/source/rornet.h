@@ -115,6 +115,16 @@ typedef struct
 	char type;
 } simple_beam_info;
 
+typedef struct
+{
+	char version;
+	unsigned int nodebuffersize;
+	unsigned int netbuffersize;
+	unsigned int free_wheel;
+	unsigned int nodecount;
+	unsigned int beamcount;
+} simple_beam_info_header;
+
 // structure to control flow of a stream, send in both directions
 typedef struct
 {

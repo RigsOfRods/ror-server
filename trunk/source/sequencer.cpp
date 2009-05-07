@@ -54,6 +54,9 @@ Sequencer* Sequencer::Instance() {
 	return mInstance;
 }
 
+unsigned int Sequencer::connCrash = 0;
+unsigned int Sequencer::connCount = 0;
+
 
 Sequencer::Sequencer() :  listener( NULL ), notifier( NULL ), authresolver(NULL),
 fuid( 1 ), startTime ( Messaging::getTime() )
@@ -357,7 +360,7 @@ void Sequencer::killerthreadstart()
 	}
 }
 
-void Sequencer::disconnect(int uid, const char* errormsg)
+void Sequencer::disconnect(int uid, const char* errormsg, bool isError)
 {
     STACKLOG;
     Sequencer* instance = Instance(); 
@@ -384,6 +387,12 @@ void Sequencer::disconnect(int uid, const char* errormsg)
 	instance->clients.erase( instance->clients.begin() + pos );
 	instance->killer_cv.signal();
     
+
+	instance->connCount++;
+	if(isError)
+		instance->connCrash++;
+	Logger::log(LOG_INFO, "crash statistic: %d of %d deletes crashed", instance->connCrash, instance->connCount);
+
 	//printStats();
 }
 
@@ -633,16 +642,16 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	else if (type==MSG2_VEHICLE_BEAMS) 
 	{
 		// store beam info in memory
-		instance->clients[pos]->beambuffersize = len;
-		if(len > sizeof(simple_beam_info) * 5000) // 5000 = MAX_BEAMS
+		if(len > sizeof(simple_beam_info_header) + sizeof(simple_beam_info) * 5000) // 5000 = MAX_BEAMS
 		{
 			// message too big!
 			return;
 		}
+		instance->clients[pos]->beambuffersize = len;
 		instance->clients[pos]->sbi = (simple_beam_info*)malloc(len);
 		memcpy(instance->clients[pos]->sbi, data, len);
 
-		Logger::log(LOG_VERBOSE,"Got beam data (%d kB) for slot %d: %s", instance->clients[pos]->beambuffersize/1024, pos, instance->clients[pos]->vehicle_name);
+		Logger::log(LOG_VERBOSE,"Got beam data (%d bytes / %d kB) for slot %d: %s", instance->clients[pos]->beambuffersize, instance->clients[pos]->beambuffersize/1024, pos, instance->clients[pos]->vehicle_name);
 		
 		publishMode = 3;
 	}
@@ -661,7 +670,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			} else
 			{
 				// send valid beam data
-				Logger::log(LOG_VERBOSE,"Got beam data request from client %d for client %d. Valid data, sending response. (%d kB)", uid, uid_req, instance->clients[pos]->beambuffersize/1024);
+				Logger::log(LOG_VERBOSE,"Got beam data request from client %d for client %d. Valid data, sending response. (%d bytes / %d kB)", uid, uid_req, instance->clients[pos]->beambuffersize, instance->clients[pos]->beambuffersize/1024);
 				int buf_size = instance->clients[pos]->beambuffersize;
 				simple_beam_info *bbuf = instance->clients[pos]->sbi;
 				instance->clients[pos]->broadcaster->queueMessage(uid_req, MSG2_VEHICLE_BEAMS, (unsigned int)buf_size, (char*)bbuf);
@@ -676,26 +685,13 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	}
 	else if (type==MSG2_DELETE)
 	{
-		static int counter_crash=0, counter_deletes=0;
-		counter_deletes++;
-		if(len==0)
-		{
-			// from client
-			Logger::log(LOG_INFO, "user %s disconnects on request", instance->clients[pos]->nickname);
+		// from client
+		Logger::log(LOG_INFO, "user %s disconnects on request", instance->clients[pos]->nickname);
 
-			//char tmp[1024];
-			//sprintf(tmp, "user %s disconnects on request", instance->clients[pos]->nickname);
-			//serverSay(std::string(tmp), -1);
-			disconnect(instance->clients[pos]->uid, "disconnected on request");
-		}else
-		{
-			counter_crash++;
-			char tmp[1024];
-			sprintf(tmp, "user %s crashed D:", instance->clients[pos]->nickname);
-			serverSay(std::string(tmp), -1);
-			disconnect(instance->clients[pos]->uid, "disconnected on crash");
-		}
-		Logger::log(LOG_INFO, "crash statistic: %d of %d deletes crashed", counter_crash, counter_deletes);
+		//char tmp[1024];
+		//sprintf(tmp, "user %s disconnects on request", instance->clients[pos]->nickname);
+		//serverSay(std::string(tmp), -1);
+		disconnect(instance->clients[pos]->uid, "disconnected on request", false);
 	}
 	else if (type==MSG2_CHAT)
 	{

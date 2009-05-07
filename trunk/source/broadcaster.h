@@ -46,7 +46,7 @@ private:
 	std::queue<queue_entry_t> msg_queue;
 	
 	bool running;
-	void (*disconnect)(int, const char*);
+	void (*disconnect)(int, const char*, bool);
 	int (*sendmessage)(SWInetSocket *socket, int type, int source, unsigned int len, const char* content);
 
 	 void threadstart();
@@ -62,7 +62,7 @@ public:
 	 * @param[in] sendmessage callback for send a message
 	 */
 	void reset(int uid, SWInetSocket *socky,
-			void (*disconnect)(int uid, const char*),
+			void (*disconnect)(int uid, const char*, bool),
 			int (*sendmessage)(SWInetSocket *socket, int type,
 					int source, unsigned int len, const char* content) );
 	void stop();

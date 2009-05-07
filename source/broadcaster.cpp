@@ -53,7 +53,7 @@ Broadcaster::~Broadcaster()
 }
 
 void Broadcaster::reset(int uid, SWInetSocket *socky,
-		void (*disconnect_func)(int, const char*),
+		void (*disconnect_func)(int, const char*, bool),
 		int (*sendmessage_func)(SWInetSocket*, int, int,
 				unsigned int, const char*) )
 {
@@ -109,7 +109,7 @@ void Broadcaster::threadstart()
 		// TODO WARNING THE SOCKET IS NOT PROTECTED!!!
 		if( sendmessage( sock, msg.type, msg.uid, msg.datalen, msg.data ) )
 		{
-			disconnect(id, "Broadcaster: Send error");
+			disconnect(id, "Broadcaster: Send error", true);
 			return;
 		}
 	}

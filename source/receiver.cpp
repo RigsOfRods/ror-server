@@ -94,7 +94,8 @@ void Receiver::threadstart()
 	}
 	
 	//security fix: we limit the size of the vehicle name to 128 characters <- from Luigi Auriemma
-	if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, 128)) {
+	if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, 128))
+	{
 		Sequencer::disconnect(id, "Messaging abuse 1");
 		return;
 	}

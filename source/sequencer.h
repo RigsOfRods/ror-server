@@ -134,7 +134,7 @@ public:
     static void killerthreadstart();
     
     //! queue client for disconenct
-    static void disconnect(int pos, const char* error);
+    static void disconnect(int pos, const char* error, bool isError=true);
 
 	static void queueMessage(int pos, int type, char* data, unsigned int len);
     static void enableFlow(int id);
@@ -158,6 +158,8 @@ public:
 	static bool ban(int to_ban_uid, int modUID, const char *msg=0);
 	static bool unban(int buid);
 	static bool isbanned(const char *ip);
+
+	static unsigned int connCrash, connCount;
 };
 
 #endif

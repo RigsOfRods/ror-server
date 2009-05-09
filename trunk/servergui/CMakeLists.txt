@@ -2,7 +2,7 @@ project(servergui)
 
 FILE(GLOB_RECURSE servergui_src *.cpp *.c *.h *.rc)
 
-FILE(GLOB_RECURSE servergui_src ${rorserver_SOURCE_DIR}/source/*.cpp ${rorserver_SOURCE_DIR}/source/*.c ${rorserver_SOURCE_DIR}/source/*.h )
+FILE(GLOB_RECURSE servergui_server_src ${rorserver_SOURCE_DIR}/source/*.cpp ${rorserver_SOURCE_DIR}/source/*.c ${rorserver_SOURCE_DIR}/source/*.h )
 
 SET(wxWidgets_USE_UNICODE ON)
 IF(WIN32)
@@ -30,8 +30,12 @@ IF(wxWidgets_FOUND)
 
   #add_definitions("${CMAKE_WXWINDOWS_CXX_FLAGS}")
 
+  add_executable(servergui ${servergui_src} ${servergui_server_src})
 
-  add_executable(servergui ${servergui_src})
+  set_target_properties(servergui PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:WINDOWS")
+  set_target_properties(servergui PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
+  set_target_properties(servergui PROPERTIES LINK_FLAGS_RELEASE "/LTCG /OPT:REF /OPT:NOWIN98 /SUBSYSTEM:WINDOWS")
+
   TARGET_LINK_LIBRARIES(servergui ${wxWidgets_LIBRARIES} )
   IF(WIN32)
 	include_directories (${rorserver_SOURCE_DIR}/win32_pthread)

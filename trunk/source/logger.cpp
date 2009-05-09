@@ -84,6 +84,13 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 			fflush(file); // important, as if we crash, we want to be sure to 
 			//have the last log entries in the log file!
 	}
+
+	if(callback)
+	{
+		char tmp[2048]="";
+		sprintf(tmp, "%s|t%02d|%5s|%s\n", timestr, ThreadID::getID(), loglevelname[(int)level], msg.c_str());
+		callback(level, msg, std::string(tmp));
+	}
 }
 
 void Logger::setOutputFile(const std::string& filename)
@@ -103,7 +110,14 @@ void Logger::setFlushLevel(const LogLevel level )
 	flush_level = level;
 }
 
+void Logger::setCallback(void (*ptr)(int, std::string msg, std::string msgf))
+{
+	callback = ptr;
+}
+
 // private:
+void (*Logger::callback)(int, std::string msg, std::string msgf) = 0;
+
 Logger::Logger()
 {
 	setOutputFile("server.log");

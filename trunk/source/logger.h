@@ -46,7 +46,9 @@ public:
 	//! flushing.
 	//! if set to LOG_ERROR then flushing occurs only when an error is logged
 	static void setFlushLevel(const LogLevel level );
-	
+
+	static void setCallback(void (*ptr)(int, std::string msg, std::string msgf));
+
 private:
 	Logger();
 	Logger instance();
@@ -56,6 +58,7 @@ private:
 	static const char *loglevelname[];
 	static LogLevel flush_level;
 	static bool compress_file;
+	static void (*callback)(int, std::string msg, std::string msgf);
 };
 
 class ScopeLog

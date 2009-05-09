@@ -119,7 +119,7 @@ void pureLogCallback(int level, std::string msg, std::string msgf)
 
 void MyDialog::logCallback(int level, std::string msg, std::string msgf)
 {
-	if(level == LOG_STACK) return;
+	//if(level == LOG_STACK) return;
 
 	if(level == LOG_INFO)
 		txtConsole->SetDefaultStyle(wxTextAttr(wxColour(0,150,0)));
@@ -132,9 +132,19 @@ void MyDialog::logCallback(int level, std::string msg, std::string msgf)
 	else if(level == LOG_DEBUG)
 		txtConsole->SetDefaultStyle(wxTextAttr(wxColour(180,150,0)));
 
+
+    int lines = 0;
+    const char* cstr = msgf.c_str();
+    for( ; *cstr ; ++cstr )
+        if( *cstr == '\n' )
+            ++lines;
+ 
 	wxString wmsg = conv(msgf);
+	txtConsole->Freeze();
 	txtConsole->AppendText(wmsg);
-	txtConsole->SetInsertionPointEnd();
+	txtConsole->ScrollLines(lines + 1);
+	txtConsole->ShowPosition(txtConsole->GetLastPosition());
+	txtConsole->Thaw();
 }
 
 MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY, title,  wxPoint(100, 100), wxSize(500, 500))

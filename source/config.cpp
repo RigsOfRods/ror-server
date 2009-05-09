@@ -16,6 +16,8 @@
 #include <time.h>
 #endif
 
+#ifndef NOCMDLINE
+
 // option identifiers
 enum
 {
@@ -53,6 +55,7 @@ static CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_HELP,  ("--help"), SO_NONE },
 	SO_END_OF_OPTIONS
 };
+#endif //NOCMDLINE
 
 //======== helper functions ====================================================
 int getRandomPort()
@@ -144,6 +147,7 @@ Config::~Config()
 //! runs a check that all the required fields are present
 bool Config::checkConfig()
 {
+#ifndef NOCMDLINE
 	bool is_valid_config = true;
 	
 	switch ( getServerMode() )
@@ -234,11 +238,14 @@ bool Config::checkConfig()
 	return is_valid_config;
 	return getMaxClients() && getListenPort() && !getIPAddr().empty() && 
 		!getServerName().empty() &&!getTerrainName().empty();
-	
+#else
+	return true;
+#endif //NOCMDLINE
 }
 
 bool Config::fromArgs( int argc, char* argv[] )
 {
+#ifndef NOCMDLINE
 	// parse arguments
 	CSimpleOpt args(argc, argv, cmdline_options);
 	while (args.Next()) {
@@ -289,6 +296,7 @@ bool Config::fromArgs( int argc, char* argv[] )
 			}
 		}
 	}
+#endif //NOCMDLINE
 	return true;
 }
 

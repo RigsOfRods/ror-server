@@ -79,6 +79,7 @@ struct client_t
 
 	int beambuffersize;
 	simple_beam_info *sbi;
+	char ip_addr[16]; // do not use directly
 };
 
 struct ban_t
@@ -158,6 +159,8 @@ public:
 	static bool ban(int to_ban_uid, int modUID, const char *msg=0);
 	static bool unban(int buid);
 	static bool isbanned(const char *ip);
+
+	static std::vector<client_t> getClients();
 
 	static unsigned int connCrash, connCount;
 };

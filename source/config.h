@@ -34,6 +34,7 @@ public:
 	static const std::string& getIPAddr();
 	static unsigned int       getListenPort();
 	static ServerType         getServerMode();
+	static bool               getPrintStats();
 	//!@}
 
 	//! setter functions
@@ -46,6 +47,7 @@ public:
 	static bool setIPAddr( const std::string& name );
 	static bool setListenPort( unsigned int port );
 	static bool setServerMode( ServerType mode);
+	static void setPrintStats(bool value);
 	//!@}
 	
 private:
@@ -60,6 +62,7 @@ private:
 	std::string ip_addr;
 	unsigned int listen_port;
 	ServerType server_mode;
+	bool print_stats;
 	
 	
 	

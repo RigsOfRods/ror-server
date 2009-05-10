@@ -873,10 +873,28 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	}
 }
 
+std::vector<client_t> Sequencer::getClients()
+{
+    STACKLOG;
+    Sequencer* instance = Instance();
+	std::vector<client_t> res;
+    MutexLocker scoped_lock(instance->clients_mutex);
+	SWBaseSocket::SWBaseError error;
+
+	for (unsigned int i = 0; i < instance->clients.size(); i++)
+	{
+		client_t c = *instance->clients[i];
+		strcpy(c.ip_addr, instance->clients[i]->sock->get_peerAddr(&error).c_str());
+		res.push_back(c);
+	}
+	return res;
+}
+
 // clients_mutex needs to be locked wen calling this method
 void Sequencer::printStats()
 {
     STACKLOG;
+	if(!Config::getPrintStats()) return;
     Sequencer* instance = Instance();
 	SWBaseSocket::SWBaseError error;
 	{

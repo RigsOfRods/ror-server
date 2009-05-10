@@ -21,6 +21,7 @@
 #include <wx/scrolwin.h>
 #include <wx/log.h>
 #include <wx/timer.h>
+#include <wx/listctrl.h>
 
 #include "statpict.h"
 
@@ -58,7 +59,9 @@ private:
 	wxTextCtrl *txtConsole, *ipaddr, *port, *slots, *passwd, *terrain, *sname;
 	wxComboBox *smode, *logmode;
 	wxNotebook *nbook;
-	wxPanel *settingsPanel, *logPanel;
+	wxListCtrl *slotlist;
+	wxPanel *settingsPanel, *logPanel, *playersPanel;
+	wxTimer *timer1;
 	void OnQuit(wxCloseEvent &event);
 	int loglevel;
 
@@ -68,16 +71,21 @@ private:
 	
 	int startServer();
 	int stopServer();
+	void updatePlayerList();
+	
+	void OnTimer(wxTimerEvent& event);
 
 	DECLARE_EVENT_TABLE()
 };
 
+enum {EVT_timer1};
 
 BEGIN_EVENT_TABLE(MyDialog, wxDialog)
 	EVT_CLOSE(MyDialog::OnQuit)
 	EVT_BUTTON(btn_start, MyDialog::OnBtnStart)
 	EVT_BUTTON(btn_stop,  MyDialog::OnBtnStop)
 	EVT_BUTTON(btn_exit,  MyDialog::OnBtnExit)
+	EVT_TIMER(EVT_timer1, MyDialog::OnTimer)
 END_EVENT_TABLE()
 
 IMPLEMENT_APP(MyApp)
@@ -101,13 +109,14 @@ inline std::string conv(const wxString& s)
 
 
 MyDialog *dialogInstance = 0; // we need to use this to be able to forward the messages
-
+MyApp *myApp = 0;
 // 'Main program' equivalent: the program execution "starts" here
 bool MyApp::OnInit()
 {
 	if ( !wxApp::OnInit() )
 		return false;
 
+	myApp = this;
 	MyDialog *dialog = new MyDialog(_("Rigs of Rods Dedicated Server"), this);
 	dialog->Show(true);
 	SetTopWindow(dialog);
@@ -161,6 +170,8 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY
 	SetMinSize(wxSize(500,500));
 	//SetMaxSize(wxSize(500,500));
 	SetWindowStyle(wxRESIZE_BORDER | wxCAPTION);
+
+	timer1 = new wxTimer(this, EVT_timer1);
 
 	wxSizer *mainsizer = new wxBoxSizer(wxVERTICAL);
 	mainsizer->SetSizeHints(this);
@@ -260,6 +271,30 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY
 	logPanel->SetSizer(logSizer);
 	nbook->AddPage(logPanel, _("Log"), false);
 
+
+	///// player list
+	playersPanel=new wxPanel(nbook, wxID_ANY);
+	wxSizer *playersSizer = new wxBoxSizer(wxVERTICAL);
+	slotlist = new wxListCtrl(playersPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize,wxLC_REPORT);
+	slotlist->InsertColumn(0, _("Slot"), wxLIST_FORMAT_LEFT, 30);
+	slotlist->InsertColumn(1, _("Status"), wxLIST_FORMAT_LEFT, 50);
+	slotlist->InsertColumn(2, _("UID"), wxLIST_FORMAT_LEFT, 30);
+	slotlist->InsertColumn(3, _("IP"), wxLIST_FORMAT_LEFT, 100);
+	slotlist->InsertColumn(4, _("Auth"), wxLIST_FORMAT_LEFT, 40);
+	slotlist->InsertColumn(5, _("Nick"), wxLIST_FORMAT_LEFT, 100);
+	slotlist->InsertColumn(6, _("Vehicle"), wxLIST_FORMAT_LEFT, 120);
+	
+	for(unsigned int i=0; i<Config::getMaxClients();i++)
+	{
+		slotlist->InsertItem(i, wxString::Format(wxT("%d"),i));
+		slotlist->SetItem(i, 1, _("FREE"));
+	}
+
+	playersSizer->Add(slotlist, 1, wxGROW);
+	playersPanel->SetSizer(playersSizer);
+	nbook->AddPage(playersPanel, _("Slots"), false);
+
+	// main sizer again
 	exitBtn = new wxButton(this, btn_exit, _("EXIT"));
 	mainsizer->Add(exitBtn, 0, wxGROW);
 	
@@ -272,6 +307,54 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY
 	// centers dialog window on the screen
 	SetSize(500,500);
 	Centre();
+}
+
+void MyDialog::OnTimer(wxTimerEvent& event)
+{
+	updatePlayerList();
+}
+
+void MyDialog::updatePlayerList()
+{
+	slotlist->Freeze();
+	std::vector<client_t> clients = Sequencer::getClients();
+	for(unsigned int i=0; i<Config::getMaxClients();i++)
+	{
+		slotlist->SetItem(i, 0, wxString::Format(wxT("%d"),i));
+
+		if(i>=clients.size())
+		{
+			slotlist->SetItem(i, 1, _("FREE"));
+			slotlist->SetItem(i, 2, wxString());
+			slotlist->SetItem(i, 3, wxString());
+			slotlist->SetItem(i, 4, wxString());
+			slotlist->SetItem(i, 5, wxString());
+			slotlist->SetItem(i, 6, wxString());
+			continue;
+		}
+
+		if(clients[i].status == FREE)
+			slotlist->SetItem(i, 1, _("FREE"));
+		if(clients[i].status == BUSY)
+			slotlist->SetItem(i, 1, _("BUSY"));
+		if(clients[i].status == USED)
+			slotlist->SetItem(i, 1, _("USED"));
+
+		slotlist->SetItem(i, 2, wxString::Format(wxT("%d"),clients[i].uid));
+		slotlist->SetItem(i, 3, conv(clients[i].ip_addr));
+		
+		char authst[5] = "";
+		if(clients[i].authstate & AUTH_ADMIN) strcat(authst, "A");
+		if(clients[i].authstate & AUTH_MOD) strcat(authst, "M");			
+		if(clients[i].authstate & AUTH_RANKED) strcat(authst, "R");
+		if(clients[i].authstate & AUTH_BOT) strcat(authst, "B");
+		if(clients[i].authstate & AUTH_BANNED) strcat(authst, "X");
+		slotlist->SetItem(i, 4, conv(authst));
+
+		slotlist->SetItem(i, 5, conv(clients[i].nickname));
+		slotlist->SetItem(i, 6, conv(clients[i].vehicle_name));
+	}
+	slotlist->Thaw();
 }
 
 void MyDialog::OnQuit(wxCloseEvent &event)
@@ -287,7 +370,7 @@ void MyDialog::OnBtnStart(wxCommandEvent& event)
 	stopBtn->Enable();
 	nbook->SetSelection(1);
 	startServer();
-
+	timer1->Start(5000);
 }
 
 void MyDialog::OnBtnStop(wxCommandEvent& event)
@@ -318,6 +401,8 @@ int MyDialog::startServer()
 	Logger::setLogLevel(LOGTYPE_FILE, LOG_VERBOSE);
 	Logger::setFlushLevel(LOG_ERROR);
 	Logger::setOutputFile("server.log");
+
+	Config::setPrintStats(false);
 
 	if(smode->GetValue() == _("LAN"))
 		Config::setServerMode(SERVER_LAN);

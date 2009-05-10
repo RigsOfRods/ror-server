@@ -32,7 +32,6 @@ enum
 	OPT_LOGVERBOSITY,
 	OPT_PASS,
 	OPT_INET,
-	OPT_GUI,
 	OPT_UPSPEED,
 	OPT_LOGFILENAME
 };
@@ -51,7 +50,6 @@ static CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_VERBOSITY, ("-verbosity"), SO_REQ_SEP },
 	{ OPT_LOGVERBOSITY, ("-logverbosity"), SO_REQ_SEP },
 	{ OPT_LOGFILENAME, ("-logfilename"), SO_REQ_SEP },
-	{ OPT_GUI, ("-gui"), SO_NONE },
 	{ OPT_HELP,  ("--help"), SO_NONE },
 	SO_END_OF_OPTIONS
 };
@@ -147,7 +145,6 @@ Config::~Config()
 //! runs a check that all the required fields are present
 bool Config::checkConfig()
 {
-#ifndef NOCMDLINE
 	bool is_valid_config = true;
 	
 	switch ( getServerMode() )
@@ -238,9 +235,6 @@ bool Config::checkConfig()
 	return is_valid_config;
 	return getMaxClients() && getListenPort() && !getIPAddr().empty() && 
 		!getServerName().empty() &&!getTerrainName().empty();
-#else
-	return true;
-#endif //NOCMDLINE
 }
 
 bool Config::fromArgs( int argc, char* argv[] )

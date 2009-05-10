@@ -77,7 +77,7 @@ void handler(int signalnum)
 
 int main(int argc, char* argv[])
 {
-	// det default verbose levels
+	// set default verbose levels
 	Logger::setLogLevel(LOGTYPE_DISPLAY, LOG_INFO);
 	Logger::setLogLevel(LOGTYPE_FILE, LOG_VERBOSE);
 	Logger::setFlushLevel(LOG_ERROR);

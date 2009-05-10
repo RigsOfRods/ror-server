@@ -84,7 +84,7 @@ void Sequencer::initilize()
 
 	if( Config::getServerMode() != SERVER_LAN )
 	{
-		instance->notifier = new Notifier();
+		instance->notifier = new Notifier(instance->authresolver);
 
 		// only start userauth if we are registered with the master server and if we have trustworthyness > 1
 		if(instance->notifier->getAdvertised() && instance->notifier->getTrustLevel()>1)

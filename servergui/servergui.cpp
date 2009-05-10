@@ -37,8 +37,6 @@
 // xpm images
 #include "server.xpm"
 
-enum {btn_start, btn_stop, btn_exit};
-
 class MyApp : public wxApp
 {
 public:
@@ -55,12 +53,13 @@ public:
 	void logCallback(int level, std::string msg, std::string msgf); //called by callback function
 private:
 	MyApp *app;
-	wxButton *startBtn, *stopBtn, *exitBtn;
-	wxTextCtrl *txtConsole, *ipaddr, *port, *slots, *passwd, *terrain, *sname;
+	wxButton *startBtn, *stopBtn, *exitBtn, *pubipBtn;
+	wxTextCtrl *txtConsole, *ipaddr, *port, *slots, *passwd, *terrain, *sname, *logfilename;
 	wxComboBox *smode, *logmode;
 	wxNotebook *nbook;
 	wxListCtrl *slotlist;
-	wxPanel *settingsPanel, *logPanel, *playersPanel;
+	wxScrolledWindow *settingsPanel;
+	wxPanel *logPanel, *playersPanel;
 	wxTimer *timer1;
 	void OnQuit(wxCloseEvent &event);
 	int loglevel;
@@ -68,7 +67,8 @@ private:
 	void OnBtnStart(wxCommandEvent& event);
 	void OnBtnStop(wxCommandEvent& event);
 	void OnBtnExit(wxCommandEvent& event);
-	
+	void OnBtnPubIP(wxCommandEvent& event);
+
 	int startServer();
 	int stopServer();
 	void updatePlayerList();
@@ -78,13 +78,14 @@ private:
 	DECLARE_EVENT_TABLE()
 };
 
-enum {EVT_timer1};
+enum {btn_start, btn_stop, btn_exit, EVT_timer1, btn_pubip};
 
 BEGIN_EVENT_TABLE(MyDialog, wxDialog)
 	EVT_CLOSE(MyDialog::OnQuit)
 	EVT_BUTTON(btn_start, MyDialog::OnBtnStart)
 	EVT_BUTTON(btn_stop,  MyDialog::OnBtnStop)
 	EVT_BUTTON(btn_exit,  MyDialog::OnBtnExit)
+	EVT_BUTTON(btn_pubip, MyDialog::OnBtnPubIP)
 	EVT_TIMER(EVT_timer1, MyDialog::OnTimer)
 END_EVENT_TABLE()
 
@@ -186,61 +187,67 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY
 	mainsizer->Add(nbook, 1, wxGROW);
 
 	///// settings
-	settingsPanel=new wxPanel(nbook, wxID_ANY);
+	settingsPanel=new wxScrolledWindow(nbook, wxID_ANY);
+	settingsPanel->SetVirtualSize(300, 800);
+	settingsPanel->SetScrollbars(0, 10, 1,0, 0, 0);
+
 	wxSizer *settingsSizer = new wxBoxSizer(wxVERTICAL);
-	wxSizer *hsizer = new wxGridSizer(3, 2, 2, 2);
+	wxFlexGridSizer *grid_sizer = new wxFlexGridSizer(3, 2, 10, 10);
 	wxStaticText *dText;
 
-	// IP
+	// server name
 	dText = new wxStaticText(settingsPanel, wxID_ANY, _("Server Name:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
-	hsizer->Add(dText, 0, wxGROW);
+	grid_sizer->Add(dText, 0, wxGROW);
 	sname = new wxTextCtrl(settingsPanel, wxID_ANY, _("Default Server"), wxDefaultPosition, wxDefaultSize);
-	hsizer->Add(sname, 0, wxGROW);
+	grid_sizer->Add(sname, 0, wxGROW);
 
 	// mode
 	dText = new wxStaticText(settingsPanel, wxID_ANY, _("Mode:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
-	hsizer->Add(dText, 0, wxGROW);
+	grid_sizer->Add(dText, 0, wxGROW);
 
 	wxString choices[1];
 	choices[0] = _("LAN");
 	choices[1] = _("Internet");
 	smode = new wxComboBox(settingsPanel, wxID_ANY, _("LAN"), wxDefaultPosition, wxDefaultSize, 2, choices, wxCB_DROPDOWN|wxCB_READONLY);
-	hsizer->Add(smode, 0, wxGROW);
+	grid_sizer->Add(smode, 0, wxGROW);
 
 	// IP
 	dText = new wxStaticText(settingsPanel, wxID_ANY, _("IP:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
-	hsizer->Add(dText, 0, wxGROW);
+	grid_sizer->Add(dText, 0, wxGROW);
+	wxSizer *ipaddrSizer = new wxBoxSizer(wxVERTICAL);
 	ipaddr = new wxTextCtrl(settingsPanel, wxID_ANY, _("0.0.0.0"), wxDefaultPosition, wxDefaultSize);
-	hsizer->Add(ipaddr, 0, wxGROW);
+	ipaddrSizer->Add(ipaddr, 0, wxGROW);
+	pubipBtn = new wxButton(settingsPanel, btn_pubip, _("get public IP address"));
+	ipaddrSizer->Add(pubipBtn, 0, wxGROW);
+	grid_sizer->Add(ipaddrSizer, 0, wxGROW);
 	
 	// Port
 	dText = new wxStaticText(settingsPanel, wxID_ANY, _("Port:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
-	hsizer->Add(dText, 0, wxGROW);
+	grid_sizer->Add(dText, 0, wxGROW);
 	port = new wxTextCtrl(settingsPanel, wxID_ANY, _("12000"), wxDefaultPosition, wxDefaultSize);
-	hsizer->Add(port, 0, wxGROW);
+	grid_sizer->Add(port, 0, wxGROW);
 	
 	// Port
 	dText = new wxStaticText(settingsPanel, wxID_ANY, _("Password:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
-	hsizer->Add(dText, 0, wxGROW);
+	grid_sizer->Add(dText, 0, wxGROW);
 	passwd = new wxTextCtrl(settingsPanel, wxID_ANY, _(""), wxDefaultPosition, wxDefaultSize);
-	hsizer->Add(passwd, 0, wxGROW);
+	grid_sizer->Add(passwd, 0, wxGROW);
 
 	// playercount
 	dText = new wxStaticText(settingsPanel, wxID_ANY, _("Slots:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
-	hsizer->Add(dText, 0, wxGROW);
+	grid_sizer->Add(dText, 0, wxGROW);
 	slots = new wxTextCtrl(settingsPanel, wxID_ANY, _("16"), wxDefaultPosition, wxDefaultSize);
-	hsizer->Add(slots, 0, wxGROW);
+	grid_sizer->Add(slots, 0, wxGROW);
 
 	// terrain
 	dText = new wxStaticText(settingsPanel, wxID_ANY, _("Terrain:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
-	hsizer->Add(dText, 0, wxGROW);
+	grid_sizer->Add(dText, 0, wxGROW);
 	terrain = new wxTextCtrl(settingsPanel, wxID_ANY, _("any"), wxDefaultPosition, wxDefaultSize);
-	hsizer->Add(terrain, 0, wxGROW);
+	grid_sizer->Add(terrain, 0, wxGROW);
 
 	// debuglevel
 	dText = new wxStaticText(settingsPanel, wxID_ANY, _("LogLevel:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
-	hsizer->Add(dText, 0, wxGROW);
-
+	grid_sizer->Add(dText, 0, wxGROW);	
 	wxString choices_log[6];
 	choices_log[0] = _("STACK");
 	choices_log[1] = _("DEBUG");
@@ -249,17 +256,23 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY
 	choices_log[4] = _("WARN");
 	choices_log[5] = _("ERRROR");
 	logmode = new wxComboBox(settingsPanel, wxID_ANY, _("INFO"), wxDefaultPosition, wxDefaultSize, 6, choices_log, wxCB_DROPDOWN|wxCB_READONLY);
-	hsizer->Add(logmode, 0, wxGROW);
+	grid_sizer->Add(logmode, 0, wxGROW);
+
+	// logfilename
+	dText = new wxStaticText(settingsPanel, wxID_ANY, _("Log Filename:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
+	grid_sizer->Add(dText, 0, wxGROW);
+	logfilename = new wxTextCtrl(settingsPanel, wxID_ANY, _("server.log"), wxDefaultPosition, wxDefaultSize);
+	grid_sizer->Add(logfilename, 0, wxGROW);
 
 	// some buttons
 	startBtn = new wxButton(settingsPanel, btn_start, _("START"));
-	hsizer->Add(startBtn, 0, wxGROW);
+	grid_sizer->Add(startBtn, 0, wxGROW);
 
 	stopBtn = new wxButton(settingsPanel, btn_stop, _("STOP"));
 	stopBtn->Disable();
-	hsizer->Add(stopBtn, 0, wxGROW);
+	grid_sizer->Add(stopBtn, 0, wxGROW);
 
-	settingsSizer->Add(hsizer, 0, wxGROW);
+	settingsSizer->Add(grid_sizer, 0, wxGROW);
 	settingsPanel->SetSizer(settingsSizer);
 	nbook->AddPage(settingsPanel, _("Settings"), true);
 
@@ -375,9 +388,11 @@ void MyDialog::OnBtnStart(wxCommandEvent& event)
 
 void MyDialog::OnBtnStop(wxCommandEvent& event)
 {
-	startBtn->Enable();
-	stopBtn->Disable();
+	timer1->Stop();
 	stopServer();
+	// FIXME: bug upon server restart ...
+	//startBtn->Enable();
+	stopBtn->Disable();
 }
 
 void MyDialog::OnBtnExit(wxCommandEvent& event)
@@ -386,6 +401,11 @@ void MyDialog::OnBtnExit(wxCommandEvent& event)
 	exit(0);
 }
 
+void MyDialog::OnBtnPubIP(wxCommandEvent& event)
+{
+	wxString ip = conv(Config::getPublicIP());
+	ipaddr->SetValue(ip);
+}
 
 int MyDialog::startServer()
 {
@@ -411,6 +431,8 @@ int MyDialog::startServer()
 
 	if(ipaddr->GetValue() != _("0.0.0.0"))
 		Config::setIPAddr(conv(ipaddr->GetValue()));
+
+	Logger::setOutputFile(conv(logfilename->GetValue()));
 	
 	unsigned long portNum=12000;
 	port->GetValue().ToULong(&portNum);
@@ -423,7 +445,12 @@ int MyDialog::startServer()
 	if(!passwd->GetValue().IsEmpty())
 		Config::setPublicPass(conv(passwd->GetValue()));
 
-	Config::setServerName(conv(sname->GetValue()));
+	//server name, replace space with underscore
+	wxString server_name = sname->GetValue();
+	const wxChar from = wxChar(' ');
+	const wxChar to = wxChar('_');
+	server_name.Replace(&from, &to);
+	Config::setServerName(conv(server_name));
 	Config::setTerrain(conv(terrain->GetValue()));
 		
 	if( !Config::checkConfig() )

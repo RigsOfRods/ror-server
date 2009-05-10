@@ -32,7 +32,6 @@ enum
 	OPT_LOGVERBOSITY,
 	OPT_PASS,
 	OPT_INET,
-	OPT_UPSPEED,
 	OPT_LOGFILENAME
 };
 
@@ -44,7 +43,6 @@ static CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_PASS, ("-password"), SO_REQ_SEP },
 	{ OPT_TERRAIN, ("-terrain"), SO_REQ_SEP },
 	{ OPT_MAXCLIENTS, ("-maxclients"), SO_REQ_SEP },
-	{ OPT_UPSPEED, ("-speed"), SO_REQ_SEP },
 	{ OPT_LAN, ("-lan"), SO_NONE },
 	{ OPT_INET, ("-inet"), SO_NONE },
 	{ OPT_VERBOSITY, ("-verbosity"), SO_REQ_SEP },
@@ -62,7 +60,7 @@ int getRandomPort()
 	return 12000 + (rand()%500);
 }
 
-static std::string getPublicIP()
+std::string Config::getPublicIP()
 {
 	SWBaseSocket::SWBaseError error;
 	SWInetSocket mySocket;
@@ -99,9 +97,7 @@ void showUsage()
 " -name <name>                 Name of the server, no spaces, only \n"
 "                              [a-z,0-9,A-Z]\n"
 " -terrain <mapname>           Map name (defaults to 'any')\n"
-"Use maxclients OR speed, not both\n"
 " -maxclients|speed <clients>  Maximum clients allowed \n"
-" -speed <upload in kbps>      or maximum upload speed (in kilobits)\n"
 " -lan|inet                    Private or public server (defaults to inet)\n"
 "\n"
 " OPTIONAL:\n" 
@@ -130,8 +126,6 @@ Config::Config():
 max_clients( 16 ),
 server_name( "" ),
 terrain_name( "any" ),
-public_password( "" ),
-admin_password( "" ),
 ip_addr( "" ),
 listen_port( 0 ),
 server_mode( SERVER_AUTO ),
@@ -229,10 +223,6 @@ bool Config::checkConfig()
 	Logger::log( LOG_INFO, "server is%s password protected",
 			getPublicPassword().empty() ? " NOT": "" );
 
-	Logger::log( LOG_INFO, "admin password %s admin console",
-			getAdminPassword().empty() ? "not set, disabling": 
-			"is set, enabling" );
-	
 	return is_valid_config;
 	return getMaxClients() && getListenPort() && !getIPAddr().empty() && 
 		!getServerName().empty() &&!getTerrainName().empty();
@@ -261,9 +251,6 @@ bool Config::fromArgs( int argc, char* argv[] )
 			break;
 			case OPT_PASS:
 				setPublicPass( args.OptionArg() );
-			break;
-			case OPT_UPSPEED:
-				setMaxClients( (int)floor( (1 + sqrt(  ( float ) 1 - 4 * ( - (atoi(args.OptionArg())/64))))/2) );
 			break;
 			case OPT_PORT:
 				setListenPort( atoi(args.OptionArg()) );
@@ -297,8 +284,6 @@ bool Config::fromArgs( int argc, char* argv[] )
 
 //! checks if a password has been set for server access
 bool Config::isPublic() { return !getPublicPassword().empty(); }
-//! checks if the admin password is set, and the admin console is enabled.
-bool Config::hasAdmin() { return !getAdminPassword().empty(); }
 
 //! getter function
 //!@{
@@ -306,7 +291,6 @@ unsigned int       Config::getMaxClients()     { return instance.max_clients;   
 const std::string& Config::getServerName()     { return instance.server_name;     }
 const std::string& Config::getTerrainName()    { return instance.terrain_name;    }
 const std::string& Config::getPublicPassword() { return instance.public_password; }
-const std::string& Config::getAdminPassword()  { return instance.admin_password;  } 
 const std::string& Config::getIPAddr()         { return instance.ip_addr;         }
 unsigned int       Config::getListenPort()     { return instance.listen_port;     }
 ServerType         Config::getServerMode()     { return instance.server_mode;     }
@@ -340,19 +324,6 @@ bool Config::setPublicPass( const std::string& pub_pass ) {
 	}
 	Logger::log(LOG_DEBUG,"sha1(%s) = %s", pub_pass.c_str(), 
 			instance.public_password.c_str());
-	return true;
-}
-
-bool Config::setAdminPass( const std::string& admin_pass ) {
-	if(admin_pass.length() > 0 && admin_pass.length() < 250  &&  
-			!SHA1FromString(instance.admin_password, admin_pass))
-	{
-		Logger::log(LOG_ERROR, "could not generate server SHA1 password hash!");
-		instance.admin_password = "";
-		return false;
-	}
-	Logger::log(LOG_DEBUG,"sha1(%s) = %s", admin_pass.c_str(), 
-			instance.admin_password.c_str());
 	return true;
 }
 

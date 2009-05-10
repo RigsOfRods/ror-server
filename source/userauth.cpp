@@ -96,6 +96,11 @@ int UserAuth::readConfig()
 	return 0;
 }
 
+int UserAuth::getAuthSize()
+{
+	return local_auth.size();
+}
+
 int UserAuth::getUserModeByUserToken(std::string token)
 {
 	std::string nick;

@@ -21,8 +21,6 @@ public:
 	
 	//! checks if a password has been set for server access
 	static bool isPublic();
-	//! checks if the admin password is set, and the admin console is enabled.
-	static bool hasAdmin();
 	
 	//! getter function
 	//!@{
@@ -30,7 +28,6 @@ public:
 	static const std::string& getServerName();
 	static const std::string& getTerrainName();
 	static const std::string& getPublicPassword();
-	static const std::string& getAdminPassword();
 	static const std::string& getIPAddr();
 	static unsigned int       getListenPort();
 	static ServerType         getServerMode();
@@ -43,12 +40,13 @@ public:
 	static bool setServerName( const std::string& name );
 	static bool setTerrain( const std::string& name );
 	static bool setPublicPass( const std::string& name );
-	static bool setAdminPass( const std::string& name );
 	static bool setIPAddr( const std::string& name );
 	static bool setListenPort( unsigned int port );
 	static bool setServerMode( ServerType mode);
 	static void setPrintStats(bool value);
 	//!@}
+
+	static std::string getPublicIP();
 	
 private:
 	Config();
@@ -58,7 +56,6 @@ private:
 	std::string server_name;
 	std::string terrain_name;
 	std::string public_password;
-	std::string admin_password;
 	std::string ip_addr;
 	unsigned int listen_port;
 	ServerType server_mode;

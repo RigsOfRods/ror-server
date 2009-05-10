@@ -29,6 +29,7 @@
 #include "sequencer.h"
 #include "logger.h"
 #include "config.h"
+#include "userauth.h"
 
 #include "logger.h"
 #include "sha1_util.h"
@@ -54,7 +55,7 @@ public:
 private:
 	MyApp *app;
 	wxButton *startBtn, *stopBtn, *exitBtn, *pubipBtn;
-	wxTextCtrl *txtConsole, *ipaddr, *port, *slots, *passwd, *terrain, *sname, *logfilename;
+	wxTextCtrl *txtConsole, *ipaddr, *port, *slots, *passwd, *terrain, *sname, *logfilename, *adminuid;
 	wxComboBox *smode, *logmode;
 	wxNotebook *nbook;
 	wxListCtrl *slotlist;
@@ -264,6 +265,12 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY
 	logfilename = new wxTextCtrl(settingsPanel, wxID_ANY, _("server.log"), wxDefaultPosition, wxDefaultSize);
 	grid_sizer->Add(logfilename, 0, wxGROW);
 
+	// adminuid
+	dText = new wxStaticText(settingsPanel, wxID_ANY, _("Admin UID:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
+	grid_sizer->Add(dText, 0, wxGROW);
+	adminuid = new wxTextCtrl(settingsPanel, wxID_ANY, _(""), wxDefaultPosition, wxDefaultSize);
+	grid_sizer->Add(adminuid, 0, wxGROW);
+
 	// some buttons
 	startBtn = new wxButton(settingsPanel, btn_start, _("START"));
 	grid_sizer->Add(startBtn, 0, wxGROW);
@@ -444,6 +451,9 @@ int MyDialog::startServer()
 
 	if(!passwd->GetValue().IsEmpty())
 		Config::setPublicPass(conv(passwd->GetValue()));
+
+	std::string user_token = conv(adminuid->GetValue());
+	if(Sequencer::getUserAuth()) Sequencer::getUserAuth()->setUserAuth(user_token, AUTH_ADMIN);
 
 	//server name, replace space with underscore
 	wxString server_name = sname->GetValue();

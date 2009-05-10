@@ -41,5 +41,6 @@ public:
 	int resolve(std::string user_token, std::string &user_nick);
 
 	int getAuthSize();
+	int setUserAuth(std::string token, int flags);
 };
 #endif

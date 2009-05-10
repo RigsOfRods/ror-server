@@ -134,7 +134,8 @@ public_password( "" ),
 admin_password( "" ),
 ip_addr( "" ),
 listen_port( 0 ),
-server_mode( SERVER_AUTO )
+server_mode( SERVER_AUTO ),
+print_stats(true)
 {
 }
 
@@ -309,6 +310,7 @@ const std::string& Config::getAdminPassword()  { return instance.admin_password;
 const std::string& Config::getIPAddr()         { return instance.ip_addr;         }
 unsigned int       Config::getListenPort()     { return instance.listen_port;     }
 ServerType         Config::getServerMode()     { return instance.server_mode;     }
+bool               Config::getPrintStats()     { return instance.print_stats;     }
 //!@}
 
 //! setter functions
@@ -368,5 +370,9 @@ bool Config::setListenPort( unsigned int port ) {
 bool Config::setServerMode( ServerType mode) {
 	instance.server_mode = mode;
 	return true;
+}
+void Config::setPrintStats(bool value)
+{
+	instance.print_stats = value;
 }
 //!@}

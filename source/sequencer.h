@@ -143,7 +143,9 @@ public:
     
     static void notifyRoutine();
     static void notifyAllVehicles(int id);
-    
+
+	static UserAuth* getUserAuth();
+
     static int getNumClients(); //! number of clients connected to this server
     static int getHeartbeatData(char *challenge, char *hearbeatdata);
     //! prints the Stats view, of who is connected and what slot they are in

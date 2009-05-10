@@ -463,6 +463,13 @@ int Sequencer::readFile(std::string filename, std::vector<std::string> &lines)
 	return 0;
 }
 
+
+UserAuth* Sequencer::getUserAuth()
+{
+    Sequencer* instance = Instance();
+	return instance->authresolver;
+}
+
 //this is called from the listener thread initial handshake
 void Sequencer::notifyAllVehicles(int uid)
 {

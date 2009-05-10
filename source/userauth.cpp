@@ -107,6 +107,12 @@ int UserAuth::getUserModeByUserToken(std::string token)
 	return resolve(token, nick);
 }
 
+int UserAuth::setUserAuth(std::string token, int flags)
+{
+	local_auth[token] = flags;
+	return 0;
+}
+
 int UserAuth::resolve(std::string user_token, std::string &user_nick)
 {
     STACKLOG;

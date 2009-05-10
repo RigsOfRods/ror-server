@@ -39,5 +39,7 @@ public:
 	int getUserModeByUserToken(std::string token);
 
 	int resolve(std::string user_token, std::string &user_nick);
+
+	int getAuthSize();
 };
 #endif

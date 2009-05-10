@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "messaging.h"
 #include "logger.h"
 #include "config.h"
+#include "userauth.h"
 
 #include <stdexcept>
 
@@ -32,7 +33,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
 
-Notifier::Notifier() : exit(false), wasregistered( false ), error_count( 0 )
+Notifier::Notifier(UserAuth *u) : exit(false), wasregistered( false ), error_count( 0 ), authresolver(u)
 {
     STACKLOG;
 	memset( &httpresp, 0, 65536);
@@ -57,7 +58,7 @@ bool Notifier::registerServer()
 	char regurl[1024];
 	int responseformat = 2;
 	sprintf(regurl, "%s/register/?name=%s&description=%s&ip=%s&port=%i&"
-			"terrainname=%s&maxclients=%i&version=%s&pw=%d&rcon=%d&format=%d", 
+			"terrainname=%s&maxclients=%i&version=%s&pw=%d&format=%d", 
 		REPO_URLPREFIX,
 		Config::getServerName().c_str(),
 		"",
@@ -67,10 +68,10 @@ bool Notifier::registerServer()
 		Config::getMaxClients(),
 		RORNET_VERSION,
 		Config::isPublic(),
-		Config::hasAdmin(),
 		responseformat);
 	
 	// format = 2 will result in different response on registration format.
+	Logger::log(LOG_DEBUG, "%s%s", "sending registration request: ", regurl);
 	Logger::log(LOG_INFO, "Trying to register at Master Server ... (this can take some "
 			"seconds as your server is being checked by the Master server)");
 	if (HTTPGET(regurl) < 0)

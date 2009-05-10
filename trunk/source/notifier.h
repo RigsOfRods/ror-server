@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "HttpMsg.h"
 
+class UserAuth;
 /**
  * The notifier class communicated with the master server, it is called from
  * the sequencer class via Sequencer::notifyRoutine. The loop method is
@@ -42,9 +43,10 @@ private:
 	bool registerServer(); //!< attempt to register with the master server
 	bool sendHearbeat();   //!< send a heart beat message to the master server
 	bool advertised;
+	UserAuth *authresolver;
 public:
     
-	Notifier();
+	Notifier(UserAuth *u);
 	
 	~Notifier(void);
 	

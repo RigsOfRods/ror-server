@@ -1,6 +1,8 @@
 // created on 22th of June 2009 by Thomas Fischer
 #include "logger.h"
+#include "mutexutils.h"
 #include "ScriptEngine.h"
+#include "sequencer.h"
 #include "scriptstdstring/scriptstdstring.h" // angelscript addon
 #include "scriptmath/scriptmath.h" // angelscript addon
 
@@ -16,7 +18,13 @@ _CRTIMP void __cdecl _wassert(_In_z_ const wchar_t * _Message, _In_z_ const wcha
 # define assert_net(expr) assert(expr)
 #endif
 
-ScriptEngine::ScriptEngine(Sequencer *seq) : seq(seq), engine(0), context(0)
+ScriptEngine::ScriptEngine(Sequencer *seq) : seq(seq), 
+	engine(0),
+	context(0),
+	playerAddedFunctionPtr(0),
+	playerDeletedFunctionPtr(0),
+	playerChatFunctionPtr(0),
+	frameStepFunctionPtr(0)
 {
 	init();
 }
@@ -85,6 +93,10 @@ int ScriptEngine::loadScript(std::string scriptname)
 
 	// get some other optional functions
 	frameStepFunctionPtr = mod->GetFunctionIdByDecl("void frameStep(float)");
+	playerDeletedFunctionPtr = mod->GetFunctionIdByDecl("void playerDeleted(int, int)");
+	playerAddedFunctionPtr = mod->GetFunctionIdByDecl("void playerAdded(int)");
+	playerChatFunctionPtr = mod->GetFunctionIdByDecl("void playerChat(int, string msg)");
+	
 	//eventCallbackFunctionPtr = mod->GetFunctionIdByDecl("void eventCallback(int event, int value)");
 
 	// Create our context, prepare it, and then execute
@@ -234,6 +246,10 @@ void ScriptEngine::init()
 	// Register everything
 	result = engine->RegisterObjectType("ServerScriptClass", sizeof(ServerScript), asOBJ_VALUE | asOBJ_POD | asOBJ_APP_CLASS); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "void log(const string &in)", asMETHOD(ServerScript,log), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "void say(const string &in, int uid, int type)", asMETHOD(ServerScript,say), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "bool kick(int kuid, const string &in)", asMETHOD(ServerScript,kick), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "bool ban(int buid, const string &in)", asMETHOD(ServerScript,ban), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "bool unban(int buid)", asMETHOD(ServerScript,unban), asCALL_THISCALL); assert_net(result>=0);
 
 	ServerScript *serverscript = new ServerScript(this, seq);
 	result = engine->RegisterGlobalProperty("ServerScriptClass server", serverscript); assert_net(result>=0);
@@ -283,6 +299,67 @@ void ScriptEngine::executeString(std::string command)
 	}
 }
 
+int ScriptEngine::framestep(float dt)
+{
+	if(frameStepFunctionPtr<0) return 1;
+	if(!engine) return 0;
+	if(!context) context = engine->CreateContext();
+	context->Prepare(frameStepFunctionPtr);
+
+	// Set the function arguments
+	context->SetArgFloat(0, dt);
+
+	//LogManager::getSingleton().logMessage("SE| Executing framestep()");
+	int r = context->Execute();
+	if( r == asEXECUTION_FINISHED )
+	{
+	  // The return value is only valid if the execution finished successfully
+	  asDWORD ret = context->GetReturnDWord();
+	}
+	return 0;
+}
+
+void ScriptEngine::playerDeleted(int uid, int crash)
+{
+	if(!engine || playerDeletedFunctionPtr<0) return;
+	if(!context) context = engine->CreateContext();
+	context->Prepare(playerDeletedFunctionPtr);
+
+	context->SetArgDWord(0, uid);
+	context->SetArgDWord(1, crash);
+	context->Execute();
+}
+
+void ScriptEngine::playerAdded(int uid)
+{
+	if(!engine || playerAddedFunctionPtr<0) return;
+	if(!context) context = engine->CreateContext();
+	context->Prepare(playerAddedFunctionPtr);
+
+	context->SetArgDWord(0, uid);
+	context->Execute();
+}
+
+int ScriptEngine::playerChat(int uid, char *msg)
+{
+	if(!engine || playerChatFunctionPtr<0) return -1;
+	if(!context) context = engine->CreateContext();
+	context->Prepare(playerChatFunctionPtr);
+
+	std::string msgstr = std::string(msg);
+	context->SetArgDWord(0, uid);
+	context->SetArgObject(1, (void *)&msgstr);
+	int r = context->Execute();
+	if( r == asEXECUTION_FINISHED )
+	{
+	  // The return value is only valid if the execution finished successfully
+	  asDWORD ret = context->GetReturnDWord();
+	  return ret;
+	}
+	return -1;
+}
+
+
 /* class that implements the interface for the scripts */
 ServerScript::ServerScript(ScriptEngine *se, Sequencer *seq) : mse(se), seq(seq)
 {
@@ -294,5 +371,25 @@ ServerScript::~ServerScript()
 
 void ServerScript::log(std::string &msg)
 {
-	Logger::log(LOG_INFO,"%s\n", msg.c_str());
+	Logger::log(LOG_INFO,"SCRIPT|%s\n", msg.c_str());
+}
+
+void ServerScript::say(std::string &msg, int uid, int type)
+{
+	seq->serverSayThreadSave(msg, uid, type);
+}
+
+bool ServerScript::kick(int kuid, std::string &msg)
+{
+	return seq->kick(kuid, 0, msg.c_str());
+}
+
+bool ServerScript::ban(int buid, std::string &msg)
+{
+	return seq->ban(buid, 0, msg.c_str());
+}
+
+bool ServerScript::unban(int buid)
+{
+	return seq->unban(buid);
 }

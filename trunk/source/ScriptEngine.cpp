@@ -406,7 +406,7 @@ void ScriptEngine::timerLoop()
 	{
 		// sleep 200 miliseconds
 #ifndef WIN32
-		usleep(200);
+		usleep(200000);
 #else
 		Sleep(200);
 #endif

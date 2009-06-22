@@ -82,9 +82,9 @@ float Vector3::length() const
 	return sqrtf(x*x + y*y + z*z);
 }
 
-float Vector3::distance(Vector3 v) const
+float Vector3::distance(Vector3 &other) const
 {
-	return (*this-v).length();
+	return (*this - other).length();
 }
 
 std::string Vector3::toString() const

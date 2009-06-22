@@ -23,7 +23,7 @@ struct Vector3
 	Vector3 &operator/=(float scalar);
 
 	float length() const;
-	float distance(Vector3 v) const;
+	float distance(Vector3 &v) const;
 	std::string toString() const;
 
 	friend bool operator==(const Vector3 &a, const Vector3 &b);

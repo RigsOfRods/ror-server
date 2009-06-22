@@ -3,6 +3,7 @@ float time=0, timer0=0;
 
 // countdown variable
 int racecountDown=-1;
+int racecountDownNumbers=10;
 
 // race state variable, 0=no race started, 1=driving to start, 2=running
 int raceRunning=0;
@@ -59,14 +60,24 @@ void main()
 // called when a player disconnects
 void playerDeleted(int uid, int crash)
 {
+	for(int i=0;i<free_race_participants;i++)
+	{
+		if(race_participants[i] == -1) continue;
+		if(race_participants[i] == uid)
+		{
+			race_participants[i] = -1; // player left during the race
+			// todo: inform other players?
+		}
+	}
+
 }
 
 // called when a player connects and starts playing (already chose truck)
 void playerAdded(int uid)
 {
 	server.log("new player " + userString(uid) + " :D");
-	server.say("^1Hey ^2" + server.getUserName(uid) + "^1, welcome here!",  uid, 0);
-	server.say("^1You can start or join a race by saying !race",  uid, 0);
+	server.say("^3Hey ^2" + server.getUserName(uid) + "^3, welcome here!",  uid, 0);
+	server.say("^3You can start or join a race by saying ^2!race",  uid, 0);
 	//server.log("player " + userString(uid) + " has auth: " + server.getUserAuth(uid));
 	//server.log("player " + userString(uid) + " has vehicle: " + server.getUserVehicle(uid));
 }
@@ -111,15 +122,19 @@ int raceTick(bool secondPassed)
 	{
 		if(secondPassed)
 			for(int i=0;i<free_race_participants;i++)
+			{
+				if(race_participants[i] == -1) continue;
 				server.say("we are waiting for " + (free_race_participants-min_req) + " players ...", race_participants[i], 0);
+			}
 
-		// waiting for more ...
+		// waiting for more players...
 	} else if (raceRunning==1 && free_race_participants >= min_req)
 	{
 		// check if everyone is at the starting point
 		bool ok=true;
 		for(int i=0;i<free_race_participants;i++)
 		{
+			if(race_participants[i] == -1) continue;
 			vector3 userpos = server.getUserPosition(race_participants[i]);
 			float dist = userpos.distance(aspen_points[0]);
 			if(dist > 3)
@@ -133,7 +148,10 @@ int raceTick(bool secondPassed)
 		if(secondPassed && !ok)
 		{
 			for(int i=0;i<free_race_participants;i++)
+			{
+				if(race_participants[i] == -1) continue;
 				server.say("^3we are waiting for all players to arrive at the first checkpoint...", race_participants[i], 0);
+			}
 			racecountDown=-1;
 			return 1;
 		}
@@ -142,18 +160,24 @@ int raceTick(bool secondPassed)
 			//start race
 			if(racecountDown==-1)
 			{
-				racecountDown = 5;
+				racecountDown = racecountDownNumbers;
 				for(int i=0;i<free_race_participants;i++)
+				{
+					if(race_participants[i] == -1) continue;
 					server.say("^2STARTING COUNTDOWN", race_participants[i], 0);
+				}
 			}
-			string cmd = "game.flashMessage(\"^1" + racecountDown + "\", 10, 0.20f);";
+			float fontSize = 0.5f * (1.0f - (float(racecountDown) / float(racecountDownNumbers)));
+			if(fontSize<0.05f) fontSize = 0.05f;
+			string cmd = "game.flashMessage(\"^1" + racecountDown + "\", 10, "+fontSize+");";
 			if(racecountDown>0 && racecountDown<3)
-				cmd = "game.flashMessage(\"^3" + racecountDown + "\", 10, 0.25f);";
+				cmd = "game.flashMessage(\"^3" + racecountDown + "\", 10, "+fontSize+");";
 			else if(racecountDown==0)
-				cmd = "game.flashMessage(\"^2GO!\", 2, 0.3f);";
+				cmd = "game.flashMessage(\"^2GO!\", 2, "+fontSize+");";
 			
 			for(int i=0;i<free_race_participants;i++)
 			{
+				if(race_participants[i] == -1) continue;
 				// update flash message
 				server.cmd(race_participants[i], cmd);
 				// stop the timer that gets started by LUA ...
@@ -167,11 +191,13 @@ int raceTick(bool secondPassed)
 				// finally started ...
 				for(int i=0;i<free_race_participants;i++)
 				{
+					if(race_participants[i] == -1) continue;
 					server.cmd(race_participants[i], cmd);
 					server.cmd(race_participants[i], "game.startTimer()");
 					server.say("^2GO!", race_participants[i], 0);
 				}
 				raceRunning=2;
+				racecountDown=-1;
 			}
 		}
 		
@@ -180,10 +206,23 @@ int raceTick(bool secondPassed)
 		// race is running check the checkpoints!
 		for(int i=0;i<free_race_participants;i++)
 		{
+			if(race_participants[i] == -1) continue;
 			vector3 userpos = server.getUserPosition(race_participants[i]);
 			float dist = userpos.distance(aspen_points[race_checkpoints[i]]);
-			if(dist<3) race_checkpoints[i]++;
-			if(secondPassed) server.say("^2"+dist+"m to checkpoint "+race_checkpoints[i], race_participants[i], 0);
+			if(dist<3)
+			{
+				race_checkpoints[i]++; // if we are 3m near a checkpoint, go to the next checkpoint!
+				// find player in front and behind that one
+				int nextId = i+1;
+				if(nextId >= free_race_participants) nextId = -1;
+				int prevId = i-1;
+				if(prevId < 0) prevId = -1;
+				
+				if(nextId!=-1) server.say("^2"+server.getUserName(race_participants[nextId])+"^3 is " + userpos.distance(server.getUserPosition(race_participants[nextId])) + "m in front of you", race_participants[i], 0);
+				if(prevId!=-1) server.say("^2"+server.getUserName(race_participants[prevId])+"^3 is " + userpos.distance(server.getUserPosition(race_participants[prevId])) + "m behind of you", race_participants[i], 0);
+				
+			}
+			//if(secondPassed) server.say("^2"+dist+"m to checkpoint "+race_checkpoints[i], race_participants[i], 0);
 		}
 	}
 	return 0;
@@ -197,7 +236,7 @@ void frameStep(float dt)
 	
 	timer0 += dt;
 	bool secondPassed=false;
-	if(timer0 > 2000.0f)
+	if(timer0 > 1000.0f)
 	{
 		secondPassed=true;
 		timer0=0;

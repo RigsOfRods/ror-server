@@ -2,6 +2,7 @@
 #define SCRIPTMATH3D_H
 
 #include <angelscript.h>
+#include <String>
 
 BEGIN_AS_NAMESPACE
 
@@ -23,6 +24,7 @@ struct Vector3
 
 	float length() const;
 	float distance(Vector3 v) const;
+	std::string toString() const;
 
 	friend bool operator==(const Vector3 &a, const Vector3 &b);
 	friend bool operator!=(const Vector3 &a, const Vector3 &b);

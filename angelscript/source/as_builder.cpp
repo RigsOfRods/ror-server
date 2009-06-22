@@ -442,6 +442,35 @@ int asCBuilder::ParseDataType(const char *datatype, asCDataType *result)
 	return asSUCCESS;
 }
 
+int asCBuilder::ParseTemplateDecl(const char *decl, asCString *name, asCString *subtypeName)
+{
+	numErrors = 0;
+	numWarnings = 0;
+	preMessage.isSet = false;
+
+	asCScriptCode source;
+	source.SetCode("", decl, true);
+
+	asCParser parser(this);
+	int r = parser.ParseTemplateDecl(&source);
+	if( r < 0 )
+		return asINVALID_TYPE;
+
+	// Get the template name and subtype name
+	asCScriptNode *node = parser.GetScriptNode()->firstChild;
+
+	name->Assign(&decl[node->tokenPos], node->tokenLength);
+	node = node->next;
+	subtypeName->Assign(&decl[node->tokenPos], node->tokenLength);
+
+	// TODO: template: check for name conflicts
+
+	if( numErrors > 0 )
+		return asINVALID_DECLARATION;
+
+	return asSUCCESS;
+}
+
 int asCBuilder::VerifyProperty(asCDataType *dt, const char *decl, asCString &name, asCDataType &type)
 {
 	numErrors = 0;
@@ -560,7 +589,7 @@ asCGlobalProperty *asCBuilder::GetGlobalProperty(const char *prop, bool *isCompi
 	return 0;
 }
 
-int asCBuilder::ParseFunctionDeclaration(const char *decl, asCScriptFunction *func, bool isSystemFunction, asCArray<bool> *paramAutoHandles, bool *returnAutoHandle)
+int asCBuilder::ParseFunctionDeclaration(asCObjectType *objType, const char *decl, asCScriptFunction *func, bool isSystemFunction, asCArray<bool> *paramAutoHandles, bool *returnAutoHandle)
 {
 	numErrors = 0;
 	numWarnings = 0;
@@ -570,7 +599,6 @@ int asCBuilder::ParseFunctionDeclaration(const char *decl, asCScriptFunction *fu
 	source.SetCode(TXT_SYSTEM_FUNCTION, decl, true);
 
 	asCParser parser(this);
-
 	int r = parser.ParseFunctionDefinition(&source);
 	if( r < 0 )
 		return asINVALID_DECLARATION;
@@ -585,7 +613,7 @@ int asCBuilder::ParseFunctionDeclaration(const char *decl, asCScriptFunction *fu
 	bool autoHandle;
 
 	// Scoped reference types are allowed to use handle when returned from application functions
-	func->returnType = CreateDataTypeFromNode(node->firstChild, &source, true);
+	func->returnType = CreateDataTypeFromNode(node->firstChild, &source, true, objType);
 	func->returnType = ModifyDataTypeFromNode(func->returnType, node->firstChild->next, &source, 0, &autoHandle);
 	if( autoHandle && (!func->returnType.IsObjectHandle() || func->returnType.IsReference()) )
 			return asINVALID_DECLARATION;
@@ -619,7 +647,7 @@ int asCBuilder::ParseFunctionDeclaration(const char *decl, asCScriptFunction *fu
 	while( n )
 	{
 		asETypeModifiers inOutFlags;
-		asCDataType type = CreateDataTypeFromNode(n, &source);
+		asCDataType type = CreateDataTypeFromNode(n, &source, false, objType);
 		type = ModifyDataTypeFromNode(type, n->next, &source, &inOutFlags, &autoHandle);
 
 		// Reference types cannot be passed by value to system functions
@@ -837,7 +865,7 @@ int asCBuilder::RegisterGlobalVar(asCScriptNode *node, asCScriptCode *file)
 	while( n )
 	{
 		// Verify that the name isn't taken
-		GETSTRING(name, &file->code[n->tokenPos], n->tokenLength);
+		asCString name(&file->code[n->tokenPos], n->tokenLength);
 		CheckNameConflict(name.AddressOf(), n, file);
 
 		// Register the global variable
@@ -877,7 +905,7 @@ int asCBuilder::RegisterGlobalVar(asCScriptNode *node, asCScriptCode *file)
 int asCBuilder::RegisterClass(asCScriptNode *node, asCScriptCode *file)
 {
 	asCScriptNode *n = node->firstChild;
-	GETSTRING(name, &file->code[n->tokenPos], n->tokenLength);
+	asCString name(&file->code[n->tokenPos], n->tokenLength);
 
 	int r, c;
 	file->ConvertPosToRowCol(n->tokenPos, &r, &c);
@@ -892,7 +920,6 @@ int asCBuilder::RegisterClass(asCScriptNode *node, asCScriptCode *file)
 	decl->node       = node;
 
 	asCObjectType *st = asNEW(asCObjectType)(engine);
-	st->arrayType = 0;
 	st->flags = asOBJ_REF | asOBJ_SCRIPT_OBJECT;
 
 	if( node->tokenType == ttHandle )
@@ -900,7 +927,6 @@ int asCBuilder::RegisterClass(asCScriptNode *node, asCScriptCode *file)
 
 	st->size      = sizeof(asCScriptObject);
 	st->name      = name;
-	st->tokenType = ttIdentifier;
 	module->classTypes.PushLast(st);
 	engine->classTypes.PushLast(st);
 	st->AddRef();
@@ -915,7 +941,7 @@ int asCBuilder::RegisterClass(asCScriptNode *node, asCScriptCode *file)
 int asCBuilder::RegisterInterface(asCScriptNode *node, asCScriptCode *file)
 {
 	asCScriptNode *n = node->firstChild;
-	GETSTRING(name, &file->code[n->tokenPos], n->tokenLength);
+	asCString name(&file->code[n->tokenPos], n->tokenLength);
 
 	int r, c;
 	file->ConvertPosToRowCol(n->tokenPos, &r, &c);
@@ -931,11 +957,9 @@ int asCBuilder::RegisterInterface(asCScriptNode *node, asCScriptCode *file)
 
 	// Register the object type for the interface
 	asCObjectType *st = asNEW(asCObjectType)(engine);
-	st->arrayType = 0;
 	st->flags = asOBJ_REF | asOBJ_SCRIPT_OBJECT;
 	st->size = 0; // Cannot be instanciated
 	st->name = name;
-	st->tokenType = ttIdentifier;
 	module->classTypes.PushLast(st);
 	engine->classTypes.PushLast(st);
 	st->AddRef();
@@ -952,6 +976,8 @@ int asCBuilder::RegisterInterface(asCScriptNode *node, asCScriptCode *file)
 
 void asCBuilder::CompileGlobalVariables()
 {
+	asUINT n;
+
 	bool compileSucceeded = true;
 
 	asCByteCode finalInit(engine);
@@ -971,6 +997,15 @@ void asCBuilder::CompileGlobalVariables()
 
 	asCOutputBuffer finalOutput;
 
+	// We first try to compile all the primitive global variables, and only after that
+	// compile the non-primitive global variables. This permits the constructors 
+	// for the complex types to use the already initialized variables of primitive 
+	// type. Note, we currently don't know which global variables are used in the 
+	// constructors, so we cannot guarantee that variables of complex types are 
+	// initialized in the correct order, so we won't reorder those.
+	bool compilingPrimitives = true;
+
+	// Compile each global variable
 	while( compileSucceeded )
 	{
 		compileSucceeded = false;
@@ -989,6 +1024,10 @@ void asCBuilder::CompileGlobalVariables()
 
 			sGlobalVariableDescription *gvar = globVariables[n];
 			if( gvar->isCompiled )
+				continue;
+
+			// Skip this for now if we're not compiling complex types yet
+			if( compilingPrimitives && !gvar->datatype.IsPrimitive() )
 				continue;
 
 			if( gvar->node )
@@ -1099,11 +1138,22 @@ void asCBuilder::CompileGlobalVariables()
 
 		if( !compileSucceeded )
 		{
-			// Add errors and warnings to total build
-			currNumWarnings += accumWarnings;
-			currNumErrors += accumErrors;
-			if( msgCallback )
-				finalOutput.SendToCallback(engine, &msgCallbackFunc, msgCallbackObj);
+			if( compilingPrimitives )
+			{
+				// No more primitives could be compiled, so 
+				// switch to compiling the complex variables
+				compilingPrimitives = false;
+				compileSucceeded    = true;
+			}
+			else
+			{
+				// No more variables can be compiled
+				// Add errors and warnings to total build
+				currNumWarnings += accumWarnings;
+				currNumErrors   += accumErrors;
+				if( msgCallback )
+					finalOutput.SendToCallback(engine, &msgCallbackFunc, msgCallbackObj);
+			}
 		}
 	}
 
@@ -1133,7 +1183,7 @@ void asCBuilder::CompileGlobalVariables()
 	init->stackNeeded = finalInit.largestStackUsed;
 
 	// Convert all variables compiled for the enums to true enum values
-	for( asUINT n = 0; n < globVariables.GetLength(); n++ )
+	for( n = 0; n < globVariables.GetLength(); n++ )
 	{
 		asCObjectType *objectType;
 		sGlobalVariableDescription *gvar = globVariables[n];
@@ -1182,7 +1232,7 @@ void asCBuilder::CompileClasses()
 		while( node && node->nodeType == snIdentifier )
 		{
 			// Get the interface name from the node
-			GETSTRING(name, &file->code[node->tokenPos], node->tokenLength);
+			asCString name(&file->code[node->tokenPos], node->tokenLength);
 
 			// Find the object type for the interface
 			asCObjectType *objType = GetObjectType(name.AddressOf());
@@ -1383,7 +1433,10 @@ void asCBuilder::CompileClasses()
 				decl->objType->virtualFunctionTable.PushLast(GetFunctionDescription(decl->objType->methods[m]));
 
 				// Substitute the function description in the method list for a virtual method
-				decl->objType->methods[m] = CreateVirtualFunction(func, (int)decl->objType->virtualFunctionTable.GetLength() - 1);
+				// Make sure the methods are in the same order as the virtual function table
+				decl->objType->methods.RemoveIndex(m);
+				decl->objType->methods.PushLast(CreateVirtualFunction(func, (int)decl->objType->virtualFunctionTable.GetLength() - 1));
+				m--;
 			}
 		}
 
@@ -1400,7 +1453,7 @@ void asCBuilder::CompileClasses()
 			{
 				asCScriptCode *file = decl->script;
 				asCDataType dt = CreateDataTypeFromNode(node->firstChild, file);
-				GETSTRING(name, &file->code[node->lastChild->tokenPos], node->lastChild->tokenLength);
+				asCString name(&file->code[node->lastChild->tokenPos], node->lastChild->tokenLength);
 
 				if( dt.IsReadOnly() )
 				{
@@ -1637,7 +1690,7 @@ asCObjectProperty *asCBuilder::AddPropertyToClass(sClassDeclaration *decl, const
 
 	// Add extra bytes so that the property will be properly aligned
 	if( propSize == 2 && (decl->objType->size & 1) ) decl->objType->size += 1;
-	if( propSize > 2 && (decl->objType->size & 3) ) decl->objType->size += 3 - (decl->objType->size & 3);
+	if( propSize > 2 && (decl->objType->size & 3) ) decl->objType->size += 4 - (decl->objType->size & 3);
 
 	prop->byteOffset = decl->objType->size;
 	decl->objType->size += propSize;
@@ -1728,11 +1781,9 @@ int asCBuilder::RegisterEnum(asCScriptNode *node, asCScriptCode *file)
 		st = asNEW(asCObjectType)(engine);
 		dataType.CreatePrimitive(ttInt, false);
 
-		st->arrayType = 0;
 		st->flags     = asOBJ_ENUM;
 		st->size      = dataType.GetSizeInMemoryBytes();
 		st->name      = name;
-		st->tokenType = ttIdentifier;
 
 		module->enumTypes.PushLast(st);
 		st->AddRef();
@@ -1756,7 +1807,7 @@ int asCBuilder::RegisterEnum(asCScriptNode *node, asCScriptCode *file)
 		{
 			asASSERT(snIdentifier == tmp->nodeType);
 
-			GETSTRING(name, &file->code[tmp->tokenPos], tmp->tokenLength);
+			asCString name(&file->code[tmp->tokenPos], tmp->tokenLength);
 
 			// TODO: Should only have to check for conflicts within the enum type
 			// Check for name conflict errors
@@ -1825,11 +1876,10 @@ int asCBuilder::RegisterTypedef(asCScriptNode *node, asCScriptCode *file)
 		// Create the new type
 		asCObjectType *st = asNEW(asCObjectType)(engine);
 
-		st->arrayType = 0;
-		st->flags     = asOBJ_TYPEDEF;
-		st->size      = dataType.GetSizeInMemoryBytes();
-		st->name      = name;
-		st->tokenType = dataType.GetTokenType();
+		st->flags           = asOBJ_TYPEDEF;
+		st->size            = dataType.GetSizeInMemoryBytes();
+		st->name            = name;
+		st->templateSubType = dataType;
 
 		st->AddRef();
 
@@ -1880,7 +1930,7 @@ int asCBuilder::RegisterScriptFunction(int funcID, asCScriptNode *node, asCScrip
 	}
 
 	// Check for name conflicts
-	GETSTRING(name, &file->code[n->tokenPos], n->tokenLength);
+	asCString name(&file->code[n->tokenPos], n->tokenLength);
 	if( !isConstructor && !isDestructor )
 	{
 		asCDataType dt = asCDataType::CreateObject(objType, false);
@@ -2076,7 +2126,7 @@ int asCBuilder::RegisterImportedFunction(int importID, asCScriptNode *node, asCS
 	asCScriptNode *n = f->firstChild->next->next;
 
 	// Check for name conflicts
-	GETSTRING(name, &file->code[n->tokenPos], n->tokenLength);
+	asCString name(&file->code[n->tokenPos], n->tokenLength);
 	CheckNameConflict(name.AddressOf(), n, file);
 
 	// Initialize a script function object for registration
@@ -2302,7 +2352,7 @@ void asCBuilder::WriteWarning(const char *scriptname, const char *message, int r
 }
 
 
-asCDataType asCBuilder::CreateDataTypeFromNode(asCScriptNode *node, asCScriptCode *file, bool acceptHandleForScope)
+asCDataType asCBuilder::CreateDataTypeFromNode(asCScriptNode *node, asCScriptCode *file, bool acceptHandleForScope, asCObjectType *templateType)
 {
 	asASSERT(node->nodeType == snDataType);
 
@@ -2323,7 +2373,17 @@ asCDataType asCBuilder::CreateDataTypeFromNode(asCScriptNode *node, asCScriptCod
 		asCString str;
 		str.Assign(&file->code[n->tokenPos], n->tokenLength);
 
-		asCObjectType *ot = GetObjectType(str.AddressOf());
+		asCObjectType *ot = 0;
+
+		// If this is for a template type, then we must first determine if the 
+		// identifier matches any of the template subtypes
+		// TODO: template: it should be possible to have more than one subtypes
+		if( templateType && (templateType->flags & asOBJ_TEMPLATE) && str == templateType->templateSubType.GetObjectType()->name )
+			ot = templateType->templateSubType.GetObjectType();
+
+		if( ot == 0 )
+			ot = GetObjectType(str.AddressOf());
+
 		if( ot == 0 )
 		{
 			asCString msg;
@@ -2349,12 +2409,43 @@ asCDataType asCBuilder::CreateDataTypeFromNode(asCScriptNode *node, asCScriptCod
 				{
 					// TODO: typedef: A typedef should be considered different from the original type (though with implicit conversions between the two)
 					// Create primitive data type based on object flags
-					dt = asCDataType::CreatePrimitive(ot->tokenType, isConst);
+					dt = ot->templateSubType;
+					dt.MakeReadOnly(isConst);
 				}
 				else
 				{
+					if( ot->flags & asOBJ_TEMPLATE )
+					{
+						n = n->next;
+						
+						// Check if the subtype is a type or the template's subtype
+						// if it is the template's subtype then this is the actual template type,
+						// orderwise it is a template instance.
+						asCDataType subType = CreateDataTypeFromNode(n, file, false, ot);
+						if( subType.GetObjectType() != ot->templateSubType.GetObjectType() )
+						{
+							// This is a template instance
+							// Need to find the correct object type
+							asCObjectType *otInstance = engine->GetTemplateInstanceType(ot, subType);
+
+							if( !otInstance )
+							{
+								asCString msg;
+								msg.Format(TXT_CANNOT_INSTANCIATE_TEMPLATE_s_WITH_s, ot->name.AddressOf(), subType.Format().AddressOf());
+								int r, c;
+								file->ConvertPosToRowCol(n->tokenPos, &r, &c);
+								WriteError(file->name.AddressOf(), msg.AddressOf(), r, c);
+							}
+
+							ot = otInstance;
+						}
+					}
+
 					// Create object data type
-					dt = asCDataType::CreateObject(ot, isConst);
+					if( ot )
+						dt = asCDataType::CreateObject(ot, isConst);
+					else
+						dt = asCDataType::CreatePrimitive(ttInt, isConst);
 				}
 			}
 			else
@@ -2506,6 +2597,24 @@ asCObjectType *asCBuilder::GetObjectType(const char *type)
 	return ot;
 }
 
+int asCBuilder::GetEnumValueFromObjectType(asCObjectType *objType, const char *name, asCDataType &outDt, asDWORD &outValue)
+{
+	if( !objType || !(objType->flags & asOBJ_ENUM) )
+		return 0;
+
+	for( asUINT n = 0; n < objType->enumValues.GetLength(); ++n )
+	{
+		if( objType->enumValues[n]->name == name )
+		{
+			outDt = asCDataType::CreateObject(objType, true);
+			outValue = objType->enumValues[n]->value;
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 int asCBuilder::GetEnumValue(const char *name, asCDataType &outDt, asDWORD &outValue)
 {
 	bool found = false;
@@ -2515,25 +2624,16 @@ int asCBuilder::GetEnumValue(const char *name, asCDataType &outDt, asDWORD &outV
 	for( t = 0; t < engine->objectTypes.GetLength(); t++ )
 	{
 		asCObjectType *ot = engine->objectTypes[t];
-		if( ot && (ot->flags & asOBJ_ENUM) )
+		if( GetEnumValueFromObjectType( ot, name, outDt, outValue ) )
 		{
-			for( asUINT n = 0; n < ot->enumValues.GetLength(); n++ )
+			if( !found )
 			{
-				if( ot->enumValues[n]->name == name )
-				{
-					if( !found )
-					{
-						found = true;
-						outDt = asCDataType::CreateObject(ot, true);
-						outValue = ot->enumValues[n]->value;
-						break;
-					}
-					else
-					{
-						// Found more than one value in different enum types
-						return 2;
-					}
-				}
+				found = true;
+			}
+			else
+			{
+				// Found more than one value in different enum types
+				return 2;
 			}
 		}
 	}
@@ -2541,25 +2641,16 @@ int asCBuilder::GetEnumValue(const char *name, asCDataType &outDt, asDWORD &outV
 	for( t = 0; t < module->enumTypes.GetLength(); t++ )
 	{
 		asCObjectType *ot = module->enumTypes[t];
-		if( ot && (ot->flags & asOBJ_ENUM) )
+		if( GetEnumValueFromObjectType( ot, name, outDt, outValue ) )
 		{
-			for( asUINT n = 0; n < ot->enumValues.GetLength(); n++ )
+			if( !found )
 			{
-				if( ot->enumValues[n]->name == name )
-				{
-					if( !found )
-					{
-						found = true;
-						outDt = asCDataType::CreateObject(ot, true);
-						outValue = ot->enumValues[n]->value;
-						break;
-					}
-					else
-					{
-						// Found more than one value in different enum types
-						return 2;
-					}
-				}
+				found = true;
+			}
+			else
+			{
+				// Found more than one value in different enum types
+				return 2;
 			}
 		}
 	}

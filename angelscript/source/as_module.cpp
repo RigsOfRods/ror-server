@@ -165,11 +165,11 @@ int asCModule::Build()
 	isBuildWithoutErrors = true;
 
 	engine->PrepareEngine();
-
-	if( engine->ep.initGlobalVarsAfterBuild )
-		CallInit();
-
 	engine->BuildCompleted();
+
+	// Initialize global variables
+	if( r >= 0 && engine->ep.initGlobalVarsAfterBuild )
+		r = ResetGlobalVars();
 
 	return r;
 }
@@ -180,9 +180,13 @@ int asCModule::ResetGlobalVars()
 	if( isGlobalVarInitialized ) 
 		CallExit();
 
-	CallInit();
+	if( !isBuildWithoutErrors )
+		return asERROR;
 
-	return 0;
+	// TODO: The application really should do this manually through a context
+	//       otherwise it cannot properly handle script exceptions that may be
+	//       thrown by object initializations.
+	return CallInit();
 }
 
 // interface
@@ -195,9 +199,10 @@ int asCModule::GetFunctionIdByIndex(int index)
 }
 
 // internal
-void asCModule::CallInit()
+int asCModule::CallInit()
 {
-	if( isGlobalVarInitialized ) return;
+	if( isGlobalVarInitialized ) 
+		return asERROR;
 
 	// Each global variable needs to be cleared individually
 	for( asUINT n = 0; n < scriptGlobals.GetLength(); n++ )
@@ -208,21 +213,31 @@ void asCModule::CallInit()
 		}
 	}
 
-	if( initFunction && initFunction->byteCode.GetLength() == 0 ) return;
+	if( initFunction && initFunction->byteCode.GetLength() == 0 ) 
+		return asERROR;
 
 	int id = asFUNC_INIT;
 	asIScriptContext *ctx = 0;
 	int r = engine->CreateContext(&ctx, true);
 	if( r >= 0 && ctx )
 	{
-		// TODO: Add error handling
-		((asCContext*)ctx)->PrepareSpecial(id, this);
-		ctx->Execute();
+		r = ((asCContext*)ctx)->PrepareSpecial(id, this);
+		if( r >= 0 )
+			r = ctx->Execute();
 		ctx->Release();
 		ctx = 0;
 	}
 
+	// Even if the initialization failed we need to set the 
+	// flag that the variables have been initialized, otherwise
+	// the module won't free those variables that really were 
+	// initialized.
 	isGlobalVarInitialized = true;
+
+	if( r != asEXECUTION_FINISHED )
+		return asINIT_GLOBAL_VARS_FAILED;
+
+	return asSUCCESS;
 }
 
 // internal
@@ -268,8 +283,40 @@ void asCModule::InternalReset()
 
 	CallExit();
 
-	// First free the functions
 	size_t n;
+
+	// TODO: This is incorrect. If there are still live objects, the methods shouldn't be destroyed yet.
+	//       It should still be possible to discard the module, but the methods should only be destroyed
+	//       when all objects have been destroyed. However, we can't just check if there are live objects
+	//       when determining if functions can or cannot be destroyed, because then we could create situations
+	//       of memory that is never freed, e.g. a global variable in the module, being referenced by one
+	//       of it's own class methods. To fix this, we need a full garbage collector that can resolve 
+	//       circular references. 
+
+	// Since we're going to delete the script functions, we must 
+	// not allow any straying objects call them afterwards. If this is not done
+	// the object types' function id will either point to non-existing functions,
+	// or possibly to new functions that re-use the old function id. Needless to
+	// say, it could be disastrous if the function is called like this.
+	for( n = 0; n < classTypes.GetLength(); n++ )
+	{
+		if( classTypes[n] == 0 ) continue;
+
+		// Skip interfaces that the module doesn't own, as it's methods won't be deleted
+		if( classTypes[n]->IsInterface() && classTypes[n]->GetRefCount() > 1 )
+			continue;
+
+		// Just set the function id's to 0
+		classTypes[n]->beh.factory   = 0;
+		classTypes[n]->beh.construct = 0;
+		classTypes[n]->beh.destruct  = 0;
+		classTypes[n]->beh.factories.SetLength(0);
+		classTypes[n]->beh.constructors.SetLength(0);
+		classTypes[n]->beh.operators.SetLength(0);
+		classTypes[n]->methods.SetLength(0);
+	}
+
+	// First free the functions
 	for( n = 0; n < scriptFunctions.GetLength(); n++ )
 	{
 		if( scriptFunctions[n] == 0 )
@@ -391,7 +438,7 @@ int asCModule::GetImportedFunctionIndexByDecl(const char *decl)
 	asCBuilder bld(engine, this);
 
 	asCScriptFunction func(engine, this);
-	bld.ParseFunctionDeclaration(decl, &func, false);
+	bld.ParseFunctionDeclaration(0, decl, &func, false);
 
 	// TODO: optimize: Improve linear search
 	// Search script functions for matching interface
@@ -445,7 +492,7 @@ int asCModule::GetFunctionIdByDecl(const char *decl)
 	asCBuilder bld(engine, this);
 
 	asCScriptFunction func(engine, this);
-	int r = bld.ParseFunctionDeclaration(decl, &func, false);
+	int r = bld.ParseFunctionDeclaration(0, decl, &func, false);
 	if( r < 0 )
 		return asINVALID_DECLARATION;
 

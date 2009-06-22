@@ -35,6 +35,9 @@
 // A class for storing object type information
 //
 
+// TODO: Need a public GetTypeId() for the asIObjectType interface
+
+
 #include <stdio.h>
 
 #include "as_config.h"
@@ -48,16 +51,20 @@ asCObjectType::asCObjectType()
 {
 	engine      = 0; 
 	refCount.set(0); 
-	subType     = 0;
 	derivedFrom = 0;
+
+	acceptValueSubType = true;
+	acceptRefSubType = true;
 }
 
 asCObjectType::asCObjectType(asCScriptEngine *engine) 
 {
 	this->engine = engine; 
 	refCount.set(0); 
-	subType      = 0;
 	derivedFrom  = 0;
+
+	acceptValueSubType = true;
+	acceptRefSubType = true;
 }
 
 void asCObjectType::AddRef()
@@ -77,8 +84,9 @@ int asCObjectType::GetRefCount()
 
 asCObjectType::~asCObjectType()
 {
-	if( subType )
-		subType->Release();
+	// Release the object type held by the templateSubType
+	if( templateSubType.GetObjectType() )
+		templateSubType.GetObjectType()->Release();
 
 	if( derivedFrom )
 		derivedFrom->Release();

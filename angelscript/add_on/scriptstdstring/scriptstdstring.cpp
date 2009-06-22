@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <sstream>
 #include "scriptstdstring.h"
-#include <string.h>
+#include <string.h> // strstr
 
 using namespace std;
 
@@ -105,7 +105,7 @@ static void StringCharAtGeneric(asIScriptGeneric * gen) {
   }
 }
 
-void AssignInt2StringGeneric(asIScriptGeneric *gen)
+void AssignInt2StringGeneric(asIScriptGeneric *gen) 
 {
 	int *a = static_cast<int*>(gen->GetAddressOfArg(0));
 	string *self = static_cast<string*>(gen->GetObject());
@@ -115,7 +115,7 @@ void AssignInt2StringGeneric(asIScriptGeneric *gen)
 	gen->SetReturnAddress(self);
 }
 
-void AssignUInt2StringGeneric(asIScriptGeneric *gen)
+void AssignUInt2StringGeneric(asIScriptGeneric *gen) 
 {
 	unsigned int *a = static_cast<unsigned int*>(gen->GetAddressOfArg(0));
 	string *self = static_cast<string*>(gen->GetObject());
@@ -125,7 +125,7 @@ void AssignUInt2StringGeneric(asIScriptGeneric *gen)
 	gen->SetReturnAddress(self);
 }
 
-void AssignDouble2StringGeneric(asIScriptGeneric *gen)
+void AssignDouble2StringGeneric(asIScriptGeneric *gen) 
 {
 	double *a = static_cast<double*>(gen->GetAddressOfArg(0));
 	string *self = static_cast<string*>(gen->GetObject());
@@ -274,7 +274,7 @@ void RegisterStdString_Generic(asIScriptEngine *engine) {
 
 static string StringFactory(asUINT length, const char *s)
 {
-	return string(s);
+	return string(s, length);
 }
 
 static void ConstructString(string *thisPointer)
@@ -456,7 +456,7 @@ void RegisterStdString_Native(asIScriptEngine *engine)
 
 void RegisterStdString(asIScriptEngine * engine)
 {
-	if (string(asGetLibraryOptions()).find("AS_MAX_PORTABILITY") != string::npos)
+	if (strstr(asGetLibraryOptions(), "AS_MAX_PORTABILITY"))
 		RegisterStdString_Generic(engine);
 	else
 		RegisterStdString_Native(engine);

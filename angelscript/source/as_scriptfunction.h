@@ -65,8 +65,6 @@ const int asFUNC_VIRTUAL   = 4;
 
 struct asSSystemFunctionInterface;
 
-// TODO: Need a method for obtaining the reference modifier for parameters and return type
-
 // TODO: Need a method for obtaining the function type, so that the application can differenciate between the types
 //       This should replace the IsClassMethod and IsInterfaceMethod
 
@@ -134,6 +132,7 @@ public:
 	asCArray<int>                lineNumbers;      // debug info
 	asCArray<asSScriptVariable*> variables;        // debug info
 	int                          scriptSectionIdx; // debug info
+	bool                         dontCleanUpOnException;   // Stub functions don't own the object and parameters
 
 	// Used by asFUNC_VIRTUAL
 	int                          vfTableIdx;

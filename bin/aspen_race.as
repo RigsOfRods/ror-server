@@ -44,7 +44,9 @@ void init_aspen_race_points()
 // shortcut for us here
 string userPosition(int uid)
 {
-	vector3 pos = server.getUserPosition(uid);
+	vector3 pos;
+	if(server.getUserPosition(uid, pos)!=0)
+	 return "error";
 	return pos.toString();
 }
 string userString(int uid)
@@ -150,12 +152,15 @@ int raceTick(bool secondPassed, bool threeSecondsPassed)
 		for(int i=0;i<free_race_participants;i++)
 		{
 			if(race_participants[i] == -1) continue;
-			vector3 userpos = server.getUserPosition(race_participants[i]);
+			vector3 userpos;
+			if(server.getUserPosition(race_participants[i], userpos) != 0)
+				continue;
+			//server.log("userpos: "+userpos.toString() + " checkpoint: " + aspen_points[0].toString());
 			float dist = userpos.distance(aspen_points[0]);
 			if(dist > distanceTrigger)
 			{
-				//if(secondPassed)
-				//	server.say("^3you are still ^2" + (dist) + "m^3 away from the checkpoint, hurry up!", race_participants[i], 0);
+				if(secondPassed)
+					server.say("^3you are still ^2" + (dist) + "m^3 away from the checkpoint, hurry up!", race_participants[i], 0);
 				ok=false;
 				playerWait=race_participants[i];
 				break;
@@ -224,7 +229,9 @@ int raceTick(bool secondPassed, bool threeSecondsPassed)
 		for(int i=0;i<free_race_participants;i++)
 		{
 			if(race_participants[i] == -1) continue;
-			vector3 userpos = server.getUserPosition(race_participants[i]);
+			vector3 userpos;
+			if(server.getUserPosition(race_participants[i], userpos) != 0)
+				continue;
 			float dist = userpos.distance(aspen_points[race_checkpoints[i]]);
 			if(dist < distanceTrigger)
 			{

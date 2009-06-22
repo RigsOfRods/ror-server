@@ -89,7 +89,7 @@ public:
 	std::string getUserName(int uid);
 	std::string getUserVehicle(int uid);
 	std::string getUserAuth(int uid);
-	Vector3 getUserPosition(int uid);
+	int getUserPosition(int uid, Vector3 &v);
 	int getNumClients();
 
 	void addRef() {};

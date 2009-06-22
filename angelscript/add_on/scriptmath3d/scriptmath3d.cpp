@@ -304,7 +304,7 @@ void RegisterScriptMath3D_Native(asIScriptEngine *engine)
 
 	// Register the object methods
 	r = engine->RegisterObjectMethod("vector3", "float length() const", asMETHOD(Vector3,length), asCALL_THISCALL); assert( r >= 0 );
-	r = engine->RegisterObjectMethod("vector3", "float distance(vector3) const", asMETHOD(Vector3,distance), asCALL_THISCALL); assert( r >= 0 );
+	r = engine->RegisterObjectMethod("vector3", "float distance(vector3 &in) const", asMETHOD(Vector3,distance), asCALL_THISCALL); assert( r >= 0 );
 	r = engine->RegisterObjectMethod("vector3", "string toString() const", asMETHOD(Vector3,toString), asCALL_THISCALL); assert( r >= 0 );
 }
 

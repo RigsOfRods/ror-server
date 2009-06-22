@@ -4,6 +4,7 @@
 #include <string>
 #include "angelscript.h"
 #include "rornet.h"
+#include "scriptmath3d/scriptmath3d.h" // angelscript addon
 
 class ExampleFrameListener;
 class GameScript;
@@ -84,7 +85,10 @@ public:
 	std::string getUserName(int uid);
 	std::string getUserVehicle(int uid);
 	std::string getUserAuth(int uid);
+	Vector3 getUserPosition(int uid);
 
+	void addRef() {};
+	void releaseRef() {};
 };
 
 #endif //SCRIPTENGINE_H__

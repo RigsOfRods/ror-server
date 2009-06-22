@@ -283,7 +283,7 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 
 			char playerdata[1024] = "";
 			char positiondata[128] = "";
-			instance->clients[i]->position.toString(positiondata);
+			sprintf(positiondata, "%0.2f,%0.2f,%0.2f", instance->clients[i]->position.x, instance->clients[i]->position.y, instance->clients[i]->position.z);
 			sprintf(playerdata, "%d;%s;%s;%s;%s;%s;%s\n", i, 
 					instance->clients[i]->vehicle_name, 
 					instance->clients[i]->nickname,

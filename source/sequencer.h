@@ -28,7 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define __Sequencer_H__
 
 #include "rornet.h"
-#include "Vector3.h"
+#include "scriptmath3d/scriptmath3d.h" // angelscript addon
 #include "mutexutils.h"
 #include <string>
 

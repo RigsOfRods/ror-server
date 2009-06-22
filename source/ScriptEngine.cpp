@@ -5,6 +5,7 @@
 #include "sequencer.h"
 #include "scriptstdstring/scriptstdstring.h" // angelscript addon
 #include "scriptmath/scriptmath.h" // angelscript addon
+#include "scriptmath3d/scriptmath3d.h" // angelscript addon
 
 using namespace std;
 
@@ -259,9 +260,12 @@ void ScriptEngine::init()
 	// necessary to register your own string type if you don't want to.
 	RegisterStdString(engine);
 	RegisterScriptMath_Native(engine);
+	RegisterScriptMath3D_Native(engine);
+
+	Logger::log(LOG_INFO,"ScriptEngine: Registration of libs done, now custom things");
 
 	// Register everything
-	result = engine->RegisterObjectType("ServerScriptClass", sizeof(ServerScript), asOBJ_VALUE | asOBJ_POD | asOBJ_APP_CLASS); assert_net(result>=0);
+	result = engine->RegisterObjectType("ServerScriptClass", sizeof(ServerScript), asOBJ_REF); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "void log(const string &in)", asMETHOD(ServerScript,log), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "void say(const string &in, int uid, int type)", asMETHOD(ServerScript,say), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "bool kick(int kuid, const string &in)", asMETHOD(ServerScript,kick), asCALL_THISCALL); assert_net(result>=0);
@@ -270,6 +274,9 @@ void ScriptEngine::init()
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserName(int uid)", asMETHOD(ServerScript,getUserName), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserVehicle(int uid)", asMETHOD(ServerScript,getUserVehicle), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserAuth(int uid)", asMETHOD(ServerScript,getUserAuth), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "vector3 getUserPosition(int uid)", asMETHOD(ServerScript,getUserPosition), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectBehaviour("ServerScriptClass", asBEHAVE_ADDREF, "void f()",asMETHOD(ServerScript,addRef), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectBehaviour("ServerScriptClass", asBEHAVE_RELEASE, "void f()",asMETHOD(ServerScript,releaseRef), asCALL_THISCALL); assert_net(result>=0);
 
 	ServerScript *serverscript = new ServerScript(this, seq);
 	result = engine->RegisterGlobalProperty("ServerScriptClass server", serverscript); assert_net(result>=0);
@@ -461,4 +468,11 @@ std::string ServerScript::getUserAuth(int uid)
 	else if(c->authstate & AUTH_BOT) return "bot";
 	//else if(c->authstate & AUTH_NONE) 
 	return "none";
+}
+
+Vector3 ServerScript::getUserPosition(int uid)
+{
+	client_t *c = seq->getClient(uid);
+	if(!c) return Vector3();
+	return c->position;
 }

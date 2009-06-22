@@ -6,6 +6,16 @@
 
 using namespace std;
 
+// cross platform assert
+#ifdef WIN32
+extern "C" {
+_CRTIMP void __cdecl _wassert(_In_z_ const wchar_t * _Message, _In_z_ const wchar_t *_File, _In_ unsigned _Line);
+}
+# define assert_net(_Expression) (void)( (!!(_Expression)) || (_wassert(_CRT_WIDE(#_Expression), _CRT_WIDE(__FILE__), __LINE__), 0) )
+#else
+# define assert_net(expr) assert(expr)
+#endif
+
 ScriptEngine::ScriptEngine(Sequencer *seq) : seq(seq), engine(0), context(0)
 {
 	init();
@@ -222,7 +232,11 @@ void ScriptEngine::init()
 	RegisterScriptMath_Native(engine);
 
 	// Register everything
+	result = engine->RegisterObjectType("ServerScriptClass", sizeof(ServerScript), asOBJ_VALUE | asOBJ_POD | asOBJ_APP_CLASS); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "void log(const string &in)", asMETHOD(ServerScript,log), asCALL_THISCALL); assert_net(result>=0);
 
+	ServerScript *serverscript = new ServerScript(this, seq);
+	result = engine->RegisterGlobalProperty("ServerScriptClass server", serverscript); assert_net(result>=0);
 
 	Logger::log(LOG_INFO,"ScriptEngine: Registration done\n");
 }
@@ -267,4 +281,18 @@ void ScriptEngine::executeString(std::string command)
 	{
 		Logger::log(LOG_ERROR,"error while executing string\n");
 	}
+}
+
+/* class that implements the interface for the scripts */
+ServerScript::ServerScript(ScriptEngine *se, Sequencer *seq) : mse(se), seq(seq)
+{
+}
+
+ServerScript::~ServerScript()
+{
+}
+
+void ServerScript::log(std::string &msg)
+{
+	Logger::log(LOG_INFO,"%s\n", msg.c_str());
 }

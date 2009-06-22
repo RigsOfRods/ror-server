@@ -54,4 +54,17 @@ protected:
 	void LineCallback(asIScriptContext *ctx, void *param);
 };
 
+class ServerScript
+{
+protected:
+	ScriptEngine *mse;              //!< local script engine pointer, used as proxy mostly
+	Sequencer *seq;     //!< local pointer to the main ExampleFrameListener, used as proxy mostly
+
+public:
+	ServerScript(ScriptEngine *se, Sequencer *seq);
+	~ServerScript();
+
+	void log(std::string &msg);
+};
+
 #endif //SCRIPTENGINE_H__

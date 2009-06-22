@@ -1,7 +1,19 @@
+// some timerss
 float time=0, timer0=0;
-int trackuser=-1;
+
+// countdown variable
 int racecountDown=-1;
+
+// race state variable, 0=no race started, 1=driving to start, 2=running
 int raceRunning=0;
+
+// amount of participants in current race
+int free_race_participants=0;
+
+// array of UIDs of participants
+int[] race_participants(30);
+int[] race_checkpoints(30);
+
 
 int aspen_race_len = 16;
 vector3[] aspen_points(aspen_race_len);
@@ -47,7 +59,6 @@ void main()
 // called when a player disconnects
 void playerDeleted(int uid, int crash)
 {
-	if(uid == trackuser) trackuser=-1;
 }
 
 // called when a player connects and starts playing (already chose truck)
@@ -58,7 +69,6 @@ void playerAdded(int uid)
 	server.say("^1You can start or join a race by saying !race",  uid, 0);
 	//server.log("player " + userString(uid) + " has auth: " + server.getUserAuth(uid));
 	//server.log("player " + userString(uid) + " has vehicle: " + server.getUserVehicle(uid));
-	trackuser=uid;
 }
 
 // called for every chat message
@@ -73,9 +83,6 @@ int playerChat(int uid, string msg)
 	}
 	return -1; // dont change publish mode
 }
-
-int free_race_participants=0;
-int[] race_participants(30);
 
 
 int joinStartRace(int uid)
@@ -113,7 +120,7 @@ int raceTick(bool secondPassed)
 		bool ok=true;
 		for(int i=0;i<free_race_participants;i++)
 		{
-			vector3 userpos = server.getUserPosition(trackuser);
+			vector3 userpos = server.getUserPosition(race_participants[i]);
 			float dist = userpos.distance(aspen_points[0]);
 			if(dist > 3)
 			{
@@ -151,6 +158,7 @@ int raceTick(bool secondPassed)
 				server.cmd(race_participants[i], cmd);
 				// stop the timer that gets started by LUA ...
 				server.cmd(race_participants[i], "game.stopTimer()");
+				race_checkpoints[i] = 0; // reset checkpoint counter
 			}
 			
 			racecountDown--;
@@ -167,6 +175,16 @@ int raceTick(bool secondPassed)
 			}
 		}
 		
+	} else if(raceRunning==2)
+	{
+		// race is running check the checkpoints!
+		for(int i=0;i<free_race_participants;i++)
+		{
+			vector3 userpos = server.getUserPosition(race_participants[i]);
+			float dist = userpos.distance(aspen_points[race_checkpoints[i]]);
+			if(dist<3) race_checkpoints[i]++;
+			if(secondPassed) server.say("^2"+dist+"m to checkpoint "+race_checkpoints[i], race_participants[i], 0);
+		}
 	}
 	return 0;
 }

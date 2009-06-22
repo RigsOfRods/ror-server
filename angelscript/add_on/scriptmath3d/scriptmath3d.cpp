@@ -87,6 +87,13 @@ float Vector3::distance(Vector3 v) const
 	return (*this-v).length();
 }
 
+std::string Vector3::toString() const
+{
+	char tmp[255]="";
+	sprintf(tmp, "%.4f,%.4f,%.4f", x, y, z);
+	return std::string(tmp);
+}
+
 Vector3 operator+(const Vector3 &a, const Vector3 &b)
 {
 	// Return a new object as a script handle
@@ -298,6 +305,7 @@ void RegisterScriptMath3D_Native(asIScriptEngine *engine)
 	// Register the object methods
 	r = engine->RegisterObjectMethod("vector3", "float length() const", asMETHOD(Vector3,length), asCALL_THISCALL); assert( r >= 0 );
 	r = engine->RegisterObjectMethod("vector3", "float distance(vector3) const", asMETHOD(Vector3,distance), asCALL_THISCALL); assert( r >= 0 );
+	r = engine->RegisterObjectMethod("vector3", "string toString() const", asMETHOD(Vector3,toString), asCALL_THISCALL); assert( r >= 0 );
 }
 
 void RegisterScriptMath3D_Generic(asIScriptEngine *engine)

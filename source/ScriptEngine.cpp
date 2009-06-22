@@ -261,6 +261,8 @@ void ScriptEngine::init()
 	// necessary to register your own string type if you don't want to.
 	RegisterStdString(engine);
 	RegisterScriptMath_Native(engine);
+
+	// important, string first!
 	RegisterScriptMath3D_Native(engine);
 
 	Logger::log(LOG_INFO,"ScriptEngine: Registration of libs done, now custom things");

@@ -1,5 +1,8 @@
-// some timerss
+// some timers
 float time=0, timer0=0;
+
+// some distances
+float distanceTrigger=5;
 
 // countdown variable
 int racecountDown=-1;
@@ -85,8 +88,8 @@ void playerAdded(int uid)
 // called for every chat message
 int playerChat(int uid, string msg)
 {
-	server.log("player " + userString(uid) + " said: " + msg);
-	server.say("you said: '" + msg + "'", uid, 1);
+	//server.log("player " + userString(uid) + " said: " + msg);
+	//server.say("you said: '" + msg + "'", uid, 1);
 	if(msg == "!race")
 	{
 		joinStartRace(uid);
@@ -132,16 +135,18 @@ int raceTick(bool secondPassed)
 	{
 		// check if everyone is at the starting point
 		bool ok=true;
+		int playerWait=-1;
 		for(int i=0;i<free_race_participants;i++)
 		{
 			if(race_participants[i] == -1) continue;
 			vector3 userpos = server.getUserPosition(race_participants[i]);
 			float dist = userpos.distance(aspen_points[0]);
-			if(dist > 3)
+			if(dist > distanceTrigger)
 			{
 				if(secondPassed)
 					server.say("^3you are still ^2" + (dist) + "m^3 away from the checkpoint, hurry up!", race_participants[i], 0);
 				ok=false;
+				playerWait=race_participants[i];
 				break;
 			}
 		}
@@ -150,7 +155,7 @@ int raceTick(bool secondPassed)
 			for(int i=0;i<free_race_participants;i++)
 			{
 				if(race_participants[i] == -1) continue;
-				server.say("^3we are waiting for all players to arrive at the first checkpoint...", race_participants[i], 0);
+				server.say("^3we are waiting for ^2"+server.getUserName(playerWait)+" ^3to arrive at the first checkpoint...", race_participants[i], 0);
 			}
 			racecountDown=-1;
 			return 1;
@@ -209,9 +214,11 @@ int raceTick(bool secondPassed)
 			if(race_participants[i] == -1) continue;
 			vector3 userpos = server.getUserPosition(race_participants[i]);
 			float dist = userpos.distance(aspen_points[race_checkpoints[i]]);
-			if(dist<3)
+			if(dist < distanceTrigger)
 			{
-				race_checkpoints[i]++; // if we are 3m near a checkpoint, go to the next checkpoint!
+				race_checkpoints[i]++; // if we are 5m near a checkpoint, go to the next checkpoint!
+				/*
+				// todo:fix this
 				// find player in front and behind that one
 				int nextId = i+1;
 				if(nextId >= free_race_participants) nextId = -1;
@@ -220,6 +227,7 @@ int raceTick(bool secondPassed)
 				
 				if(nextId!=-1) server.say("^2"+server.getUserName(race_participants[nextId])+"^3 is " + userpos.distance(server.getUserPosition(race_participants[nextId])) + "m in front of you", race_participants[i], 0);
 				if(prevId!=-1) server.say("^2"+server.getUserName(race_participants[prevId])+"^3 is " + userpos.distance(server.getUserPosition(race_participants[prevId])) + "m behind of you", race_participants[i], 0);
+				*/
 				
 			}
 			//if(secondPassed) server.say("^2"+dist+"m to checkpoint "+race_checkpoints[i], race_participants[i], 0);

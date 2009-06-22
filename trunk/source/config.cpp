@@ -32,7 +32,8 @@ enum
 	OPT_LOGVERBOSITY,
 	OPT_PASS,
 	OPT_INET,
-	OPT_LOGFILENAME
+	OPT_LOGFILENAME,
+	OPT_SCRIPTNAME
 };
 
 // option array
@@ -48,6 +49,7 @@ static CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_VERBOSITY, ("-verbosity"), SO_REQ_SEP },
 	{ OPT_LOGVERBOSITY, ("-logverbosity"), SO_REQ_SEP },
 	{ OPT_LOGFILENAME, ("-logfilename"), SO_REQ_SEP },
+	{ OPT_SCRIPTNAME, ("-script"), SO_REQ_SEP },
 	{ OPT_HELP,  ("--help"), SO_NONE },
 	SO_END_OF_OPTIONS
 };
@@ -114,6 +116,7 @@ void showUsage()
 "                                  4 = warn\n"
 "                                  5 = error\n" \
 " -logfilename <server.log>    Sets the filename of the log" \
+" -script <script.as>          server script to execute" \
 " -help                        Show this list\n");
 }
 
@@ -123,13 +126,14 @@ void showUsage()
 Config Config::instance;
 
 Config::Config():
-max_clients( 16 ),
-server_name( "" ),
-terrain_name( "any" ),
-ip_addr( "" ),
-listen_port( 0 ),
-server_mode( SERVER_AUTO ),
-print_stats(true)
+	max_clients( 16 ),
+	server_name( "" ),
+	terrain_name( "any" ),
+	ip_addr( "" ),
+	scriptname(""),
+	listen_port( 0 ),
+	server_mode( SERVER_AUTO ),
+	print_stats(true)
 {
 }
 
@@ -246,6 +250,9 @@ bool Config::fromArgs( int argc, char* argv[] )
 			case OPT_LOGFILENAME:
 				Logger::setOutputFile(std::string(args.OptionArg()));
 			break;
+			case OPT_SCRIPTNAME:
+				setScriptName(args.OptionArg());
+			break;
 			case OPT_TERRAIN:
 				setTerrain( args.OptionArg() );
 			break;
@@ -292,6 +299,7 @@ const std::string& Config::getServerName()     { return instance.server_name;   
 const std::string& Config::getTerrainName()    { return instance.terrain_name;    }
 const std::string& Config::getPublicPassword() { return instance.public_password; }
 const std::string& Config::getIPAddr()         { return instance.ip_addr;         }
+const std::string& Config::getScriptName()     { return instance.scriptname;      }
 unsigned int       Config::getListenPort()     { return instance.listen_port;     }
 ServerType         Config::getServerMode()     { return instance.server_mode;     }
 bool               Config::getPrintStats()     { return instance.print_stats;     }
@@ -299,6 +307,11 @@ bool               Config::getPrintStats()     { return instance.print_stats;   
 
 //! setter functions
 //!@{
+bool Config::setScriptName(const std::string& name ) { 
+	if( name.empty() ) return false;
+	instance.scriptname = name;
+ 	return true;
+}
 bool Config::setMaxClients(unsigned int num) { 
 	if( num < 2 || (getServerMode() == SERVER_INET) || num > 64 ) return false;
 	instance.max_clients = num;

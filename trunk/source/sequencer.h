@@ -41,6 +41,7 @@ class Listener;
 class Notifier;
 class UserAuth;
 class SWInetSocket;
+class ScriptEngine;
 
 #define FREE 0
 #define BUSY 1
@@ -100,6 +101,7 @@ private:
     Mutex clients_mutex;    //!< mutex used for locking access to the clients array
     
     Listener* listener;     //!< listens for incoming connections
+    ScriptEngine* script;     //!< listens for incoming connections
     Notifier* notifier;     //!< registers and handles the master server
 	UserAuth* authresolver; //!< authenticates users
     std::vector<client_t*> clients; //!< clients is a list of all the available 

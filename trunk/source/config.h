@@ -29,6 +29,7 @@ public:
 	static const std::string& getTerrainName();
 	static const std::string& getPublicPassword();
 	static const std::string& getIPAddr();
+	static const std::string& getScriptName();
 	static unsigned int       getListenPort();
 	static ServerType         getServerMode();
 	static bool               getPrintStats();
@@ -38,6 +39,7 @@ public:
 	//!@{
 	static bool setMaxClients(unsigned int num);
 	static bool setServerName( const std::string& name );
+	static bool setScriptName( const std::string& name );
 	static bool setTerrain( const std::string& name );
 	static bool setPublicPass( const std::string& name );
 	static bool setIPAddr( const std::string& name );
@@ -57,6 +59,7 @@ private:
 	std::string terrain_name;
 	std::string public_password;
 	std::string ip_addr;
+	std::string scriptname;
 	unsigned int listen_port;
 	ServerType server_mode;
 	bool print_stats;

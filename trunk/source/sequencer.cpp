@@ -29,6 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "logger.h"
 #include "config.h"
 #include "utils.h"
+#include "ScriptEngine.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -79,6 +80,10 @@ void Sequencer::initilize()
     Sequencer* instance  = Instance();
 	instance->clients.reserve( Config::getMaxClients() );
 	instance->listener = new Listener(Config::getListenPort());
+	
+	instance->script = new ScriptEngine(instance);
+	instance->script->loadScript(Config::getScriptName());
+
 
 	pthread_create(&instance->killerthread, NULL, s_klthreadstart, &instance);
 

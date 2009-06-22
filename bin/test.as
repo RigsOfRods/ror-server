@@ -15,9 +15,7 @@ void playerDeleted(int uid, int crash)
 void playerAdded(int uid)
 {
 	server.log("new player " + uid + " :D");
-	server.log(">>>>");
 	server.say("Hey Player, welcome here!", uid, 0);
-	server.log("<<<<");
 }
 
 int playerChat(int uid, string msg)

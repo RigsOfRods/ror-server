@@ -254,8 +254,6 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	to_add->broadcaster->reset(to_add->uid, sock,
 			Sequencer::disconnect, Messaging::sendmessage);
 
-	instance->script->playerAdded(to_add->uid);
-
 	Logger::log(LOG_VERBOSE,"Sequencer: New client added");
 }
 
@@ -317,6 +315,12 @@ int Sequencer::authNick(std::string token, std::string &nickname)
 	return instance->authresolver->resolve(token, nickname);
 }
 
+ScriptEngine* Sequencer::getScriptEngine()
+{
+    STACKLOG;
+    Sequencer* instance = Instance();
+	return instance->script;
+}
 
 void Sequencer::killerthreadstart()
 {

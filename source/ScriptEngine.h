@@ -23,6 +23,8 @@ public:
     int playerChat(int uid, char *msg);
     int framestep(float dt);
 
+	void timerLoop();
+
 	asIScriptEngine *getEngine() { return engine; };
 
 protected:
@@ -31,6 +33,8 @@ protected:
 	asIScriptContext *context;              //!< context in which all scripting happens
 	int frameStepFunctionPtr;               //!< script function pointer to the frameStep function
 	int playerDeletedFunctionPtr, playerAddedFunctionPtr, playerChatFunctionPtr;
+	bool exit;
+    pthread_t timer_thread;
 
 	/**
 	 * This function initialzies the engine and registeres all types

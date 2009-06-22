@@ -2,7 +2,7 @@
 #define SCRIPTMATH3D_H
 
 #include <angelscript.h>
-#include <String>
+#include <string>
 
 BEGIN_AS_NAMESPACE
 

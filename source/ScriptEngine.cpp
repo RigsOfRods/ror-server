@@ -18,6 +18,7 @@ _CRTIMP void __cdecl _wassert(_In_z_ const wchar_t * _Message, _In_z_ const wcha
 }
 # define assert_net(_Expression) (void)( (!!(_Expression)) || (_wassert(_CRT_WIDE(#_Expression), _CRT_WIDE(__FILE__), __LINE__), 0) )
 #else
+#include <assert.h>
 # define assert_net(expr) assert(expr)
 #endif
 

@@ -150,7 +150,8 @@ public:
 	static ScriptEngine* getScriptEngine();
 
     static int getNumClients(); //! number of clients connected to this server
-    static int getHeartbeatData(char *challenge, char *hearbeatdata);
+	static client_t *getClient(int uid);
+	static int getHeartbeatData(char *challenge, char *hearbeatdata);
     //! prints the Stats view, of who is connected and what slot they are in
     static void printStats();
     static void serverSay(std::string msg, int notto=-1, int type=0);

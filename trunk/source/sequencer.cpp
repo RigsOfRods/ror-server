@@ -379,11 +379,13 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError)
 {
     STACKLOG;
     Sequencer* instance = Instance(); 
-    
+
     MutexLocker scoped_lock(instance->killer_mutex);
     unsigned short pos = instance->getPosfromUid(uid);
     if( UID_NOT_FOUND == pos ) return;
     
+	instance->script->playerDeleted(instance->clients[pos]->uid, isError?1:0);
+
 	//this routine is a potential trouble maker as it can be called from many thread contexts
 	//so we use a killer thread
 	Logger::log(LOG_VERBOSE, "Disconnecting Slot %d: %s", pos, errormsg);
@@ -721,7 +723,6 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		//char tmp[1024];
 		//sprintf(tmp, "user %s disconnects on request", instance->clients[pos]->nickname);
 		//serverSay(std::string(tmp), -1);
-		instance->script->playerDeleted(instance->clients[pos]->uid, 0);
 		disconnect(instance->clients[pos]->uid, "disconnected on request", false);
 	}
 	else if (type==MSG2_CHAT)
@@ -922,6 +923,17 @@ std::vector<client_t> Sequencer::getClients()
 		res.push_back(c);
 	}
 	return res;
+}
+
+client_t *Sequencer::getClient(int uid)
+{
+    STACKLOG;
+	Sequencer* instance = Instance();
+    
+    unsigned short pos = instance->getPosfromUid(uid);
+    if( UID_NOT_FOUND == pos ) return 0;
+
+	return instance->clients[pos];
 }
 
 // clients_mutex needs to be locked wen calling this method

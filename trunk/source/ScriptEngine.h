@@ -3,6 +3,7 @@
 
 #include <string>
 #include "angelscript.h"
+#include "rornet.h"
 
 class ExampleFrameListener;
 class GameScript;
@@ -79,6 +80,11 @@ public:
 	bool ban(int kuid, std::string &msg);
 	bool unban(int kuid);
 	int playerChat(int uid, char *str);
+	
+	std::string getUserName(int uid);
+	std::string getUserVehicle(int uid);
+	std::string getUserAuth(int uid);
+
 };
 
 #endif //SCRIPTENGINE_H__

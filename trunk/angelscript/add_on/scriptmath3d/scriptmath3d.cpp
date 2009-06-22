@@ -82,17 +82,22 @@ float Vector3::length() const
 	return sqrtf(x*x + y*y + z*z);
 }
 
+float Vector3::distance(Vector3 v) const
+{
+	return (*this-v).length();
+}
+
 Vector3 operator+(const Vector3 &a, const Vector3 &b)
 {
 	// Return a new object as a script handle
-	Vector3 res(a.x + b.x, a.y + b.y, a.z + b.y);
+	Vector3 res(a.x + b.x, a.y + b.y, a.z + b.z);
 	return res;
 }
 
 Vector3 operator-(const Vector3 &a, const Vector3 &b)
 {
 	// Return a new object as a script handle
-	Vector3 res(a.x - b.x, a.y - b.y, a.z - b.y);
+	Vector3 res(a.x - b.x, a.y - b.y, a.z - b.z);
 	return res;
 }
 
@@ -292,6 +297,7 @@ void RegisterScriptMath3D_Native(asIScriptEngine *engine)
 
 	// Register the object methods
 	r = engine->RegisterObjectMethod("vector3", "float length() const", asMETHOD(Vector3,length), asCALL_THISCALL); assert( r >= 0 );
+	r = engine->RegisterObjectMethod("vector3", "float distance(vector3) const", asMETHOD(Vector3,distance), asCALL_THISCALL); assert( r >= 0 );
 }
 
 void RegisterScriptMath3D_Generic(asIScriptEngine *engine)

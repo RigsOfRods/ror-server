@@ -3,6 +3,7 @@
 #include "mutexutils.h"
 #include "ScriptEngine.h"
 #include "sequencer.h"
+#include "config.h"
 #include "scriptstdstring/scriptstdstring.h" // angelscript addon
 #include "scriptmath/scriptmath.h" // angelscript addon
 #include "scriptmath3d/scriptmath3d.h" // angelscript addon
@@ -275,6 +276,7 @@ void ScriptEngine::init()
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserVehicle(int uid)", asMETHOD(ServerScript,getUserVehicle), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserAuth(int uid)", asMETHOD(ServerScript,getUserAuth), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "vector3 getUserPosition(int uid)", asMETHOD(ServerScript,getUserPosition), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "string getServerTerrain()", asMETHOD(ServerScript,getServerTerrain), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectBehaviour("ServerScriptClass", asBEHAVE_ADDREF, "void f()",asMETHOD(ServerScript,addRef), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectBehaviour("ServerScriptClass", asBEHAVE_RELEASE, "void f()",asMETHOD(ServerScript,releaseRef), asCALL_THISCALL); assert_net(result>=0);
 
@@ -475,4 +477,9 @@ Vector3 ServerScript::getUserPosition(int uid)
 	client_t *c = seq->getClient(uid);
 	if(!c) return Vector3();
 	return c->position;
+}
+
+std::string ServerScript::getServerTerrain()
+{
+	return Config::getTerrainName();
 }

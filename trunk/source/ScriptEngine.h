@@ -82,6 +82,8 @@ public:
 	bool unban(int kuid);
 	int playerChat(int uid, char *str);
 	
+	std::string getServerTerrain();
+	
 	std::string getUserName(int uid);
 	std::string getUserVehicle(int uid);
 	std::string getUserAuth(int uid);

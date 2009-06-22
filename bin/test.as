@@ -1,5 +1,12 @@
 float time=0;
 
+string userString(int uid)
+{
+	string res = server.getUserName(uid) + " (" + uid + ")";
+	return res;
+}
+
+
 void main()
 {
 	server.log("hello world!");
@@ -8,19 +15,24 @@ void main()
 
 void playerDeleted(int uid, int crash)
 {
-	server.log("player " + uid + " got deleted D:");
+	if(crash==1)
+		server.log("player " + userString(uid) + " crashed D:");
+	else
+		server.log("player " + userString(uid) + " disconnected.");
 }
 
 
 void playerAdded(int uid)
 {
-	server.log("new player " + uid + " :D");
-	server.say("Hey Player, welcome here!", uid, 0);
+	server.log("new player " + userString(uid) + " :D");
+	server.say("Hey Player, welcome here!",  uid, 0);
+	server.log("player " + userString(uid) + " has auth: " + server.getUserAuth(uid));
+	server.log("player " + userString(uid) + " has vehicle: " + server.getUserVehicle(uid));
 }
 
 int playerChat(int uid, string msg)
 {
-	server.log("player " + uid + " said: " + msg);
+	server.log("player " + userString(uid) + " said: " + msg);
 	server.say("you said: '" + msg + "'", uid, 1);
 	if(msg == "!restart")
 	{

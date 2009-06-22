@@ -267,6 +267,9 @@ void ScriptEngine::init()
 	result = engine->RegisterObjectMethod("ServerScriptClass", "bool kick(int kuid, const string &in)", asMETHOD(ServerScript,kick), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "bool ban(int buid, const string &in)", asMETHOD(ServerScript,ban), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "bool unban(int buid)", asMETHOD(ServerScript,unban), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserName(int uid)", asMETHOD(ServerScript,getUserName), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserVehicle(int uid)", asMETHOD(ServerScript,getUserVehicle), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserAuth(int uid)", asMETHOD(ServerScript,getUserAuth), asCALL_THISCALL); assert_net(result>=0);
 
 	ServerScript *serverscript = new ServerScript(this, seq);
 	result = engine->RegisterGlobalProperty("ServerScriptClass server", serverscript); assert_net(result>=0);
@@ -431,4 +434,31 @@ bool ServerScript::ban(int buid, std::string &msg)
 bool ServerScript::unban(int buid)
 {
 	return seq->unban(buid);
+}
+
+std::string ServerScript::getUserName(int uid)
+{
+	client_t *c = seq->getClient(uid);
+	if(!c) return "";
+	return std::string(c->nickname);
+}
+
+std::string ServerScript::getUserVehicle(int uid)
+{
+	client_t *c = seq->getClient(uid);
+	if(!c) return "";
+	return std::string(c->vehicle_name);
+}
+
+
+std::string ServerScript::getUserAuth(int uid)
+{
+	client_t *c = seq->getClient(uid);
+	if(!c) return "none";
+	if(c->authstate & AUTH_ADMIN) return "admin";
+	else if(c->authstate & AUTH_MOD) return "moderator";
+	else if(c->authstate & AUTH_RANKED) return "ranked";
+	else if(c->authstate & AUTH_BOT) return "bot";
+	//else if(c->authstate & AUTH_NONE) 
+	return "none";
 }

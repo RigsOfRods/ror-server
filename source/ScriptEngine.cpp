@@ -45,7 +45,7 @@ int ScriptEngine::loadScript(std::string scriptname)
 	result = loadScriptFile(scriptname.c_str(), script);
 	if( result )
 	{
-		Logger::log(LOG_ERROR,"ScriptEngine: Unkown error while loading script file: %s\n", scriptname.c_str());
+		Logger::log(LOG_ERROR,"ScriptEngine: Unkown error while loading script file: %s", scriptname.c_str());
 		return 1;
 	}
 
@@ -56,7 +56,7 @@ int ScriptEngine::loadScript(std::string scriptname)
 	result = mod->AddScriptSection(scriptname.c_str(), script.c_str(), script.length());
 	if( result < 0 )
 	{
-		Logger::log(LOG_ERROR,"ScriptEngine: Unkown error while adding script section\n");
+		Logger::log(LOG_ERROR,"ScriptEngine: Unkown error while adding script section");
 		return 1;
 	}
 
@@ -66,18 +66,18 @@ int ScriptEngine::loadScript(std::string scriptname)
 	{
 		if(result == asINVALID_CONFIGURATION)
 		{
-			Logger::log(LOG_ERROR,"ScriptEngine: The engine configuration is invalid.\n");
+			Logger::log(LOG_ERROR,"ScriptEngine: The engine configuration is invalid.");
 			return 1;
 		} else if(result == asERROR)
 		{
-			Logger::log(LOG_ERROR,"ScriptEngine: The script failed to build.\n");
+			Logger::log(LOG_ERROR,"ScriptEngine: The script failed to build.");
 			return 1;
 		} else if(result == asBUILD_IN_PROGRESS)
 		{
-			Logger::log(LOG_ERROR,"ScriptEngine: Another thread is currently building.\n");
+			Logger::log(LOG_ERROR,"ScriptEngine: Another thread is currently building.");
 			return 1;
 		}
-		Logger::log(LOG_ERROR,"ScriptEngine: Unkown error while building the script.\n");
+		Logger::log(LOG_ERROR,"ScriptEngine: Unkown error while building the script.");
 		return 1;
 	}
 
@@ -87,15 +87,22 @@ int ScriptEngine::loadScript(std::string scriptname)
 	{
 		// The function couldn't be found. Instruct the script writer to include the
 		// expected function in the script.
-		Logger::log(LOG_WARN,"ScriptEngine: The script must have the function 'void main()'. Please add it and try again.\n");
+		Logger::log(LOG_WARN,"ScriptEngine: The script must have the function 'void main()'. Please add it and try again.");
 		return 1;
 	}
 
 	// get some other optional functions
 	frameStepFunctionPtr = mod->GetFunctionIdByDecl("void frameStep(float)");
+	if(frameStepFunctionPtr<0) Logger::log(LOG_WARN, "Script Function not used: frameStep");
+
 	playerDeletedFunctionPtr = mod->GetFunctionIdByDecl("void playerDeleted(int, int)");
+	if(playerDeletedFunctionPtr<0) Logger::log(LOG_WARN, "Script Function not used: playerDeleted");
+
 	playerAddedFunctionPtr = mod->GetFunctionIdByDecl("void playerAdded(int)");
-	playerChatFunctionPtr = mod->GetFunctionIdByDecl("void playerChat(int, string msg)");
+	if(playerAddedFunctionPtr<0) Logger::log(LOG_WARN, "Script Function not used: playerAdded");
+
+	playerChatFunctionPtr = mod->GetFunctionIdByDecl("int playerChat(int, string msg)");
+	if(playerChatFunctionPtr<0) Logger::log(LOG_WARN, "Script Function not used: playerChat");
 	
 	//eventCallbackFunctionPtr = mod->GetFunctionIdByDecl("void eventCallback(int event, int value)");
 
@@ -108,7 +115,7 @@ int ScriptEngine::loadScript(std::string scriptname)
 	//context->SetExceptionCallback(asMETHOD(ScriptEngine,ExceptionCallback), this, asCALL_THISCALL);
 
 	context->Prepare(funcId);
-	Logger::log(LOG_INFO,"ScriptEngine: Executing main()\n");
+	Logger::log(LOG_INFO,"ScriptEngine: Executing main()");
 	result = context->Execute();
 	if( result != asEXECUTION_FINISHED )
 	{
@@ -116,7 +123,7 @@ int ScriptEngine::loadScript(std::string scriptname)
 		if( result == asEXECUTION_EXCEPTION )
 		{
 			// An exception occurred, let the script writer know what happened so it can be corrected.
-			Logger::log(LOG_ERROR,"ScriptEngine: An exception '%s' occurred. Please correct the code in file '%s' and try again.\n", context->GetExceptionString(), scriptname.c_str());
+			Logger::log(LOG_ERROR,"ScriptEngine: An exception '%s' occurred. Please correct the code in file '%s' and try again.", context->GetExceptionString(), scriptname.c_str());
 		}
 	}
 
@@ -128,25 +135,25 @@ void ScriptEngine::ExceptionCallback(asIScriptContext *ctx, void *param)
 	asIScriptEngine *engine = ctx->GetEngine();
 	int funcID = ctx->GetExceptionFunction();
 	const asIScriptFunction *function = engine->GetFunctionDescriptorById(funcID);
-	Logger::log(LOG_INFO,"--- exception ---\n");
-	Logger::log(LOG_INFO,"desc: %s\n", (ctx->GetExceptionString()));
-	Logger::log(LOG_INFO,"func: %s\n", (function->GetDeclaration()));
-	Logger::log(LOG_INFO,"modl: %s\n", (function->GetModuleName()));
-	Logger::log(LOG_INFO,"sect: %s\n", (function->GetScriptSectionName()));
+	Logger::log(LOG_INFO,"--- exception ---");
+	Logger::log(LOG_INFO,"desc: %s", (ctx->GetExceptionString()));
+	Logger::log(LOG_INFO,"func: %s", (function->GetDeclaration()));
+	Logger::log(LOG_INFO,"modl: %s", (function->GetModuleName()));
+	Logger::log(LOG_INFO,"sect: %s", (function->GetScriptSectionName()));
 	int col, line = ctx->GetExceptionLineNumber(&col);
-	Logger::log(LOG_INFO,"line %d, %d\n", line, col);
+	Logger::log(LOG_INFO,"line %d, %d", line, col);
 
 	// Print the variables in the current function
 	PrintVariables(ctx, -1);
 
 	// Show the call stack with the variables
-	Logger::log(LOG_INFO,"--- call stack ---\n");
+	Logger::log(LOG_INFO,"--- call stack ---");
 	for( int n = 0; n < ctx->GetCallstackSize(); n++ )
 	{
 		funcID = ctx->GetCallstackFunction(n);
 		const asIScriptFunction *func = engine->GetFunctionDescriptorById(funcID);
 		line = ctx->GetCallstackLineNumber(n,&col);
-		Logger::log(LOG_INFO,"%s:%s : %d,%d\n", func->GetModuleName(), func->GetDeclaration(), line, col);
+		Logger::log(LOG_INFO,"%s:%s : %d,%d", func->GetModuleName(), func->GetDeclaration(), line, col);
 
 		PrintVariables(ctx, n);
 	}
@@ -167,7 +174,7 @@ void ScriptEngine::LineCallback(asIScriptContext *ctx, void *param)
 	                    function->GetDeclaration(),
 	                    line, col);
 
-	strcat(tmp, "\n");
+	strcat(tmp, "");
 	Logger::log(LOG_INFO,tmp);
 
 //	PrintVariables(ctx, -1);
@@ -181,7 +188,7 @@ void ScriptEngine::PrintVariables(asIScriptContext *ctx, int stackLevel)
 	void *varPointer = ctx->GetThisPointer(stackLevel);
 	if( typeId )
 	{
-		Logger::log(LOG_INFO," this = 0x%x\n", varPointer);
+		Logger::log(LOG_INFO," this = 0x%x", varPointer);
 	}
 
 	int numVars = ctx->GetVarCount(stackLevel);
@@ -191,17 +198,17 @@ void ScriptEngine::PrintVariables(asIScriptContext *ctx, int stackLevel)
 		void *varPointer = ctx->GetAddressOfVar(n, stackLevel);
 		if( typeId == engine->GetTypeIdByDecl("int") )
 		{
-			Logger::log(LOG_INFO," %s = %d\n", ctx->GetVarDeclaration(n, stackLevel), *(int*)varPointer);
+			Logger::log(LOG_INFO," %s = %d", ctx->GetVarDeclaration(n, stackLevel), *(int*)varPointer);
 		}
 		else if( typeId == engine->GetTypeIdByDecl("string") )
 		{
 			std::string *str = (std::string*)varPointer;
 			if( str )
 			{
-				Logger::log(LOG_INFO," %s = '%s'\n", ctx->GetVarDeclaration(n, stackLevel), str->c_str());
+				Logger::log(LOG_INFO," %s = '%s'", ctx->GetVarDeclaration(n, stackLevel), str->c_str());
 			} else
 			{
-				Logger::log(LOG_INFO," %s = <null>\n", ctx->GetVarDeclaration(n, stackLevel));
+				Logger::log(LOG_INFO," %s = <null>", ctx->GetVarDeclaration(n, stackLevel));
 			}
 		}
 	}
@@ -225,14 +232,14 @@ void ScriptEngine::init()
 	{
 		if(result == asINVALID_ARG)
 		{
-			Logger::log(LOG_ERROR,"ScriptEngine: One of the arguments is incorrect, e.g. obj is null for a class method.\n");
+			Logger::log(LOG_ERROR,"ScriptEngine: One of the arguments is incorrect, e.g. obj is null for a class method.");
 			return;
 		} else if(result == asNOT_SUPPORTED)
 		{
-			Logger::log(LOG_ERROR,"ScriptEngine: 	The arguments are not supported, e.g. asCALL_GENERIC.\n");
+			Logger::log(LOG_ERROR,"ScriptEngine: 	The arguments are not supported, e.g. asCALL_GENERIC.");
 			return;
 		}
-		Logger::log(LOG_ERROR,"ScriptEngine: Unkown error while setting up message callback\n");
+		Logger::log(LOG_ERROR,"ScriptEngine: Unkown error while setting up message callback");
 		return;
 	}
 
@@ -254,7 +261,7 @@ void ScriptEngine::init()
 	ServerScript *serverscript = new ServerScript(this, seq);
 	result = engine->RegisterGlobalProperty("ServerScriptClass server", serverscript); assert_net(result>=0);
 
-	Logger::log(LOG_INFO,"ScriptEngine: Registration done\n");
+	Logger::log(LOG_INFO,"ScriptEngine: Registration done");
 }
 
 void ScriptEngine::msgCallback(const asSMessageInfo *msg)
@@ -265,7 +272,7 @@ void ScriptEngine::msgCallback(const asSMessageInfo *msg)
 	else if( msg->type == asMSGTYPE_WARNING )
 		type = "Warning";
 
-	Logger::log(LOG_INFO,"ScriptEngine: %s (%d, %d): %s = %s\n", msg->section, msg->row, msg->col, type, msg->message);
+	Logger::log(LOG_INFO,"ScriptEngine: %s (%d, %d): %s = %s", msg->section, msg->row, msg->col, type, msg->message);
 }
 
 int ScriptEngine::loadScriptFile(const char *fileName, string &script)
@@ -295,7 +302,7 @@ void ScriptEngine::executeString(std::string command)
 	int result = engine->ExecuteString("terrainScript", command.c_str(), &context);
 	if(result<0)
 	{
-		Logger::log(LOG_ERROR,"error while executing string\n");
+		Logger::log(LOG_ERROR,"error while executing string");
 	}
 }
 
@@ -371,7 +378,7 @@ ServerScript::~ServerScript()
 
 void ServerScript::log(std::string &msg)
 {
-	Logger::log(LOG_INFO,"SCRIPT|%s\n", msg.c_str());
+	Logger::log(LOG_INFO,"SCRIPT|%s", msg.c_str());
 }
 
 void ServerScript::say(std::string &msg, int uid, int type)

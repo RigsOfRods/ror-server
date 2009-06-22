@@ -1,9 +1,11 @@
-float time=0;
+float time=0, timer0=0;
 int trackuser=-1;
+int racecountDown=-1;
+int raceRunning=0;
 
 int aspen_race_len = 16;
 vector3[] aspen_points(aspen_race_len);
-void init_race_points()
+void init_aspen_race_points()
 {
 	aspen_points[0] = vector3(1788.565918f, 13.523803f, 2188.309326f);
 	aspen_points[1] = vector3(1272.392822f, 52.455555f, 2639.341553f);
@@ -38,19 +40,13 @@ string userString(int uid)
 // called when script is loaded
 void main()
 {
-	server.log("hello world!");
-	server.say("Hello!", -1, 0);
-	init_race_points();
+	if(server.getServerTerrain() == "aspen")
+		init_aspen_race_points();
 }
 
 // called when a player disconnects
 void playerDeleted(int uid, int crash)
 {
-	if(crash==1)
-		server.log("player " + userString(uid) + " crashed D:");
-	else
-		server.log("player " + userString(uid) + " disconnected.");
-	
 	if(uid == trackuser) trackuser=-1;
 }
 
@@ -58,9 +54,10 @@ void playerDeleted(int uid, int crash)
 void playerAdded(int uid)
 {
 	server.log("new player " + userString(uid) + " :D");
-	server.say("Hey Player, welcome here!",  uid, 0);
-	server.log("player " + userString(uid) + " has auth: " + server.getUserAuth(uid));
-	server.log("player " + userString(uid) + " has vehicle: " + server.getUserVehicle(uid));
+	server.say("^1Hey ^2" + server.getUserName(uid) + "^1, welcome here!",  uid, 0);
+	server.say("^1You can start or join a race by saying !race",  uid, 0);
+	//server.log("player " + userString(uid) + " has auth: " + server.getUserAuth(uid));
+	//server.log("player " + userString(uid) + " has vehicle: " + server.getUserVehicle(uid));
 	trackuser=uid;
 }
 
@@ -69,12 +66,109 @@ int playerChat(int uid, string msg)
 {
 	server.log("player " + userString(uid) + " said: " + msg);
 	server.say("you said: '" + msg + "'", uid, 1);
-	if(msg == "!restart")
+	if(msg == "!race")
 	{
-		server.log("custom command executed!");
+		joinStartRace(uid);
 		return 0; // 0 = no publish
 	}
 	return -1; // dont change publish mode
+}
+
+int free_race_participants=0;
+int[] race_participants(30);
+
+
+int joinStartRace(int uid)
+{
+	if(raceRunning==2)
+	{
+		server.say("a race is currently running, please wait until it is over!", uid, 0);
+		return 1;
+	} else if (raceRunning==1 || raceRunning==0)
+	{
+		// preparation phase
+		race_participants[free_race_participants] = uid;
+		free_race_participants++;
+		server.say("^1you are now participating in the race, proceed to the start line", uid, 0);
+		string cmd = "game.setDirectionArrow(\"proceed to the start line!\", " + aspen_points[0].x + ", " + aspen_points[0].y + ", " + aspen_points[0].z + ");";
+		server.cmd(uid, cmd);
+		raceRunning=1;
+	}
+	return 0;
+}
+
+int raceTick(bool secondPassed)
+{
+	int min_req = 1;
+	if(raceRunning==1 && free_race_participants < min_req)
+	{
+		if(secondPassed)
+			for(int i=0;i<free_race_participants;i++)
+				server.say("we are waiting for " + (free_race_participants-min_req) + " players ...", race_participants[i], 0);
+
+		// waiting for more ...
+	} else if (raceRunning==1 && free_race_participants >= min_req)
+	{
+		// check if everyone is at the starting point
+		bool ok=true;
+		for(int i=0;i<free_race_participants;i++)
+		{
+			vector3 userpos = server.getUserPosition(trackuser);
+			float dist = userpos.distance(aspen_points[0]);
+			if(dist > 3)
+			{
+				if(secondPassed)
+					server.say("^3you are still ^2" + (dist) + "m^3 away from the checkpoint, hurry up!", race_participants[i], 0);
+				ok=false;
+				break;
+			}
+		}
+		if(secondPassed && !ok)
+		{
+			for(int i=0;i<free_race_participants;i++)
+				server.say("^3we are waiting for all players to arrive at the first checkpoint...", race_participants[i], 0);
+			racecountDown=-1;
+			return 1;
+		}
+		if(secondPassed && ok)
+		{
+			//start race
+			if(racecountDown==-1)
+			{
+				racecountDown = 5;
+				for(int i=0;i<free_race_participants;i++)
+					server.say("^2STARTING COUNTDOWN", race_participants[i], 0);
+			}
+			string cmd = "game.flashMessage(\"^1" + racecountDown + "\", 10, 0.20f);";
+			if(racecountDown>0 && racecountDown<3)
+				cmd = "game.flashMessage(\"^3" + racecountDown + "\", 10, 0.25f);";
+			else if(racecountDown==0)
+				cmd = "game.flashMessage(\"^2GO!\", 2, 0.3f);";
+			
+			for(int i=0;i<free_race_participants;i++)
+			{
+				// update flash message
+				server.cmd(race_participants[i], cmd);
+				// stop the timer that gets started by LUA ...
+				server.cmd(race_participants[i], "game.stopTimer()");
+			}
+			
+			racecountDown--;
+			if(racecountDown==-1)
+			{
+				// finally started ...
+				for(int i=0;i<free_race_participants;i++)
+				{
+					server.cmd(race_participants[i], cmd);
+					server.cmd(race_participants[i], "game.startTimer()");
+					server.say("^2GO!", race_participants[i], 0);
+				}
+				raceRunning=2;
+			}
+		}
+		
+	}
+	return 0;
 }
 
 // timer callback
@@ -83,29 +177,13 @@ void frameStep(float dt)
 	time += dt;
 	float seconds = time / 1000.0f;
 	
-	// now that is verbose, for testing only:
-	// server.log("Time passed by: " + seconds + " s");
-	if(trackuser>=0)
+	timer0 += dt;
+	bool secondPassed=false;
+	if(timer0 > 2000.0f)
 	{
-		server.log("position of user " + trackuser + ": " + userPosition(trackuser));
+		secondPassed=true;
+		timer0=0;
 	}
-	if(trackuser>=0 && server.getServerTerrain() == "aspen")
-	{
-		vector3 userpos = server.getUserPosition(trackuser);
-		float minlen = 999999;
-		int nearest=-1;
-		for(int i=0;i<aspen_race_len;i++)
-		{
-			float len = userpos.distance(aspen_points[i]);
-			if (len < minlen)
-			{
-				minlen = len;
-				nearest = i;
-			}
-		}
-		server.log("just " + minlen + "m to checkpoint " + nearest);
-		server.log("just " + userpos.distance(aspen_points[0]) + "m to checkpoint 0 (" + aspen_points[0].toString() + ")");
-	}
-	
-	
+
+	raceTick(secondPassed);
 }

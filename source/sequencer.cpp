@@ -525,6 +525,20 @@ void Sequencer::notifyAllVehicles(int uid)
 	}
 }
 
+int Sequencer::sendGameCommand(int uid, std::string cmd)
+{
+    STACKLOG;
+    Sequencer* instance = Instance();
+    unsigned short pos = instance->getPosfromUid(uid);    
+    if( UID_NOT_FOUND == pos ) return -1;
+	// send
+	const char *data = cmd.c_str();
+	int size = cmd.size();
+	// -1 = comes from the server
+	instance->clients[pos]->broadcaster->queueMessage(-1, MSG2_GAME_CMD, size, data);
+	return 0;
+}
+
 // this does not lock the clients_mutex, make sure it is locked before hand
 void Sequencer::serverSay(std::string msg, int uid, int type)
 {

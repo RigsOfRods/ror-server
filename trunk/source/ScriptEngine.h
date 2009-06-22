@@ -83,11 +83,14 @@ public:
 	int playerChat(int uid, char *str);
 	
 	std::string getServerTerrain();
+
+	int sendGameCommand(int uid, std::string cmd);
 	
 	std::string getUserName(int uid);
 	std::string getUserVehicle(int uid);
 	std::string getUserAuth(int uid);
 	Vector3 getUserPosition(int uid);
+	int getNumClients();
 
 	void addRef() {};
 	void releaseRef() {};

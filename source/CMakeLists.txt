@@ -3,11 +3,16 @@ FILE(GLOB_RECURSE server_src *.cpp *.c *.h *.rc)
 # general flags
 add_definitions("-D_CRT_SECURE_NO_WARNINGS")
 include_directories (${rorserver_SOURCE_DIR}/socketw)
+include_directories (${rorserver_SOURCE_DIR}/angelscript/include)
+include_directories (${rorserver_SOURCE_DIR}/angelscript/add_on)
 
 # the final lib
 add_executable(rorserver ${server_src})
 
 # libraries
+add_dependencies(rorserver angelscript)
+target_link_libraries(rorserver angelscript)
+
 IF(WIN32)
 	include_directories (${rorserver_SOURCE_DIR}/win32_pthread)
 	target_link_libraries(rorserver ${rorserver_SOURCE_DIR}/win32_pthread/pthreadVC2.lib)

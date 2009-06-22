@@ -14,6 +14,9 @@ IF(wxWidgets_FOUND)
   include_directories(${wxWidgets_INCLUDE_DIRS})
   include_directories (${rorserver_SOURCE_DIR}/socketw)
   include_directories (${rorserver_SOURCE_DIR}/source)
+  include_directories (${rorserver_SOURCE_DIR}/angelscript/include)
+  include_directories (${rorserver_SOURCE_DIR}/angelscript/add_on)
+  
   add_definitions(${wxWidgets_DEFINITIONS} ${wxWidgets_CXX_FLAGS})
 
   IF(WIN32)
@@ -36,6 +39,8 @@ IF(wxWidgets_FOUND)
   set_target_properties(servergui PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
   set_target_properties(servergui PROPERTIES LINK_FLAGS_RELEASE "/LTCG /OPT:REF /OPT:NOWIN98 /SUBSYSTEM:WINDOWS")
 
+  add_dependencies(servergui angelscript)
+  target_link_libraries(servergui angelscript)
   TARGET_LINK_LIBRARIES(servergui ${wxWidgets_LIBRARIES} )
   IF(WIN32)
 	include_directories (${rorserver_SOURCE_DIR}/win32_pthread)

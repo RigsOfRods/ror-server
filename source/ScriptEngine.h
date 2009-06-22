@@ -18,6 +18,11 @@ public:
 	int loadScript(std::string scriptName);
 	void executeString(std::string command);
 
+    void playerDeleted(int uid, int crash);
+    void playerAdded(int uid);
+    int playerChat(int uid, char *msg);
+    int framestep(float dt);
+
 	asIScriptEngine *getEngine() { return engine; };
 
 protected:
@@ -25,13 +30,13 @@ protected:
     asIScriptEngine *engine;                //!< instance of the scripting engine
 	asIScriptContext *context;              //!< context in which all scripting happens
 	int frameStepFunctionPtr;               //!< script function pointer to the frameStep function
-	int eventCallbackFunctionPtr;           //!< script function pointer to the event callback function
+	int playerDeletedFunctionPtr, playerAddedFunctionPtr, playerChatFunctionPtr;
 
 	/**
 	 * This function initialzies the engine and registeres all types
 	 */
     void init();
-    
+ 
 	/**
 	 * This is the callback function that gets called when script error occur.
 	 * When the script crashes, this function will provide you with more detail
@@ -65,6 +70,11 @@ public:
 	~ServerScript();
 
 	void log(std::string &msg);
+	void say(std::string &msg, int uid=-1, int type=0);
+	bool kick(int kuid, std::string &msg);
+	bool ban(int kuid, std::string &msg);
+	bool unban(int kuid);
+	int playerChat(int uid, char *str);
 };
 
 #endif //SCRIPTENGINE_H__

@@ -254,6 +254,8 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	to_add->broadcaster->reset(to_add->uid, sock,
 			Sequencer::disconnect, Messaging::sendmessage);
 
+	instance->script->playerAdded(to_add->uid);
+
 	Logger::log(LOG_VERBOSE,"Sequencer: New client added");
 }
 
@@ -537,6 +539,14 @@ void Sequencer::serverSay(std::string msg, int uid, int type)
 	}
 }
 
+void Sequencer::serverSayThreadSave(std::string msg, int uid, int type)
+{
+    STACKLOG;
+    Sequencer* instance = Instance(); 
+    //MutexLocker scoped_lock(instance->clients_mutex);
+	instance->serverSay(msg, uid, type);
+}
+
 bool Sequencer::kick(int kuid, int modUID, const char *msg)
 {
     STACKLOG;
@@ -707,6 +717,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		//char tmp[1024];
 		//sprintf(tmp, "user %s disconnects on request", instance->clients[pos]->nickname);
 		//serverSay(std::string(tmp), -1);
+		instance->script->playerDeleted(instance->clients[pos]->uid, 0);
 		disconnect(instance->clients[pos]->uid, "disconnected on request", false);
 	}
 	else if (type==MSG2_CHAT)
@@ -716,7 +727,10 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		
 		// no broadcast of server commands!
 		if(data[0] == '!') publishMode=0;
-		
+
+		int scriptpub = instance->script->playerChat(instance->clients[pos]->uid, data);
+		if(scriptpub>0) publishMode = scriptpub;
+
 		if(!strcmp(data, "!version"))
 		{
 			serverSay(std::string(VERSION), uid);

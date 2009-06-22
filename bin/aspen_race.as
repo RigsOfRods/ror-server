@@ -152,6 +152,7 @@ int raceTick(bool secondPassed, bool threeSecondsPassed)
 		for(int i=0;i<free_race_participants;i++)
 		{
 			if(race_participants[i] == -1) continue;
+			server.cmd(race_participants[i], "game.stopTimer()");
 			vector3 userpos;
 			if(server.getUserPosition(race_participants[i], userpos) != 0)
 				continue;
@@ -159,8 +160,8 @@ int raceTick(bool secondPassed, bool threeSecondsPassed)
 			float dist = userpos.distance(aspen_points[0]);
 			if(dist > distanceTrigger)
 			{
-				if(secondPassed)
-					server.say("^3you are still ^2" + (dist) + "m^3 away from the checkpoint, hurry up!", race_participants[i], 0);
+				//if(secondPassed)
+				//	server.say("^3you are still ^2" + (dist) + "m^3 away from the checkpoint, hurry up!", race_participants[i], 0);
 				ok=false;
 				playerWait=race_participants[i];
 				break;

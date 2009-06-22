@@ -1,5 +1,5 @@
 // some timers
-float time=0, timer0=0;
+float time=0, timer0=0, timer1=0;;
 
 // some distances
 float distanceTrigger=5;
@@ -118,7 +118,7 @@ int joinStartRace(int uid)
 	return 0;
 }
 
-int raceTick(bool secondPassed)
+int raceTick(bool secondPassed, bool threeSecondsPassed)
 {
 	int min_req = 1;
 	if(raceRunning==1 && free_race_participants < min_req)
@@ -143,18 +143,19 @@ int raceTick(bool secondPassed)
 			float dist = userpos.distance(aspen_points[0]);
 			if(dist > distanceTrigger)
 			{
-				if(secondPassed)
-					server.say("^3you are still ^2" + (dist) + "m^3 away from the checkpoint, hurry up!", race_participants[i], 0);
+				//if(secondPassed)
+				//	server.say("^3you are still ^2" + (dist) + "m^3 away from the checkpoint, hurry up!", race_participants[i], 0);
 				ok=false;
 				playerWait=race_participants[i];
 				break;
 			}
 		}
-		if(secondPassed && !ok)
+		if(threeSecondsPassed && !ok)
 		{
 			for(int i=0;i<free_race_participants;i++)
 			{
 				if(race_participants[i] == -1) continue;
+				if(race_participants[i] == playerWait) continue;
 				server.say("^3we are waiting for ^2"+server.getUserName(playerWait)+" ^3to arrive at the first checkpoint...", race_participants[i], 0);
 			}
 			racecountDown=-1;
@@ -236,6 +237,7 @@ int raceTick(bool secondPassed)
 	return 0;
 }
 
+
 // timer callback
 void frameStep(float dt)
 {
@@ -244,11 +246,19 @@ void frameStep(float dt)
 	
 	timer0 += dt;
 	bool secondPassed=false;
-	if(timer0 > 1000.0f)
+	if(timer0 > 999.0f)
 	{
 		secondPassed=true;
 		timer0=0;
+		timer1++;
+	}
+	
+	bool threeSecondsPassed=false;
+	if(timer1>2)
+	{
+		threeSecondsPassed=true;
+		timer1=0;
 	}
 
-	raceTick(secondPassed);
+	raceTick(secondPassed, threeSecondsPassed);
 }

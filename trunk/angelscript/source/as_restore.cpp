@@ -643,26 +643,31 @@ void asCRestore::WriteObjectType(asCObjectType* ot)
 	// Only write the object type name
 	if( ot )
 	{
-		// TODO: Template: Check for template instances, rather than the template itself
-		if( ot->flags & asOBJ_TEMPLATE && ot->name != "array<T>" )
+		// Check for template instances/specializations
+		if( ot->templateSubType.GetTokenType() != ttUnrecognizedToken &&
+			ot != engine->defaultArrayObjectType )
 		{
 			ch = 'a';
 			WRITE_NUM(ch);
 
-			if( ot->subType )
+			if( ot->templateSubType.IsObject() )
 			{
 				ch = 's';
 				WRITE_NUM(ch);
-				WriteObjectType(ot->subType);
+				WriteObjectType(ot->templateSubType.GetObjectType());
 
-				ch = ot->arrayType & 1 ? 'h' : 'o';
+				if( ot->templateSubType.IsObjectHandle() )
+					ch = 'h';
+				else
+					ch = 'o';
 				WRITE_NUM(ch);
 			}
 			else
 			{
 				ch = 't';
 				WRITE_NUM(ch);
-				WRITE_NUM(ot->tokenType);
+				eTokenType t = ot->templateSubType.GetTokenType();
+				WRITE_NUM(t);
 			}
 		}
 		else
@@ -711,7 +716,8 @@ void asCRestore::WriteObjectTypeDeclaration(asCObjectType *ot, bool writePropert
 		}
 		else if( ot->flags & asOBJ_TYPEDEF )
 		{
-			WRITE_NUM(ot->tokenType);
+			eTokenType t = ot->templateSubType.GetTokenType();
+			WRITE_NUM(t);
 		}
 		else
 		{
@@ -785,10 +791,6 @@ void asCRestore::ReadObjectTypeDeclaration(asCObjectType *ot, bool readPropertie
 
 		// Use the default script class behaviours
 		ot->beh = engine->scriptTypeBehaviours.beh;
-
-		// Some implicit values
-		ot->tokenType = ttIdentifier;
-		ot->arrayType = 0;
 	}
 	else
 	{	
@@ -807,7 +809,9 @@ void asCRestore::ReadObjectTypeDeclaration(asCObjectType *ot, bool readPropertie
 		}
 		else if( ot->flags & asOBJ_TYPEDEF )
 		{
-			READ_NUM(ot->tokenType);
+			eTokenType t;
+			READ_NUM(t);
+			ot->templateSubType = asCDataType::CreatePrimitive(t, false);
 		}
 		else
 		{
@@ -1004,16 +1008,18 @@ asCObjectType* asCRestore::ReadObjectType()
 		asCString typeName;
 		ReadString(&typeName);
 
-		if( typeName.GetLength() )
+		if( typeName.GetLength() && typeName != "_builtin_object_" )
 		{
 			// Find the object type
 			ot = module->GetObjectType(typeName.AddressOf());
 			if( !ot )
 				ot = engine->GetObjectType(typeName.AddressOf());
-			if( !ot )
-				ot = engine->GetArrayType(typeName.AddressOf());
 			
 			asASSERT(ot);
+		}
+		else if( typeName == "_builtin_object_" )
+		{
+			ot = &engine->scriptTypeBehaviours;
 		}
 		else
 			ot = 0;
@@ -1077,7 +1083,8 @@ void asCRestore::WriteByteCode(asDWORD *bc, int length)
 				WRITE_NUM(tmp[n]);
 		}
 		else if( c == BC_CALL ||
-			     c == BC_CALLINTF )
+			     c == BC_CALLINTF || 
+				 c == BC_CALLSYS )
 		{
 			// Translate the function id
 			asDWORD tmp[MAX_DATA_SIZE];
@@ -1162,7 +1169,8 @@ void asCRestore::TranslateFunction(asCScriptFunction *func)
 			*tid = FindTypeId(*tid);
 		}
 		else if( c == BC_CALL ||
-			     c == BC_CALLINTF )
+			     c == BC_CALLINTF ||
+				 c == BC_CALLSYS )
 		{
 			// Translate the index to the func id
 			int *fid = (int*)&bc[n+1];

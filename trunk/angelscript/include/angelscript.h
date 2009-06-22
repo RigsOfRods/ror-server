@@ -53,11 +53,11 @@ BEGIN_AS_NAMESPACE
 
 // AngelScript version
 
-#define ANGELSCRIPT_VERSION        21600
+#define ANGELSCRIPT_VERSION        21602
 #define ANGELSCRIPT_VERSION_MAJOR  2
 #define ANGELSCRIPT_VERSION_MINOR  16
-#define ANGELSCRIPT_VERSION_BUILD  0
-#define ANGELSCRIPT_VERSION_STRING "2.16.0"
+#define ANGELSCRIPT_VERSION_BUILD  2
+#define ANGELSCRIPT_VERSION_STRING "2.16.2"
 
 // Data types
 
@@ -88,7 +88,9 @@ enum asEEngineProp
 	asEP_ALLOW_MULTILINE_STRINGS      = 6,
 	asEP_ALLOW_IMPLICIT_HANDLE_TYPES  = 7,
 	asEP_BUILD_WITHOUT_LINE_CUES      = 8,
-	asEP_INIT_GLOBAL_VARS_AFTER_BUILD = 9
+	asEP_INIT_GLOBAL_VARS_AFTER_BUILD = 9,
+	asEP_REQUIRE_ENUM_SCOPE           = 10,
+	asEP_SCRIPT_SCANNER               = 11
 };
 
 // Calling conventions
@@ -111,6 +113,7 @@ enum asEObjTypeFlags
 	asOBJ_POD                   = 0x08,
 	asOBJ_NOHANDLE              = 0x10,
 	asOBJ_SCOPED                = 0x20,
+	asOBJ_TEMPLATE              = 0x40,
 	asOBJ_APP_CLASS             = 0x100,
 	asOBJ_APP_CLASS_CONSTRUCTOR = 0x200,
 	asOBJ_APP_CLASS_DESTRUCTOR  = 0x400,
@@ -124,7 +127,7 @@ enum asEObjTypeFlags
 	asOBJ_APP_CLASS_DA          = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_DESTRUCTOR + asOBJ_APP_CLASS_ASSIGNMENT),
 	asOBJ_APP_PRIMITIVE         = 0x1000,
 	asOBJ_APP_FLOAT             = 0x2000,
-	asOBJ_MASK_VALID_FLAGS      = 0x3F3F,
+	asOBJ_MASK_VALID_FLAGS      = 0x3F7F,
 	asOBJ_SCRIPT_OBJECT         = 0x10000
 };
 
@@ -224,7 +227,8 @@ enum asERetCodes
 	asILLEGAL_BEHAVIOUR_FOR_TYPE           = -23,
 	asWRONG_CALLING_CONV                   = -24,
 	asMODULE_IS_IN_USE                     = -25,
-	asBUILD_IN_PROGRESS                    = -26
+	asBUILD_IN_PROGRESS                    = -26,
+	asINIT_GLOBAL_VARS_FAILED              = -27
 };
 
 // Context states
@@ -303,7 +307,7 @@ enum asETypeIdFlags
 #ifdef AS_DEPRECATED
 	asTYPEID_SCRIPTSTRUCT   = 0x0C000000,
 #endif
-	asTYPEID_SCRIPTOBJECT   = 0x0C000000,
+	asTYPEID_SCRIPTOBJECT   = 0x08000000,
 	asTYPEID_SCRIPTARRAY    = 0x10000000,
 	asTYPEID_MASK_SEQNBR    = 0x03FFFFFF
 };
@@ -357,7 +361,14 @@ typedef void *(*asALLOCFUNC_t)(size_t);
 typedef void (*asFREEFUNC_t)(void *);
 
 #define asFUNCTION(f) asFunctionPtr(f)
+#if defined(_MSC_VER) && _MSC_VER <= 1200
+// MSVC 6 has a bug that prevents it from properly compiling using the correct asFUNCTIONPR with operator >
+// so we need to use ordinary C style cast instead of static_cast. The drawback is that the compiler can't 
+// check that the cast is really valid.
 #define asFUNCTIONPR(f,p,r) asFunctionPtr((void (*)())((r (*)p)(f)))
+#else
+#define asFUNCTIONPR(f,p,r) asFunctionPtr((void (*)())(static_cast<r (*)p>(f)))
+#endif
 
 #ifndef AS_NO_CLASS_METHODS
 
@@ -368,15 +379,18 @@ struct asSFuncPtr
 {
 	union
 	{
-		char dummy[24]; // largest known class method pointer
-		struct {asMETHOD_t   mthd; char dummy[24-sizeof(asMETHOD_t)];} m;
-		struct {asFUNCTION_t func; char dummy[24-sizeof(asFUNCTION_t)];} f;
+		// The largest known method point is 20 bytes (MSVC 64bit),
+		// but with 8byte alignment this becomes 24 bytes. So we need
+		// to be able to store at least that much.
+		char dummy[25]; 
+		struct {asMETHOD_t   mthd; char dummy[25-sizeof(asMETHOD_t)];} m;
+		struct {asFUNCTION_t func; char dummy[25-sizeof(asFUNCTION_t)];} f;
 	} ptr;
 	asBYTE flag; // 1 = generic, 2 = global func, 3 = method
 };
 
 #define asMETHOD(c,m) asSMethodPtr<sizeof(void (c::*)())>::Convert((void (c::*)())(&c::m))
-#define asMETHODPR(c,m,p,r) asSMethodPtr<sizeof(void (c::*)())>::Convert((r (c::*)p)(&c::m))
+#define asMETHODPR(c,m,p,r) asSMethodPtr<sizeof(void (c::*)())>::Convert(static_cast<r (c::*)p>(&c::m))
 
 #else // Class methods are disabled
 
@@ -384,8 +398,8 @@ struct asSFuncPtr
 {
 	union
 	{
-		char dummy[24]; // largest known class method pointer
-		struct {asFUNCTION_t func; char dummy[24-sizeof(asFUNCTION_t)];} f;
+		char dummy[25]; // largest known class method pointer
+		struct {asFUNCTION_t func; char dummy[25-sizeof(asFUNCTION_t)];} f;
 	} ptr;
 	asBYTE flag; // 1 = generic, 2 = global func
 };
@@ -534,7 +548,7 @@ public:
 	virtual int           ExecuteString(const char *module, const char *script, asIScriptContext **ctx = 0, asDWORD flags = 0) = 0;
 
 	// Garbage collection
-	virtual int  GarbageCollect(asEGCFlags flags = asGC_FULL_CYCLE) = 0;
+	virtual int  GarbageCollect(asDWORD flags = asGC_FULL_CYCLE) = 0;
 	virtual void GetGCStatistics(asUINT *currentSize, asUINT *totalDestroyed = 0, asUINT *totalDetected = 0) = 0;
 	virtual void NotifyGarbageCollectorOfNewObject(void *obj, int typeId) = 0;
 	virtual void GCEnumCallback(void *reference) = 0;
@@ -960,10 +974,8 @@ struct asSMethodPtr
 	{
 		// This version of the function should never be executed, nor compiled,
 		// as it would mean that the size of the method pointer cannot be determined.
-#ifdef _MSC_VER
-		// GNUC won't let us compile at all if this is here
-		int ERROR_UnsupportedMethodPtr[-1];
-#endif
+
+		int ERROR_UnsupportedMethodPtr[N-100];
 		return 0;
 	}
 };
@@ -1014,14 +1026,13 @@ struct asSMethodPtr<SINGLE_PTR_SIZE+2*sizeof(int)>
 	template <class M>
 	static asSFuncPtr Convert(M Mthd)
 	{
-		// This is where a class with virtual inheritance falls
+		// This is where a class with virtual inheritance falls, or
+		// on 64bit platforms with 8byte data alignments.
 
-		// Since method pointers of this type doesn't have all the
-		// information we need we force a compile failure for this case.
-		int ERROR_VirtualInheritanceIsNotAllowedForMSVC[-1];
-
-		// The missing information is the location of the vbase table,
-		// which is only known at compile time.
+		// Method pointers for virtual inheritance is not supported,
+		// as it requires the location of the vbase table, which is 
+		// only available to the C++ compiler, but not in the method
+		// pointer. 
 
 		// You can get around this by forward declaring the class and
 		// storing the sizeof its method pointer in a constant. Example:
@@ -1032,7 +1043,18 @@ struct asSMethodPtr<SINGLE_PTR_SIZE+2*sizeof(int)>
 		// This will force the compiler to use the unknown type
 		// for the class, which falls under the next case
 
+		// TODO: We need to try to identify if this is really a method pointer
+		//       with virtual inheritance, or just a method pointer for multiple 
+		//       inheritance with pad bytes to produce a 16byte structure.
+
 		asSFuncPtr p;
+		asMemClear(&p, sizeof(p));
+
+		asMemCopy(&p, &Mthd, SINGLE_PTR_SIZE+2*sizeof(int));
+
+		// Mark this as a class method
+		p.flag = 3;
+
 		return p;
 	}
 };
@@ -1047,6 +1069,27 @@ struct asSMethodPtr<SINGLE_PTR_SIZE+3*sizeof(int)>
 		asMemClear(&p, sizeof(p));
 
 		asMemCopy(&p, &Mthd, SINGLE_PTR_SIZE+3*sizeof(int));
+
+		// Mark this as a class method
+		p.flag = 3;
+
+		return p;
+	}
+};
+
+template <>
+struct asSMethodPtr<SINGLE_PTR_SIZE+4*sizeof(int)>
+{
+	template <class M>
+	static asSFuncPtr Convert(M Mthd)
+	{
+		// On 64bit platforms with 8byte data alignment
+		// the unknown class method pointers will come here.
+
+		asSFuncPtr p;
+		asMemClear(&p, sizeof(p));
+
+		asMemCopy(&p, &Mthd, SINGLE_PTR_SIZE+4*sizeof(int));
 
 		// Mark this as a class method
 		p.flag = 3;

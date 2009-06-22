@@ -516,6 +516,9 @@ void NOINLINE CallCDeclFunction(const asDWORD *args, int paramSize, size_t func)
 		// We must save registers that are used
 	    push ecx
 
+		// Clear the FPU stack, in case the called function doesn't do it by itself
+		fninit
+
 		// Copy arguments from script
 		// stack to application stack
         mov  ecx, paramSize
@@ -549,6 +552,7 @@ endcopy:
     UNUSED_VAR(func);
 
 	asm("pushl %ecx           \n"
+	    "fninit               \n"
 
 		// Need to align the stack pointer so that it is aligned to 16 bytes when making the function call.
 		// It is assumed that when entering this function, the stack pointer is already aligned, so we need
@@ -595,6 +599,9 @@ void NOINLINE CallCDeclFunctionObjLast(const void *obj, const asDWORD *args, int
 		// We must save registers that are used
 	    push ecx
 
+		// Clear the FPU stack, in case the called function doesn't do it by itself
+		fninit
+
 		// Push the object pointer as the last argument to the function
 		push obj
 
@@ -633,6 +640,7 @@ endcopy:
     UNUSED_VAR(func);
 
 	asm("pushl %ecx           \n"
+	    "fninit               \n"
 
 		// Need to align the stack pointer so that it is aligned to 16 bytes when making the function call.
 		// It is assumed that when entering this function, the stack pointer is already aligned, so we need
@@ -681,6 +689,9 @@ void NOINLINE CallCDeclFunctionObjFirst(const void *obj, const asDWORD *args, in
 		// We must save registers that are used
 	    push ecx
 
+		// Clear the FPU stack, in case the called function doesn't do it by itself
+		fninit
+
 		// Copy arguments from script
 		// stack to application stack
         mov  ecx, paramSize
@@ -719,6 +730,7 @@ endcopy:
     UNUSED_VAR(func);
 
 	asm("pushl %ecx           \n"
+	    "fninit               \n"
 
 		// Need to align the stack pointer so that it is aligned to 16 bytes when making the function call.
 		// It is assumed that when entering this function, the stack pointer is already aligned, so we need
@@ -767,6 +779,9 @@ void NOINLINE CallCDeclFunctionRetByRefObjFirst_impl(const void *obj, const asDW
 		// We must save registers that are used
 	    push ecx
 
+		// Clear the FPU stack, in case the called function doesn't do it by itself
+		fninit
+
 		// Copy arguments from script
 		// stack to application stack
         mov  ecx, paramSize
@@ -814,6 +829,7 @@ endcopy:
     UNUSED_VAR(retPtr);
 
 	asm("pushl %ecx           \n"
+	    "fninit               \n"
 
 		// Need to align the stack pointer so that it is aligned to 16 bytes when making the function call.
 		// It is assumed that when entering this function, the stack pointer is already aligned, so we need
@@ -866,6 +882,9 @@ void NOINLINE CallCDeclFunctionRetByRef_impl(const asDWORD *args, int paramSize,
 		// We must save registers that are used
 	    push ecx
 
+		// Clear the FPU stack, in case the called function doesn't do it by itself
+		fninit
+
 		// Copy arguments from script
 		// stack to application stack
         mov  ecx, paramSize
@@ -907,6 +926,7 @@ endcopy:
     UNUSED_VAR(retPtr);
 
 	asm("pushl %ecx           \n"
+	    "fninit               \n"
 
 		// Need to align the stack pointer so that it is aligned to 16 bytes when making the function call.
 		// It is assumed that when entering this function, the stack pointer is already aligned, so we need
@@ -956,6 +976,9 @@ void NOINLINE CallCDeclFunctionRetByRefObjLast_impl(const void *obj, const asDWO
 		// We must save registers that are used
 	    push ecx
 
+		// Clear the FPU stack, in case the called function doesn't do it by itself
+		fninit
+
 		push obj
 
 		// Copy arguments from script
@@ -1001,6 +1024,7 @@ endcopy:
     UNUSED_VAR(retPtr);
 
 	asm("pushl %ecx           \n"
+	    "fninit               \n"
 
 		// Need to align the stack pointer so that it is aligned to 16 bytes when making the function call.
 		// It is assumed that when entering this function, the stack pointer is already aligned, so we need
@@ -1053,6 +1077,9 @@ void NOINLINE CallSTDCallFunction(const asDWORD *args, int paramSize, size_t fun
 		// We must save registers that are used
 	    push ecx
 
+		// Clear the FPU stack, in case the called function doesn't do it by itself
+		fninit
+
 		// Copy arguments from script
 		// stack to application stack
         mov  ecx, paramSize
@@ -1085,6 +1112,7 @@ endcopy:
     UNUSED_VAR(func);
 
 	asm("pushl %ecx           \n"
+	    "fninit               \n"
 
 		// Need to align the stack pointer so that it is aligned to 16 bytes when making the function call.
 		// It is assumed that when entering this function, the stack pointer is already aligned, so we need
@@ -1130,6 +1158,9 @@ void NOINLINE CallThisCallFunction(const void *obj, const asDWORD *args, int par
 	{
 		// We must save registers that are used
 	    push ecx
+
+		// Clear the FPU stack, in case the called function doesn't do it by itself
+		fninit
 
 		// Copy arguments from script
 		// stack to application stack
@@ -1179,6 +1210,7 @@ endcopy:
     UNUSED_VAR(func);
 
 	asm("pushl %ecx           \n"
+	    "fninit               \n"
 
 		// Need to align the stack pointer so that it is aligned to 16 bytes when making the function call.
 		// It is assumed that when entering this function, the stack pointer is already aligned, so we need
@@ -1227,6 +1259,9 @@ void NOINLINE CallThisCallFunctionRetByRef_impl(const void *obj, const asDWORD *
 	{
 		// We must save registers that are used
 	    push ecx
+
+		// Clear the FPU stack, in case the called function doesn't do it by itself
+		fninit
 
 		// Copy arguments from script
 		// stack to application stack
@@ -1280,6 +1315,7 @@ endcopy:
     UNUSED_VAR(retPtr);
 
 	asm("pushl %ecx           \n"
+	    "fninit               \n"
 
 		// Need to align the stack pointer so that it is aligned to 16 bytes when making the function call.
 		// It is assumed that when entering this function, the stack pointer is already aligned, so we need

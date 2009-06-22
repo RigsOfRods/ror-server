@@ -175,81 +175,60 @@ static void ArrayObject_ReleaseAllHandles_Generic(asIScriptGeneric *gen)
 
 void RegisterArrayObject(asCScriptEngine *engine)
 {
-	// TODO: Template: The registration of the default array should define a template type, e.g. "T". 
-	// The other functions should use this template type "T" to show the compiler where the subtype is
-	// used. This will make the compiler code for the array type be more generic, and prepare the library
-	// to convert the dynamic array type from a built-in type to an add-on.
-
 	int r;
-	r = engine->RegisterSpecialObjectType("array<T>", sizeof(asCArrayObject), asOBJ_REF | asOBJ_TEMPLATE); asASSERT( r >= 0 );
+
+	r = engine->RegisterObjectType("_builtin_array_<class T>", sizeof(asCArrayObject), asOBJ_REF | asOBJ_GC | asOBJ_TEMPLATE); asASSERT( r >= 0 );
 #ifndef AS_MAX_PORTABILITY
-#ifndef AS_64BIT_PTR
-	// TODO: Template: The return type should be "array<T>@" 
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_FACTORY, "void[]@ f(int)", asFUNCTIONPR(ArrayObjectFactory, (asCObjectType*), asCArrayObject*), asCALL_CDECL); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_FACTORY, "void[]@ f(int, uint)", asFUNCTIONPR(ArrayObjectFactory2, (asCObjectType*, asUINT), asCArrayObject*), asCALL_CDECL); asASSERT( r >= 0 );
-#else
-	// TODO: Template: The return type should be "array<T>@" 
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_FACTORY, "void[]@ f(int64)", asFUNCTIONPR(ArrayObjectFactory, (asCObjectType*), asCArrayObject*), asCALL_CDECL); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_FACTORY, "void[]@ f(int64, uint)", asFUNCTIONPR(ArrayObjectFactory2, (asCObjectType*, asUINT), asCArrayObject*), asCALL_CDECL); asASSERT( r >= 0 );
-#endif
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_ADDREF, "void f()", asMETHOD(asCArrayObject,AddRef), asCALL_THISCALL); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_RELEASE, "void f()", asMETHOD(asCArrayObject,Release), asCALL_THISCALL); asASSERT( r >= 0 );
-	// TODO: Template: The signature should be "array<T>& f(const array<T>& in)"
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_ASSIGNMENT, "void[] &f(void[]&in)", asFUNCTION(ArrayObjectAssignment), asCALL_CDECL_OBJLAST); asASSERT( r >= 0 );
-	// TODO: Template: The signature should be "T& f(uint)"
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_INDEX, "int &f(uint)", asFUNCTION(ArrayObjectAt), asCALL_CDECL_OBJLAST); asASSERT( r >= 0 );
-	// TODO: Template: The signature should be "const T& f(uint) const"
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_INDEX, "int &f(uint) const", asFUNCTION(ArrayObjectAt), asCALL_CDECL_OBJLAST); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectMethod("array<T>", "uint length() const", asFUNCTION(ArrayObjectLength), asCALL_CDECL_OBJLAST); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectMethod("array<T>", "void resize(uint)", asFUNCTION(ArrayObjectResize), asCALL_CDECL_OBJLAST); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_FACTORY, "_builtin_array_<T>@ f(int&in)", asFUNCTIONPR(ArrayObjectFactory, (asCObjectType*), asCArrayObject*), asCALL_CDECL); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_FACTORY, "_builtin_array_<T>@ f(int&in, uint)", asFUNCTIONPR(ArrayObjectFactory2, (asCObjectType*, asUINT), asCArrayObject*), asCALL_CDECL); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_ADDREF, "void f()", asMETHOD(asCArrayObject,AddRef), asCALL_THISCALL); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_RELEASE, "void f()", asMETHOD(asCArrayObject,Release), asCALL_THISCALL); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_ASSIGNMENT, "_builtin_array_<T> &f(const _builtin_array_<T>&in)", asFUNCTION(ArrayObjectAssignment), asCALL_CDECL_OBJLAST); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_INDEX, "T &f(uint)", asFUNCTION(ArrayObjectAt), asCALL_CDECL_OBJLAST); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_INDEX, "const T &f(uint) const", asFUNCTION(ArrayObjectAt), asCALL_CDECL_OBJLAST); asASSERT( r >= 0 );
+	r = engine->RegisterObjectMethod("_builtin_array_<T>", "uint length() const", asFUNCTION(ArrayObjectLength), asCALL_CDECL_OBJLAST); asASSERT( r >= 0 );
+	r = engine->RegisterObjectMethod("_builtin_array_<T>", "void resize(uint)", asFUNCTION(ArrayObjectResize), asCALL_CDECL_OBJLAST); asASSERT( r >= 0 );
 
 	// Register GC behaviours
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_GETREFCOUNT, "int f()", asMETHOD(asCArrayObject,GetRefCount), asCALL_THISCALL); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_SETGCFLAG, "void f()", asMETHOD(asCArrayObject,SetFlag), asCALL_THISCALL); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_GETGCFLAG, "bool f()", asMETHOD(asCArrayObject,GetFlag), asCALL_THISCALL); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_ENUMREFS, "void f(int&in)", asMETHOD(asCArrayObject,EnumReferences), asCALL_THISCALL); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_RELEASEREFS, "void f(int&in)", asMETHOD(asCArrayObject,ReleaseAllHandles), asCALL_THISCALL); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_GETREFCOUNT, "int f()", asMETHOD(asCArrayObject,GetRefCount), asCALL_THISCALL); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_SETGCFLAG, "void f()", asMETHOD(asCArrayObject,SetFlag), asCALL_THISCALL); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_GETGCFLAG, "bool f()", asMETHOD(asCArrayObject,GetFlag), asCALL_THISCALL); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_ENUMREFS, "void f(int&in)", asMETHOD(asCArrayObject,EnumReferences), asCALL_THISCALL); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_RELEASEREFS, "void f(int&in)", asMETHOD(asCArrayObject,ReleaseAllHandles), asCALL_THISCALL); asASSERT( r >= 0 );
 #else
-#ifndef AS_64BIT_PTR
-	// TODO: Template: The return type should be "array<T>@" 
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_FACTORY, "void[]@ f(int)", asFUNCTION(ArrayObjectFactory_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_FACTORY, "void[]@ f(int, uint)", asFUNCTION(ArrayObjectFactory2_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-#else
-	// TODO: Template: The return type should be "array<T>@" 
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_FACTORY, "void[]@ f(int64)", asFUNCTION(ArrayObjectFactory_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_FACTORY, "void[]@ f(int64, uint)", asFUNCTION(ArrayObjectFactory2_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-#endif
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_ADDREF, "void f()", asFUNCTION(ArrayObject_AddRef_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_RELEASE, "void f()", asFUNCTION(ArrayObject_Release_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-	// TODO: Template: The signature should be "array<T>& f(const array<T>& in)"
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_ASSIGNMENT, "void[] &f(void[]&in)", asFUNCTION(ArrayObjectAssignment_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-	// TODO: Template: The signature should be "T& f(uint)"
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_INDEX, "int &f(uint)", asFUNCTION(ArrayObjectAt_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-	// TODO: Template: The signature should be "const T& f(uint) const"
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_INDEX, "int &f(uint) const", asFUNCTION(ArrayObjectAt_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectMethod("array<T>", "uint length() const", asFUNCTION(ArrayObjectLength_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectMethod("array<T>", "void resize(uint)", asFUNCTION(ArrayObjectResize_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_FACTORY, "_builtin_array_<T>@ f(int&in)", asFUNCTION(ArrayObjectFactory_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_FACTORY, "_builtin_array_<T>@ f(int&in, uint)", asFUNCTION(ArrayObjectFactory2_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_ADDREF, "void f()", asFUNCTION(ArrayObject_AddRef_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_RELEASE, "void f()", asFUNCTION(ArrayObject_Release_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_ASSIGNMENT, "_builtin_array_<T> &f(const _builtin_array_<T>&in)", asFUNCTION(ArrayObjectAssignment_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_INDEX, "T &f(uint)", asFUNCTION(ArrayObjectAt_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_INDEX, "const T &f(uint) const", asFUNCTION(ArrayObjectAt_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterObjectMethod("_builtin_array_<T>", "uint length() const", asFUNCTION(ArrayObjectLength_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterObjectMethod("_builtin_array_<T>", "void resize(uint)", asFUNCTION(ArrayObjectResize_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
 
 	// Register GC behaviours
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_GETREFCOUNT, "int f()", asFUNCTION(ArrayObject_GetRefCount_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_SETGCFLAG, "void f()", asFUNCTION(ArrayObject_SetFlag_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_GETGCFLAG, "bool f()", asFUNCTION(ArrayObject_GetFlag_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_ENUMREFS, "void f(int&in)", asFUNCTION(ArrayObject_EnumReferences_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(engine->defaultArrayObjectType, asBEHAVE_RELEASEREFS, "void f(int&in)", asFUNCTION(ArrayObject_ReleaseAllHandles_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_GETREFCOUNT, "int f()", asFUNCTION(ArrayObject_GetRefCount_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_SETGCFLAG, "void f()", asFUNCTION(ArrayObject_SetFlag_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_GETGCFLAG, "bool f()", asFUNCTION(ArrayObject_GetFlag_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_ENUMREFS, "void f(int&in)", asFUNCTION(ArrayObject_EnumReferences_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterObjectBehaviour("_builtin_array_<T>", asBEHAVE_RELEASEREFS, "void f(int&in)", asFUNCTION(ArrayObject_ReleaseAllHandles_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
 #endif 
 }
 
 asCArrayObject &asCArrayObject::operator=(asCArrayObject &other)
 {
-	if( buffer )
+	if( &other != this )
 	{
-		DeleteBuffer(buffer);
-		buffer = 0;
-	}
+		if( buffer )
+		{
+			DeleteBuffer(buffer);
+			buffer = 0;
+		}
 
-	// Copy all elements from the other array
-	CreateBuffer(&buffer, other.buffer->numElements);
-	CopyBuffer(buffer, other.buffer);	
+		// Copy all elements from the other array
+		CreateBuffer(&buffer, other.buffer->numElements);
+		CopyBuffer(buffer, other.buffer);	
+	}
 
 	return *this;
 }
@@ -278,26 +257,16 @@ asCArrayObject::asCArrayObject(asUINT length, asCObjectType *ot)
 		objType->engine->gc.AddScriptObjectToGC(this, objType);		
 
 	// Determine element size
-	if( objType->subType )
+	if( !objType->templateSubType.IsPrimitive() )
 	{
 		elementSize = sizeof(asPWORD);
 	}
 	else
 	{
-		if( objType->tokenType == ttDouble || objType->tokenType == ttInt64 || objType->tokenType == ttUInt64 )
-			elementSize = 8;
-		else if( objType->tokenType == ttInt || objType->tokenType == ttUInt ||
-			     objType->tokenType == ttFloat )
-			elementSize = 4;
-		else if( objType->tokenType == ttInt16 || objType->tokenType == ttUInt16 )
-			elementSize = 2;
-		else if( objType->tokenType == ttBool )
-			elementSize = AS_SIZEOF_BOOL;
-		else
-			elementSize = 1;
+		elementSize = objType->templateSubType.GetSizeInMemoryBytes();
 	}
 
-	arrayType = objType->arrayType;
+	isArrayOfHandles = objType->templateSubType.IsObjectHandle() ? true : false;
 
 	CreateBuffer(&buffer, length);
 }
@@ -325,7 +294,7 @@ asUINT asCArrayObject::GetElementCount()
 void asCArrayObject::Resize(asUINT numElements)
 {
 	sArrayBuffer *newBuffer;
-	if( objType->subType )
+	if( !objType->templateSubType.IsPrimitive() )
 	{
 		// Allocate memory for the buffer
 		newBuffer = (sArrayBuffer*)asNEWARRAY(asBYTE, sizeof(sArrayBuffer)-1+sizeof(void*)*numElements);
@@ -380,7 +349,7 @@ void *asCArrayObject::GetElementPointer(asUINT index)
 {
 	if( index >= buffer->numElements ) return 0;
 
-	if( objType->subType && !(arrayType & 1) )
+	if( !objType->templateSubType.IsPrimitive() && !isArrayOfHandles )
 		return (void*)((size_t*)buffer->data)[index];
 	else
 		return buffer->data + elementSize*index;
@@ -397,7 +366,7 @@ void *asCArrayObject::at(asUINT index)
 	}
 	else
 	{
-		if( objType->subType && !(arrayType & 1) )
+		if( !objType->templateSubType.IsPrimitive() && !isArrayOfHandles )
 			return (void*)((size_t*)buffer->data)[index];
 		else
 			return buffer->data + elementSize*index;
@@ -406,7 +375,7 @@ void *asCArrayObject::at(asUINT index)
 
 void asCArrayObject::CreateBuffer(sArrayBuffer **buf, asUINT numElements)
 {
-	if( objType->subType )
+	if( !objType->templateSubType.IsPrimitive() )
 	{
 		*buf = (sArrayBuffer*)asNEWARRAY(asBYTE, sizeof(sArrayBuffer)-1+sizeof(void*)*numElements);
 		(*buf)->numElements = numElements;
@@ -430,17 +399,17 @@ void asCArrayObject::DeleteBuffer(sArrayBuffer *buf)
 
 void asCArrayObject::Construct(sArrayBuffer *buf, asUINT start, asUINT end)
 {
-	if( arrayType & 1 )
+	if( isArrayOfHandles )
 	{
 		// Set all object handles to null
 		asDWORD *d = (asDWORD*)(buf->data + start * sizeof(void*));
 		memset(d, 0, (end-start)*sizeof(void*));
 	}
-	else if( objType->subType )
+	else if( !objType->templateSubType.IsPrimitive() )
 	{
 		// Call the constructor on all objects
 		asCScriptEngine *engine = objType->engine;
-		asCObjectType *subType = objType->subType;
+		asCObjectType *subType = objType->templateSubType.GetObjectType();
 		if( subType->flags & (asOBJ_SCRIPT_OBJECT | asOBJ_TEMPLATE) )
 		{
 			asDWORD **max = (asDWORD**)(buf->data + end * sizeof(void*));
@@ -494,17 +463,17 @@ void asCArrayObject::Construct(sArrayBuffer *buf, asUINT start, asUINT end)
 void asCArrayObject::Destruct(sArrayBuffer *buf, asUINT start, asUINT end)
 {
 	bool doDelete = true;
-	if( objType->subType )
+	if( !objType->templateSubType.IsPrimitive() )
 	{
 		asCScriptEngine *engine = objType->engine;
 		int funcIndex;
-		if( objType->subType->beh.release )
+		if( objType->templateSubType.GetObjectType()->beh.release )
 		{
-			funcIndex = objType->subType->beh.release;
+			funcIndex = objType->templateSubType.GetObjectType()->beh.release;
 			doDelete = false;
 		}
 		else
-			funcIndex = objType->subType->beh.destruct;
+			funcIndex = objType->templateSubType.GetObjectType()->beh.destruct;
 
 		// Call the destructor on all of the objects
 		asDWORD **max = (asDWORD**)(buf->data + end * sizeof(void*));
@@ -548,10 +517,10 @@ void asCArrayObject::CopyBuffer(sArrayBuffer *dst, sArrayBuffer *src)
 {
 	asUINT esize;
 	asCScriptEngine *engine = objType->engine;
-	if( arrayType & 1 )
+	if( isArrayOfHandles )
 	{
 		// Copy the references and increase the reference counters
-		int funcIndex = objType->subType->beh.addref;
+		int funcIndex = objType->templateSubType.GetObjectType()->beh.addref;
 
 		if( dst->numElements > 0 && src->numElements > 0 )
 		{
@@ -573,16 +542,16 @@ void asCArrayObject::CopyBuffer(sArrayBuffer *dst, sArrayBuffer *src)
 	{
 		esize = elementSize;
 		int funcIndex = 0;
-		if( objType->subType )
+		if( !objType->templateSubType.IsPrimitive() )
 		{
-			funcIndex = objType->subType->beh.copy;
-			esize = objType->subType->size;
+			funcIndex = objType->templateSubType.GetObjectType()->beh.copy;
+			esize = objType->templateSubType.GetObjectType()->size;
 		}
 
 		if( dst->numElements > 0 && src->numElements > 0 )
 		{
 			int count = dst->numElements > src->numElements ? src->numElements : dst->numElements;
-			if( objType->subType )
+			if( !objType->templateSubType.IsPrimitive() )
 			{
 				// Call the assignment operator on all of the objects
 				asDWORD **max = (asDWORD**)(dst->data + count * sizeof(void*));
@@ -618,7 +587,7 @@ void asCArrayObject::Destruct()
 void asCArrayObject::EnumReferences(asIScriptEngine *engine)
 {
 	// If the array is holding handles, then we need to notify the GC of them
-	if( objType->subType )
+	if( !objType->templateSubType.IsPrimitive() )
 	{
 		void **d = (void**)buffer->data;
 		for( asUINT n = 0; n < buffer->numElements; n++ )
@@ -631,7 +600,7 @@ void asCArrayObject::EnumReferences(asIScriptEngine *engine)
 
 void asCArrayObject::ReleaseAllHandles(asIScriptEngine *engine)
 {
-	asCObjectType *subType = objType->subType;
+	asCObjectType *subType = objType->templateSubType.GetObjectType();
 	if( subType && subType->flags & asOBJ_GC )
 	{
 		void **d = (void**)buffer->data;

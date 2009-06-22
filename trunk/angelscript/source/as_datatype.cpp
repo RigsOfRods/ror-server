@@ -106,9 +106,9 @@ asCDataType asCDataType::CreateDefaultArray(asCScriptEngine *engine)
 {
 	asCDataType dt;
 
-	// void[] represents the default array
+	// _builtin_array_<T> represents the default array
 	dt.objectType       = engine->defaultArrayObjectType;
-	dt.tokenType        = ttVoid;
+	dt.tokenType        = ttIdentifier;
 
 	return dt;
 }
@@ -117,11 +117,7 @@ asCDataType asCDataType::CreateNullHandle()
 {
 	asCDataType dt;
 
-#ifndef AS_64BIT_PTR
-	dt.tokenType = ttInt;
-#else
-	dt.tokenType = ttInt64;
-#endif
+	dt.tokenType = ttUnrecognizedToken;
 	dt.isReadOnly = true;
 	dt.isObjectHandle = true;
 	dt.isConstHandle = true;
@@ -129,45 +125,49 @@ asCDataType asCDataType::CreateNullHandle()
 	return dt;
 }
 
+bool asCDataType::IsNullHandle() const
+{
+	if( tokenType == ttUnrecognizedToken &&
+		objectType == 0 &&
+		isObjectHandle  )
+		return true;
+
+	return false;
+}
+
 asCString asCDataType::Format() const
 {
+	if( IsNullHandle() )
+		return "<null handle>";
+
 	asCString str;
 
 	if( isReadOnly )
 		str = "const ";
 
 	if( tokenType != ttIdentifier )
-		str += asGetTokenDefinition(tokenType);
-	else
 	{
-		// find the baseType by following the objectType
-		asCObjectType *baseType = objectType;
-		if( baseType ) 
-			while( baseType->subType ) 
-				baseType = baseType->subType;
-		if( baseType == 0 )
-			str += "<unknown>";
-		else
+		str += asGetTokenDefinition(tokenType);
+	}
+	else if( IsArrayType() )
+	{
+		str += objectType->templateSubType.Format();
+		str += "[]";
+	}
+	else if( objectType )
+	{
+		str += objectType->name;
+		if( objectType->flags & asOBJ_TEMPLATE )
 		{
-			if( baseType->tokenType == ttIdentifier )
-				str += baseType->name;
-			else
-				str += asGetTokenDefinition(baseType->tokenType);
+			str += "<";
+			str += objectType->templateSubType.Format();
+			str += ">";
 		}
 	}
-
-
-	asCString append;
-	int at = objectType ? objectType->arrayType : 0;
-	while( at )
+	else
 	{
-		if( (at & 3) == 3 ) 
-			append = "@[]" + append;
-		else 
-			append = "[]" + append;
-		at >>= 2;
+		str = "<unknown>";
 	}
-	str += append;
 
 	if( isObjectHandle )
 	{
@@ -207,7 +207,7 @@ int asCDataType::MakeHandle(bool b, bool acceptHandleForScope)
 		// Only reference types are allowed to be handles, 
 		// but not nohandle reference types, and not scoped references (except when returned from registered function)
 		if( !objectType || 
-			!(objectType->flags & asOBJ_REF) || 
+			!((objectType->flags & asOBJ_REF) || (objectType->flags & asOBJ_TEMPLATE_SUBTYPE)) || 
 			(objectType->flags & asOBJ_NOHANDLE) || 
 			((objectType->flags & asOBJ_SCOPED) && !acceptHandleForScope) )
 			return -1;
@@ -221,7 +221,10 @@ int asCDataType::MakeHandle(bool b, bool acceptHandleForScope)
 
 int asCDataType::MakeArray(asCScriptEngine *engine)
 {
-	asCObjectType *at = engine->GetArrayTypeFromSubType(*this);
+	bool tmpIsReadOnly = isReadOnly;
+	isReadOnly = false;
+	asCObjectType *at = engine->GetTemplateInstanceType(engine->defaultArrayObjectType, *this);
+	isReadOnly = tmpIsReadOnly;
 
 	isObjectHandle = false;
 	isConstHandle = false;
@@ -294,8 +297,9 @@ bool asCDataType::CanBeCopied() const
 	// It must be possible to instanciate the type
 	if( !CanBeInstanciated() ) return false;
 
-	// It must have a default constructor
-	if( objectType->beh.construct == 0 ) return false;
+	// It must have a default constructor or factory
+	if( objectType->beh.construct == 0 &&
+		objectType->beh.factory   == 0 ) return false;
 
 	// It must be possible to copy the type
 	if( objectType->beh.copy == 0 ) return false;
@@ -319,7 +323,7 @@ bool asCDataType::IsHandleToConst() const
 
 bool asCDataType::IsArrayType() const
 {
-	return objectType ? (objectType->arrayType != 0) : false;
+	return objectType ? (objectType->name == objectType->engine->defaultArrayObjectType->name) : false;
 }
 
 bool asCDataType::IsTemplate() const
@@ -340,28 +344,8 @@ bool asCDataType::IsScriptObject() const
 
 asCDataType asCDataType::GetSubType() const
 {
-	asCDataType dt(*this);
-
-	int arrayType = GetArrayType();
-
-	dt.isReadOnly = false;
-	dt.isConstHandle = false;
-	dt.isReference = false;
-	if( objectType )
-	{
-		dt.objectType = objectType->subType;
-		if( dt.objectType == 0 )
-			dt.tokenType = objectType->tokenType;
-	}
-	else
-		dt.objectType = 0;
-
-	dt.MakeHandle((arrayType & 1) ? true : false);
-	
-	if( IsReadOnly() )
-		dt.MakeReadOnly(false);
-
-	return dt;
+	asASSERT(objectType);
+	return objectType->templateSubType;
 }
 
 
@@ -434,6 +418,10 @@ bool asCDataType::IsPrimitive() const
 
 	// A registered object is never a primitive neither is a pointer, nor an array
 	if( objectType )
+		return false;
+
+	// Null handle doesn't have an objectType, but it is not a primitive
+	if( tokenType == ttUnrecognizedToken )
 		return false;
 
 	return true;
@@ -535,6 +523,10 @@ int asCDataType::GetSizeInMemoryBytes() const
 	if( tokenType == ttBool )
 		return AS_SIZEOF_BOOL;
 
+	// null handle
+	if( tokenType == ttUnrecognizedToken )
+		return 4*PTR_SIZE;
+
 	return 4;
 }
 
@@ -555,11 +547,6 @@ int asCDataType::GetSizeOnStackDWords() const
 	if( objectType ) return PTR_SIZE + size;
 
 	return GetSizeInMemoryDWords() + size;
-}
-
-int asCDataType::GetArrayType() const
-{
-	return objectType ? objectType->arrayType : 0;
 }
 
 asSTypeBehaviour *asCDataType::GetBehaviour() const

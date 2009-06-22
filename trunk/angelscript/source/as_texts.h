@@ -55,6 +55,7 @@
 #define TXT_CANNOT_INHERIT_FROM_s         "Can't inherit from '%s'"
 #define TXT_CANNOT_INHERIT_FROM_MULTIPLE_CLASSES "Can't inherit from multiple classes"
 #define TXT_CANNOT_INHERIT_FROM_SELF      "Can't inherit from itself, or another class that inherits from this class"
+#define TXT_CANNOT_INSTANCIATE_TEMPLATE_s_WITH_s "Can't instanciate template '%s' with subtype '%s'"
 #define TXT_CANT_IMPLICITLY_CONVERT_s_TO_s "Can't implicitly convert from '%s' to '%s'."
 #define TXT_CANT_RETURN_VALUE             "Can't return value when return type is 'void'"
 #define TXT_CHANGE_SIGN                   "Implicit conversion changed sign of value"
@@ -66,7 +67,6 @@
 #define TXT_DEFAULT_MUST_BE_LAST          "The default case must be the last one"
 #define TXT_DESTRUCTOR_MAY_NOT_HAVE_PARM  "The destructor must not have any parameters"
 
-#define TXT_EMPTY_CHAR_LITERAL            "Empty character literal"
 #define TXT_EMPTY_SWITCH                  "Empty switch statement"
 #define TXT_EXPECTED_s                    "Expected '%s'"
 #define TXT_EXPECTED_CONSTANT             "Expected constant"
@@ -104,9 +104,13 @@
 #define TXT_INIT_LIST_CANNOT_BE_USED_WITH_s "Initialization lists cannot be used with '%s'"
 #define TXT_INTERFACE_s_ALREADY_IMPLEMENTED "The interface '%s' is already implemented"
 #define TXT_INVALID_BREAK                 "Invalid 'break'"
+#define TXT_INVALID_CHAR_LITERAL          "Invalid character literal"
 #define TXT_INVALID_CONTINUE              "Invalid 'continue'"
+#define TXT_INVALID_ESCAPE_SEQUENCE       "Invalid escape sequence"
 #define TXT_INVALID_SCOPE                 "Invalid scope resolution"
 #define TXT_INVALID_TYPE                  "Invalid type"
+#define TXT_INVALID_UNICODE_FORMAT_EXPECTED_d   "Invalid unicode escape sequence, expected %d hex digits"
+#define TXT_INVALID_UNICODE_VALUE               "Invalid unicode code point"
 
 #define TXT_METHOD_IN_GLOBAL_EXPR                   "Object method calls are not allowed in global expressions"
 #define TXT_MISSING_IMPLEMENTATION_OF_s             "Missing implementation of '%s'"
@@ -160,6 +164,7 @@
 #define TXT_REF_IS_TEMP                   "Reference is temporary"
 #define TXT_RETURN_CANT_BE_s              "Return type can't be '%s'"
 
+#define TXT_SCRIPT_FUNCTIONS_DOESNT_SUPPORT_RETURN_REF "Script functions must not return references"
 #define TXT_SIGNED_UNSIGNED_MISMATCH      "Signed/Unsigned mismatch"
 #define TXT_STRINGS_NOT_RECOGNIZED        "Strings are not recognized by the application"
 #define TXT_SWITCH_CASE_MUST_BE_CONSTANT  "Case expressions must be constants"
@@ -183,6 +188,10 @@
 #define TXT_VALUE_TYPE_MUST_HAVE_SIZE     "A value type must be registered with a non-zero size"
 #define TXT_TYPE_s_IS_MISSING_BEHAVIOURS  "Type '%s' is missing behaviours"
 #define TXT_ILLEGAL_BEHAVIOUR_FOR_TYPE    "The behaviour is not compatible with the type"
+#define TXT_GC_REQUIRE_ADD_REL_GC_BEHAVIOUR  "A garbage collected type must have the addref, release, and all gc behaviours"
+#define TXT_SCOPE_REQUIRE_REL_BEHAVIOUR      "A scoped reference type must have the release behaviour"
+#define TXT_REF_REQUIRE_ADD_REL_BEHAVIOUR    "A reference type must have the addref and release behaviours"
+#define TXT_NON_POD_REQUIRE_CONSTR_DESTR_BEHAVIOUR "A non-pod value type must have the constructor and destructor behaviours"
 
 // Internal names
 

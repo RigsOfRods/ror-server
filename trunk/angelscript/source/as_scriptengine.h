@@ -166,7 +166,7 @@ public:
 	virtual int           ExecuteString(const char *module, const char *script, asIScriptContext **ctx, asDWORD flags);
 
 	// Garbage collection
-	virtual int  GarbageCollect(asEGCFlags flags = asGC_FULL_CYCLE);
+	virtual int  GarbageCollect(asDWORD flags = asGC_FULL_CYCLE);
 	virtual void GetGCStatistics(asUINT *currentSize, asUINT *totalDestroyed, asUINT *totalDetected);
 	virtual void NotifyGarbageCollectorOfNewObject(void *obj, int typeId);
 	virtual void GCEnumCallback(void *reference);
@@ -212,8 +212,6 @@ public:
 	asCScriptEngine();
 	virtual ~asCScriptEngine();
 
-	asCObjectType *GetArrayTypeFromSubType(asCDataType &subType);
-
 //protected:
 	friend class asCBuilder;
 	friend class asCCompiler;
@@ -224,8 +222,6 @@ public:
 	friend class asCByteCode;
 	friend int PrepareSystemFunction(asCScriptFunction *func, asSSystemFunctionInterface *internal, asCScriptEngine *engine);
 
-	int RegisterSpecialObjectType(const char *objname, int byteSize, asDWORD flags);
-	int RegisterSpecialObjectMethod(const char *objname, const char *declaration, const asSFuncPtr &funcPointer, int callConv);
 	int RegisterSpecialObjectBehaviour(asCObjectType *objType, asDWORD behaviour, const char *decl, const asSFuncPtr &funcPointer, int callConv);
 
 	int VerifyVarTypeNotInFunction(asCScriptFunction *func);
@@ -244,7 +240,7 @@ public:
 	bool  CallGlobalFunctionRetBool(void *param1, void *param2, asSSystemFunctionInterface *func, asCScriptFunction *desc);
 
 	void ClearUnusedTypes();
-	void RemoveArrayType(asCObjectType *t);
+	void RemoveTemplateInstanceType(asCObjectType *t);
 	void RemoveTypeAndRelatedFromList(asCArray<asCObjectType*> &types, asCObjectType *ot);
 
 	asCConfigGroup *FindConfigGroup(asCObjectType *ot);
@@ -262,7 +258,6 @@ public:
 	int CreateContext(asIScriptContext **context, bool isInternal);
 
 	asCObjectType *GetObjectType(const char *type);
-	asCObjectType *GetArrayType(const char *type);
 
 	int AddBehaviourFunction(asCScriptFunction &func, asSSystemFunctionInterface &internal);
 
@@ -288,6 +283,10 @@ public:
 	asCObjectType     *GetObjectTypeFromTypeId(int typeId);
 	void               RemoveFromTypeIdMap(asCObjectType *type);
 
+	bool IsTemplateType(const char *name);
+	asCObjectType *GetTemplateInstanceType(asCObjectType *templateType, asCDataType &subType);
+	bool GenerateNewTemplateFunction(asCObjectType *templateType, asCObjectType *templateInstanceType, asCDataType &subType, asCScriptFunction *templateFunc, asCScriptFunction **newFunc);
+
 //===========================================================
 // internal properties
 //===========================================================
@@ -310,9 +309,10 @@ public:
 
 	// Stores all known object types, both application registered, and script declared
 	asCArray<asCObjectType *>      objectTypes;
+	asCArray<asCObjectType *>      templateSubTypes;
 
-	// Store information about registered array types
-	asCArray<asCObjectType *>      arrayTypes;
+	// Store information about template types
+	asCArray<asCObjectType *>      templateTypes;
 
 	// This array stores pointers to each registered global property. It allows the virtual 
 	// machine to directly find the value of the global property using an index into this array.
@@ -331,7 +331,8 @@ public:
 
 	// Stores script declared object types
 	asCArray<asCObjectType *> classTypes;
-	asCArray<asCObjectType *> scriptArrayTypes;
+	// This array stores the template instances types, that have been generated from template types
+	asCArray<asCObjectType *> templateInstanceTypes;
 
 	// Type identifiers
 	int                       typeIdSeqNbr;
@@ -368,6 +369,8 @@ public:
 		bool allowImplicitHandleTypes;
 		bool buildWithoutLineCues;
 		bool initGlobalVarsAfterBuild;
+		bool requireEnumScope;
+		int  scanner;
 	} ep;
 };
 

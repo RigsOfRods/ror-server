@@ -126,12 +126,9 @@ void RegisterScriptObject(asCScriptEngine *engine)
 	// Register the default script class behaviours
 	int r;
 	engine->scriptTypeBehaviours.flags = asOBJ_SCRIPT_OBJECT;
+	engine->scriptTypeBehaviours.name = "_builtin_object_";
 #ifndef AS_MAX_PORTABILITY
-#ifndef AS_64BIT_PTR
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_CONSTRUCT, "void f(int)", asFUNCTION(ScriptObject_Construct), asCALL_CDECL_OBJLAST); asASSERT( r >= 0 );
-#else
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_CONSTRUCT, "void f(int64)", asFUNCTION(ScriptObject_Construct), asCALL_CDECL_OBJLAST); asASSERT( r >= 0 );
-#endif
+	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_CONSTRUCT, "void f(int&in)", asFUNCTION(ScriptObject_Construct), asCALL_CDECL_OBJLAST); asASSERT( r >= 0 );
 	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_ADDREF, "void f()", asMETHOD(asCScriptObject,AddRef), asCALL_THISCALL); asASSERT( r >= 0 );
 	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_RELEASE, "void f()", asMETHOD(asCScriptObject,Release), asCALL_THISCALL); asASSERT( r >= 0 );
 	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_ASSIGNMENT, "int &f(int &in)", asFUNCTION(ScriptObject_Assignment), asCALL_CDECL_OBJLAST); asASSERT( r >= 0 );
@@ -143,11 +140,7 @@ void RegisterScriptObject(asCScriptEngine *engine)
 	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_ENUMREFS, "void f(int&in)", asMETHOD(asCScriptObject,EnumReferences), asCALL_THISCALL); asASSERT( r >= 0 );
 	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_RELEASEREFS, "void f(int&in)", asMETHOD(asCScriptObject,ReleaseAllHandles), asCALL_THISCALL); asASSERT( r >= 0 );
 #else
-#ifndef AS_64BIT_PTR
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_CONSTRUCT, "void f(int)", asFUNCTION(ScriptObject_Construct_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-#else
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_CONSTRUCT, "void f(int64)", asFUNCTION(ScriptObject_Construct_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-#endif
+	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_CONSTRUCT, "void f(int&in)", asFUNCTION(ScriptObject_Construct_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
 	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_ADDREF, "void f()", asFUNCTION(ScriptObject_AddRef_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
 	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_RELEASE, "void f()", asFUNCTION(ScriptObject_Release_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
 	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_ASSIGNMENT, "int &f(int &in)", asFUNCTION(ScriptObject_Assignment_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
@@ -261,7 +254,7 @@ int asCScriptObject::Release()
 		CallDestructor();
 	}
 
-	// Now do the actual releasing (clearing the flag set by GC)
+	// Now do the actual releasing
 	int r = refCount.atomicDec();
 	if( r == 0 )
 	{
@@ -343,6 +336,7 @@ int asCScriptObject::GetStructTypeId()
 }
 #endif
 
+// TODO: Should probably be moved to asIObjectType (or replicated in the asIObjectType)
 int asCScriptObject::GetTypeId() const
 {
 	asCDataType dt = asCDataType::CreateObject(objType, false);
@@ -432,28 +426,31 @@ asCScriptObject &ScriptObject_Assignment(asCScriptObject *other, asCScriptObject
 
 asCScriptObject &asCScriptObject::operator=(const asCScriptObject &other)
 {
-	asASSERT( other.objType->DerivesFrom(objType) );
-
-	asCScriptEngine *engine = objType->engine;
-
-	// Copy all properties
-	for( asUINT n = 0; n < objType->properties.GetLength(); n++ )
+	if( &other != this )
 	{
-		asCObjectProperty *prop = objType->properties[n];
-		if( prop->type.IsObject() )
+		asASSERT( other.objType->DerivesFrom(objType) );
+
+		asCScriptEngine *engine = objType->engine;
+
+		// Copy all properties
+		for( asUINT n = 0; n < objType->properties.GetLength(); n++ )
 		{
-			void **dst = (void**)(((char*)this) + prop->byteOffset);
-			void **src = (void**)(((char*)&other) + prop->byteOffset);
-			if( !prop->type.IsObjectHandle() )
-				CopyObject(*src, *dst, prop->type.GetObjectType(), engine);
+			asCObjectProperty *prop = objType->properties[n];
+			if( prop->type.IsObject() )
+			{
+				void **dst = (void**)(((char*)this) + prop->byteOffset);
+				void **src = (void**)(((char*)&other) + prop->byteOffset);
+				if( !prop->type.IsObjectHandle() )
+					CopyObject(*src, *dst, prop->type.GetObjectType(), engine);
+				else
+					CopyHandle((asDWORD*)src, (asDWORD*)dst, prop->type.GetObjectType(), engine);
+			}
 			else
-				CopyHandle((asDWORD*)src, (asDWORD*)dst, prop->type.GetObjectType(), engine);
-		}
-		else
-		{
-			void *dst = ((char*)this) + prop->byteOffset;
-			void *src = ((char*)&other) + prop->byteOffset;
-			memcpy(dst, src, prop->type.GetSizeInMemoryBytes());
+			{
+				void *dst = ((char*)this) + prop->byteOffset;
+				void *src = ((char*)&other) + prop->byteOffset;
+				memcpy(dst, src, prop->type.GetSizeInMemoryBytes());
+			}
 		}
 	}
 

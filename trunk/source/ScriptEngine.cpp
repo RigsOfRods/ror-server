@@ -10,6 +10,7 @@ using namespace std;
 
 // cross platform assert
 #ifdef WIN32
+#include "windows.h" // for Sleep()
 extern "C" {
 _CRTIMP void __cdecl _wassert(_In_z_ const wchar_t * _Message, _In_z_ const wchar_t *_File, _In_ unsigned _Line);
 }
@@ -18,7 +19,15 @@ _CRTIMP void __cdecl _wassert(_In_z_ const wchar_t * _Message, _In_z_ const wcha
 # define assert_net(expr) assert(expr)
 #endif
 
+void *s_sethreadstart(void* se)
+{
+    STACKLOG;
+	((ScriptEngine*)se)->timerLoop();
+	return NULL;
+}
+
 ScriptEngine::ScriptEngine(Sequencer *seq) : seq(seq), 
+	exit(false),
 	engine(0),
 	context(0),
 	playerAddedFunctionPtr(0),
@@ -32,6 +41,7 @@ ScriptEngine::ScriptEngine(Sequencer *seq) : seq(seq),
 ScriptEngine::~ScriptEngine()
 {
 	// Clean up
+	exit=true;
 	if(engine) engine->Release();
 	if(context) context->Release();
 }
@@ -262,6 +272,13 @@ void ScriptEngine::init()
 	result = engine->RegisterGlobalProperty("ServerScriptClass server", serverscript); assert_net(result>=0);
 
 	Logger::log(LOG_INFO,"ScriptEngine: Registration done");
+
+	if(frameStepFunctionPtr>=0)
+	{
+		Logger::log(LOG_DEBUG,"ScriptEngine: starting timer thread");
+		pthread_create(&timer_thread, NULL, s_sethreadstart, this);
+	}
+
 }
 
 void ScriptEngine::msgCallback(const asSMessageInfo *msg)
@@ -364,6 +381,21 @@ int ScriptEngine::playerChat(int uid, char *msg)
 	  return ret;
 	}
 	return -1;
+}
+
+void ScriptEngine::timerLoop()
+{
+	while(!exit)
+	{
+		// sleep 200 miliseconds
+#ifndef WIN32
+		usleep(200);
+#else
+		Sleep(200);
+#endif
+		// call script
+		framestep(200);
+	}
 }
 
 

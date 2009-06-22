@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "SocketW.h"
 #include "sequencer.h"
 #include "messaging.h"
+#include "ScriptEngine.h"
 #include "logger.h"
 
 void *s_lithreadstart(void* vid)
@@ -138,6 +139,8 @@ void Receiver::threadstart()
 	//send motd
 	Sequencer::sendMOTD(id);
 	
+	Sequencer::getScriptEngine()->playerAdded(id);
+
 	Logger::log(LOG_VERBOSE,"UID %d is switching to FLOW", id);
 	
 	// this prevents the socket from hangingwhen sending data

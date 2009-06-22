@@ -1,3 +1,4 @@
+float time=0;
 
 void main()
 {
@@ -14,6 +15,9 @@ void playerDeleted(int uid, int crash)
 void playerAdded(int uid)
 {
 	server.log("new player " + uid + " :D");
+	server.log(">>>>");
+	server.say("Hey Player, welcome here!", uid, 0);
+	server.log("<<<<");
 }
 
 int playerChat(int uid, string msg)
@@ -28,3 +32,11 @@ int playerChat(int uid, string msg)
 	return -1; // dont change publish mode
 }
 
+void frameStep(float dt)
+{
+	time += dt;
+	float seconds = time / 1000.0f;
+	
+	// now that is verbose, for testing only:
+	// server.log("Time passed by: " + seconds + " s");
+}

@@ -1015,7 +1015,7 @@ unsigned short Sequencer::getPosfromUid(unsigned int uid)
             return i;
     }
     
-    Logger::log( LOG_ERROR, "could not find uid %d", uid);    
+    Logger::log( LOG_DEBUG, "could not find uid %d", uid);    
     return UID_NOT_FOUND;
 }
 

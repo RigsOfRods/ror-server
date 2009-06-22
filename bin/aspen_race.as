@@ -95,6 +95,17 @@ int playerChat(int uid, string msg)
 		joinStartRace(uid);
 		return 0; // 0 = no publish
 	}
+	if(msg == "!resetrace")
+	{
+		// reset stuff
+		float time=0, timer0=0;
+
+		distanceTrigger=5;
+
+		racecountDown=-1;
+		raceRunning=0;
+		free_race_participants=0;
+	}
 	return -1; // dont change publish mode
 }
 
@@ -241,9 +252,6 @@ int raceTick(bool secondPassed, bool threeSecondsPassed)
 // timer callback
 void frameStep(float dt)
 {
-	time += dt;
-	float seconds = time / 1000.0f;
-	
 	timer0 += dt;
 	bool secondPassed=false;
 	if(timer0 > 999.0f)

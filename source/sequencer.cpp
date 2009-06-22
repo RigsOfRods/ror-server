@@ -106,6 +106,10 @@ void Sequencer::cleanUp()
 {
     STACKLOG;
 
+	static bool cleanup = false;
+	if(cleanup) return;
+	cleanup=true;
+
     Sequencer* instance = Instance();
 	Logger::log(LOG_INFO,"closing. disconnecting clients ...");
 	char *str = "server shutting down (try to reconnect later!)";

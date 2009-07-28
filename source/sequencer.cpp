@@ -386,8 +386,9 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError)
     
 	// send an event if user is rankend and if we are a official server
 	if(instance->authresolver && (instance->clients[pos]->authstate & AUTH_RANKED))
-		instance->authresolver->sendUserEvent(instance->clients[pos]->uniqueid, (isError?"crash":"leave"), instance->clients[pos]->nickname, instance->clients[pos]->ip_addr);
-
+	{
+		instance->authresolver->sendUserEvent(instance->clients[pos]->uniqueid, (isError?"crash":"leave"), instance->clients[pos]->nickname, "");
+	}
 	instance->script->playerDeleted(instance->clients[pos]->uid, isError?1:0);
 
 	//this routine is a potential trouble maker as it can be called from many thread contexts

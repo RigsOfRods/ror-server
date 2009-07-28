@@ -42,5 +42,7 @@ public:
 
 	int getAuthSize();
 	int setUserAuth(std::string token, int flags);
+
+	int sendUserEvent(std::string user_token, std::string type, std::string arg1, std::string arg2);
 };
 #endif

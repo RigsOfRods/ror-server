@@ -113,6 +113,21 @@ int UserAuth::setUserAuth(std::string token, int flags)
 	return 0;
 }
 
+int UserAuth::sendUserEvent(std::string user_token, std::string type, std::string arg1, std::string arg2)
+{
+    STACKLOG;
+	char url[1024];
+	sprintf(url, "%s/userevent/?v=0&sh=%s&h=%s&t=%s&a1=%s&a2=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), type.c_str(), arg1.c_str(), arg2.c_str());
+	HttpMsg resp;
+	if (HTTPGET(url, resp) < 0)
+		return -1;
+
+	std::string body = resp.getBody();
+	Logger::log(LOG_DEBUG,"UserEvent reply: " + body);
+
+	return (body!="ok");
+}
+
 int UserAuth::resolve(std::string user_token, std::string &user_nick)
 {
     STACKLOG;

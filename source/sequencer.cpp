@@ -37,6 +37,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //#define REFLECT_DEBUG 
 #define UID_NOT_FOUND 0xFFFF
 
+
+#ifdef __GNUC__
+#include <stdlib.h>
+#endif
+
+
 void *s_klthreadstart(void* vid)
 {
     STACKLOG;
@@ -112,7 +118,7 @@ void Sequencer::cleanUp()
 
     Sequencer* instance = Instance();
 	Logger::log(LOG_INFO,"closing. disconnecting clients ...");
-	char *str = "server shutting down (try to reconnect later!)";
+	const char *str = "server shutting down (try to reconnect later!)";
 	for( unsigned int i = 0; i < instance->clients.size(); i++) 
 	{
 		// HACK-ISH override all thread stuff and directly send it!

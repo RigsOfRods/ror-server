@@ -5,6 +5,13 @@
 #include <iomanip>
 #include <sstream>
 
+#ifdef __GNUC__
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#endif
+
+
 bool toHex(char *result, unsigned char *data, unsigned int len)
 {
 	char tmp[20];

@@ -22,6 +22,12 @@ _CRTIMP void __cdecl _wassert(_In_z_ const wchar_t * _Message, _In_z_ const wcha
 # define assert_net(expr) assert(expr)
 #endif
 
+
+#ifdef __GNUC__
+#include <string.h>
+#endif
+
+
 void *s_sethreadstart(void* se)
 {
     STACKLOG;

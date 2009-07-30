@@ -28,7 +28,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #ifdef __GNUC__
 #include <unistd.h>
+#include <stdlib.h>
 #endif
+
 
 
 

@@ -16,6 +16,12 @@
 #include <time.h>
 #endif
 
+#ifdef __GNUC__
+#include <unistd.h>
+#include <stdlib.h>
+#endif
+
+
 #ifndef NOCMDLINE
 
 // option identifiers

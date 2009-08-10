@@ -216,6 +216,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	//okay, create the stuff
 	to_add->flow=false;
 	to_add->status=USED;
+	to_add->initialized=false;
 	to_add->vehicle_name[0]=0;
 	to_add->position=Vector3(0,0,0);
 	to_add->beambuffersize=0;
@@ -693,6 +694,12 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 
 	if(type==MSG2_STREAM_DATA)
 	{
+		if(!instance->clients[pos]->initialized)
+		{
+			notifyAllVehicles(instance->clients[pos]->uid);
+			instance->clients[pos]->initialized=true;
+		}
+		
 		publishMode = 1;
 	}
 	else if (type==MSG2_STREAM_REGISTER) 

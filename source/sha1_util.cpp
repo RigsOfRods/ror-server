@@ -44,6 +44,21 @@ bool SHA1FromString(char *result, const char *source)
 	return res;
 }
 
+bool SHA1FromBuffer(char *result, const char *source, int len)
+{
+	// init variables
+	char sha1result_bin[20];
+	memset(sha1result_bin, 0, 20);
+	char sha1result_hex[2048];
+	memset(sha1result_hex, 0, 2048);
+
+	// calculate hash of the filenames
+	sha1( (unsigned char *)source, len, (unsigned char *)sha1result_bin);
+	bool res = toHex(sha1result_hex, (unsigned char*)sha1result_bin, 20);
+	memcpy(result, sha1result_hex, 40);
+	result[40]=0;
+	return res;
+}
 bool SHA1FromString(std::string &result, const std::string &sourceStr)
 {
 

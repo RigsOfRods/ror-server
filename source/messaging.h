@@ -29,11 +29,8 @@ public:
 	Messaging(void) {;}
 	~Messaging(void) {;}
 	
-	static int sendmessage(SWInetSocket *socket, int type, int source,
-			unsigned int len, const char* content);
-	static int receivemessage(SWInetSocket *socket, int *type,
-			int *source, unsigned int *wrotelen, char* content, 
-			unsigned int bufferlen);
+	static int sendmessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len, const char* content);
+	static int receivemessage(SWInetSocket *socket, int *type, int *source, unsigned int *streamid, unsigned int *wrotelen, char* content, unsigned int bufferlen);
 
 	static double getBandwitdthIncoming();
 	static double getBandwidthOutgoing();

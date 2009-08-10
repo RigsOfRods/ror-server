@@ -78,6 +78,7 @@ struct client_t
     char uniqueid[60];          //!< users unique id
     
 	int authstate;              //!< authenticated state
+	bool initialized;
 
 	int beambuffersize;
 	simple_beam_info *sbi;

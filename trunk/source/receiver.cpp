@@ -135,7 +135,7 @@ void Receiver::threadstart()
 	//notify the client of all pre-existing vehicles
 	*/
 
-	Sequencer::notifyAllVehicles(id);
+	//Sequencer::notifyAllVehicles(id);
 
 	//okay, we are ready, we can receive data frames
 	Sequencer::enableFlow(id);

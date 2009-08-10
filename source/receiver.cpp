@@ -165,6 +165,6 @@ void Receiver::threadstart()
 			Sequencer::disconnect(id, "Protocol error 3");
 			break;
 		}
-		Sequencer::queueMessage(id, type, dbuffer, len, streamid);
+		Sequencer::queueMessage(id, type, streamid, dbuffer, len);
 	}
 }

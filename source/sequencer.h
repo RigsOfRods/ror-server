@@ -142,7 +142,7 @@ public:
     //! queue client for disconenct
     static void disconnect(int pos, const char* error, bool isError=true);
 
-	static void queueMessage(int pos, int type, char* data, unsigned int len, unsigned int streamid);
+	static void queueMessage(int pos, int type, unsigned int streamid, char* data, unsigned int len);
     static void enableFlow(int id);
     static int sendMOTD(int id);
     

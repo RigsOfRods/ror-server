@@ -500,13 +500,15 @@ UserAuth* Sequencer::getUserAuth()
 }
 
 //this is called from the listener thread initial handshake
-void Sequencer::notifyAllVehicles(int uid)
+void Sequencer::notifyAllVehicles(int uid, bool lock)
 {
     STACKLOG;
     Sequencer* instance = Instance();
     
-    MutexLocker scoped_lock(instance->clients_mutex); 
-    unsigned short pos = instance->getPosfromUid(uid);     
+	if(lock)
+		MutexLocker scoped_lock(instance->clients_mutex);
+
+    unsigned short pos = instance->getPosfromUid(uid);
     if( UID_NOT_FOUND == pos ) return;
     
 	for (unsigned int i=0; i<instance->clients.size(); i++)
@@ -696,7 +698,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 	{
 		if(!instance->clients[pos]->initialized)
 		{
-			notifyAllVehicles(instance->clients[pos]->uid);
+			notifyAllVehicles(instance->clients[pos]->uid, false);
 			instance->clients[pos]->initialized=true;
 		}
 		

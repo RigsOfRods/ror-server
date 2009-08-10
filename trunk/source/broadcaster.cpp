@@ -118,12 +118,12 @@ void Broadcaster::threadstart()
 //and keep in mind that it is called crazily and concurently from lots of threads
 //we MUST copy the data too
 //also, this function can be called by threads owning clients_mutex !!!
-void Broadcaster::queueMessage(int uid, int type, unsigned int streamid, unsigned int len, const char* data)
+void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigned int len, const char* data)
 {
     STACKLOG;
     if( !running ) return;
 	// for now lets just queue msgs in the order received to make things simple
-	queue_entry_t msg = { uid, type, "", len, streamid};
+	queue_entry_t msg = { type, uid, streamid, "", len};
 	memset( msg.data, 0, MAX_MESSAGE_LENGTH );
 	memcpy( msg.data, data, len );
 

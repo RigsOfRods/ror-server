@@ -27,11 +27,11 @@ class SWInetSocket;
 
 struct queue_entry_t
 {
-	int uid;
 	int type;
+	int uid;
+	unsigned int streamid;
 	char data[MAX_MESSAGE_LENGTH];
 	unsigned int datalen;
-	unsigned int streamid;
 };
 
 ///TODO: Documents the broadcaster class
@@ -73,6 +73,6 @@ public:
 	 * @param[in] data the actually message being sent
 	 * @param[in] len  length of data in bytes
 	 */
-	void queueMessage(int uid, int type, unsigned int streamid, unsigned int len, const char* data);
+	void queueMessage(int type, int uid, unsigned int streamid, unsigned int len, const char* data);
 };
 #endif

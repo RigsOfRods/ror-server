@@ -93,7 +93,7 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, int source, unsigned 
 	head.command  = type;
 	head.source   = source;
 	head.size     = len;
-	head.streamid = len;
+	head.streamid = streamid;
 	
 	// construct buffer
 	memset(buffer, 0, MAX_MESSAGE_LENGTH);

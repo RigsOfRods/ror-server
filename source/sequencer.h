@@ -148,7 +148,7 @@ public:
     static int sendMOTD(int id);
     
     static void notifyRoutine();
-    static void notifyAllVehicles(int id);
+    static void notifyAllVehicles(int id, bool lock=true);
 
 	static UserAuth* getUserAuth();
 	static ScriptEngine* getScriptEngine();

@@ -26,7 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //#define MAX_MLEN 1024
 #define MAX_MESSAGE_LENGTH 32768 // higher value, since we also send around the beam data!
 
-#define RORNET_VERSION "RoRnet_2.2"
+#define RORNET_VERSION "RoRnet_2.3"
 
 #define MSG_REGISTER 0      //!< client registers with magic!
 #define MSG_PING 1          //!< heartbeat sent by server ()
@@ -91,6 +91,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MSG2_STREAM_UNREGISTER_RESP 1035    //!< remove stream response from server to requsting client
 #define MSG2_STREAM_TAKEOVER 1036           //!< stream takeover
 #define MSG2_STREAM_TAKEOVER_RESP 1037      //!< stream takeover response from server
+#define MSG2_STREAM_DATA 1039               //!< stream data
 
 
 #define AUTH_NONE              0x00000000
@@ -137,9 +138,8 @@ typedef struct
 typedef struct
 {
 	int sid;                  //!< the id of the stream
-	char truckname[128];      //!< the truck filename
+	char name[128];           //!< the truck filename
 	int type;                 //!< stream type
-	int uid;                  //!< the id of the creating user
 	int status;               //!< initial stream status
 } stream_register_t;
 
@@ -189,6 +189,7 @@ typedef struct
 {
 	unsigned int command;
 	int source;
+	unsigned int streamid;
 	unsigned int size;
 } header_t;
 

@@ -54,8 +54,7 @@ Broadcaster::~Broadcaster()
 
 void Broadcaster::reset(int uid, SWInetSocket *socky,
 		void (*disconnect_func)(int, const char*, bool),
-		int (*sendmessage_func)(SWInetSocket*, int, int,
-				unsigned int, const char*) )
+		int (*sendmessage_func)(SWInetSocket*, int, int, unsigned int, unsigned int, const char*) )
 {
     STACKLOG;	
 	id          = uid;
@@ -107,7 +106,7 @@ void Broadcaster::threadstart()
 		
 		//Send message
 		// TODO WARNING THE SOCKET IS NOT PROTECTED!!!
-		if( sendmessage( sock, msg.type, msg.uid, msg.datalen, msg.data ) )
+		if( sendmessage( sock, msg.type, msg.uid, msg.streamid, msg.datalen, msg.data ) )
 		{
 			disconnect(id, "Broadcaster: Send error", true);
 			return;
@@ -119,12 +118,12 @@ void Broadcaster::threadstart()
 //and keep in mind that it is called crazily and concurently from lots of threads
 //we MUST copy the data too
 //also, this function can be called by threads owning clients_mutex !!!
-void Broadcaster::queueMessage(int uid, int type, unsigned int len, const char* data)
+void Broadcaster::queueMessage(int uid, int type, unsigned int streamid, unsigned int len, const char* data)
 {
     STACKLOG;
     if( !running ) return;
 	// for now lets just queue msgs in the order received to make things simple
-	queue_entry_t msg = { uid, type, "", len };
+	queue_entry_t msg = { uid, type, "", len, streamid};
 	memset( msg.data, 0, MAX_MESSAGE_LENGTH );
 	memcpy( msg.data, data, len );
 

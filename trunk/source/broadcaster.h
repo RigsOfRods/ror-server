@@ -31,6 +31,7 @@ struct queue_entry_t
 	int type;
 	char data[MAX_MESSAGE_LENGTH];
 	unsigned int datalen;
+	unsigned int streamid;
 };
 
 ///TODO: Documents the broadcaster class
@@ -47,7 +48,7 @@ private:
 	
 	bool running;
 	void (*disconnect)(int, const char*, bool);
-	int (*sendmessage)(SWInetSocket *socket, int type, int source, unsigned int len, const char* content);
+	int (*sendmessage)(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len, const char* content);
 
 	 void threadstart();
 	 friend void* s_brthreadstart(void* vid);
@@ -64,7 +65,7 @@ public:
 	void reset(int uid, SWInetSocket *socky,
 			void (*disconnect)(int uid, const char*, bool),
 			int (*sendmessage)(SWInetSocket *socket, int type,
-					int source, unsigned int len, const char* content) );
+					int source, unsigned int streamid, unsigned int len, const char* content) );
 	void stop();
 	/**
 	 * @param[in] uid  uid of the client sending the data??
@@ -72,6 +73,6 @@ public:
 	 * @param[in] data the actually message being sent
 	 * @param[in] len  length of data in bytes
 	 */
-	void queueMessage(int uid, int type, unsigned int len, const char* data);
+	void queueMessage(int uid, int type, unsigned int streamid, unsigned int len, const char* data);
 };
 #endif

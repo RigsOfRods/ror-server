@@ -34,6 +34,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <queue>
 #include <vector>
+#include <map>
 
 class Broadcaster;
 class Receiver;
@@ -81,6 +82,8 @@ struct client_t
 	int beambuffersize;
 	simple_beam_info *sbi;
 	char ip_addr[16]; // do not use directly
+
+	std::map<unsigned int, stream_register_t> streams;
 };
 
 struct ban_t
@@ -139,7 +142,7 @@ public:
     //! queue client for disconenct
     static void disconnect(int pos, const char* error, bool isError=true);
 
-	static void queueMessage(int pos, int type, char* data, unsigned int len);
+	static void queueMessage(int pos, int type, char* data, unsigned int len, unsigned int streamid);
     static void enableFlow(int id);
     static int sendMOTD(int id);
     
@@ -167,6 +170,7 @@ public:
 	static bool ban(int to_ban_uid, int modUID, const char *msg=0);
 	static bool unban(int buid);
 	static bool isbanned(const char *ip);
+	static void streamDebug();
 
 	static std::vector<client_t> getClients();
 

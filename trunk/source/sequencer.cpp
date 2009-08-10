@@ -122,7 +122,7 @@ void Sequencer::cleanUp()
 	for( unsigned int i = 0; i < instance->clients.size(); i++) 
 	{
 		// HACK-ISH override all thread stuff and directly send it!
-		Messaging::sendmessage(instance->clients[i]->sock, MSG2_DELETE, instance->clients[i]->uid, strlen(str), str);
+		Messaging::sendmessage(instance->clients[i]->sock, MSG2_DELETE, instance->clients[i]->uid, 0, strlen(str), str);
 		//disconnect(instance->clients[i]->uid, );
 	}
 	Logger::log(LOG_INFO,"all clients disconnected. exiting.");
@@ -186,7 +186,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 		// set a low time out because we don't want to cause a back up of
 		// connecting clients
 		sock->set_timeout( 10, 0 );
-		Messaging::sendmessage(sock, MSG2_FULL, 0, 0, 0);
+		Messaging::sendmessage(sock, MSG2_FULL, 0, 0, 0, 0);
 		throw std::runtime_error("Server is full");
 	}
 	
@@ -409,7 +409,7 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError)
 	{
 		if( strlen(instance->clients[i]->vehicle_name) > 0 )
 		{
-			instance->clients[i]->broadcaster->queueMessage(instance->clients[pos]->uid, MSG2_DELETE, (int)strlen(errormsg), errormsg);
+			instance->clients[i]->broadcaster->queueMessage(instance->clients[pos]->uid, MSG2_DELETE, 0, (int)strlen(errormsg), errormsg);
 		}
 	}
 	instance->clients.erase( instance->clients.begin() + pos );
@@ -510,8 +510,7 @@ void Sequencer::notifyAllVehicles(int uid)
     
 	for (unsigned int i=0; i<instance->clients.size(); i++)
 	{
-		if (instance->clients[i]->status == USED &&
-				strlen(instance->clients[i]->vehicle_name)>0)
+		if (instance->clients[i]->status == USED)
 		{
 			// construct info packet
 			client_info_on_join info;
@@ -521,17 +520,16 @@ void Sequencer::notifyAllVehicles(int uid)
 			strncpy(info.nickname, instance->clients[i]->nickname, 20);
 			info.authstatus = instance->clients[i]->authstate;
 
-			instance->clients[pos]->broadcaster->queueMessage(
-					instance->clients[i]->uid, MSG2_USE_VEHICLE2,
-					 sizeof(client_info_on_join), (char*)&info );
-		}
-		// not possible to have flow enabled but not have a truck... disconnect 
-		if ( !strlen(instance->clients[i]->vehicle_name) &&
-				instance->clients[i]->flow )
-		{
-			Logger::log(LOG_ERROR, "Client has flow enable but no truck name, "
-					"disconnecting");
-			disconnect(instance->clients[i]->uid, "client appears to be disconnected");
+			// send user infos
+			instance->clients[pos]->broadcaster->queueMessage(instance->clients[i]->uid, MSG2_USER_INFO, 0, sizeof(client_info_on_join), (char*)&info );
+
+			Logger::log(LOG_VERBOSE, " * %d streams registered for user %d", instance->clients[i]->streams.size(), instance->clients[i]->uid);
+			for(std::map<unsigned int, stream_register_t>::iterator it = instance->clients[i]->streams.begin(); it!=instance->clients[i]->streams.end(); it++)
+			{
+				Logger::log(LOG_VERBOSE, "sending stream registration %d:%d to user %d", instance->clients[i]->uid, it->second.sid, uid);
+				instance->clients[pos]->broadcaster->queueMessage(instance->clients[i]->uid, MSG2_STREAM_REGISTER, it->first, sizeof(stream_register_t), (char*)&it->second);
+			}
+
 		}
 	}
 }
@@ -546,7 +544,7 @@ int Sequencer::sendGameCommand(int uid, std::string cmd)
 	const char *data = cmd.c_str();
 	int size = cmd.size();
 	// -1 = comes from the server
-	instance->clients[pos]->broadcaster->queueMessage(-1, MSG2_GAME_CMD, size, data);
+	instance->clients[pos]->broadcaster->queueMessage(-1, MSG2_GAME_CMD, 0, size, data);
 	return 0;
 }
 
@@ -564,7 +562,7 @@ void Sequencer::serverSay(std::string msg, int uid, int type)
 				instance->clients[i]->flow &&
 				(uid==-1 || instance->clients[i]->uid == uid))
 			instance->clients[i]->broadcaster->queueMessage(
-					-1, MSG2_CHAT,
+					-1, MSG2_CHAT, 1, 
 					(int)msg.size(),
 					msg.c_str() );
 	}
@@ -660,8 +658,28 @@ bool Sequencer::isbanned(const char *ip)
 	return false;
 }
 
+void Sequencer::streamDebug()
+{
+    STACKLOG;
+    Sequencer* instance = Instance();
+    
+    //MutexLocker scoped_lock(instance->clients_mutex); 
+    
+	for (unsigned int i=0; i<instance->clients.size(); i++)
+	{
+		if (instance->clients[i]->status == USED)
+		{
+			if(!instance->clients[i]->streams.size())
+				Logger::log(LOG_VERBOSE, " * no streams registered for user %d", instance->clients[i]->uid);
+			else
+				for(std::map<unsigned int, stream_register_t>::iterator it = instance->clients[i]->streams.begin(); it!=instance->clients[i]->streams.end(); it++)
+					Logger::log(LOG_VERBOSE, " * %d:%d, type:%d status:%d name:'%s'", instance->clients[i]->uid, it->second.sid, it->second.type, it->second.status, it->second.name);
+		}
+	}
+}
+
 //this is called by the receivers threads, like crazy & concurrently
-void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
+void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len, unsigned int streamid)
 {
 	STACKLOG;
     Sequencer* instance = Instance();
@@ -676,7 +694,19 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	// publishMode = 2 broadcast to authed users (bots)
 	// publishMode = 3 broadcast to all clients including sender
 
-	if (type==MSG2_USE_VEHICLE) 
+	if(type==MSG2_STREAM_DATA)
+	{
+		publishMode = 1;
+	}
+	else if (type==MSG2_STREAM_REGISTER) 
+	{
+		stream_register_t *reg = (stream_register_t *)data;
+		Logger::log(LOG_VERBOSE, " * new stream registered: %d:%d, type: %d, name: '%s', status: %d", instance->clients[pos]->uid, reg->sid, reg->type, reg->name, reg->status);
+		instance->clients[pos]->streams[reg->sid] = *reg;
+		instance->streamDebug();
+		publishMode = 1;
+	}
+	else if (type==MSG2_USE_VEHICLE) 
 	{
 		// register vehicle name
 		strncpy(instance->clients[pos]->vehicle_name, data, 129);
@@ -700,6 +730,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		if(instance->authresolver && (instance->clients[pos]->authstate & AUTH_RANKED))
 			instance->authresolver->sendUserEvent(instance->clients[pos]->uniqueid, "join", instance->clients[pos]->nickname, instance->clients[pos]->vehicle_name);
 	}
+#if 0
 	else if (type==MSG2_VEHICLE_BEAMS) 
 	{
 		// store beam info in memory
@@ -734,6 +765,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 				Logger::log(LOG_VERBOSE,"Got beam data request from client %d for client %d. Valid data, sending response. (%d bytes / %d kB)", uid, uid_req, instance->clients[pos]->beambuffersize, instance->clients[pos]->beambuffersize/1024);
 				int buf_size = instance->clients[pos]->beambuffersize;
 				simple_beam_info *bbuf = instance->clients[pos]->sbi;
+				// XXX: fix streams
 				instance->clients[pos]->broadcaster->queueMessage(uid_req, MSG2_VEHICLE_BEAMS, (unsigned int)buf_size, (char*)bbuf);
 				publishMode=0;
 			}
@@ -744,6 +776,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 			publishMode=0;
 		}
 	}
+#endif //0
 	else if (type==MSG2_DELETE)
 	{
 		// from client
@@ -757,7 +790,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	else if (type==MSG2_CHAT)
 	{
 		Logger::log(LOG_INFO, "CHAT| %s: %s", instance->clients[pos]->nickname, data);
-		publishMode=1;
+		publishMode=3;
 		
 		// no broadcast of server commands!
 		if(data[0] == '!') publishMode=0;
@@ -882,7 +915,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		{
 			char *chatmsg = data + sizeof(int);
 			int chatlen = len - sizeof(int);
-			instance->clients[destpos]->broadcaster->queueMessage(uid, MSG2_CHAT, chatlen, chatmsg);
+			instance->clients[destpos]->broadcaster->queueMessage(uid, MSG2_CHAT, 1, chatlen, chatmsg);
 			// use MSG2_PRIVCHAT later here maybe?
 			publishMode=0;
 		}
@@ -891,8 +924,19 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 	{
 		float* fpt=(float*)(data+sizeof(oob_t));
 		instance->clients[pos]->position=Vector3(fpt[0], fpt[1], fpt[2]);
+
+		/*
+		char hex[255]="";
+		SHA1FromBuffer(hex, data, len);
+		printf("R > %s\n", hex);
+
+		std::string hexc = hexdump(data, len);
+		printf("RH> %s\n", hexc.c_str());
+		*/
+
 		publishMode=1;
 	}
+#if 0
 	else if (type==MSG2_FORCE)
 	{
 		//this message is to be sent to only one destination
@@ -909,7 +953,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 		}
 		publishMode=0;
 	}
-	
+#endif //0
 	if(publishMode>0)
 	{
 		if(publishMode == 1 || publishMode == 3)
@@ -921,7 +965,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 				if(i >= instance->clients.size())
 					break;
 				if (instance->clients[i]->status == USED && instance->clients[i]->flow && (i!=pos || toAll))
-					instance->clients[i]->broadcaster->queueMessage(instance->clients[pos]->uid, type, len, data);
+					instance->clients[i]->broadcaster->queueMessage(instance->clients[pos]->uid, type, streamid, len, data);
 			}
 		} else if(publishMode == 2)
 		{
@@ -931,7 +975,7 @@ void Sequencer::queueMessage(int uid, int type, char* data, unsigned int len)
 				if(i >= instance->clients.size())
 					break;
 				if (instance->clients[i]->status == USED && instance->clients[i]->flow && i!=pos && (instance->clients[i]->authstate & AUTH_ADMIN))
-					instance->clients[i]->broadcaster->queueMessage(instance->clients[pos]->uid, type, len, data);
+					instance->clients[i]->broadcaster->queueMessage(instance->clients[pos]->uid, type, streamid, len, data);
 			}
 		}
 	}

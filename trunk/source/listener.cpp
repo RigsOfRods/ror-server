@@ -94,12 +94,13 @@ void Listener::threadstart()
 		int type;
 		int source;
 		unsigned int len;
+		unsigned int streamid;
 		char buffer[256];
 		
 		try
 		{
 			// this is the start of it all, it all starts with a simple hello
-			if (Messaging::receivemessage(ts, &type, &source, &len, buffer, 256))
+			if (Messaging::receivemessage(ts, &type, &source, &streamid, &len, buffer, 256))
 				throw std::runtime_error("ERROR Listener: receiving first message");
 			
 			// make sure our first message is a hello message
@@ -108,13 +109,13 @@ void Listener::threadstart()
 			
 			// send client the which version of rornet the server is running
 			Logger::log(LOG_DEBUG,"Listener sending version");
-			if (Messaging::sendmessage(ts, MSG2_VERSION, 0,
+			if (Messaging::sendmessage(ts, MSG2_VERSION, 0, 0,
 					(unsigned int) strlen(RORNET_VERSION), RORNET_VERSION))
 				throw std::runtime_error("ERROR Listener: sending version");
 
 			Logger::log(LOG_DEBUG,"Listener sending terrain");
 			//send the terrain information back
-			if( Messaging::sendmessage( ts, MSG2_TERRAIN_RESP, 0,
+			if( Messaging::sendmessage( ts, MSG2_TERRAIN_RESP, 0, 0,
 					(unsigned int) Config::getTerrainName().length(),
 					Config::getTerrainName().c_str() ) )
 				throw std::runtime_error("ERROR Listener: sending terrain");
@@ -131,7 +132,7 @@ void Listener::threadstart()
 				throw std::runtime_error("ERROR Listener: bad version: "+std::string(buffer));
 			
 			//receive user name
-			if (Messaging::receivemessage(ts, &type, &source, &len, buffer, 256))
+			if (Messaging::receivemessage(ts, &type, &source, &streamid, &len, buffer, 256))
 			{
 				std::stringstream error_msg;
 				error_msg << "ERROR Listener: receiving user name\n"
@@ -166,7 +167,7 @@ void Listener::threadstart()
 						user->password);
 				if(strncmp(Config::getPublicPassword().c_str(), user->password, 40))
 				{
-					Messaging::sendmessage(ts, MSG2_WRONG_PW, 0, 0, 0);
+					Messaging::sendmessage(ts, MSG2_WRONG_PW, 0, 0, 0, 0);
 					throw std::runtime_error( "ERROR Listener: wrong password" );
 				}
 				

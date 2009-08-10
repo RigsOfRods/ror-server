@@ -75,6 +75,7 @@ void Receiver::threadstart()
 	//get the vehicle description
 	int type;
 	int source;
+	unsigned int streamid;
 	unsigned int len;
 	SWBaseSocket::SWBaseError error;
 	
@@ -82,18 +83,19 @@ void Receiver::threadstart()
 	{
 		Logger::log( LOG_DEBUG, "receiver thread %d owned by uid %d terminated (banned user)", ThreadID::getID(), id);
 		Logger::log(LOG_VERBOSE,"banned user rejected: uid %i", id);
-		Messaging::sendmessage(sock, MSG2_BANNED, id, 0, 0);
+		Messaging::sendmessage(sock, MSG2_BANNED, id, 0, 0, 0);
 		Sequencer::disconnect(id, "you are banned");
 		return;
 	}
 
 	Logger::log(LOG_VERBOSE,"Sending welcome message to uid %i", id);
-	if( Messaging::sendmessage(sock, MSG2_WELCOME, id, 0, 0) )
+	if( Messaging::sendmessage(sock, MSG2_WELCOME, id, 0, 0, 0) )
 	{
 		Sequencer::disconnect( id, "error sending welcome message" );
 		return;
 	}
 	
+	/*
 	//security fix: we limit the size of the vehicle name to 128 characters <- from Luigi Auriemma
 	if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, 128))
 	{
@@ -131,8 +133,10 @@ void Receiver::threadstart()
 		return;
 	}
 	//notify the client of all pre-existing vehicles
+	*/
+
 	Sequencer::notifyAllVehicles(id);
-	
+
 	//okay, we are ready, we can receive data frames
 	Sequencer::enableFlow(id);
 
@@ -148,24 +152,19 @@ void Receiver::threadstart()
 	sock->set_timeout(60, 0);
 	while( running )
 	{
-		if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, MAX_MESSAGE_LENGTH))
+		if (Messaging::receivemessage(sock, &type, &source, &streamid, &len, dbuffer, MAX_MESSAGE_LENGTH))
 		{
 			Sequencer::disconnect(id, "Game connection closed");
 			break;
 		}
 		if( !running ) break;
 		
-		if (type!=MSG2_VEHICLE_DATA && 
-				type!=MSG2_CHAT &&
-				type!=MSG2_FORCE &&
-				type!=MSG2_PRIVCHAT &&
-				type!=MSG2_VEHICLE_BEAMS &&
-				type!=MSG2_REQUEST_VEHICLE_BEAMS &&
-				type!=MSG2_DELETE)
+		Logger::log(LOG_VERBOSE,"got message: type: %d, source: %d:%d, len: %d", type, source, streamid, len);
+		if (type < 1000 || type > 1050)
 		{
 			Sequencer::disconnect(id, "Protocol error 3");
 			break;
 		}
-		Sequencer::queueMessage(id, type, dbuffer, len);
+		Sequencer::queueMessage(id, type, dbuffer, len, streamid);
 	}
 }

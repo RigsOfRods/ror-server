@@ -70,8 +70,7 @@ void Messaging::updateMinuteStats()
  * @param content message to send
  * @return dunno
  */
-int Messaging::sendmessage(SWInetSocket *socket, int type, int source,
-		unsigned int len,  const char* content)
+int Messaging::sendmessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len, const char* content)
 {
     STACKLOG;
     if( NULL == socket )
@@ -91,9 +90,10 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, int source,
 	int rlen = 0;
 	
 	memset(&head, 0, sizeof(header_t));
-	head.command = type;
-	head.source  = source;
-	head.size    = len;
+	head.command  = type;
+	head.source   = source;
+	head.size     = len;
+	head.streamid = len;
 	
 	// construct buffer
 	memset(buffer, 0, MAX_MESSAGE_LENGTH);
@@ -133,8 +133,7 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, int source,
  * @param bufferlen:
  * @return
  */
-int Messaging::receivemessage(SWInetSocket *socket, int *type,
-		int *source, unsigned int *wrotelen, char* content,
+int Messaging::receivemessage(SWInetSocket *socket, int *type, int *source, unsigned int *streamid, unsigned int *wrotelen, char* content,
 		unsigned int bufferlen)
 {
     STACKLOG;
@@ -174,6 +173,7 @@ int Messaging::receivemessage(SWInetSocket *socket, int *type,
 	*type     = head.command;
 	*source   = head.source;
 	*wrotelen = head.size;
+	*streamid = head.streamid;
 	
 	if( head.size > 0)
 	{

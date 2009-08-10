@@ -35,4 +35,7 @@ T from_string(const std::string& s,
 
 std::string trim(const std::string& str );
 
+// from http://stahlforce.com/dev/index.php?tool=csc01
+std::string hexdump(void *pAddressIn, long  lSize);
+
 #endif /*UTILS_HPP_*/

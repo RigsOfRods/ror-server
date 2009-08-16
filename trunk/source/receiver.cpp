@@ -143,7 +143,8 @@ void Receiver::threadstart()
 	//send motd
 	Sequencer::sendMOTD(id);
 	
-	Sequencer::getScriptEngine()->playerAdded(id);
+	if(Sequencer::getScriptEngine())
+		Sequencer::getScriptEngine()->playerAdded(id);
 
 	Logger::log(LOG_VERBOSE,"UID %d is switching to FLOW", id);
 	

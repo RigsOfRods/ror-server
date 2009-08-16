@@ -306,6 +306,7 @@ const std::string& Config::getTerrainName()    { return instance.terrain_name;  
 const std::string& Config::getPublicPassword() { return instance.public_password; }
 const std::string& Config::getIPAddr()         { return instance.ip_addr;         }
 const std::string& Config::getScriptName()     { return instance.scriptname;      }
+bool               Config::getEnableScripting(){ return (instance.scriptname != ""); }
 unsigned int       Config::getListenPort()     { return instance.listen_port;     }
 ServerType         Config::getServerMode()     { return instance.server_mode;     }
 bool               Config::getPrintStats()     { return instance.print_stats;     }

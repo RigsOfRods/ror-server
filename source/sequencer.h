@@ -74,6 +74,7 @@ struct client_t
     char nickname[32];          //!< Username, this is what they are called to
                                 //!< other players
     unsigned int uid;           //!< userid
+    unsigned int slotnum;       //!< slot number
     Vector3 position;           //!< position on the map?
     char uniqueid[60];          //!< users unique id
     

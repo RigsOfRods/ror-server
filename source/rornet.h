@@ -92,7 +92,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MSG2_STREAM_TAKEOVER 1036           //!< stream takeover
 #define MSG2_STREAM_TAKEOVER_RESP 1037      //!< stream takeover response from server
 #define MSG2_STREAM_DATA 1039               //!< stream data
-
+#define MSG2_USER_JOIN 1049
+#define MSG2_USER_LEAVE 1050
 
 #define AUTH_NONE              0x00000000
 #define AUTH_ADMIN             0x00000001
@@ -104,9 +105,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 typedef struct
 {
 	char version;
-	char vehiclename[2048];
 	char nickname[20];
 	int authstatus;
+	int slotid;
 } client_info_on_join;
 
 typedef struct

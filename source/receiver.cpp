@@ -78,7 +78,7 @@ void Receiver::threadstart()
 	unsigned int streamid;
 	unsigned int len;
 	SWBaseSocket::SWBaseError error;
-	
+	/*
 	if(Sequencer::isbanned(sock->get_peerAddr(&error).c_str()))
 	{
 		Logger::log( LOG_DEBUG, "receiver thread %d owned by uid %d terminated (banned user)", ThreadID::getID(), id);
@@ -95,7 +95,7 @@ void Receiver::threadstart()
 		return;
 	}
 	
-	/*
+	
 	//security fix: we limit the size of the vehicle name to 128 characters <- from Luigi Auriemma
 	if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, 128))
 	{

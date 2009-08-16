@@ -87,9 +87,12 @@ void Sequencer::initilize()
 	instance->clients.reserve( Config::getMaxClients() );
 	instance->listener = new Listener(Config::getListenPort());
 	
-	instance->script = new ScriptEngine(instance);
-	instance->script->loadScript(Config::getScriptName());
-
+	instance->script = 0;
+	if(Config::getEnableScripting())
+	{
+		instance->script = new ScriptEngine(instance);
+		instance->script->loadScript(Config::getScriptName());
+	}
 
 	pthread_create(&instance->killerthread, NULL, s_klthreadstart, &instance);
 
@@ -250,6 +253,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	{
 		if(to_add->nickname[i] == 0)
 			break;
+		// btw, the above code is disfunctional ...
 	}
 
 	to_add->uid=instance->fuid;
@@ -258,9 +262,45 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	
 	instance->clients.push_back( to_add );
 	to_add->receiver->reset(to_add->uid, sock);
-	to_add->broadcaster->reset(to_add->uid, sock,
-			Sequencer::disconnect, Messaging::sendmessage);
+	to_add->broadcaster->reset(to_add->uid, sock, Sequencer::disconnect, Messaging::sendmessage);
 
+	// process slot infos
+	int npos = instance->getPosfromUid(to_add->uid);
+	instance->clients[npos]->slotnum = npos;
+	
+	// now inform the client of his data
+	client_info_on_join info_own;
+	memset(&info_own, 0, sizeof(client_info_on_join));
+	info_own.version = 1;
+	info_own.slotid = npos;
+	strncpy(info_own.nickname, instance->clients[npos]->nickname, 20);
+	info_own.authstatus = instance->clients[npos]->authstate;
+
+
+	SWBaseSocket::SWBaseError error;
+	if(Sequencer::isbanned(sock->get_peerAddr(&error).c_str()))
+	{
+		Logger::log( LOG_DEBUG, "receiver thread %d owned by uid %d terminated (banned user)", ThreadID::getID(), instance->clients[npos]->uid);
+		Logger::log(LOG_VERBOSE,"banned user rejected: uid %i", instance->clients[npos]->uid);
+		Messaging::sendmessage(sock, MSG2_BANNED, instance->clients[npos]->uid, 0, 0, 0);
+		Sequencer::disconnect(instance->clients[npos]->uid, "you are banned");
+		return;
+	}
+
+	Logger::log(LOG_VERBOSE,"Sending welcome message to uid %i", instance->clients[npos]->uid);
+	if( Messaging::sendmessage(sock, MSG2_WELCOME, instance->clients[npos]->uid, 0, 0, 0) )
+	{
+		Sequencer::disconnect(instance->clients[npos]->uid, "error sending welcome message" );
+		return;
+	}
+
+	// notify everyone of the new client
+	for(unsigned int i = 0; i < instance->clients.size(); i++)
+	{
+		instance->clients[i]->broadcaster->queueMessage(MSG2_USER_JOIN, instance->clients[npos]->uid, 0, sizeof(client_info_on_join), (char*)&info_own);
+	}
+
+	// done!
 	Logger::log(LOG_VERBOSE,"Sequencer: New client added");
 }
 
@@ -396,7 +436,8 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError)
 	{
 		instance->authresolver->sendUserEvent(instance->clients[pos]->uniqueid, (isError?"crash":"leave"), instance->clients[pos]->nickname, "");
 	}
-	instance->script->playerDeleted(instance->clients[pos]->uid, isError?1:0);
+	if(instance->script)
+		instance->script->playerDeleted(instance->clients[pos]->uid, isError?1:0);
 
 	//this routine is a potential trouble maker as it can be called from many thread contexts
 	//so we use a killer thread
@@ -410,7 +451,11 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError)
 	{
 		if( strlen(instance->clients[i]->vehicle_name) > 0 )
 		{
-			instance->clients[i]->broadcaster->queueMessage(MSG2_DELETE, instance->clients[pos]->uid, 0, (int)strlen(errormsg), errormsg);
+			if(isError)
+				instance->clients[i]->broadcaster->queueMessage(MSG2_DELETE, instance->clients[pos]->uid, 0, (int)strlen(errormsg), errormsg);
+			else
+				instance->clients[i]->broadcaster->queueMessage(MSG2_USER_LEAVE, instance->clients[pos]->uid, 0, (int)strlen(errormsg), errormsg);
+			
 		}
 	}
 	instance->clients.erase( instance->clients.begin() + pos );
@@ -511,6 +556,14 @@ void Sequencer::notifyAllVehicles(int uid, bool lock)
     unsigned short pos = instance->getPosfromUid(uid);
     if( UID_NOT_FOUND == pos ) return;
     
+
+	client_info_on_join info_own;
+	memset(&info_own, 0, sizeof(client_info_on_join));
+	info_own.version = 1;
+	info_own.slotid = pos;
+	strncpy(info_own.nickname, instance->clients[pos]->nickname, 20);
+	info_own.authstatus = instance->clients[pos]->authstate;
+
 	for (unsigned int i=0; i<instance->clients.size(); i++)
 	{
 		if (instance->clients[i]->status == USED)
@@ -519,12 +572,16 @@ void Sequencer::notifyAllVehicles(int uid, bool lock)
 			client_info_on_join info;
 			memset(&info, 0, sizeof(client_info_on_join));
 			info.version = 1;
-			strncpy(info.vehiclename, instance->clients[i]->vehicle_name, 256);
 			strncpy(info.nickname, instance->clients[i]->nickname, 20);
 			info.authstatus = instance->clients[i]->authstate;
+			info.slotid = instance->clients[i]->slotnum;
 
 			// send user infos
+			// all others to new user
 			instance->clients[pos]->broadcaster->queueMessage(MSG2_USER_INFO, instance->clients[i]->uid, 0, sizeof(client_info_on_join), (char*)&info );
+			
+			// new user to all others
+			instance->clients[i]->broadcaster->queueMessage(MSG2_USER_INFO, instance->clients[pos]->uid, 0, sizeof(client_info_on_join), (char*)&info_own );
 
 			Logger::log(LOG_VERBOSE, " * %d streams registered for user %d", instance->clients[i]->streams.size(), instance->clients[i]->uid);
 			for(std::map<unsigned int, stream_register_t>::iterator it = instance->clients[i]->streams.begin(); it!=instance->clients[i]->streams.end(); it++)
@@ -714,27 +771,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 	}
 	else if (type==MSG2_USE_VEHICLE) 
 	{
-		// register vehicle name
-		strncpy(instance->clients[pos]->vehicle_name, data, 129);
-		// construct a MSG2_USE_VEHICLE2 packet for the client that contains slightly more information!
-		type = MSG2_USE_VEHICLE2;
-		
-		client_info_on_join info;
-		memset(&info, 0, sizeof(client_info_on_join));
-		info.version = 1;
-		strncpy(info.vehiclename, data, len);
-		strncpy(info.nickname, instance->clients[pos]->nickname, 20);
-		info.authstatus = instance->clients[pos]->authstate;
-		memcpy(data, &info, sizeof(client_info_on_join));
-		len = sizeof(client_info_on_join);
-
-		Logger::log(LOG_VERBOSE,"On the fly vehicle registration for slot %d: %s", pos, instance->clients[pos]->vehicle_name);
-		
-		publishMode = 3;
-
-		// send an event if user is rankend and if we are a official server
-		if(instance->authresolver && (instance->clients[pos]->authstate & AUTH_RANKED))
-			instance->authresolver->sendUserEvent(instance->clients[pos]->uniqueid, "join", instance->clients[pos]->nickname, instance->clients[pos]->vehicle_name);
+		Logger::log(LOG_VERBOSE,"MSG2_USE_VEHICLE is deprecated");
 	}
 #if 0
 	else if (type==MSG2_VEHICLE_BEAMS) 
@@ -801,8 +838,11 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 		// no broadcast of server commands!
 		if(data[0] == '!') publishMode=0;
 
-		int scriptpub = instance->script->playerChat(instance->clients[pos]->uid, data);
-		if(scriptpub>0) publishMode = scriptpub;
+		if(instance->script)
+		{
+			int scriptpub = instance->script->playerChat(instance->clients[pos]->uid, data);
+			if(scriptpub>0) publishMode = scriptpub;
+		}
 
 		if(!strcmp(data, "!version"))
 		{

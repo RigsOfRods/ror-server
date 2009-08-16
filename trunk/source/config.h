@@ -33,6 +33,7 @@ public:
 	static unsigned int       getListenPort();
 	static ServerType         getServerMode();
 	static bool               getPrintStats();
+	static bool               getEnableScripting();
 	//!@}
 
 	//! setter functions

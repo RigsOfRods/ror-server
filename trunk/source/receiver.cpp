@@ -44,6 +44,7 @@ Receiver::Receiver()
 Receiver::~Receiver(void)
 {
     STACKLOG;
+	stop();
 }
 
 void Receiver::reset(int pos, SWInetSocket *socky)
@@ -60,6 +61,7 @@ void Receiver::reset(int pos, SWInetSocket *socky)
 void Receiver::stop()
 {
     STACKLOG;
+	if(!running) return; // already called, discard call
     running = false;
 #ifdef WIN32
     Logger::log( LOG_DEBUG, "joining with receiver thread: %u",

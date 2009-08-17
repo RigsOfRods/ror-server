@@ -105,3 +105,4 @@ std::string hexdump(void *pAddressIn, long  lSize)
 	}
 	return result;
 }
+

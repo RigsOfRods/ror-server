@@ -50,6 +50,7 @@ Listener::Listener(int port): lport( port )
 Listener::~Listener(void)
 {
     STACKLOG;
+	pthread_join( thread, NULL );
 }
 
 void Listener::threadstart()

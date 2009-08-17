@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define __Broadcaster_H__
 
 #include <pthread.h>
-#include <queue>
+#include <deque>
 #include "rornet.h"
 #include "mutexutils.h"
 class SWInetSocket;
@@ -44,7 +44,7 @@ private:
 	
 	int id;
 	SWInetSocket *sock; // this needs to go away
-	std::queue<queue_entry_t> msg_queue;
+	std::deque<queue_entry_t> msg_queue;
 	
 	bool running;
 	void (*disconnect)(int, const char*, bool);

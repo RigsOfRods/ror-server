@@ -50,6 +50,7 @@ Broadcaster::Broadcaster()
 Broadcaster::~Broadcaster()
 {
     STACKLOG;
+	stop();
 }
 
 void Broadcaster::reset(int uid, SWInetSocket *socky,
@@ -62,8 +63,9 @@ void Broadcaster::reset(int uid, SWInetSocket *socky,
 	running     = true;
 	disconnect  = disconnect_func;
 	sendmessage = sendmessage_func;
-	while( !msg_queue.empty() )
-		msg_queue.pop();
+
+	// always clear to free up memory
+	msg_queue.clear();
 
 	// we've got a new client, release the signal
 	//start a listener thread
@@ -73,11 +75,14 @@ void Broadcaster::reset(int uid, SWInetSocket *socky,
 void Broadcaster::stop()
 {
     STACKLOG;
+	if(!running) return; // already called, discard call
 
-    queue_mutex.lock();
+	// question: if we lock the mutex here we might deadlock!
+	// thus removed the lock
+    //queue_mutex.lock();
 	running = false;
 	queue_cv.signal();
-	queue_mutex.unlock();
+	//queue_mutex.unlock();
 #ifdef WIN32
     Logger::log( LOG_DEBUG, "joining with broadcaster thread: %u",
             (unsigned int) &thread.p);
@@ -101,7 +106,7 @@ void Broadcaster::threadstart()
 			
 			//pop stuff
 			msg = msg_queue.front();
-			msg_queue.pop();
+			msg_queue.pop_front();
 		}   // unlock the mutex
 		
 		//Send message
@@ -128,7 +133,7 @@ void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigne
 	memcpy( msg.data, data, len );
 
 	MutexLocker scoped_lock( queue_mutex );
-	msg_queue.push( msg );
+	msg_queue.push_back( msg );
 	//signal the thread that new data is waiting to be sent
 	queue_cv.signal();
 	

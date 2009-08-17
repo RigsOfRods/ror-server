@@ -74,6 +74,7 @@ fuid( 1 ), startTime ( Messaging::getTime() )
 Sequencer::~Sequencer()
 {
     STACKLOG;
+	cleanUp();
 }
 
 /**
@@ -96,6 +97,7 @@ void Sequencer::initilize()
 
 	pthread_create(&instance->killerthread, NULL, s_klthreadstart, &instance);
 
+	instance->authresolver = 0;
 	if( Config::getServerMode() != SERVER_LAN )
 	{
 		instance->notifier = new Notifier(instance->authresolver);
@@ -130,8 +132,14 @@ void Sequencer::cleanUp()
 	}
 	Logger::log(LOG_INFO,"all clients disconnected. exiting.");
 
-	if( instance->notifier )
+	if(instance->notifier)
 		delete instance->notifier;
+	
+	if(instance->script)
+		delete instance->script;
+
+	if(instance->authresolver)
+		delete instance->authresolver;
 
 #ifndef WIN32
 	sleep(2);
@@ -458,7 +466,12 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError)
 			
 		}
 	}
-	instance->clients.erase( instance->clients.begin() + pos );
+	
+	// delete the contents first, then remove from the vector
+	std::vector<client_t*>::iterator iterRemove = instance->clients.begin() + pos;
+	delete *iterRemove;
+	instance->clients.erase(iterRemove);
+
 	instance->killer_cv.signal();
     
 

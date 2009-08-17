@@ -53,6 +53,10 @@ ScriptEngine::~ScriptEngine()
 	exit=true;
 	if(engine) engine->Release();
 	if(context) context->Release();
+	if(frameStepFunctionPtr>=0)
+	{
+		pthread_join(timer_thread, NULL);
+	}
 }
 
 int ScriptEngine::loadScript(std::string scriptname)

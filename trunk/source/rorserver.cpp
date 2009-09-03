@@ -74,7 +74,9 @@ void handler(int signalnum)
 		Sequencer::cleanUp();
 	}
 	exit(0);
-} 
+}
+
+#ifndef WITHOUTMAIN
 
 int main(int argc, char* argv[])
 {
@@ -85,12 +87,12 @@ int main(int argc, char* argv[])
 	Logger::setOutputFile("server.log");
 
 
-	if( !Config::fromArgs( argc, argv ) ) 
+	if( !Config::fromArgs( argc, argv ) )
 		return 0;
 	if( !Config::checkConfig() )
 		return 1;
-	
-	
+
+
 	if(!sha1check())
 	{
 		Logger::log(LOG_ERROR,"sha1 malfunction!");
@@ -101,20 +103,20 @@ int main(int argc, char* argv[])
 	// so ready to run, then set up signal handling
 	signal(SIGINT, handler);
 	signal(SIGTERM, handler);
-	
+
 	Sequencer::initilize();
 
 	// start the main program loop
-    // if we need to communiate to the master user the notifier routine 
+    // if we need to communiate to the master user the notifier routine
 	if(Config::getServerMode() != SERVER_LAN )
 	{
 		//the main thread is used by the notifier
 	    //this should not return untill the server shuts down
-		Sequencer::notifyRoutine(); 
+		Sequencer::notifyRoutine();
 	}
 	else
 	{
-		// if not just idle... forever 
+		// if not just idle... forever
 		//or by some stupid sleep method in LAN mode
 		while (true)
 		{
@@ -127,7 +129,9 @@ int main(int argc, char* argv[])
 	}
 
 	// delete all (needed in here, if not shutdown due to signal)
-	// stick in destructor perhaps? 
+	// stick in destructor perhaps?
 	Sequencer::cleanUp();
 	return 0;
 }
+
+#endif //WITHOUTMAIN

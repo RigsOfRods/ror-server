@@ -50,7 +50,7 @@ class MyDialog : public wxDialog
 public:
 	// ctor(s)
 	MyDialog(const wxString& title, MyApp *_app);
-	
+
 	void logCallback(int level, std::string msg, std::string msgf); //called by callback function
 private:
 	MyApp *app;
@@ -73,7 +73,7 @@ private:
 	int startServer();
 	int stopServer();
 	void updatePlayerList();
-	
+
 	void OnTimer(wxTimerEvent& event);
 
 	DECLARE_EVENT_TABLE()
@@ -154,7 +154,7 @@ void MyDialog::logCallback(int level, std::string msg, std::string msgf)
     for( ; *cstr ; ++cstr )
         if( *cstr == '\n' )
             ++lines;
- 
+
 	wxString wmsg = conv(msgf);
 	txtConsole->Freeze();
 	txtConsole->AppendText(wmsg);
@@ -163,7 +163,7 @@ void MyDialog::logCallback(int level, std::string msg, std::string msgf)
 	txtConsole->Thaw();
 }
 
-MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY, title,  wxPoint(100, 100), wxSize(500, 500))
+MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY, title,  wxPoint(100, 100), wxSize(500, 500), wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER|wxRESIZE_BOX)
 {
 	app=_app;
 	loglevel=LOG_INFO;
@@ -179,9 +179,8 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY
 	mainsizer->SetSizeHints(this);
 	this->SetSizer(mainsizer);
 
-	// using xpm now
-	const wxBitmap bm(config_xpm);
-	wxStaticPicture *imagePanel = new wxStaticPicture(this, -1, bm,wxPoint(0, 0), wxSize(500, 100), wxNO_BORDER);
+	// head image - using xpm
+	wxStaticPicture *imagePanel = new wxStaticPicture(this, -1, wxBitmap(config_xpm), wxPoint(0, 0), wxSize(500, 100), wxNO_BORDER);
 	mainsizer->Add(imagePanel, 0, wxGROW);
 
 	nbook=new wxNotebook(this, wxID_ANY);
@@ -195,6 +194,12 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY
 	wxSizer *settingsSizer = new wxBoxSizer(wxVERTICAL);
 	wxFlexGridSizer *grid_sizer = new wxFlexGridSizer(3, 2, 10, 10);
 	wxStaticText *dText;
+
+	// server version
+	dText = new wxStaticText(settingsPanel, wxID_ANY, _("Server Version:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
+	grid_sizer->Add(dText, 0, wxGROW);
+	dText = new wxStaticText(settingsPanel, wxID_ANY, conv(RORNET_VERSION), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
+	grid_sizer->Add(dText, 0, wxGROW);
 
 	// server name
 	dText = new wxStaticText(settingsPanel, wxID_ANY, _("Server Name:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
@@ -221,13 +226,13 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY
 	pubipBtn = new wxButton(settingsPanel, btn_pubip, _("get public IP address"));
 	ipaddrSizer->Add(pubipBtn, 0, wxGROW);
 	grid_sizer->Add(ipaddrSizer, 0, wxGROW);
-	
+
 	// Port
 	dText = new wxStaticText(settingsPanel, wxID_ANY, _("Port:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
 	grid_sizer->Add(dText, 0, wxGROW);
 	port = new wxTextCtrl(settingsPanel, wxID_ANY, _("12000"), wxDefaultPosition, wxDefaultSize);
 	grid_sizer->Add(port, 0, wxGROW);
-	
+
 	// Port
 	dText = new wxStaticText(settingsPanel, wxID_ANY, _("Password:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
 	grid_sizer->Add(dText, 0, wxGROW);
@@ -248,7 +253,7 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY
 
 	// debuglevel
 	dText = new wxStaticText(settingsPanel, wxID_ANY, _("LogLevel:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
-	grid_sizer->Add(dText, 0, wxGROW);	
+	grid_sizer->Add(dText, 0, wxGROW);
 	wxString choices_log[6];
 	choices_log[0] = _("STACK");
 	choices_log[1] = _("DEBUG");
@@ -303,7 +308,7 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY
 	slotlist->InsertColumn(4, _("Auth"), wxLIST_FORMAT_LEFT, 40);
 	slotlist->InsertColumn(5, _("Nick"), wxLIST_FORMAT_LEFT, 100);
 	slotlist->InsertColumn(6, _("Vehicle"), wxLIST_FORMAT_LEFT, 120);
-	
+
 	for(unsigned int i=0; i<Config::getMaxClients();i++)
 	{
 		slotlist->InsertItem(i, wxString::Format(wxT("%d"),i));
@@ -317,7 +322,7 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY
 	// main sizer again
 	exitBtn = new wxButton(this, btn_exit, _("EXIT"));
 	mainsizer->Add(exitBtn, 0, wxGROW);
-	
+
 
 
 	// add the logger callback
@@ -325,6 +330,7 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY
 	Logger::log(LOG_INFO, "GUI log callback working");
 
 	// centers dialog window on the screen
+	Show();
 	SetSize(500,500);
 	Centre();
 }
@@ -362,10 +368,10 @@ void MyDialog::updatePlayerList()
 
 		slotlist->SetItem(i, 2, wxString::Format(wxT("%d"),clients[i].uid));
 		slotlist->SetItem(i, 3, conv(clients[i].ip_addr));
-		
+
 		char authst[5] = "";
 		if(clients[i].authstate & AUTH_ADMIN) strcat(authst, "A");
-		if(clients[i].authstate & AUTH_MOD) strcat(authst, "M");			
+		if(clients[i].authstate & AUTH_MOD) strcat(authst, "M");
 		if(clients[i].authstate & AUTH_RANKED) strcat(authst, "R");
 		if(clients[i].authstate & AUTH_BOT) strcat(authst, "B");
 		if(clients[i].authstate & AUTH_BANNED) strcat(authst, "X");
@@ -424,7 +430,7 @@ int MyDialog::startServer()
 	if(logmode->GetValue() == _("INFO"))    loglevel = LOG_INFO;
 	if(logmode->GetValue() == _("WARN"))    loglevel = LOG_WARN;
 	if(logmode->GetValue() == _("ERROR"))   loglevel = LOG_ERROR;
-	
+
 	Logger::setLogLevel(LOGTYPE_FILE, LOG_VERBOSE);
 	Logger::setFlushLevel(LOG_ERROR);
 	Logger::setOutputFile("server.log");
@@ -440,7 +446,7 @@ int MyDialog::startServer()
 		Config::setIPAddr(conv(ipaddr->GetValue()));
 
 	Logger::setOutputFile(conv(logfilename->GetValue()));
-	
+
 	unsigned long portNum=12000;
 	port->GetValue().ToULong(&portNum);
 	Config::setListenPort(portNum);
@@ -462,14 +468,14 @@ int MyDialog::startServer()
 	server_name.Replace(&from, &to);
 	Config::setServerName(conv(server_name));
 	Config::setTerrain(conv(terrain->GetValue()));
-		
+
 	if( !Config::checkConfig() )
 		return 1;
-	
+
 	Sequencer::initilize();
 
 	if(Config::getServerMode() == SERVER_INET)
-		Sequencer::notifyRoutine(); 
+		Sequencer::notifyRoutine();
 	return 0;
 }
 

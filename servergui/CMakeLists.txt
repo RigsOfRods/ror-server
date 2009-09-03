@@ -4,6 +4,8 @@ FILE(GLOB_RECURSE servergui_src *.cpp *.c *.h *.rc)
 
 FILE(GLOB_RECURSE servergui_server_src ${rorserver_SOURCE_DIR}/source/*.cpp ${rorserver_SOURCE_DIR}/source/*.c ${rorserver_SOURCE_DIR}/source/*.h )
 
+add_definitions(-DWITHOUTMAIN)
+
 SET(wxWidgets_USE_UNICODE ON)
 IF(WIN32)
  SET(wxWidgets_USE_STATIC ON)
@@ -16,7 +18,7 @@ IF(wxWidgets_FOUND)
   include_directories (${rorserver_SOURCE_DIR}/source)
   include_directories (${rorserver_SOURCE_DIR}/angelscript/include)
   include_directories (${rorserver_SOURCE_DIR}/angelscript/add_on)
-  
+
   add_definitions(${wxWidgets_DEFINITIONS} ${wxWidgets_CXX_FLAGS})
 
   IF(WIN32)
@@ -50,10 +52,10 @@ IF(wxWidgets_FOUND)
 	target_link_libraries(servergui mysocketw pthread)
   ELSEIF(APPLE)
   ENDIF(WIN32)
-  
+
   IF(WIN32)
     SET_TARGET_PROPERTIES(servergui PROPERTIES COMPILE_FLAGS "")
-    SET_TARGET_PROPERTIES(servergui PROPERTIES LINK_FLAGS    "/SUBSYSTEM:WINDOWS")  
+    SET_TARGET_PROPERTIES(servergui PROPERTIES LINK_FLAGS    "/SUBSYSTEM:WINDOWS")
   ENDIF(WIN32)
 
   install(TARGETS servergui DESTINATION ${rorserver_SOURCE_DIR}/bin)

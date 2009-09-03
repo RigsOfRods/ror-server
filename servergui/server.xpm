@@ -1,5 +1,5 @@
 /* XPM */
-static char * config_xpm[] = {
+static const char * config_xpm[] = {
 "500 100 8312 2",
 "  	c #9AD0F7",
 ". 	c #9ACFF8",

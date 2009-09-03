@@ -73,8 +73,8 @@ fuid( 1 ), startTime ( Messaging::getTime() )
 
 Sequencer::~Sequencer()
 {
-    STACKLOG;
-	cleanUp();
+	STACKLOG;
+	//cleanUp();
 }
 
 /**
@@ -466,11 +466,7 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError)
 
 		}
 	}
-
-	// delete the contents first, then remove from the vector
-	std::vector<client_t*>::iterator iterRemove = instance->clients.begin() + pos;
-	delete *iterRemove;
-	instance->clients.erase(iterRemove);
+	instance->clients.erase( instance->clients.begin() + pos );
 
 	instance->killer_cv.signal();
 

@@ -50,7 +50,7 @@ Listener::Listener(int port): lport( port )
 Listener::~Listener(void)
 {
     STACKLOG;
-	pthread_join( thread, NULL );
+	//pthread_join( thread, NULL );
 }
 
 void Listener::threadstart()
@@ -60,7 +60,7 @@ void Listener::threadstart()
 	//here we start
 	SWInetSocket listSocket;
 	SWBaseSocket::SWBaseError error;
-	
+
 	//manage the listening socket
 	listSocket.bind(lport, &error);
 	if (error!=SWBaseSocket::ok)
@@ -71,43 +71,43 @@ void Listener::threadstart()
 		exit(1);
 	}
 	listSocket.listen();
-	
+
 	//await connections
 	Logger::log(LOG_VERBOSE,"Listener ready");
 	while (1)
 	{
 		Logger::log(LOG_VERBOSE,"Listener awaiting connections");
 		SWInetSocket *ts=(SWInetSocket *)listSocket.accept(&error);
-		
-		if (error!=SWBaseSocket::ok) 
+
+		if (error!=SWBaseSocket::ok)
 		{
 			Logger::log(LOG_ERROR,"ERROR Listener: %s", error.get_error().c_str());
 			continue;
 		}
 
-		
+
 		Logger::log(LOG_VERBOSE,"Listener got a new connection");
 #ifndef NOTIMEOUT
 		ts->set_timeout(600, 0);
 #endif
-		
+
 		//receive a magic
 		int type;
 		int source;
 		unsigned int len;
 		unsigned int streamid;
 		char buffer[256];
-		
+
 		try
 		{
 			// this is the start of it all, it all starts with a simple hello
 			if (Messaging::receivemessage(ts, &type, &source, &streamid, &len, buffer, 256))
 				throw std::runtime_error("ERROR Listener: receiving first message");
-			
+
 			// make sure our first message is a hello message
 			if (type != MSG2_HELLO)
 				throw std::runtime_error("ERROR Listener: protocol error");
-			
+
 			// send client the which version of rornet the server is running
 			Logger::log(LOG_DEBUG,"Listener sending version");
 			if (Messaging::sendmessage(ts, MSG2_VERSION, 0, 0,
@@ -120,7 +120,7 @@ void Listener::threadstart()
 					(unsigned int) Config::getTerrainName().length(),
 					Config::getTerrainName().c_str() ) )
 				throw std::runtime_error("ERROR Listener: sending terrain");
-	
+
 			// original code was source  = 5000 should it be left like this
 			// or was the intention source == 5000?
 			if( source == 5000 && (std::string(buffer) == "MasterServ") )
@@ -131,7 +131,7 @@ void Listener::threadstart()
 
 			if(strncmp(buffer, RORNET_VERSION, strlen(RORNET_VERSION)) && source != 5000) // source 5000 = master server (harcoded)
 				throw std::runtime_error("ERROR Listener: bad version: "+std::string(buffer));
-			
+
 			//receive user name
 			if (Messaging::receivemessage(ts, &type, &source, &streamid, &len, buffer, 256))
 			{
@@ -141,15 +141,15 @@ void Listener::threadstart()
 					<< type;
 				throw std::runtime_error(error_msg.str());
 			}
-			
+
 			if (type != MSG2_USER_CREDENTIALS)
 				throw std::runtime_error("Warning Listener: no user name");
-			
+
 			if (len > sizeof(user_credentials_t))
 				throw std::runtime_error( "Error: did not receive proper user "
 						"credentials" );
 			Logger::log(LOG_INFO,"Listener creating a new client...");
-			
+
 			user_credentials_t *user = (user_credentials_t *)buffer;
 			std::string nickname = std::string(user->username);
 			int authflags = Sequencer::authNick(std::string(user->uniqueid), nickname);
@@ -171,7 +171,7 @@ void Listener::threadstart()
 					Messaging::sendmessage(ts, MSG2_WRONG_PW, 0, 0, 0, 0);
 					throw std::runtime_error( "ERROR Listener: wrong password" );
 				}
-				
+
 				Logger::log(LOG_DEBUG,"user used the correct password, "
 						"creating client!");
 			} else {

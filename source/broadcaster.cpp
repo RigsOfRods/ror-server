@@ -23,20 +23,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 void *s_brthreadstart(void* vid)
 {
-    STACKLOG;
-    Broadcaster* instance = ((Broadcaster*)vid); 
-    instance->threadstart();
-    
-    // check if are expecting to exit, if not running will still be true
-    // if so wait for the join request
-    if( instance->running )
-    {
-        MutexLocker scoped_lock( instance->queue_mutex );
-        instance->running = false;
-        instance->queue_mutex.wait( instance->queue_cv );
-    }
+	STACKLOG;
+	Broadcaster* instance = ((Broadcaster*)vid);
+	instance->threadstart();
+
+	// check if are expecting to exit, if not running will still be true
+	// if so wait for the join request
+	if( instance->running )
+	{
+		MutexLocker scoped_lock( instance->queue_mutex );
+		instance->running = false;
+		instance->queue_mutex.wait( instance->queue_cv );
+	}
 #ifdef WIN32
-    Logger::log( LOG_DEBUG, "broadcaster thread %u:%u is exiting",
+	Logger::log( LOG_DEBUG, "broadcaster thread %u:%u is exiting",
 		(unsigned int) &pthread_self().p, ThreadID::getID() );
 #endif
 	return NULL;
@@ -44,20 +44,19 @@ void *s_brthreadstart(void* vid)
 Broadcaster::Broadcaster()
 :   id( 0 ), sock( NULL ), running( false )
 {
-    STACKLOG;
+	STACKLOG;
 }
 
 Broadcaster::~Broadcaster()
 {
-    STACKLOG;
-	stop();
+	STACKLOG;
 }
 
 void Broadcaster::reset(int uid, SWInetSocket *socky,
 		void (*disconnect_func)(int, const char*, bool),
 		int (*sendmessage_func)(SWInetSocket*, int, int, unsigned int, unsigned int, const char*) )
 {
-    STACKLOG;	
+	STACKLOG;
 	id          = uid;
 	sock        = socky;
 	running     = true;
@@ -74,25 +73,21 @@ void Broadcaster::reset(int uid, SWInetSocket *socky,
 
 void Broadcaster::stop()
 {
-    STACKLOG;
-	if(!running) return; // already called, discard call
-
-	// question: if we lock the mutex here we might deadlock!
-	// thus removed the lock
-    //queue_mutex.lock();
+	STACKLOG;
+	queue_mutex.lock();
 	running = false;
 	queue_cv.signal();
-	//queue_mutex.unlock();
+	queue_mutex.unlock();
 #ifdef WIN32
-    Logger::log( LOG_DEBUG, "joining with broadcaster thread: %u",
-            (unsigned int) &thread.p);
+	Logger::log( LOG_DEBUG, "joining with broadcaster thread: %u",
+			(unsigned int) &thread.p);
 #endif
 	pthread_join( thread, NULL );
 }
 
 void Broadcaster::threadstart()
 {
-    STACKLOG;
+	STACKLOG;
 	queue_entry_t msg;
 	Logger::log( LOG_DEBUG, "broadcaster thread %u owned by uid %d", ThreadID::getID(), id);
 	while( running )
@@ -103,12 +98,12 @@ void Broadcaster::threadstart()
 				queue_mutex.wait( queue_cv );
 			}
 			if( !running ) return;
-			
+
 			//pop stuff
 			msg = msg_queue.front();
 			msg_queue.pop_front();
 		}   // unlock the mutex
-		
+
 		//Send message
 		// TODO WARNING THE SOCKET IS NOT PROTECTED!!!
 		if( sendmessage( sock, msg.type, msg.uid, msg.streamid, msg.datalen, msg.data ) )
@@ -125,8 +120,8 @@ void Broadcaster::threadstart()
 //also, this function can be called by threads owning clients_mutex !!!
 void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigned int len, const char* data)
 {
-    STACKLOG;
-    if( !running ) return;
+	STACKLOG;
+	if( !running ) return;
 	// for now lets just queue msgs in the order received to make things simple
 	queue_entry_t msg = { type, uid, streamid, "", len};
 	memset( msg.data, 0, MAX_MESSAGE_LENGTH );
@@ -136,5 +131,5 @@ void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigne
 	msg_queue.push_back( msg );
 	//signal the thread that new data is waiting to be sent
 	queue_cv.signal();
-	
+
 }

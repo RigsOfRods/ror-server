@@ -6,7 +6,7 @@ import sys, struct, threading, socket, random, time, string, os, os.path, time, 
 from rornet import *
 from utils import *
 
-
+defaultCommands = "!connect;!reguser;!userdata"
 restartClient = True
 restartCommands = ['!connect'] # important ;)
 eventStopThread = None
@@ -36,34 +36,35 @@ class Client(threading.Thread):
 			print "EX| %s" % (cmd)
 		if cmd == "!rejoin":
 			eventStopThread.set()
-			self.playback.join(1)
 			self.disconnect()
 			restartCommands.append('!say rejoined')
 			self.runCond = False
 		elif cmd[:4] == "!say":
 			self.sendChat(cmd[4:].strip())
 		elif cmd == "!shutdown":
-			if not self.playback is None:
-				eventStopThread.set()
-				self.playback.join(1)
 			self.disconnect()
 			sys.exit(0)
 		elif cmd == "!connect":
 			self.connect()
 		elif cmd == "!disconnect":
-			if not self.playback is None:
-				eventStopThread.set()
-				self.playback.join(1)
 			self.disconnect()
 		elif cmd == "!ping":
 			self.sendChat("pong!")
+		elif cmd == "!reguser":
+			sid = 11
+			data = registerStreamData(sid, "example stream", 1, 1)
+			self.sendMsg(DataPacket(MSG2_STREAM_REGISTER, self.uid, sid, len(data), data))
+		elif cmd == "!userdata":
+			sid = 11
+			data = "test123" # vector and such would be here
+			self.sendMsg(DataPacket(MSG2_STREAM_DATA, self.uid, sid, len(data), data))
 		else:
 			if cmd[0] == "!":
 				print 'command not found: %s' % cmd
 		
 	def disconnect(self):
 		if not self.socket is None:
-			self.sendMsg(DataPacket(MSG2_DELETE, 0, 0, 0))
+			self.sendMsg(DataPacket(MSG2_DELETE, 0, 0, 0, 0))
 			print 'closing socket'
 			self.socket.close()
 		self.socket = None
@@ -113,8 +114,8 @@ class Client(threading.Thread):
 			return
 		self.uid = packet.source
 		(version, self.nickname, self.authstatus, self.slotid) = struct.unpack('c20sii', packet.data)
-		self.nickname = self.nickname.strip(self.nickname[-1])
-		print "joined as '%s' on slot %d with auth %d" % (self.nickname, self.slotid, self.authstatus)
+		self.nickname = self.nickname.strip()
+		print "joined as '%s' on slot %d with UID %d with auth %d" % (self.nickname, self.slotid, self.uid, self.authstatus)
 		return True
 
 	def run(self):
@@ -148,6 +149,13 @@ class Client(threading.Thread):
 					print "CH| " + str(packet.data)
 					self.processCommand(str(packet.data), packet)
 		
+				if packet.command == MSG2_STREAM_REGISTER:
+					processStreamRegisterData(packet.data)
+					
+				if packet.command == MSG2_USER_INFO:
+					processUserOnJoinInfo(packet.data)
+					
+					
 		
 			if True: #self.mode == MODE_NORMAL:
 				# to prevent timeouts in normal mode
@@ -159,7 +167,7 @@ class Client(threading.Thread):
 		if not self.socket:
 			self.connect()
 		
-		# word wrap size
+		# word wrap size	
 		maxsize = 50
 		if len(msg) > maxsize:
 			for i in range(0, math.ceil(float(len(msg)) / float(maxsize))):
@@ -194,7 +202,7 @@ class Client(threading.Thread):
 	def sendMsg(self, packet):
 		if self.socket is None:
 			return
-		print "S>| %-18s %02d:%02d (%d)" % (commandName(packet.command), packet.source, packet.streamid, packet.size)
+		print "S>| %-18s %03d:%02d (%d)" % (commandName(packet.command), packet.source, packet.streamid, packet.size)
 		self.sendRaw(self.packPacket(packet))
 
 	def receiveMsg(self):
@@ -230,7 +238,7 @@ class Client(threading.Thread):
 		content = content[0]
 
 		if not command in [MSG2_VEHICLE_DATA, MSG2_CHAT]:
-			print "R<| %-18s %02d:%02d (%d)%s" % (commandName(command), source, streamid, size, note)
+			print "R<| %-18s %03d:%02d (%d)%s" % (commandName(command), source, streamid, size, note)
 		return DataPacket(command, source, streamid, size, content)
 
 if __name__ == '__main__':
@@ -240,8 +248,9 @@ if __name__ == '__main__':
 		sys.exit(0)
 	ip = sys.argv[1]
 	port = int(sys.argv[2])
-	startupCommands = ['!connect', '!say hello everyone, bot here']
-	if len(sys.argv) > 4:
+	startupCommands = defaultCommands.split(';')
+
+	if len(sys.argv) > 3:
 		startupCommands = (' '.join(sys.argv[3:])).split(';')
 	
 	num = 1

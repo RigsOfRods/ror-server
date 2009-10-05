@@ -15,7 +15,6 @@ class DataPacket:
 		self.data = data
 		self.time = 0
 
-		
 class Logger(object):
 	def __init__(self, thread_id):
 		self.thread_id = thread_id

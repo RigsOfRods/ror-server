@@ -1,3 +1,4 @@
+import struct
 
 RORNET_VERSION = "RoRnet_2.3"
 
@@ -62,3 +63,33 @@ def commandName(cmd):
   for c in vars:
     if vars[c] == cmd and len(c) > 4 and c[0:5] == "MSG2_":
 	  return c[5:]
+
+# utility functions
+def registerStreamData(streamid, name, type, status):
+	name = "% 128s" % name
+	return struct.pack('i128sii', streamid, name, type, status)
+
+def processStreamRegisterData(data):
+	streamid, name, type, status = struct.unpack('i128sii', data)
+	print "# Stream registration: "
+	print "# * ID: %d" % int(streamid)
+	print "# * name: '%s'" % name.strip()
+	print "# * type: %d" % int(type)
+	print "# * status: %d" % int(status)
+
+def processUserInfo(data):
+	truckname, username, language, clientinfo, flagmask = struct.unpack('128s20s5s20sI', data)
+	print "# User Information: "
+	print "# * truckname: '%s'" % truckname.strip()
+	print "# * username: '%s'" % username.strip()
+	print "# * language: '%s'" % language.strip()
+	print "# * clientinfo: '%s'" % clientinfo.strip()
+	print "# * flagmask: %d" % int(flagmask)
+
+def processUserOnJoinInfo(data):
+	version, nickname, authstatus, slotnum = struct.unpack('c20sII', data)
+	print "# User OnJoin Information: "
+	print "# * version: %s" % (version)
+	print "# * nickname: '%s'" % nickname.strip()
+	print "# * authstatus: %s" % (authstatus)
+	print "# * slotnum: %s" % (slotnum)

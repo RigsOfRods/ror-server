@@ -26,12 +26,14 @@ class Client(threading.Thread):
 		self.runCond = True
 		self.username = ''
 		self.socket = None
+		self.headersize = struct.calcsize('IIII')
 
 		threading.Thread.__init__(self)
 
 	def processCommand(self, cmd, packet=None, startup=False):
 		global restartClient, restartCommands, eventStopThread
-		#print "processCommand: %s" % (cmd)
+		if cmd[0] == "!":
+			print "EX| %s" % (cmd)
 		if cmd == "!rejoin":
 			eventStopThread.set()
 			self.playback.join(1)
@@ -102,7 +104,19 @@ class Client(threading.Thread):
 		
 		data = struct.pack('I', self.buffersize)
 		self.sendMsg(DataPacket(MSG2_BUFFER_SIZE, 0, 0, len(data), data))
-					
+		
+		# receive own user data
+		packet = self.receiveMsg()
+		if packet.command != MSG2_USER_JOIN:
+			print 'invalid handshake: MSG2_USER_JOIN'
+			self.disconnect()
+			return
+		self.uid = packet.source
+		(version, self.nickname, self.authstatus, self.slotid) = struct.unpack('c20sii', packet.data)
+		self.nickname = self.nickname.strip(self.nickname[-1])
+		print "joined as '%s' on slot %d with auth %d" % (self.nickname, self.slotid, self.authstatus)
+		return True
+
 	def run(self):
 		# some default values
 		self.uniqueid = "1337"
@@ -119,7 +133,7 @@ class Client(threading.Thread):
 				#print "startupCommands: ", startupCommands
 				cmd = self.startupCommands.pop(0).strip()
 				if cmd != "":
-					print 'executing startup command %s' % cmd
+					#print 'executing startup command %s' % cmd
 					self.processCommand(cmd, None, True)
 				repeat = (len(startupCommands) > 0)
 		
@@ -130,7 +144,8 @@ class Client(threading.Thread):
 					data = str(packet.data).split('\0')
 					self.oclients[packet.source] = data
 				
-				if packet.command == MSG2_CHAT:
+				if packet.command == MSG2_CHAT and packet.source != self.uid: # ignore chat from ourself
+					print "CH| " + str(packet.data)
 					self.processCommand(str(packet.data), packet)
 		
 		
@@ -141,6 +156,10 @@ class Client(threading.Thread):
 
 		
 	def sendChat(self, msg):
+		if not self.socket:
+			self.connect()
+		
+		# word wrap size
 		maxsize = 50
 		if len(msg) > maxsize:
 			for i in range(0, math.ceil(float(len(msg)) / float(maxsize))):
@@ -155,8 +174,8 @@ class Client(threading.Thread):
 		
 	def sendRaw(self, data):
 		if self.socket is None:
-			print 'cannot send: not connected!'
-			return
+			self.connect()
+
 		try:
 			self.socket.send(data)
 		except Exception, e:
@@ -175,18 +194,25 @@ class Client(threading.Thread):
 	def sendMsg(self, packet):
 		if self.socket is None:
 			return
-		print "SEND| %-16s, source %d, destination %d, size %d, data-len: %d" % (commandName(packet.command), packet.source, self.uid, packet.size, len(str(packet.data)))
+		print "S>| %-18s %02d:%02d (%d)" % (commandName(packet.command), packet.source, packet.streamid, packet.size)
 		self.sendRaw(self.packPacket(packet))
 
 	def receiveMsg(self):
 		if self.socket is None:
 			return None
 		note = ""
-		headersize = struct.calcsize('IIII')
+		
+		# we set the timeout so low, so our receive end is not blocking the other processing (could be fixed with using a separate send thread)
+		self.socket.settimeout(0.5)
+		
 		data = ""
 		readcounter = 0
-		while len(data) < headersize:
-			data += self.socket.recv(headersize-len(data))
+		while len(data) < self.headersize:
+			try:
+				data += self.socket.recv(self.headersize-len(data))
+			except socket.timeout:
+				self.socket.settimeout(None)
+				return
 		if readcounter > 1:
 			note += "HEADER SEGMENTED INTO %s SEGMENTS!" % readcounter
 		
@@ -204,16 +230,19 @@ class Client(threading.Thread):
 		content = content[0]
 
 		if not command in [MSG2_VEHICLE_DATA, MSG2_CHAT]:
-			print "RECV| %-16s, source %d, size %d, data-len: %d -- %s" % (commandName(command), self.uid, size, len(content), note)
+			print "R<| %-18s %02d:%02d (%d)%s" % (commandName(command), source, streamid, size, note)
 		return DataPacket(command, source, streamid, size, content)
 
 if __name__ == '__main__':
 	eventStopThread = threading.Event()
+	if len(sys.argv) < 2:
+		print "usage: %s 127.0.0.1 12000" % sys.argv[0]
+		sys.exit(0)
 	ip = sys.argv[1]
 	port = int(sys.argv[2])
-	startupCommands = ['!connect', '!say hello!']
-	if len(sys.argv) == 5:
-		startupCommands = sys.argv[4].split(';')
+	startupCommands = ['!connect', '!say hello everyone, bot here']
+	if len(sys.argv) > 4:
+		startupCommands = (' '.join(sys.argv[3:])).split(';')
 	
 	num = 1
 	threads = []
@@ -229,7 +258,7 @@ if __name__ == '__main__':
 			# start with time inbetween, so you see all trucks ;)
 			time.sleep(2.0)
 
-		print "all threads started. starting restart loop"
+		#print "all threads started. starting restart loop"
 		time.sleep(1)
 	
 		while restartClient:

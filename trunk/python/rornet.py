@@ -61,4 +61,4 @@ def commandName(cmd):
   vars = globals()
   for c in vars:
     if vars[c] == cmd and len(c) > 4 and c[0:5] == "MSG2_":
-	  return c
+	  return c[5:]

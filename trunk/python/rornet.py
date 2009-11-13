@@ -66,30 +66,32 @@ def commandName(cmd):
 
 # utility functions
 def registerStreamData(streamid, name, type, status):
-	name = "% 128s" % name
-	return struct.pack('i128sii', streamid, name, type, status)
+	name = '%s%s' % (name, ('\0'*(128-len(name))))
+	res = struct.pack('i128sii', streamid, name, type, status)
+	#print "Register data: ", res
+	return res
 
 def processStreamRegisterData(data):
 	streamid, name, type, status = struct.unpack('i128sii', data)
 	print "# Stream registration: "
 	print "# * ID: %d" % int(streamid)
-	print "# * name: '%s'" % name.strip()
+	print "# * name: '%s'" % name.strip('\0')
 	print "# * type: %d" % int(type)
 	print "# * status: %d" % int(status)
 
 def processUserInfo(data):
 	truckname, username, language, clientinfo, flagmask = struct.unpack('128s20s5s20sI', data)
 	print "# User Information: "
-	print "# * truckname: '%s'" % truckname.strip()
-	print "# * username: '%s'" % username.strip()
-	print "# * language: '%s'" % language.strip()
-	print "# * clientinfo: '%s'" % clientinfo.strip()
+	print "# * truckname: '%s'" % truckname.strip('\0')
+	print "# * username: '%s'" % username.strip('\0')
+	print "# * language: '%s'" % language.strip('\0')
+	print "# * clientinfo: '%s'" % clientinfo.strip('\0')
 	print "# * flagmask: %d" % int(flagmask)
 
 def processUserOnJoinInfo(data):
 	version, nickname, authstatus, slotnum = struct.unpack('c20sII', data)
 	print "# User OnJoin Information: "
-	print "# * version: %s" % (version)
-	print "# * nickname: '%s'" % nickname.strip()
+	print "# * version: %d" % ord(version)
+	print "# * nickname: '%s'" % nickname.strip('\0')
 	print "# * authstatus: %s" % (authstatus)
 	print "# * slotnum: %s" % (slotnum)

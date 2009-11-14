@@ -2,7 +2,7 @@
 # made by thomas in 5 hours - no guarantees ;)
 # updated for rornet_2.3 October 2009
 
-import sys, struct, threading, socket, random, time, string, os, os.path, time, math, copy
+import sys, struct, threading, thread, socket, random, time, string, os, os.path, time, math, copy
 from rornet import *
 from utils import *
 
@@ -11,11 +11,34 @@ restartClient = True
 restartCommands = ['!connect'] # important ;)
 eventStopThread = None
 
+class GlobalStateTracker:
+	clientLock = thread.allocate_lock()
+	streams = {}
+	
+	def addStream(self, uid, streamid, data):
+		sid = '%03d:%02d' % (int(uid), int(streamid))
+		with self.clientLock:
+			self.streams[sid] = (uid, streamid, data)
+
+	def addClient(self, uid, username, password, uniqueid):
+		self.addStream(uid, -1, (username, password, uniqueid))
+
+	def removeStream(self, uid, streamid):
+		sid = '%03d:%02d' % (int(uid), int(streamid))
+		with self.clientLock:
+			if sid in self.streams.keys():
+				del self.streams[sid]
+
+	def removeClient(self, uid, username, password, uniqueid):
+		self.removeStream(uid, -1)
+		
+
 class Client(threading.Thread):
 	uid = 0
 	oclients = {}
 	
-	def __init__(self, ip, port, client_id, commands):
+	def __init__(self, tracker, ip, port, client_id, commands):
+		self.tracker = tracker
 		self.ip = ip
 		self.port = port
 		self.client_id = client_id
@@ -52,8 +75,12 @@ class Client(threading.Thread):
 			self.sendChat("pong!")
 		elif cmd == "!reguser":
 			sid = 11
-			data = registerStreamData(sid, "example stream", 1, 1)
+			stype = 1
+			sstatus = 1
+			sname = "example stream"
+			data = registerStreamData(sid, sname, stype, sstatus)
 			self.sendMsg(DataPacket(MSG2_STREAM_REGISTER, self.uid, sid, len(data), data))
+			self.tracker.addStream(self.uid, sid, (sid, sname, stype, sstatus))
 		elif cmd == "!userdata":
 			sid = 11
 			data = "test123" # vector and such would be here
@@ -116,6 +143,7 @@ class Client(threading.Thread):
 		(version, self.nickname, self.authstatus, self.slotid) = struct.unpack('c20sii', packet.data)
 		self.nickname = self.nickname.strip()
 		print "joined as '%s' on slot %d with UID %d with auth %d" % (self.nickname, self.slotid, self.uid, self.authstatus)
+		self.tracker.addClient(self.uid, self.username, self.password, self.uniqueid)
 		return True
 
 	def run(self):
@@ -253,14 +281,15 @@ if __name__ == '__main__':
 	if len(sys.argv) > 3:
 		startupCommands = (' '.join(sys.argv[3:])).split(';')
 	
-	num = 1
+	stateTracker = GlobalStateTracker()
+	num = 10
 	threads = []
 	restarts = {}
 	lastrestart = {}
 	try:
 		# try for keyboard interrupt
 		for i in range(num):
-			threads.append(Client(ip, port, i, copy.copy(startupCommands)))
+			threads.append(Client(stateTracker, ip, port, i, copy.copy(startupCommands)))
 			threads[i].start()
 			lastrestart[i] = time.time() - 1000
 			restarts[i] = 0
@@ -285,6 +314,8 @@ if __name__ == '__main__':
 					lastrestart[i] = time.time()
 					
 				else:
+					# check if the information in all clients is in sync
+					
 					time.sleep(1)
 				#	print "thread %d alive!" % i
 		print "exiting peacefully"

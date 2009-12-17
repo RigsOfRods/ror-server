@@ -295,8 +295,8 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 		return;
 	}
 
-	Logger::log(LOG_VERBOSE,"Sending welcome message to uid %i", instance->clients[npos]->uid);
-	if( Messaging::sendmessage(sock, MSG2_WELCOME, instance->clients[npos]->uid, 0, 0, 0) )
+	Logger::log(LOG_VERBOSE,"Sending welcome message to uid %i, slotpos: %i", instance->clients[npos]->uid, npos);
+	if( Messaging::sendmessage(sock, MSG2_WELCOME, instance->clients[npos]->uid, 0, sizeof(npos), (char *)&npos) )
 	{
 		Sequencer::disconnect(instance->clients[npos]->uid, "error sending welcome message" );
 		return;
@@ -457,7 +457,7 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError)
 	//notify the others
 	for( unsigned int i = 0; i < instance->clients.size(); i++)
 	{
-		if( strlen(instance->clients[i]->vehicle_name) > 0 )
+		// notify of delete always
 		{
 			if(isError)
 				instance->clients[i]->broadcaster->queueMessage(MSG2_DELETE, instance->clients[pos]->uid, 0, (int)strlen(errormsg), errormsg);
@@ -774,6 +774,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 	{
 		stream_register_t *reg = (stream_register_t *)data;
 		Logger::log(LOG_VERBOSE, " * new stream registered: %d:%d, type: %d, name: '%s', status: %d", instance->clients[pos]->uid, reg->sid, reg->type, reg->name, reg->status);
+		for(int i=0;i<128;i++) if(reg->name[i] == ' ') reg->name[i] = 0; // convert spaces to zero's
 		reg->name[127] = 0;
 		instance->clients[pos]->streams[reg->sid] = *reg;
 		instance->streamDebug();

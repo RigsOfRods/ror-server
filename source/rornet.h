@@ -26,7 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //#define MAX_MLEN 1024
 #define MAX_MESSAGE_LENGTH 32768 // higher value, since we also send around the beam data!
 
-#define RORNET_VERSION "RoRnet_2.3"
+#define RORNET_VERSION "RoRnet_2.31"
 
 #define MSG_REGISTER 0      //!< client registers with magic!
 #define MSG_PING 1          //!< heartbeat sent by server ()

@@ -79,6 +79,7 @@ struct client_t
     char uniqueid[60];          //!< users unique id
     
 	int authstate;              //!< authenticated state
+	int colournumber;           //!< player colour
 	bool initialized;
 
 	int beambuffersize;
@@ -164,6 +165,7 @@ public:
     static void serverSayThreadSave(std::string msg, int notto=-1, int type=0);
 	
 	static bool checkNickUnique(char *nick);
+	static int getFreePlayerColour();
 	static int authNick(std::string token, std::string &nickname);
 
     static void  unregisterServer();

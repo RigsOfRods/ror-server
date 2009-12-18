@@ -162,7 +162,9 @@ void Receiver::threadstart()
 		}
 		if( !running ) break;
 		
-		Logger::log(LOG_VERBOSE,"got message: type: %d, source: %d:%d, len: %d", type, source, streamid, len);
+		if(type != MSG2_STREAM_DATA)
+			Logger::log(LOG_VERBOSE,"got message: type: %d, source: %d:%d, len: %d", type, source, streamid, len);
+		
 		if (type < 1000 || type > 1050)
 		{
 			Sequencer::disconnect(id, "Protocol error 3");

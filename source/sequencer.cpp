@@ -176,6 +176,26 @@ bool Sequencer::checkNickUnique(char *nick)
 	return false;
 }
 
+
+int Sequencer::getFreePlayerColour()
+{
+    STACKLOG;
+	// WARNING: be sure that this is only called within a clients_mutex lock!
+
+	int col = 0;
+	Sequencer* instance = Instance();
+recheck_col:
+	for (unsigned int i = 0; i < instance->clients.size(); i++)
+	{
+		if(instance->clients[i]->colournumber == col)
+		{
+			col++;
+			goto recheck_col;
+		}
+	}
+	return col;
+}
+
 //this is called by the Listener thread
 void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 {
@@ -187,6 +207,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 
     MutexLocker scoped_lock(instance->clients_mutex);
 	bool dupeNick = Sequencer::checkNickUnique(user->username);
+	int playerColour = Sequencer::getFreePlayerColour();
 	int dupecounter = 2;
 
 	// check if server is full
@@ -232,6 +253,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	to_add->position=Vector3(0,0,0);
 	to_add->beambuffersize=0;
 	to_add->sbi=0;
+	to_add->colournumber=playerColour;
 
 	// auth stuff
 	to_add->authstate = AUTH_NONE;
@@ -281,6 +303,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	memset(&info_own, 0, sizeof(client_info_on_join));
 	info_own.version = 1;
 	info_own.slotid = npos;
+	info_own.colournum = playerColour;
 	strncpy(info_own.nickname, instance->clients[npos]->nickname, 20);
 	info_own.authstatus = instance->clients[npos]->authstate;
 
@@ -296,7 +319,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	}
 
 	Logger::log(LOG_VERBOSE,"Sending welcome message to uid %i, slotpos: %i", instance->clients[npos]->uid, npos);
-	if( Messaging::sendmessage(sock, MSG2_WELCOME, instance->clients[npos]->uid, 0, sizeof(npos), (char *)&npos) )
+	if( Messaging::sendmessage(sock, MSG2_WELCOME, instance->clients[npos]->uid, 0, sizeof(playerColour), (char *)&playerColour) )
 	{
 		Sequencer::disconnect(instance->clients[npos]->uid, "error sending welcome message" );
 		return;
@@ -476,7 +499,7 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError)
 		instance->connCrash++;
 	Logger::log(LOG_INFO, "crash statistic: %d of %d deletes crashed", instance->connCrash, instance->connCount);
 
-	//printStats();
+	printStats();
 }
 
 //this is called from the listener thread initial handshake
@@ -570,6 +593,7 @@ void Sequencer::notifyAllVehicles(int uid, bool lock)
 	memset(&info_own, 0, sizeof(client_info_on_join));
 	info_own.version = 1;
 	info_own.slotid = pos;
+	info_own.colournum = instance->clients[pos]->colournumber;
 	strncpy(info_own.nickname, instance->clients[pos]->nickname, 20);
 	info_own.authstatus = instance->clients[pos]->authstate;
 
@@ -584,6 +608,7 @@ void Sequencer::notifyAllVehicles(int uid, bool lock)
 			strncpy(info.nickname, instance->clients[i]->nickname, 20);
 			info.authstatus = instance->clients[i]->authstate;
 			info.slotid = instance->clients[i]->slotnum;
+			info.colournum = instance->clients[i]->colournumber;
 
 			// send user infos
 			// all others to new user
@@ -1076,7 +1101,7 @@ void Sequencer::printStats()
 	{
 		Logger::log(LOG_INFO, "Server occupancy:");
 
-		Logger::log(LOG_INFO, "Slot Status   UID IP                  Nickname, Vehicle");
+		Logger::log(LOG_INFO, "Slot Status   UID IP                  Colour, Nickname, Vehicle");
 		Logger::log(LOG_INFO, "--------------------------------------------------");
 		for (unsigned int i = 0; i < instance->clients.size(); i++)
 		{
@@ -1092,15 +1117,18 @@ void Sequencer::printStats()
 			if (instance->clients[i]->status == FREE)
 				Logger::log(LOG_INFO, "%4i Free", i);
 			else if (instance->clients[i]->status == BUSY)
-				Logger::log(LOG_INFO, "%4i Busy %5i %-16s     %s, %s", i,
+				Logger::log(LOG_INFO, "%4i Busy %5i %-16s % 4s %d, %s, %s", i,
 						instance->clients[i]->uid, "-",
+						authst,
+						instance->clients[i]->colournumber,
 						instance->clients[i]->nickname,
 						instance->clients[i]->vehicle_name);
 			else
-				Logger::log(LOG_INFO, "%4i Used %5i %-16s % 4s %s, %s", i,
+				Logger::log(LOG_INFO, "%4i Used %5i %-16s % 4s %d, %s, %s", i,
 						instance->clients[i]->uid,
 						instance->clients[i]->sock->get_peerAddr(&error).c_str(),
 						authst,
+						instance->clients[i]->colournumber,
 						instance->clients[i]->nickname,
 						instance->clients[i]->vehicle_name);
 		}

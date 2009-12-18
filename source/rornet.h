@@ -108,6 +108,7 @@ typedef struct
 	char nickname[20];
 	int authstatus;
 	int slotid;
+	int colournum;
 } client_info_on_join;
 
 typedef struct

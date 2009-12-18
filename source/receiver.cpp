@@ -152,7 +152,7 @@ void Receiver::threadstart()
 	
 	// this prevents the socket from hangingwhen sending data
 	// which is the cause of threads getting blocked
-	sock->set_timeout(0, 0);
+	sock->set_timeout(60, 0);
 	while( running )
 	{
 		if (Messaging::receivemessage(sock, &type, &source, &streamid, &len, dbuffer, MAX_MESSAGE_LENGTH))

@@ -760,11 +760,19 @@ void Sequencer::streamDebug()
 	{
 		if (instance->clients[i]->status == USED)
 		{
+			Logger::log(LOG_VERBOSE, " * %d %s (slot %d):", instance->clients[i]->uid, instance->clients[i]->nickname, i);
 			if(!instance->clients[i]->streams.size())
-				Logger::log(LOG_VERBOSE, " * no streams registered for user %d", instance->clients[i]->uid);
+				Logger::log(LOG_VERBOSE, "  * no streams registered for user %d", instance->clients[i]->uid);
 			else
 				for(std::map<unsigned int, stream_register_t>::iterator it = instance->clients[i]->streams.begin(); it!=instance->clients[i]->streams.end(); it++)
-					Logger::log(LOG_VERBOSE, " * %d:%d, type:%d status:%d name:'%s'", instance->clients[i]->uid, it->first, it->second.type, it->second.status, it->second.name);
+				{
+					char *typeStr="unkown";
+					if(it->second.type == 0) typeStr="truck";
+					if(it->second.type == 1) typeStr="character";
+					if(it->second.type == 2) typeStr="aitraffic";
+					if(it->second.type == 3) typeStr="chat";
+					Logger::log(LOG_VERBOSE, "  * %d:%d, type:%s status:%d name:'%s'", instance->clients[i]->uid, it->first, typeStr, it->second.status, it->second.name);
+				}
 		}
 	}
 }

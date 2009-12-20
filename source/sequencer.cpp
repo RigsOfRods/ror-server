@@ -620,7 +620,7 @@ void Sequencer::notifyAllVehicles(int uid, bool lock)
 			Logger::log(LOG_VERBOSE, " * %d streams registered for user %d", instance->clients[i]->streams.size(), instance->clients[i]->uid);
 			for(std::map<unsigned int, stream_register_t>::iterator it = instance->clients[i]->streams.begin(); it!=instance->clients[i]->streams.end(); it++)
 			{
-				Logger::log(LOG_VERBOSE, "sending stream registration %d:%d to user %d", instance->clients[i]->uid, it->second.sid, uid);
+				Logger::log(LOG_VERBOSE, "sending stream registration %d:%d to user %d", instance->clients[i]->uid, it->first, uid);
 				instance->clients[pos]->broadcaster->queueMessage(MSG2_STREAM_REGISTER, instance->clients[i]->uid, it->first, sizeof(stream_register_t), (char*)&it->second);
 			}
 
@@ -764,7 +764,7 @@ void Sequencer::streamDebug()
 				Logger::log(LOG_VERBOSE, " * no streams registered for user %d", instance->clients[i]->uid);
 			else
 				for(std::map<unsigned int, stream_register_t>::iterator it = instance->clients[i]->streams.begin(); it!=instance->clients[i]->streams.end(); it++)
-					Logger::log(LOG_VERBOSE, " * %d:%d, type:%d status:%d name:'%s'", instance->clients[i]->uid, it->second.sid, it->second.type, it->second.status, it->second.name);
+					Logger::log(LOG_VERBOSE, " * %d:%d, type:%d status:%d name:'%s'", instance->clients[i]->uid, it->first, it->second.type, it->second.status, it->second.name);
 		}
 	}
 }
@@ -798,10 +798,10 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 	else if (type==MSG2_STREAM_REGISTER)
 	{
 		stream_register_t *reg = (stream_register_t *)data;
-		Logger::log(LOG_VERBOSE, " * new stream registered: %d:%d, type: %d, name: '%s', status: %d", instance->clients[pos]->uid, reg->sid, reg->type, reg->name, reg->status);
+		Logger::log(LOG_VERBOSE, " * new stream registered: %d:%d, type: %d, name: '%s', status: %d", instance->clients[pos]->uid, streamid, reg->type, reg->name, reg->status);
 		for(int i=0;i<128;i++) if(reg->name[i] == ' ') reg->name[i] = 0; // convert spaces to zero's
 		reg->name[127] = 0;
-		instance->clients[pos]->streams[reg->sid] = *reg;
+		instance->clients[pos]->streams[streamid] = *reg;
 		instance->streamDebug();
 		publishMode = 1;
 	}

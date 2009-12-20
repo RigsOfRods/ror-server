@@ -139,7 +139,6 @@ typedef struct
 // structure that is send from the cleint to server and vice versa, to broadcast a new stream
 typedef struct
 {
-	int sid;                  //!< the id of the stream
 	char name[128];           //!< the truck filename
 	int type;                 //!< stream type
 	int status;               //!< initial stream status

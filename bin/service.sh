@@ -40,18 +40,22 @@ PIDDIR=${BINDIR}/pids
 
 case "$1" in
   start)
-	# master switch
-	count=1
+	count=0
 	port=12000
 	while read ARGS
 	do
-		start-stop-daemon --start --background --user $USERNAME --name rorserver-${count} -v --exec $DAEMON --make-pidfile --pidfile $PIDDIR/server-${count}.pid  -- -name Official_${count} -port ${port} -logfilename $LOGDIR/server-${count}.log $ARGS 
-		ret=$?
-		#log_progress_msg "$ARGS"
-		log_end_msg $ret
-
 		count=$((count+1))
 		port=$((port+1))
+		NUMFOR=$(printf "%02d" ${count})
+		log_daemon_msg "Starting $NAME Server ${count}"
+		if [[ -f $PIDDIR/server-${NUMFOR}.pid ]] ; then
+			log_daemon_msg " already running"
+			log_end_msg 1
+			continue
+		fi
+		start-stop-daemon --start --background --user $USERNAME --name rorserver-${NUMFOR} --exec $DAEMON --make-pidfile --pidfile $PIDDIR/server-${NUMFOR}.pid  -- -name Official_${NUMFOR}  -port ${port} -logfilename $LOGDIR/server-${NUMFOR}.log -logverbosity 1 $ARGS 
+		log_end_msg 0 
+
 	done < $CONFIG
 	;;
   stop)
@@ -70,11 +74,30 @@ case "$1" in
 		rm $PID >>/dev/null 2>&1
 	done
 	;;
+  check)
+        FILES=$(ls $PIDDIR/*.pid 2>/dev/null)
+        if [[ "$FILES" == "" ]]
+        then
+                log_daemon_msg "no rorservers detected running"
+                log_end_msg 1
+                exit 0
+        fi
+        for PIDFILE in $FILES
+        do
+		PIDNUM=$(cat $PIDFILE)
+                log_daemon_msg "Checking ${NAME} [${PIDNUM}]"
+                start-stop-daemon --signal 0 --stop --user $USERNAME --pidfile $PIDFILE
+		MEM=$(pmap -x $PIDNUM | grep total | awk '{print $3}')
+		((MEMMB=MEM/1024))
+		log_daemon_msg "memory: $MEM KB / $MEMMB MB"
+                log_end_msg $?
+        done
+        ;;	
   reload|restart|force-reload)
 	$0 stop && $0 start
 	;;
   *)
-	echo "Usage: $0 {start|stop|restart|force-reload}" >&2
+	echo "Usage: $0 {start|stop|restart|force-reload|check|checkrestart}" >&2
 	exit 1
 	;;
 esac

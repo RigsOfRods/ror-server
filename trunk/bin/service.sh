@@ -39,7 +39,7 @@ PIDDIR=${BINDIR}/pids
 . /lib/lsb/init-functions
 
 case "$1" in
-  start)
+  start|restartbroken)
 	count=0
 	port=12000
 	while read ARGS
@@ -47,13 +47,29 @@ case "$1" in
 		count=$((count+1))
 		port=$((port+1))
 		NUMFOR=$(printf "%02d" ${count})
-		log_daemon_msg "Starting $NAME Server ${count}"
-		if [[ -f $PIDDIR/server-${NUMFOR}.pid ]] ; then
-			log_daemon_msg " already running"
-			log_end_msg 1
-			continue
+		PIDFILE=$PIDDIR/server-${NUMFOR}.pid
+		# check if we only start a certain server
+		if [ -n "$2" ]
+		then
+			if [[ "$NUMFOR" != "$2" ]] ; then
+				continue
+			fi
 		fi
-		start-stop-daemon --start --background --user $USERNAME --name rorserver-${NUMFOR} --exec $DAEMON --make-pidfile --pidfile $PIDDIR/server-${NUMFOR}.pid  -- -name Official_${NUMFOR}  -port ${port} -logfilename $LOGDIR/server-${NUMFOR}.log -logverbosity 1 $ARGS 
+		log_daemon_msg "Starting $NAME Server ${count}"
+		if [[ -f $PIDFILE ]]
+		then
+	                start-stop-daemon --signal 0 --stop --user $USERNAME --pidfile $PIDFILE >>/dev/null 2>&1
+	                if [ "${?}" -ne "0" ]
+			then
+				rm -f $PIDFILE >>/dev/null 2>&1
+				log_daemon_msg "broken, restarting"
+			else
+				log_daemon_msg " already running"
+				log_end_msg 1
+				continue
+			fi
+		fi
+		start-stop-daemon --start --background --user $USERNAME --name rorserver-${NUMFOR} --exec $DAEMON --make-pidfile --pidfile $PIDFILE  -- -name Official_${NUMFOR}  -port ${port} -logfilename $LOGDIR/server-${NUMFOR}.log -logverbosity 1 $ARGS 
 		log_end_msg 0 
 
 	done < $CONFIG
@@ -74,6 +90,28 @@ case "$1" in
 		rm $PID >>/dev/null 2>&1
 	done
 	;;
+  checkrestart)
+        FILES=$(ls $PIDDIR/*.pid 2>/dev/null)
+        if [[ "$FILES" == "" ]]
+        then
+                log_daemon_msg "no rorservers detected running"
+                log_end_msg 1
+                exit 0
+        fi
+	mem_total=0
+        for PIDFILE in $FILES
+        do
+		PIDNUM=$(cat $PIDFILE)
+		start-stop-daemon --signal 0 --stop --user $USERNAME --pidfile $PIDFILE >>/dev/null 2>&1
+                if [ "${?}" -ne "0" ]
+		then
+			SERVERNUM=$(basename ${PIDFILE})
+			SERVERNUM=${SERVERNUM:7:2}
+			echo "server $SERVERNUM not running ..."
+		fi
+        done
+        ;;	
+
   check)
         FILES=$(ls $PIDDIR/*.pid 2>/dev/null)
         if [[ "$FILES" == "" ]]
@@ -82,22 +120,26 @@ case "$1" in
                 log_end_msg 1
                 exit 0
         fi
+	mem_total=0
         for PIDFILE in $FILES
         do
 		PIDNUM=$(cat $PIDFILE)
-                log_daemon_msg "Checking ${NAME} [${PIDNUM}]"
+                log_daemon_msg "Checking ${NAME} ($(basename ${PIDFILE}))[${PIDNUM}]"
                 start-stop-daemon --signal 0 --stop --user $USERNAME --pidfile $PIDFILE
 		MEM=$(pmap -x $PIDNUM | grep total | awk '{print $3}')
 		((MEMMB=MEM/1024))
 		log_daemon_msg "memory: $MEM KB / $MEMMB MB"
                 log_end_msg $?
+		((mem_total=mem_total+MEM))
         done
+	((mem_total=mem_total/1024))
+	echo "total used memory: $mem_total MB"
         ;;	
   reload|restart|force-reload)
 	$0 stop && $0 start
 	;;
   *)
-	echo "Usage: $0 {start|stop|restart|force-reload|check|checkrestart}" >&2
+	echo "Usage: $0 {start|stop|restart|force-reload|check|checkrestart|restartbroken}" >&2
 	exit 1
 	;;
 esac

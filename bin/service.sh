@@ -55,20 +55,23 @@ case "$1" in
 				continue
 			fi
 		fi
-		log_daemon_msg "Starting $NAME Server ${count}"
 		if [[ -f $PIDFILE ]]
 		then
-	                start-stop-daemon --signal 0 --stop --user $USERNAME --pidfile $PIDFILE >>/dev/null 2>&1
-	                if [ "${?}" -ne "0" ]
+	                start-stop-daemon --signal 0 --stop --user $USERNAME --pidfile $PIDFILE  >>/dev/null 2>&1
+	                if [[ "${?}" != "0" ]]
 			then
 				rm -f $PIDFILE >>/dev/null 2>&1
 				log_daemon_msg "broken, restarting"
 			else
-				log_daemon_msg " already running"
-				log_end_msg 1
+				if [[ "$1" != "restartbroken" ]]
+				then 
+					log_daemon_msg " already running"
+					log_end_msg 1
+				fi
 				continue
 			fi
 		fi
+		log_daemon_msg "Starting $NAME Server ${count}"
 		start-stop-daemon --start --background --user $USERNAME --name rorserver-${NUMFOR} --exec $DAEMON --make-pidfile --pidfile $PIDFILE  -- -name Official_${NUMFOR}  -port ${port} -logfilename $LOGDIR/server-${NUMFOR}.log -logverbosity 1 $ARGS 
 		log_end_msg 0 
 

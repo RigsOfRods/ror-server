@@ -48,6 +48,7 @@ case "$1" in
 		port=$((port+1))
 		NUMFOR=$(printf "%02d" ${count})
 		PIDFILE=$PIDDIR/server-${NUMFOR}.pid
+		PIDNUM=$(cat $PIDFILE)
 		# check if we only start a certain server
 		if [ -n "$2" ]
 		then
@@ -57,8 +58,10 @@ case "$1" in
 		fi
 		if [[ -f $PIDFILE ]]
 		then
-	                start-stop-daemon --signal 0 --stop --user $USERNAME --pidfile $PIDFILE  >>/dev/null 2>&1
-	                if [[ "${?}" != "0" ]]
+	                #start-stop-daemon --signal 0 --stop --user $USERNAME --pidfile $PIDFILE  >>/dev/null 2>&1
+	                #if [[ "${?}" != "0" ]]
+			RUNNING=$(ps -p ${PIDNUM} | wc -l)
+			if [ "$RUNNING" != "2" ]
 			then
 				rm -f $PIDFILE >>/dev/null 2>&1
 				log_daemon_msg "broken, restarting"
@@ -105,8 +108,10 @@ case "$1" in
         for PIDFILE in $FILES
         do
 		PIDNUM=$(cat $PIDFILE)
-		start-stop-daemon --signal 0 --stop --user $USERNAME --pidfile $PIDFILE >>/dev/null 2>&1
-                if [ "${?}" -ne "0" ]
+		RUNNING=$(ps -p ${PIDNUM} | wc -l)
+		#start-stop-daemon --signal 0 --stop --user $USERNAME --pidfile $PIDFILE >>/dev/null 2>&1
+                #if [ "${?}" -ne "0" ]
+                if [ "$RUNNING" != "2" ]
 		then
 			SERVERNUM=$(basename ${PIDFILE})
 			SERVERNUM=${SERVERNUM:7:2}
@@ -128,7 +133,14 @@ case "$1" in
         do
 		PIDNUM=$(cat $PIDFILE)
                 log_daemon_msg "Checking ${NAME} ($(basename ${PIDFILE}))[${PIDNUM}]"
-                start-stop-daemon --signal 0 --stop --user $USERNAME --pidfile $PIDFILE
+		RUNNING=$(ps -p ${PIDNUM} | wc -l)
+                if [ "$RUNNING" != "2" ]
+		then
+			echo "server $SERVERNUM not running ..."
+			continue
+		fi
+		
+                #start-stop-daemon --signal 0 --stop --user $USERNAME --pidfile $PIDFILE
 		MEM=$(pmap -x $PIDNUM | grep total | awk '{print $3}')
 		((MEMMB=MEM/1024))
 		log_daemon_msg "memory: $MEM KB / $MEMMB MB"

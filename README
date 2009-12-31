@@ -14,19 +14,7 @@ It is compabible with RoR clients version 0.33d, and any future client using the
 
 INSTALLATION
 
-To create buildystem:
-1. get premmake: http://premake.sourceforge.net/download and save binary into project directory
-2. run premake (for example, see premake --help):
- * for linux: premake --target gnu
- * for windows: premake --target vs2005
-
-To compile: make
-Then copy the "rorserver" binary wherever you like.
-
-The Rigs of Rods Server depends on the pthread library to be installed on your system.
-It also uses SocketW (http://www.digitalfanatics.org/cal/socketw/index.html).
-For your convenience, we included the source package of SocketW r031026, as it is not often included in standard distributions.
-You don't need to compile or install SocketW on your system, the makefile will take care of compiling and statically link the provided SocketW code.
+please look at http://wiki.rigsofrods.com/pages/Compiling_Server
 
 USE
 

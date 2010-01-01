@@ -57,8 +57,17 @@ class ScriptEngine;
 #define AUTH_BOT               0x00000008
 #define AUTH_BANNED            0x00000010
 
-
 #define VERSION "$Rev$"
+
+typedef struct stream_traffic_t
+{
+	double bandwidthIncoming;
+	double bandwidthOutgoing;
+	double bandwidthIncomingLastMinute;
+	double bandwidthOutgoingLastMinute;
+	double bandwidthIncomingRate;
+	double bandwidthOutgoingRate;
+} stream_traffic_t;
 
 //! A struct to hold information about a client
 struct client_t
@@ -86,7 +95,10 @@ struct client_t
 	simple_beam_info *sbi;
 	char ip_addr[16]; // do not use directly
 
+
+	//things for the communication with the webserver below, not used in the main server code
 	std::map<unsigned int, stream_register_t> streams;
+	std::map<unsigned int, stream_traffic_t> streams_traffic;
 };
 
 struct ban_t
@@ -160,6 +172,7 @@ public:
 	static int getHeartbeatData(char *challenge, char *hearbeatdata);
     //! prints the Stats view, of who is connected and what slot they are in
     static void printStats();
+	static void updateMinuteStats();
     static void serverSay(std::string msg, int notto=-1, int type=0);
     static int sendGameCommand(int uid, std::string cmd);
     static void serverSayThreadSave(std::string msg, int notto=-1, int type=0);
@@ -177,6 +190,7 @@ public:
 	static void streamDebug();
 
 	static std::vector<client_t> getClients();
+	static int getStartTime();
 
 	static unsigned int connCrash, connCount;
 };

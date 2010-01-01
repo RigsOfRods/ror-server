@@ -197,6 +197,7 @@ void Notifier::loop()
 	{
 		// update some statistics (handy to use in here, as we have a minute-timer basically)
 		Messaging::updateMinuteStats();
+		Sequencer::updateMinuteStats();
 		//Sequencer::printStats();
 
 		//every minute

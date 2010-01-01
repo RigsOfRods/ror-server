@@ -80,65 +80,6 @@ void Receiver::threadstart()
 	unsigned int streamid;
 	unsigned int len;
 	SWBaseSocket::SWBaseError error;
-	/*
-	if(Sequencer::isbanned(sock->get_peerAddr(&error).c_str()))
-	{
-		Logger::log( LOG_DEBUG, "receiver thread %d owned by uid %d terminated (banned user)", ThreadID::getID(), id);
-		Logger::log(LOG_VERBOSE,"banned user rejected: uid %i", id);
-		Messaging::sendmessage(sock, MSG2_BANNED, id, 0, 0, 0);
-		Sequencer::disconnect(id, "you are banned");
-		return;
-	}
-
-	Logger::log(LOG_VERBOSE,"Sending welcome message to uid %i", id);
-	if( Messaging::sendmessage(sock, MSG2_WELCOME, id, 0, 0, 0) )
-	{
-		Sequencer::disconnect( id, "error sending welcome message" );
-		return;
-	}
-	
-	
-	//security fix: we limit the size of the vehicle name to 128 characters <- from Luigi Auriemma
-	if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, 128))
-	{
-		Sequencer::disconnect(id, "Messaging abuse 1");
-		return;
-	}
-	
-	if (type!=MSG2_USE_VEHICLE)
-	{
-		Sequencer::disconnect(id, "Protocol error 1");
-		return;
-	}
-	//security
-	dbuffer[len]=0;
-	//we queue the use vehicle message for others
-	Sequencer::queueMessage(id, type, dbuffer, len);
-	
-	//get the buffer size, not really usefull but a good way to detect errors
-	if (Messaging::receivemessage(sock, &type, &source, &len, dbuffer, 4))
-	{
-		Sequencer::disconnect(id, "Messaging abuse 2"); 
-		return;
-	}
-	
-	if (type!=MSG2_BUFFER_SIZE)
-	{
-		Sequencer::disconnect(id, "Protocol error 2");
-		return;
-	}
-	
-	unsigned int buffersize=*((unsigned int*)dbuffer);
-	if (buffersize>MAX_MESSAGE_LENGTH)
-	{
-		Sequencer::disconnect(id, "Memory error from client");
-		return;
-	}
-	//notify the client of all pre-existing vehicles
-	*/
-
-	//Sequencer::notifyAllVehicles(id);
-
 	//okay, we are ready, we can receive data frames
 	Sequencer::enableFlow(id);
 

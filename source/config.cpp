@@ -39,7 +39,9 @@ enum
 	OPT_PASS,
 	OPT_INET,
 	OPT_LOGFILENAME,
-	OPT_SCRIPTNAME
+	OPT_SCRIPTNAME,
+	OPT_WEBSERVER,
+	OPT_WEBSERVER_PORT
 };
 
 // option array
@@ -56,6 +58,8 @@ static CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_LOGVERBOSITY, ("-logverbosity"), SO_REQ_SEP },
 	{ OPT_LOGFILENAME, ("-logfilename"), SO_REQ_SEP },
 	{ OPT_SCRIPTNAME, ("-script"), SO_REQ_SEP },
+	{ OPT_WEBSERVER, ("-webserver"), SO_NONE },
+	{ OPT_WEBSERVER_PORT, ("-webserverport"), SO_REQ_SEP },
 	{ OPT_HELP,  ("--help"), SO_NONE },
 	SO_END_OF_OPTIONS
 };
@@ -122,6 +126,9 @@ void showUsage()
 "                                  4 = warn\n"
 "                                  5 = error\n" \
 " -logfilename <server.log>    Sets the filename of the log" \
+" -script <script.as>          server script to execute" \
+" -webserver                   enables the built-in webserver" \
+" -webserver-port <number>     sets up the port for the webserver, default 8080" \
 " -script <script.as>          server script to execute" \
 " -help                        Show this list\n");
 }
@@ -280,6 +287,13 @@ bool Config::fromArgs( int argc, char* argv[] )
 			case OPT_INET:
 				setServerMode( SERVER_INET );
 			break;
+			case OPT_WEBSERVER:
+				setWebserverEnabled(true);
+			break;
+			case OPT_WEBSERVER_PORT:
+				Logger::setLogLevel(LOGTYPE_DISPLAY, LogLevel(atoi(args.OptionArg())));
+
+			break;
 			case OPT_MAXCLIENTS:
 				setMaxClients( atoi(args.OptionArg()) );
 			break;
@@ -300,16 +314,18 @@ bool Config::isPublic() { return !getPublicPassword().empty(); }
 
 //! getter function
 //!@{
-unsigned int       Config::getMaxClients()     { return instance.max_clients;     }
-const std::string& Config::getServerName()     { return instance.server_name;     }
-const std::string& Config::getTerrainName()    { return instance.terrain_name;    }
-const std::string& Config::getPublicPassword() { return instance.public_password; }
-const std::string& Config::getIPAddr()         { return instance.ip_addr;         }
-const std::string& Config::getScriptName()     { return instance.scriptname;      }
-bool               Config::getEnableScripting(){ return (instance.scriptname != ""); }
-unsigned int       Config::getListenPort()     { return instance.listen_port;     }
-ServerType         Config::getServerMode()     { return instance.server_mode;     }
-bool               Config::getPrintStats()     { return instance.print_stats;     }
+unsigned int       Config::getMaxClients()      { return instance.max_clients;     }
+const std::string& Config::getServerName()      { return instance.server_name;     }
+const std::string& Config::getTerrainName()     { return instance.terrain_name;    }
+const std::string& Config::getPublicPassword()  { return instance.public_password; }
+const std::string& Config::getIPAddr()          { return instance.ip_addr;         }
+const std::string& Config::getScriptName()      { return instance.scriptname;      }
+bool               Config::getEnableScripting() { return (instance.scriptname != ""); }
+unsigned int       Config::getListenPort()      { return instance.listen_port;     }
+ServerType         Config::getServerMode()      { return instance.server_mode;     }
+bool               Config::getPrintStats()      { return instance.print_stats;     }
+bool               Config::getWebserverEnabled(){ return instance.webserver_enabled; }
+unsigned int       Config::getWebserverPort()   { return instance.webserver_port;     }
 //!@}
 
 //! setter functions
@@ -353,10 +369,14 @@ bool Config::setIPAddr( const std::string& ip ) {
 	return true;
 }
 bool Config::setListenPort( unsigned int port ) {
-	// ports less than 1000 are reserved, so avoid that hassle
-	if( port <= 1000 ) return false;
 	instance.listen_port = port;
 	return true;
+}
+void Config::setWebserverPort( unsigned int port ) {
+	instance.webserver_port = port;
+}
+void Config::setWebserverEnabled(bool webserver) {
+	instance.webserver_enabled = webserver;
 }
 bool Config::setServerMode( ServerType mode) {
 	instance.server_mode = mode;

@@ -19,7 +19,7 @@ IF(WIN32)
 	target_link_libraries(rorserver mysocketw)
 ELSEIF(UNIX)
 	#add_definitions("-DAS_MAX_PORTABILITY")
-	target_link_libraries(rorserver mysocketw pthread)
+	target_link_libraries(rorserver mysocketw pthread dl)
 ELSEIF(APPLE)
 ENDIF(WIN32)
 

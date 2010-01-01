@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <cstdarg>
 
+std::deque <log_save_t> Logger::loghistory;
 
 // shamelessly taken from:
 // http://senzee.blogspot.com/2006/05/c-formatting-stdstring.html   
@@ -65,8 +66,6 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 	char timestr[50];
 	memset(timestr, 0, 50);
 
-	// if compiling without gcc this is a macro
-	// TODO: this fails under windows, please FIX!
 	ctime_r(&lotime, timestr);
 	
 	// remove trailing new line
@@ -90,6 +89,19 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 		char tmp[2048]="";
 		sprintf(tmp, "%s|t%02d|%5s|%s\n", timestr, ThreadID::getID(), loglevelname[(int)level], msg.c_str());
 		callback(level, msg, std::string(tmp));
+	}
+
+	// save history
+	if(level > LOG_STACK)
+	{
+		if(loghistory.size() > 500)
+			loghistory.pop_front();
+		log_save_t h;
+		h.level = level;
+		h.threadid = ThreadID::getID();
+		h.time = std::string(timestr);
+		h.msg = msg;
+		loghistory.push_back(h);
 	}
 }
 

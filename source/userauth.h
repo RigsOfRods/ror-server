@@ -44,5 +44,8 @@ public:
 	int setUserAuth(std::string token, int flags);
 
 	int sendUserEvent(std::string user_token, std::string type, std::string arg1, std::string arg2);
+
+	std::map< std::string, std::pair<int, std::string> > getAuthCache();
+	void clearCache();
 };
 #endif

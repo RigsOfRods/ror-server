@@ -146,7 +146,8 @@ Config::Config():
 	scriptname(""),
 	listen_port( 0 ),
 	server_mode( SERVER_AUTO ),
-	print_stats(true)
+	print_stats(true),
+	webserver_port(8080)
 {
 }
 
@@ -195,16 +196,9 @@ bool Config::checkConfig()
 		else
 			Logger::log( LOG_INFO, "ip address: %s", getIPAddr().c_str() );
 		
-		if( getMaxClients() > 16 )
-		{
-			Logger::log( LOG_ERROR, "max clients is set to greater than 16,"
-					"reseting to 16");
-			setMaxClients( 16 );
-		}
-		else
-			Logger::log(LOG_WARN, "app. full load traffic: %ikbit/s upload and "
-					"%ikbit/s download", 
-					getMaxClients()*(getMaxClients()-1)*64, getMaxClients()*64);
+		Logger::log(LOG_WARN, "app. full load traffic: %ikbit/s upload and "
+				"%ikbit/s download", 
+				getMaxClients()*(getMaxClients()-1)*64, getMaxClients()*64);
 		
 		if( getServerName().empty() )
 		{

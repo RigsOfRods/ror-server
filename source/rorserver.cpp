@@ -111,7 +111,9 @@ int main(int argc, char* argv[])
 	// start webserver if used
 	if(Config::getWebserverEnabled())
 	{
-		startWebserver(8080);
+		int port = Config::getWebserverPort();
+		Logger::log(LOG_INFO, "starting webserver on port %d ...", port);
+		startWebserver(port);
 	}
 
 	// start the main program loop

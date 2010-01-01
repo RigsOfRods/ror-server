@@ -103,6 +103,17 @@ int UserAuth::getAuthSize()
 	return local_auth.size();
 }
 
+void UserAuth::clearCache()
+{
+	local_auth.clear();
+}
+
+std::map< std::string, std::pair<int, std::string> > UserAuth::getAuthCache()
+{
+	return cache;
+}
+
+
 int UserAuth::getUserModeByUserToken(std::string token)
 {
 	std::string nick;

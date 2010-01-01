@@ -111,7 +111,7 @@ int main(int argc, char* argv[])
 	// start webserver if used
 	if(Config::getWebserverEnabled())
 	{
-		startWebserver();
+		startWebserver(8080);
 	}
 
 	// start the main program loop
@@ -146,3 +146,4 @@ int main(int argc, char* argv[])
 }
 
 #endif //WITHOUTMAIN
+

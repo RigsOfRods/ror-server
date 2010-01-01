@@ -23,6 +23,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "sequencer.h"
 #include "logger.h"
 #include "config.h"
+#include "webserver.h"
+#include "messaging.h"
 
 #include "sha1_util.h"
 #include "sha1.h"
@@ -106,6 +108,12 @@ int main(int argc, char* argv[])
 
 	Sequencer::initilize();
 
+	// start webserver if used
+	if(Config::getWebserverEnabled())
+	{
+		startWebserver();
+	}
+
 	// start the main program loop
     // if we need to communiate to the master user the notifier routine
 	if(Config::getServerMode() != SERVER_LAN )
@@ -120,6 +128,9 @@ int main(int argc, char* argv[])
 		//or by some stupid sleep method in LAN mode
 		while (true)
 		{
+			// update some statistics (handy to use in here, as we have a minute-timer basically)
+			Messaging::updateMinuteStats();
+			Sequencer::updateMinuteStats();
 #ifndef WIN32
 			sleep(60);
 #else

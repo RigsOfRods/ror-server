@@ -811,6 +811,15 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 		reg->name[127] = 0;
 		instance->clients[pos]->streams[streamid] = *reg;
 		instance->streamDebug();
+
+		// reset some stats
+		instance->clients[pos]->streams_traffic[streamid].bandwidthIncoming=0;
+		instance->clients[pos]->streams_traffic[streamid].bandwidthIncomingLastMinute=0;
+		instance->clients[pos]->streams_traffic[streamid].bandwidthIncomingRate=0;
+		instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoing=0;
+		instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoingLastMinute=0;
+		instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoingRate=0;
+
 		publishMode = 1;
 	}
 	else if (type==MSG2_USE_VEHICLE)
@@ -1046,6 +1055,9 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 #endif //0
 	if(publishMode>0)
 	{
+		instance->clients[pos]->streams_traffic[streamid].bandwidthIncoming += len;
+
+		
 		if(publishMode == 1 || publishMode == 3)
 		{
 			bool toAll = (publishMode == 3);
@@ -1055,7 +1067,10 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				if(i >= instance->clients.size())
 					break;
 				if (instance->clients[i]->status == USED && instance->clients[i]->flow && (i!=pos || toAll))
+				{
+					instance->clients[i]->streams_traffic[streamid].bandwidthOutgoing += len;
 					instance->clients[i]->broadcaster->queueMessage(type, instance->clients[pos]->uid, streamid, len, data);
+				}
 			}
 		} else if(publishMode == 2)
 		{
@@ -1065,7 +1080,10 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				if(i >= instance->clients.size())
 					break;
 				if (instance->clients[i]->status == USED && instance->clients[i]->flow && i!=pos && (instance->clients[i]->authstate & AUTH_ADMIN))
+				{
+					instance->clients[i]->streams_traffic[streamid].bandwidthOutgoing += len;
 					instance->clients[i]->broadcaster->queueMessage(type, instance->clients[pos]->uid, streamid, len, data);
+				}
 			}
 		}
 	}
@@ -1088,6 +1106,13 @@ std::vector<client_t> Sequencer::getClients()
 	return res;
 }
 
+int Sequencer::getStartTime()
+{
+    STACKLOG;
+    Sequencer* instance = Instance();
+	return instance->startTime;
+}
+
 client_t *Sequencer::getClient(int uid)
 {
     STACKLOG;
@@ -1097,6 +1122,25 @@ client_t *Sequencer::getClient(int uid)
     if( UID_NOT_FOUND == pos ) return 0;
 
 	return instance->clients[pos];
+}
+
+void Sequencer::updateMinuteStats()
+{
+    STACKLOG;
+    Sequencer* instance = Instance();
+	for (unsigned int i=0; i<instance->clients.size(); i++)
+	{
+		if (instance->clients[i]->status == USED)
+		{
+			for(std::map<unsigned int, stream_traffic_t>::iterator it = instance->clients[i]->streams_traffic.begin(); it!=instance->clients[i]->streams_traffic.end(); it++)
+			{
+				it->second.bandwidthIncomingRate = (it->second.bandwidthIncoming - it->second.bandwidthIncomingLastMinute)/60;
+				it->second.bandwidthIncomingLastMinute = it->second.bandwidthIncoming;
+				it->second.bandwidthOutgoingRate = (it->second.bandwidthOutgoing - it->second.bandwidthOutgoingLastMinute)/60;
+				it->second.bandwidthOutgoingLastMinute = it->second.bandwidthOutgoing;
+			}
+		}
+	}
 }
 
 // clients_mutex needs to be locked wen calling this method

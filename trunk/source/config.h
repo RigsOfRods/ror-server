@@ -34,6 +34,9 @@ public:
 	static ServerType         getServerMode();
 	static bool               getPrintStats();
 	static bool               getEnableScripting();
+	static bool               getWebserverEnabled();
+	static unsigned int       getWebserverPort();
+	
 	//!@}
 
 	//! setter functions
@@ -47,6 +50,8 @@ public:
 	static bool setListenPort( unsigned int port );
 	static bool setServerMode( ServerType mode);
 	static void setPrintStats(bool value);
+	static void setWebserverEnabled(bool value);
+	static void setWebserverPort( unsigned int port );
 	//!@}
 
 	static std::string getPublicIP();
@@ -64,6 +69,8 @@ private:
 	unsigned int listen_port;
 	ServerType server_mode;
 	bool print_stats;
+	bool webserver_enabled;
+	unsigned int webserver_port;
 	
 	
 	

@@ -9,6 +9,7 @@
 #define LOGGER_H_
 
 #include <string>
+#include <deque>
 
 
 enum LogLevel
@@ -26,6 +27,14 @@ enum LogType
 	LOGTYPE_FILE=0,
 	LOGTYPE_DISPLAY
 };
+
+typedef struct log_save_t
+{
+	LogLevel level;
+	int threadid;
+	std::string time;
+	std::string msg;
+} log_save_t;
 
 //extern int loglevel;
 void logmsgf(const LogLevel& level, const char* format, ...);
@@ -49,6 +58,8 @@ public:
 
 	static void setCallback(void (*ptr)(int, std::string msg, std::string msgf));
 
+	static std::deque <log_save_t> getLogHistory() { return loghistory; };
+	static const char *getLoglevelName(int i) { return loglevelname[i]; };
 private:
 	Logger();
 	Logger instance();
@@ -59,6 +70,7 @@ private:
 	static LogLevel flush_level;
 	static bool compress_file;
 	static void (*callback)(int, std::string msg, std::string msgf);
+	static std::deque <log_save_t> loghistory;
 };
 
 class ScopeLog

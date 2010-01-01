@@ -572,7 +572,8 @@ int Sequencer::readFile(std::string filename, std::vector<std::string> &lines)
 
 UserAuth* Sequencer::getUserAuth()
 {
-    Sequencer* instance = Instance();
+	STACKLOG;
+	Sequencer* instance = Instance();
 	return instance->authresolver;
 }
 
@@ -1004,6 +1005,25 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				serverSay(std::string("You are not authorized to kick people!"), uid);
 			}
 		}
+
+		// add to chat log
+		{
+			time_t lotime = time(NULL);
+			char timestr[50];
+			memset(timestr, 0, 50);
+			ctime_r(&lotime, timestr);
+			// remove trailing new line
+			timestr[strlen(timestr)-1]=0;
+
+			if(instance->chathistory.size() > 500)
+				instance->chathistory.pop_front();
+			chat_save_t ch;
+			ch.msg = std::string(data);
+			ch.nick = std::string(instance->clients[pos]->nickname);
+			ch.source = instance->clients[pos]->uid;
+			ch.time = std::string(timestr);
+			instance->chathistory.push_back(ch);
+		}
 	}
 	else if (type==MSG2_PRIVCHAT)
 	{
@@ -1087,6 +1107,21 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			}
 		}
 	}
+}
+
+Notifier *Sequencer::getNotifier()
+{
+    STACKLOG;
+    Sequencer* instance = Instance();
+	return instance->notifier;
+}
+
+
+std::deque <chat_save_t> Sequencer::getChatHistory()
+{
+    STACKLOG;
+    Sequencer* instance = Instance();
+	return instance->chathistory;
 }
 
 std::vector<client_t> Sequencer::getClients()

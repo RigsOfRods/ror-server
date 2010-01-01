@@ -47,6 +47,11 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#ifdef __GNUC__
+// probably linux
+#include <dlfcn.h>
+#endif // __GNUC__
+
 #if defined(_WIN32)		/* Windows specific #includes and #defines */
 #define	_WIN32_WINNT	0x0400	/* To make it link in VS2005 */
 #include <windows.h>

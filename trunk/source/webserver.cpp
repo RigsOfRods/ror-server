@@ -98,10 +98,10 @@ int formatBytes(double bytes, char *res)
 		sprintf(res, "%0.2f KB", bytes / 1024.0f);
 	else if(bytes > 1048576 && bytes <= 1073741824)
 		sprintf(res, "%0.2f MB", bytes / 1024.0f / 1024.0f);
-	else if(bytes > 1073741824 && bytes <= 1099511627776)
+	else //if(bytes > 1073741824 && bytes <= 1099511627776)
 		sprintf(res, "%0.2f GB", bytes / 1024.0f / 1024.0f / 1024.0f);
-	else if(bytes > 1099511627776)
-		sprintf(res, "%0.2f TB", bytes / 1024.0f / 1024.0f / 1024.0f / 1024.0f);
+	//else if(bytes > 1099511627776)
+	//	sprintf(res, "%0.2f TB", bytes / 1024.0f / 1024.0f / 1024.0f / 1024.0f);
 	return 0;
 }
 
@@ -184,12 +184,12 @@ static void show_list(struct mg_connection *conn, const struct mg_request_info *
 	for(std::vector<client_t>::iterator it = clients.begin(); it != clients.end(); it++,slotnum++)
 	{
 		// some auth identifiers
-		char authst[5] = "/";
-		if(it->authstate & AUTH_ADMIN) strcat(authst, "A");
-		if(it->authstate & AUTH_MOD) strcat(authst, "M");
-		if(it->authstate & AUTH_RANKED) strcat(authst, "R");
-		if(it->authstate & AUTH_BOT) strcat(authst, "B");
-		if(it->authstate & AUTH_BANNED) strcat(authst, "X");
+		char *authst = "none";
+		if(it->authstate & AUTH_BANNED)	authst = "banned";
+		if(it->authstate & AUTH_BOT)    authst = "bot";
+		if(it->authstate & AUTH_RANKED) authst = "ranked";
+		if(it->authstate & AUTH_MOD)    authst = "moderator";
+		if(it->authstate & AUTH_ADMIN)  authst = "admin";
 
 		// construct screen
 		if (it->status == FREE)

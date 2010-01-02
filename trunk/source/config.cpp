@@ -299,8 +299,7 @@ bool Config::fromArgs( int argc, char* argv[] )
 				setWebserverEnabled(true);
 			break;
 			case OPT_WEBSERVER_PORT:
-				Logger::setLogLevel(LOGTYPE_DISPLAY, LogLevel(atoi(args.OptionArg())));
-
+				setWebserverPort(atoi(args.OptionArg()));
 			break;
 			case OPT_MAXCLIENTS:
 				setMaxClients( atoi(args.OptionArg()) );

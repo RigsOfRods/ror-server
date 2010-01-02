@@ -163,7 +163,7 @@ void MyDialog::logCallback(int level, std::string msg, std::string msgf)
 	txtConsole->Thaw();
 }
 
-MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY, title,  wxPoint(100, 100), wxSize(500, 500), wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER|wxRESIZE_BOX)
+MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY, title,  wxPoint(100, 100), wxSize(500, 500), wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER)
 {
 	app=_app;
 	loglevel=LOG_INFO;

@@ -7,6 +7,7 @@
 #include "rornet.h"
 #include "HttpMsg.h"
 #include "logger.h"
+#include "sequencer.h"
 #include "sha1_util.h"
 
 #include <cmath>
@@ -41,7 +42,8 @@ enum
 	OPT_LOGFILENAME,
 	OPT_SCRIPTNAME,
 	OPT_WEBSERVER,
-	OPT_WEBSERVER_PORT
+	OPT_WEBSERVER_PORT,
+	OPT_VERSION
 };
 
 // option array
@@ -60,6 +62,7 @@ static CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_SCRIPTNAME, ("-script"), SO_REQ_SEP },
 	{ OPT_WEBSERVER, ("-webserver"), SO_NONE },
 	{ OPT_WEBSERVER_PORT, ("-webserverport"), SO_REQ_SEP },
+	{ OPT_VERSION, ("-version"), SO_NONE },
 	{ OPT_HELP,  ("--help"), SO_NONE },
 	SO_END_OF_OPTIONS
 };
@@ -130,6 +133,7 @@ void showUsage()
 " -webserver                   enables the built-in webserver" \
 " -webserver-port <number>     sets up the port for the webserver, default 8080" \
 " -script <script.as>          server script to execute" \
+" -version                     prints the server version numbers" \
 " -help                        Show this list\n");
 }
 
@@ -265,6 +269,16 @@ bool Config::fromArgs( int argc, char* argv[] )
 			break;
 			case OPT_PASS:
 				setPublicPass( args.OptionArg() );
+			break;
+			case OPT_VERSION:
+				printf("Rigs of Rods Server\n");
+				printf(" * using Protocol %s\n", RORNET_VERSION);
+				printf(" * Revision %s\n", VERSION);
+				printf(" * built on %s, %s\n", __DATE__, __TIME__);
+#ifdef __GNUC__
+				printf(" * built with %d.%d.%d\n", __GNUC_MINOR__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
+#endif //__GNUC__
+				exit(0);
 			break;
 			case OPT_PORT:
 				setListenPort( atoi(args.OptionArg()) );

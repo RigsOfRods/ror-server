@@ -276,7 +276,7 @@ bool Config::fromArgs( int argc, char* argv[] )
 				printf(" * Revision %s\n", VERSION);
 				printf(" * built on %s, %s\n", __DATE__, __TIME__);
 #ifdef __GNUC__
-				printf(" * built with %d.%d.%d\n", __GNUC_MINOR__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
+				printf(" * built with gcc %d.%d.%d\n", __GNUC_MINOR__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
 #endif //__GNUC__
 				exit(0);
 			break;

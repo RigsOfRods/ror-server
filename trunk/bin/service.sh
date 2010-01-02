@@ -46,9 +46,10 @@ case "$1" in
 	do
 		count=$((count+1))
 		port=$((port+1))
+		webport=$((port+1000))
 		NUMFOR=$(printf "%02d" ${count})
 		PIDFILE=$PIDDIR/server-${NUMFOR}.pid
-		PIDNUM=$(cat $PIDFILE)
+		PIDNUM=$(cat $PIDFILE 2>/dev/null)
 		# check if we only start a certain server
 		if [ -n "$2" ]
 		then
@@ -75,7 +76,9 @@ case "$1" in
 			fi
 		fi
 		log_daemon_msg "Starting $NAME Server ${count}"
-		start-stop-daemon --start --background --user $USERNAME --name rorserver-${NUMFOR} --exec $DAEMON --make-pidfile --pidfile $PIDFILE  -- -name Official_${NUMFOR}  -port ${port} -logfilename $LOGDIR/server-${NUMFOR}.log -logverbosity 1 $ARGS 
+		LOGFILE=$LOGDIR/server-${NUMFOR}.log
+		echo '' > $LOGFILE
+		start-stop-daemon --start --background --user $USERNAME --name rorserver-${NUMFOR} --exec $DAEMON --make-pidfile --pidfile $PIDFILE  -- -name Official_${NUMFOR}  -port ${port} -logfilename $LOGFILE -logverbosity 1 -webserver -webserverport ${webport} -inet $ARGS 
 		log_end_msg 0 
 
 	done < $CONFIG

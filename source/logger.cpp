@@ -92,6 +92,8 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 	}
 
 	// save history
+#if 0
+	// TODO : protect with mutexes
 	if(level > LOG_STACK)
 	{
 		if(loghistory.size() > 500)
@@ -103,6 +105,7 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 		h.msg = msg;
 		loghistory.push_back(h);
 	}
+#endif //0
 }
 
 void Logger::setOutputFile(const std::string& filename)

@@ -131,7 +131,7 @@ void showUsage()
 " -logfilename <server.log>    Sets the filename of the log" \
 " -script <script.as>          server script to execute" \
 " -webserver                   enables the built-in webserver" \
-" -webserver-port <number>     sets up the port for the webserver, default 8080" \
+" -webserver-port <number>     sets up the port for the webserver, default is game port + 1000" \
 " -script <script.as>          server script to execute" \
 " -version                     prints the server version numbers" \
 " -help                        Show this list\n");
@@ -151,7 +151,7 @@ Config::Config():
 	listen_port( 0 ),
 	server_mode( SERVER_AUTO ),
 	print_stats(true),
-	webserver_port(8080)
+	webserver_port( 0 )
 {
 }
 
@@ -377,6 +377,8 @@ bool Config::setIPAddr( const std::string& ip ) {
 }
 bool Config::setListenPort( unsigned int port ) {
 	instance.listen_port = port;
+	if(instance.webserver_port == 0)
+		instance.webserver_port = port + 1000;
 	return true;
 }
 void Config::setWebserverPort( unsigned int port ) {

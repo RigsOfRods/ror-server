@@ -63,7 +63,9 @@ static CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_WEBSERVER, ("-webserver"), SO_NONE },
 	{ OPT_WEBSERVER_PORT, ("-webserverport"), SO_REQ_SEP },
 	{ OPT_VERSION, ("-version"), SO_NONE },
+	{ OPT_HELP,  ("-help"), SO_NONE },
 	{ OPT_HELP,  ("--help"), SO_NONE },
+	{ OPT_HELP,  ("/help"), SO_NONE },
 	SO_END_OF_OPTIONS
 };
 #endif //NOCMDLINE

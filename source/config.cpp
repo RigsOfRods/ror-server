@@ -128,12 +128,12 @@ void showUsage()
 "                                  3 = info\n"
 "                                  4 = warn\n"
 "                                  5 = error\n" \
-" -logfilename <server.log>    Sets the filename of the log" \
-" -script <script.as>          server script to execute" \
-" -webserver                   enables the built-in webserver" \
-" -webserver-port <number>     sets up the port for the webserver, default is game port + 1000" \
-" -script <script.as>          server script to execute" \
-" -version                     prints the server version numbers" \
+" -logfilename <server.log>    Sets the filename of the log\n" \
+" -script <script.as>          server script to execute\n" \
+" -webserver                   enables the built-in webserver\n" \
+" -webserver-port <number>     sets up the port for the webserver, default is game port + 1000\n" \
+" -script <script.as>          server script to execute\n" \
+" -version                     prints the server version numbers\n" \
 " -help                        Show this list\n");
 }
 

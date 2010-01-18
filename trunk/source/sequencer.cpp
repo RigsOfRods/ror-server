@@ -656,7 +656,7 @@ void Sequencer::serverSay(std::string msg, int uid, int type)
 		if (instance->clients[i]->status == USED &&
 				instance->clients[i]->flow &&
 				(uid==-1 || instance->clients[i]->uid == uid))
-			instance->clients[i]->broadcaster->queueMessage(MSG2_CHAT, -1, 1, (int)msg.size(), msg.c_str() );
+			instance->clients[i]->broadcaster->queueMessage(MSG2_CHAT, -1, -1, (int)msg.size(), msg.c_str() );
 	}
 }
 
@@ -884,7 +884,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 		//serverSay(std::string(tmp), -1);
 		disconnect(instance->clients[pos]->uid, "disconnected on request", false);
 	}
-	else if (type==MSG2_CHAT)
+	else if (type == MSG2_CHAT)
 	{
 		Logger::log(LOG_INFO, "CHAT| %s: %s", instance->clients[pos]->nickname, data);
 		publishMode=3;
@@ -904,7 +904,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 		}
 		if(!strcmp(data, "!list"))
 		{
-			serverSay(std::string("uid | auth   | nick                 | vehicle"), uid);
+			serverSay(std::string(" uid | auth   | nick                 | vehicle"), uid);
 			for (unsigned int i = 0; i < instance->clients.size(); i++)
 			{
 				if(i >= instance->clients.size())

@@ -31,7 +31,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <unistd.h>
 #include <stdlib.h>
 #endif
-
+#include <cstdio>
 
 
 Notifier::Notifier(UserAuth *u) : exit(false), wasregistered( false ), error_count( 0 ), authresolver(u)

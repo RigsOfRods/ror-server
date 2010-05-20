@@ -8,6 +8,9 @@
 #include "scriptmath/scriptmath.h" // angelscript addon
 #include "scriptmath3d/scriptmath3d.h" // angelscript addon
 
+#include <cstdio>
+
+
 using namespace std;
 
 // cross platform assert

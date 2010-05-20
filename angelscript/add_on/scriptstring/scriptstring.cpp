@@ -1,6 +1,9 @@
 #include <assert.h>
 #include <string.h> // strstr
 #include "scriptstring.h"
+
+#include <cstdio>
+
 using namespace std;
 
 BEGIN_AS_NAMESPACE

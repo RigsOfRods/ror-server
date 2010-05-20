@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #endif
 
+#include <cstdio>
 
 #ifndef NOCMDLINE
 

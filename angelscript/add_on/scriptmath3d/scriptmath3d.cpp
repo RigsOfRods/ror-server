@@ -3,6 +3,7 @@
 #include <new> // new()
 #include <math.h>
 #include "scriptmath3d.h"
+#include <cstdio>
 
 BEGIN_AS_NAMESPACE
 

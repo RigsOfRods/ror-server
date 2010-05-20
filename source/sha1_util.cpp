@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #endif
-
+#include <cstdio>
 
 bool toHex(char *result, unsigned char *data, unsigned int len)
 {

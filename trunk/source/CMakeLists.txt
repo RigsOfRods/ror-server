@@ -1,13 +1,13 @@
 FILE(GLOB_RECURSE server_src *.cpp *.c *.h *.rc)
 
 # general flags
-add_definitions("-D_CRT_SECURE_NO_WARNINGS")
 include_directories (${rorserver_SOURCE_DIR}/socketw)
 include_directories (${rorserver_SOURCE_DIR}/angelscript/include)
 include_directories (${rorserver_SOURCE_DIR}/angelscript/add_on)
 
 # the final lib
 add_executable(rorserver ${server_src})
+windows_hacks(rorserver)
 
 # libraries
 add_dependencies(rorserver angelscript)
@@ -23,5 +23,12 @@ ELSEIF(UNIX)
 ELSEIF(APPLE)
 ENDIF(WIN32)
 
-install(TARGETS rorserver DESTINATION ${rorserver_SOURCE_DIR}/bin)
+# install the library
+INSTALL(TARGETS rorserver
+	RUNTIME DESTINATION bin
+	LIBRARY DESTINATION ${LIB_INSTALL_DIR}
+	ARCHIVE DESTINATION ${LIB_INSTALL_DIR}
+)
+
+
 

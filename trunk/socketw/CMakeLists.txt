@@ -1,10 +1,13 @@
 FILE(GLOB_RECURSE socketw_src *.cxx *.h)
 
+project(socketw)
+
 # general flags
 add_definitions("-DMYSOCKETW_EXPORTS -D_USRDLL -D_CRT_SECURE_NO_WARNINGS")
 
 # the final lib
 add_library(mysocketw SHARED ${socketw_src})
+windows_hacks(mysocketw)
 
 # libraries
 IF(WIN32)
@@ -13,4 +16,13 @@ ELSEIF(UNIX)
 ELSEIF(APPLE)
 ENDIF(WIN32)
 
-install(TARGETS mysocketw DESTINATION ${rorserver_SOURCE_DIR}/bin)
+# install the library
+INSTALL(TARGETS mysocketw
+	RUNTIME DESTINATION bin
+	LIBRARY DESTINATION ${LIB_INSTALL_DIR}
+	ARCHIVE DESTINATION ${LIB_INSTALL_DIR}
+)
+
+# install the headers: both source and build headers
+INSTALL(DIRECTORY ${socketw_SOURCE_DIR}/ DESTINATION include/socketw FILES_MATCHING PATTERN "*.h" PATTERN ".svn" EXCLUDE)
+

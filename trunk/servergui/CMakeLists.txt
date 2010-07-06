@@ -28,7 +28,7 @@ IF(wxWidgets_FOUND)
   link_directories (${wxWidgets_LIB_DIR})
   include_directories (${rorserver_SOURCE_DIR}/)
 
-  add_definitions("-D_UNICODE -D_CRT_SECURE_NO_WARNINGS -DNOCMDLINE")
+  add_definitions("-D_UNICODE -DNOCMDLINE")
 
   # always use no debug, otherwise we cannot link against the wxWidgets lib (that used no debug mode on compile time)
   add_definitions("-DNDEBUG")
@@ -36,6 +36,7 @@ IF(wxWidgets_FOUND)
   #add_definitions("${CMAKE_WXWINDOWS_CXX_FLAGS}")
 
   add_executable(servergui ${servergui_src} ${servergui_server_src})
+  windows_hacks(servergui)
 
   set_target_properties(servergui PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:WINDOWS")
   set_target_properties(servergui PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
@@ -58,7 +59,12 @@ IF(wxWidgets_FOUND)
     SET_TARGET_PROPERTIES(servergui PROPERTIES LINK_FLAGS    "/SUBSYSTEM:WINDOWS")
   ENDIF(WIN32)
 
-  install(TARGETS servergui DESTINATION ${rorserver_SOURCE_DIR}/bin)
+  # install the library
+  INSTALL(TARGETS servergui
+	RUNTIME DESTINATION bin
+	LIBRARY DESTINATION ${LIB_INSTALL_DIR}
+	ARCHIVE DESTINATION ${LIB_INSTALL_DIR}
+  )
 
 ELSE(wxWidgets_FOUND)
     MESSAGE("wxWidgets not found. Will not build the configurator.")

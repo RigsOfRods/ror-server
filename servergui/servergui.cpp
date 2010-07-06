@@ -211,7 +211,7 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY
 	dText = new wxStaticText(settingsPanel, wxID_ANY, _("Mode:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
 	grid_sizer->Add(dText, 0, wxGROW);
 
-	wxString choices[1];
+	wxString choices[2];
 	choices[0] = _("LAN");
 	choices[1] = _("Internet");
 	smode = new wxComboBox(settingsPanel, wxID_ANY, _("LAN"), wxDefaultPosition, wxDefaultSize, 2, choices, wxCB_DROPDOWN|wxCB_READONLY);

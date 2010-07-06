@@ -129,7 +129,7 @@ void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigne
 
 	MutexLocker scoped_lock( queue_mutex );
 
-	// we will limit the entries in this queue to 10
+	// we will limit the entries in this queue to 50
 	if(msg_queue.size() > 50)
 		msg_queue.pop_front();
 	

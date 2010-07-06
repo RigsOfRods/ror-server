@@ -146,7 +146,7 @@ void showUsage()
 Config Config::instance;
 
 Config::Config():
-	max_clients( 32 ),
+	max_clients( 16 ),
 	server_name( "" ),
 	terrain_name( "any" ),
 	ip_addr( "" ),

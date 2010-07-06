@@ -92,6 +92,7 @@ int UserAuth::readConfig()
 			Logger::log(LOG_ERROR, "error parsing admins.txt file: " + std::string(line));
 			continue;
 		}
+		Logger::log(LOG_DEBUG, "adding entry to local auth cache, size: %d", local_auth.size());
 		local_auth[std::string(token)] = authmode;
 	}
 	Logger::log(LOG_INFO, "found %d auth overrides!",  local_auth.size());
@@ -193,6 +194,8 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 	std::pair< int, std::string > p;
 	p.first = authlevel;
 	p.second = user_nick;
+
+	Logger::log(LOG_DEBUG, "adding entry to remote auth cache, size: %d",  cache.size());
 	cache[user_token] = p;
 
 	return authlevel;

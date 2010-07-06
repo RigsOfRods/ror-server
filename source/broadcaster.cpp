@@ -128,6 +128,11 @@ void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigne
 	memcpy( msg.data, data, len );
 
 	MutexLocker scoped_lock( queue_mutex );
+
+	// we will limit the entries in this queue to 10
+	if(msg_queue.size() > 50)
+		msg_queue.pop_front();
+	
 	msg_queue.push_back( msg );
 	//signal the thread that new data is waiting to be sent
 	queue_cv.signal();

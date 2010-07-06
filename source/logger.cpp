@@ -15,6 +15,7 @@
 #include <cstdarg>
 
 std::deque <log_save_t> Logger::loghistory;
+Mutex Logger::loghistory_mutex;
 
 // shamelessly taken from:
 // http://senzee.blogspot.com/2006/05/c-formatting-stdstring.html   
@@ -92,8 +93,7 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 	}
 
 	// save history
-#if 0
-	// TODO : protect with mutexes
+	MutexLocker scoped_lock( loghistory_mutex );
 	if(level > LOG_STACK)
 	{
 		if(loghistory.size() > 500)
@@ -105,7 +105,13 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 		h.msg = msg;
 		loghistory.push_back(h);
 	}
-#endif //0
+
+}
+
+std::deque <log_save_t> Logger::getLogHistory()
+{
+	MutexLocker scoped_lock( loghistory_mutex );
+	return loghistory;
 }
 
 void Logger::setOutputFile(const std::string& filename)

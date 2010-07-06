@@ -19,8 +19,8 @@ ENDIF(WIN32)
 # install the library
 INSTALL(TARGETS mysocketw
 	RUNTIME DESTINATION bin
-	LIBRARY DESTINATION ${LIB_INSTALL_DIR}
-	ARCHIVE DESTINATION ${LIB_INSTALL_DIR}
+	LIBRARY DESTINATION lib
+	ARCHIVE DESTINATION lib
 )
 
 # install the headers: both source and build headers

@@ -2,7 +2,6 @@
 #define MUTEXUTILS_H_
 
 #include <pthread.h>
-#include "logger.h"
 #define USE_THREADID
 
 class Condition

@@ -8,6 +8,8 @@
 #ifndef LOGGER_H_
 #define LOGGER_H_
 
+#include "mutexutils.h"
+
 #include <string>
 #include <deque>
 
@@ -58,7 +60,7 @@ public:
 
 	static void setCallback(void (*ptr)(int, std::string msg, std::string msgf));
 
-	static std::deque <log_save_t> getLogHistory() { return loghistory; };
+	static std::deque <log_save_t> getLogHistory();
 	static const char *getLoglevelName(int i) { return loglevelname[i]; };
 private:
 	Logger();
@@ -71,6 +73,7 @@ private:
 	static bool compress_file;
 	static void (*callback)(int, std::string msg, std::string msgf);
 	static std::deque <log_save_t> loghistory;
+	static Mutex loghistory_mutex;
 };
 
 class ScopeLog

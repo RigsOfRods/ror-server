@@ -55,22 +55,6 @@ IF(NOT WIN32)
 	ADD_DEFINITIONS(-Wall)
 endif()
 
-# Set visibility options if available
-IF(NOT WIN32)
-	CHECK_C_SOURCE_COMPILES("int foo() __attribute__((destructor));
-								int main() {return 0;}" HAVE_GCC_DESTRUCTOR)
-
-	CHECK_C_COMPILER_FLAG(-fvisibility=hidden HAVE_VISIBILITY_SWITCH)
-	IF(HAVE_VISIBILITY_SWITCH)
-		CHECK_C_SOURCE_COMPILES("int foo() __attribute__((visibility(\"default\")));
-									int main() {return 0;}" HAVE_GCC_VISIBILITY)
-		IF(HAVE_GCC_VISIBILITY)
-			ADD_DEFINITIONS(-fvisibility=hidden -DHAVE_GCC_VISIBILITY)
-		ENDIF()
-	ENDIF()
-ENDIF()
-
-
 add_subdirectory("socketw")
 add_subdirectory("source")
 add_subdirectory("angelscript")

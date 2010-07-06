@@ -93,7 +93,9 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 	}
 
 	// save history
-	loghistory_mutex.lock();
+	// do not use the class for locking, otherwise you get recursion because of STACKLOG
+	pthread_mutex_lock(loghistory_mutex.getRaw());
+
 	if(level > LOG_STACK)
 	{
 		if(loghistory.size() > 500)
@@ -105,7 +107,7 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 		h.msg = msg;
 		loghistory.push_back(h);
 	}
-	loghistory_mutex.unlock();
+	pthread_mutex_unlock(loghistory_mutex.getRaw());
 
 }
 

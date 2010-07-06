@@ -24,6 +24,8 @@ public:
 	void lock();
 	void unlock();
 	void wait(Condition &c);
+
+	pthread_mutex_t *getRaw() { return &m; };
 	
 private:
 	pthread_mutex_t m;

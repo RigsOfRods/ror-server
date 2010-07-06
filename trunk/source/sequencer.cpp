@@ -479,6 +479,8 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError)
 	Logger::log(LOG_VERBOSE, "Disconnecting Slot %d: %s", pos, errormsg);
 
 	client_t *c = instance->clients[pos];
+
+	Logger::log(LOG_DEBUG, "adding client to kill queue, size: %d", instance->killqueue.size());
 	instance->killqueue.push(c);
 
 	//notify the others
@@ -713,6 +715,7 @@ bool Sequencer::ban(int buid, int modUID, const char *msg)
 	strncpy(b->bannedby_nick, instance->clients[posMod]->nickname, 20);
 	strncpy(b->ip, instance->clients[pos]->sock->get_peerAddr(&error).c_str(), 16);
 	strncpy(b->nickname, instance->clients[pos]->nickname, 20);
+	Logger::log(LOG_DEBUG, "adding ban, size: %d", instance->bans.size());
 	instance->bans.push_back(b);
 	Logger::log(LOG_VERBOSE, "new ban added '%s' by '%s'", instance->clients[pos]->nickname, instance->clients[posMod]->nickname);
 
@@ -810,14 +813,22 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 	}
 	else if (type==MSG2_STREAM_REGISTER)
 	{
+		if(instance->clients[pos]->streams.size() > 20)
+		{
+			Logger::log(LOG_VERBOSE, " * new stream registered dropped, too much streams for user: %d", instance->clients[pos]->uid);
+			publishMode = 0; // drop
+		}
+
 		stream_register_t *reg = (stream_register_t *)data;
 		Logger::log(LOG_VERBOSE, " * new stream registered: %d:%d, type: %d, name: '%s', status: %d", instance->clients[pos]->uid, streamid, reg->type, reg->name, reg->status);
 		for(int i=0;i<128;i++) if(reg->name[i] == ' ') reg->name[i] = 0; // convert spaces to zero's
 		reg->name[127] = 0;
 		instance->clients[pos]->streams[streamid] = *reg;
+
 		instance->streamDebug();
 
 		// reset some stats
+		// streams_traffic limited through streams map
 		instance->clients[pos]->streams_traffic[streamid].bandwidthIncoming=0;
 		instance->clients[pos]->streams_traffic[streamid].bandwidthIncomingLastMinute=0;
 		instance->clients[pos]->streams_traffic[streamid].bandwidthIncomingRate=0;

@@ -52,6 +52,13 @@ private:
 
 	 void threadstart();
 	 friend void* s_brthreadstart(void* vid);
+	 
+	 void debugMessageQueue();
+	 
+	 int getMessageQueueSize();
+
+	 static const int queue_soft_limit = 250;
+	 static const int queue_hard_limit = 500;
 
 public:
 	Broadcaster();

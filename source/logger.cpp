@@ -93,7 +93,7 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 	}
 
 	// save history
-	MutexLocker scoped_lock( loghistory_mutex );
+	loghistory_mutex.lock();
 	if(level > LOG_STACK)
 	{
 		if(loghistory.size() > 500)
@@ -105,6 +105,7 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 		h.msg = msg;
 		loghistory.push_back(h);
 	}
+	loghistory_mutex.unlock();
 
 }
 

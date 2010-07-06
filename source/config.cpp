@@ -146,7 +146,7 @@ void showUsage()
 Config Config::instance;
 
 Config::Config():
-	max_clients( 16 ),
+	max_clients( 32 ),
 	server_name( "" ),
 	terrain_name( "any" ),
 	ip_addr( "" ),
@@ -165,7 +165,6 @@ Config::~Config()
 //! runs a check that all the required fields are present
 bool Config::checkConfig()
 {
-	bool is_valid_config = true;
 	
 	switch ( getServerMode() )
 	{
@@ -198,7 +197,7 @@ bool Config::checkConfig()
 		if( getIPAddr().empty() )
 		{
 			Logger::log( LOG_ERROR, "IP adddress not specified.");
-			is_valid_config = false;
+			return 0;
 		}
 		else
 			Logger::log( LOG_INFO, "ip address: %s", getIPAddr().c_str() );
@@ -210,7 +209,7 @@ bool Config::checkConfig()
 		if( getServerName().empty() )
 		{
 			Logger::log( LOG_ERROR, "Server name not specified.");
-			is_valid_config = false;
+			return 0;
 		}
 		else
 			Logger::log( LOG_INFO, "servername: %s", getServerName().c_str() );		
@@ -225,7 +224,7 @@ bool Config::checkConfig()
 	if( getTerrainName().empty() )
 	{
 		Logger::log( LOG_ERROR, "terrain not specified" );
-		is_valid_config = false;
+		return 0;
 	}
 	else
 		Logger::log( LOG_INFO, "terrain:    %s", getTerrainName().c_str() );
@@ -233,7 +232,7 @@ bool Config::checkConfig()
 	if( getMaxClients() < 2 || getMaxClients() > 64 )
 	{
 		Logger::log( LOG_ERROR, "Max clients need to 2 or more, and 64 or less." );
-		is_valid_config = false;
+		return 0;
 	}
 	else
 		Logger::log( LOG_INFO, "maxclients: %d", getMaxClients());
@@ -241,7 +240,6 @@ bool Config::checkConfig()
 	Logger::log( LOG_INFO, "server is%s password protected",
 			getPublicPassword().empty() ? " NOT": "" );
 
-	return is_valid_config;
 	return getMaxClients() && getListenPort() && !getIPAddr().empty() && 
 		!getServerName().empty() &&!getTerrainName().empty();
 }

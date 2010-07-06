@@ -131,7 +131,10 @@ void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigne
 
 	// we will limit the entries in this queue to 50
 	if(msg_queue.size() > 50)
+	{
+		Logger::log( LOG_DEBUG, "broadcaster queue full: thread %u owned by uid %d", ThreadID::getID(), id);
 		msg_queue.pop_front();
+	}
 	
 	msg_queue.push_back( msg );
 	//signal the thread that new data is waiting to be sent

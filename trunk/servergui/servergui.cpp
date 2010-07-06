@@ -37,6 +37,12 @@
 
 // xpm images
 #include "server.xpm"
+#include "play.xpm"
+#include "play_dis.xpm"
+#include "shutdown.xpm"
+#include "shutdown_dis.xpm"
+#include "stop.xpm"
+#include "stop_dis.xpm"
 
 class MyApp : public wxApp
 {
@@ -62,6 +68,7 @@ private:
 	wxScrolledWindow *settingsPanel;
 	wxPanel *logPanel, *playersPanel;
 	wxTimer *timer1;
+	wxToolBar *tb;
 	void OnQuit(wxCloseEvent &event);
 	int loglevel;
 
@@ -88,6 +95,10 @@ BEGIN_EVENT_TABLE(MyDialog, wxDialog)
 	EVT_BUTTON(btn_exit,  MyDialog::OnBtnExit)
 	EVT_BUTTON(btn_pubip, MyDialog::OnBtnPubIP)
 	EVT_TIMER(EVT_timer1, MyDialog::OnTimer)
+
+	EVT_TOOL(btn_start, MyDialog::OnBtnStart)
+	EVT_TOOL(btn_stop,  MyDialog::OnBtnStop)
+	EVT_TOOL(btn_exit,  MyDialog::OnBtnExit)
 END_EVENT_TABLE()
 
 IMPLEMENT_APP(MyApp)
@@ -163,21 +174,44 @@ void MyDialog::logCallback(int level, std::string msg, std::string msgf)
 	txtConsole->Thaw();
 }
 
-MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY, title,  wxPoint(100, 100), wxSize(500, 500), wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER)
+MyDialog::MyDialog(const wxString& title, MyApp *_app) : 
+	wxDialog(NULL, wxID_ANY, title,  wxDefaultPosition, wxSize(600, 600), wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER)
 {
 	app=_app;
 	loglevel=LOG_INFO;
 	dialogInstance = this;
 
-	SetMinSize(wxSize(500,500));
+	SetMinSize(wxSize(600,600));
 	//SetMaxSize(wxSize(500,500));
 	SetWindowStyle(wxRESIZE_BORDER | wxCAPTION);
 
 	timer1 = new wxTimer(this, EVT_timer1);
 
+	wxSizer *mainsizer_0 = new wxBoxSizer(wxHORIZONTAL);
+	mainsizer_0->SetSizeHints(this);
+	this->SetSizer(mainsizer_0);
+
+	// add left part
 	wxSizer *mainsizer = new wxBoxSizer(wxVERTICAL);
-	mainsizer->SetSizeHints(this);
-	this->SetSizer(mainsizer);
+	mainsizer_0->Add(mainsizer, 1, wxGROW);
+
+	// add main toolbar (right part)
+	wxPanel *tbp = new wxPanel(this,wxID_ANY, wxPoint(0, 0), wxSize(100, 600));
+	tb = new wxToolBar(tbp, wxID_ANY, wxPoint(0, 0), wxSize(100, 600), wxTB_VERTICAL|wxTB_TEXT|wxTB_FLAT);
+	mainsizer_0->Add(tbp, 0, wxALL);
+
+	tb->SetToolBitmapSize(wxSize(48,48));
+	tb->SetToolSeparation(10);
+
+	// icons from http://www.iconarchive.com/category/application/button-icons-by-deleket.html
+
+	tb->AddTool(btn_start, _T("Start"), wxBitmap(play_xpm) , wxBitmap(play_dis_xpm), wxITEM_NORMAL, _T("Start server"), _T("Start server"));
+	tb->AddTool(btn_stop, _T("Stop"), wxBitmap(stop_xpm) , wxBitmap(stop_dis_xpm), wxITEM_NORMAL, _T("Stop server"), _T("Stop server"));
+	tb->FindById(btn_stop)->Enable(false);
+	tb->AddSeparator();
+	tb->AddTool(btn_exit, _T("Shutdown"), wxBitmap(shutdown_xpm) , wxBitmap(shutdown_dis_xpm), wxITEM_NORMAL, _T("Shutdown server"), _T("Shutdown server"));
+	tb->Realize();
+
 
 	// head image - using xpm
 	wxStaticPicture *imagePanel = new wxStaticPicture(this, -1, wxBitmap(config_xpm), wxPoint(0, 0), wxSize(500, 100), wxNO_BORDER);
@@ -188,18 +222,19 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY
 
 	///// settings
 	settingsPanel=new wxScrolledWindow(nbook, wxID_ANY);
-	settingsPanel->SetVirtualSize(300, 800);
+	//settingsPanel->SetVirtualSize(300, 800);
 	settingsPanel->SetScrollbars(0, 10, 1,0, 0, 0);
 
 	wxSizer *settingsSizer = new wxBoxSizer(wxVERTICAL);
-	wxFlexGridSizer *grid_sizer = new wxFlexGridSizer(3, 2, 10, 10);
+	wxFlexGridSizer *grid_sizer = new wxFlexGridSizer(3, 2, 10, 20);
 	wxStaticText *dText;
 
 	// server version
 	dText = new wxStaticText(settingsPanel, wxID_ANY, _("Server Version:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
 	grid_sizer->Add(dText, 0, wxGROW);
-	dText = new wxStaticText(settingsPanel, wxID_ANY, conv(RORNET_VERSION), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
-	grid_sizer->Add(dText, 0, wxGROW);
+	sname = new wxTextCtrl(settingsPanel, wxID_ANY, conv(RORNET_VERSION), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
+	sname->Disable();
+	grid_sizer->Add(sname, 0, wxGROW);
 
 	// server name
 	dText = new wxStaticText(settingsPanel, wxID_ANY, _("Server Name:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
@@ -277,14 +312,14 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY
 	grid_sizer->Add(adminuid, 0, wxGROW);
 
 	// some buttons
-	startBtn = new wxButton(settingsPanel, btn_start, _("START"));
-	grid_sizer->Add(startBtn, 0, wxGROW);
+	//startBtn = new wxButton(settingsPanel, btn_start, _("START"));
+	//grid_sizer->Add(startBtn, 0, wxGROW);
 
-	stopBtn = new wxButton(settingsPanel, btn_stop, _("STOP"));
-	stopBtn->Disable();
-	grid_sizer->Add(stopBtn, 0, wxGROW);
+	///stopBtn = new wxButton(settingsPanel, btn_stop, _("STOP"));
+	//stopBtn->Disable();
+	//grid_sizer->Add(stopBtn, 0, wxGROW);
 
-	settingsSizer->Add(grid_sizer, 0, wxGROW);
+	settingsSizer->Add(grid_sizer, 0, wxGROW, 10);
 	settingsPanel->SetSizer(settingsSizer);
 	nbook->AddPage(settingsPanel, _("Settings"), true);
 
@@ -320,8 +355,8 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY
 	nbook->AddPage(playersPanel, _("Slots"), false);
 
 	// main sizer again
-	exitBtn = new wxButton(this, btn_exit, _("EXIT"));
-	mainsizer->Add(exitBtn, 0, wxGROW);
+	//exitBtn = new wxButton(this, btn_exit, _("EXIT"));
+	//mainsizer->Add(exitBtn, 0, wxGROW);
 
 
 
@@ -331,7 +366,7 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) : wxDialog(NULL, wxID_ANY
 
 	// centers dialog window on the screen
 	Show();
-	SetSize(500,500);
+	SetSize(580,600);
 	Centre();
 }
 
@@ -392,8 +427,10 @@ void MyDialog::OnQuit(wxCloseEvent &event)
 
 void MyDialog::OnBtnStart(wxCommandEvent& event)
 {
-	startBtn->Disable();
-	stopBtn->Enable();
+	tb->FindById(btn_start)->Enable(false);
+	tb->FindById(btn_stop)->Enable(true);
+	//startBtn->Disable();
+	//stopBtn->Enable();
 	nbook->SetSelection(1);
 	startServer();
 	timer1->Start(5000);
@@ -405,7 +442,8 @@ void MyDialog::OnBtnStop(wxCommandEvent& event)
 	stopServer();
 	// FIXME: bug upon server restart ...
 	//startBtn->Enable();
-	stopBtn->Disable();
+	//stopBtn->Disable();
+	tb->FindById(btn_stop)->Enable(false);
 }
 
 void MyDialog::OnBtnExit(wxCommandEvent& event)

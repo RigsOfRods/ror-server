@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "broadcaster.h"
 #include "logger.h"
 #include "SocketW.h"
+#include <map>
 
 void *s_brthreadstart(void* vid)
 {
@@ -129,15 +130,52 @@ void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigne
 
 	MutexLocker scoped_lock( queue_mutex );
 
-	// we will limit the entries in this queue to 50
-	if(msg_queue.size() > 50)
+	// we will limit the entries in this queue
+	
+	// soft limit: we start dropping data packages
+	if(msg_queue.size() > queue_soft_limit && type == MSG2_VEHICLE_DATA)
 	{
-		Logger::log( LOG_DEBUG, "broadcaster queue full: thread %u owned by uid %d", ThreadID::getID(), id);
-		msg_queue.pop_front();
+		Logger::log( LOG_DEBUG, "broadcaster queue soft full: thread %u owned by uid %d", ThreadID::getID(), id);
+		return;
+	}
+
+	// hard limit drop anything, otherwise we would need to run through the queue and search and remove
+	// data packages, which is not really feasible
+	if(msg_queue.size() > queue_hard_limit)
+	{
+		Logger::log( LOG_DEBUG, "broadcaster queue hard full: thread %u owned by uid %d", ThreadID::getID(), id);
+		debugMessageQueue();
+		return;
 	}
 	
 	msg_queue.push_back( msg );
 	//signal the thread that new data is waiting to be sent
 	queue_cv.signal();
 
+}
+
+void Broadcaster::debugMessageQueue()
+{
+	// IMPORTANT: assumes we are still locked
+	int msgsize = msg_queue.size();
+	std::map < int, int > types;
+	std::map < int, int >::iterator it;
+	for(int i = 0; i < msgsize; i++)
+	{
+		int type = msg_queue.at(i).type;
+		if(types.find(type) == types.end())
+			types[type] = 0;
+		
+		types[type] += 1;
+	}
+	Logger::log( LOG_DEBUG, "broadcaster queue debug (thread %u owned by uid %d)", ThreadID::getID(), id);
+	
+	for(it = types.begin(); it != types.end() ; it++)
+		Logger::log( LOG_DEBUG, " * message type %03d : %03d times out of %03d ( %0.2f %%)", it->first, it->second, msgsize, ((float)it->second / (float)msgsize) * 100.0f);
+
+}
+
+int Broadcaster::getMessageQueueSize()
+{
+	return msg_queue.size();
 }

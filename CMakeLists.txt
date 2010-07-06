@@ -53,10 +53,6 @@ endmacro(windows_hacks)
 # some additional compiler flags
 IF(NOT WIN32)
 	ADD_DEFINITIONS(-Wall)
-	CHECK_C_COMPILER_FLAG(-Wextra HAVE_W_EXTRA)
-	IF(HAVE_W_EXTRA)
-		ADD_DEFINITIONS(-Wextra)
-	ENDIF()
 endif()
 
 # Set visibility options if available

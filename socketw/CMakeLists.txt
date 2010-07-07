@@ -29,6 +29,6 @@ INSTALL(
 	DESTINATION include/socketw 
 	FILES_MATCHING PATTERN "*.h" 
 	PATTERN ".svn" EXCLUDE
-	PATTERN "CmakeFiles" EXCLUDE
+	PATTERN "CMakeFiles" EXCLUDE
 )
 

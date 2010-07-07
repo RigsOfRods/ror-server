@@ -125,34 +125,34 @@ void daemonize()
 	}
 
 	/* child (daemon) continues */
-	
-    /* Change the file mode mask */
-    umask(0);
+
+	/* Change the file mode mask */
+	umask(0);
 
 	/* obtain a new process group */
 	pid sid = setsid();
 	if (sid < 0)
 	{
 		perror("unable to get a new session")
-        exit(1);
-    }
-	
+		exit(1);
+	}
+
 	/* close all descriptors */
 	for (i=getdtablesize();i>=0;--i)
 		close(i); 
-	
+
 	/* handle standart I/O */
 	i=open("/dev/null",O_RDWR); dup(i); dup(i);
-	
 
-    /* Change the current working directory.  This prevents the current
-       directory from being locked; hence not being able to remove it. */
-    if ((chdir("/tmp")) < 0)
+
+	/* Change the current working directory.  This prevents the current
+	   directory from being locked; hence not being able to remove it. */
+	if ((chdir("/tmp")) < 0)
 	{
 		perror("unable to change working directory to /tmp")
-        exit(1);
-    }
-	
+		exit(1);
+	}
+
 	FILE *lfp=open(LOCK_FILE,O_RDWR|O_CREAT,0640);
 	if (lfp<0)
 	{

@@ -156,7 +156,7 @@ Config::Config():
 	scriptname(""),
 	listen_port( 0 ),
 	server_mode( SERVER_AUTO ),
-	print_stats(true),
+	print_stats(false),
 	webserver_port( 0 ),
 	foreground(false)
 {
@@ -320,6 +320,12 @@ bool Config::fromArgs( int argc, char* argv[] )
 			}
 		}
 	}
+	if(getForeground() && !getWebserverEnabled() && !getPrintStats())
+	{
+		// add console overview printing when the webserver is not enabled
+		setPrintStats(true);
+	}
+
 #endif //NOCMDLINE
 	return true;
 }

@@ -251,9 +251,6 @@ bool Config::checkConfig()
 bool Config::fromArgs( int argc, char* argv[] )
 {
 #ifndef NOCMDLINE
-	// no stdout output by default to favour deamon mode
-	Logger::setLogLevel(LOGTYPE_DISPLAY, LOG_NONE);
-
 	// parse arguments
 	CSimpleOpt args(argc, argv, cmdline_options);
 	while (args.Next()) {
@@ -313,12 +310,7 @@ bool Config::fromArgs( int argc, char* argv[] )
 				setMaxClients( atoi(args.OptionArg()) );
 			break;
 			case OPT_FOREGROUND:
-			{
-				// setup some logging for stdout
-				if(Logger::getLogLevel(LOGTYPE_DISPLAY) == LOG_NONE)
-					Logger::setLogLevel(LOGTYPE_DISPLAY, LOG_INFO);
 				setForeground(true);
-			}
 			break;
 			
 			case OPT_HELP: 

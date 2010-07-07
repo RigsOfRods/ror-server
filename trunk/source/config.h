@@ -36,6 +36,7 @@ public:
 	static bool               getEnableScripting();
 	static bool               getWebserverEnabled();
 	static unsigned int       getWebserverPort();
+	static bool               getForeground();
 	
 	//!@}
 
@@ -52,6 +53,7 @@ public:
 	static void setPrintStats(bool value);
 	static void setWebserverEnabled(bool value);
 	static void setWebserverPort( unsigned int port );
+	static void setForeground(bool value);
 	//!@}
 
 	static std::string getPublicIP();
@@ -71,7 +73,8 @@ private:
 	bool print_stats;
 	bool webserver_enabled;
 	unsigned int webserver_port;
-	
+	bool foreground;
+
 	
 	
 };

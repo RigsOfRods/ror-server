@@ -21,7 +21,8 @@ enum LogLevel
 	LOG_VERBOSE,
 	LOG_INFO,
 	LOG_WARN,
-	LOG_ERROR
+	LOG_ERROR,
+	LOG_NONE
 };
 
 enum LogType
@@ -51,6 +52,7 @@ public:
 	
 	static void setOutputFile(const std::string& filename);
 	static void setLogLevel(const LogType type, const LogLevel level);
+	static const LogLevel getLogLevel(const LogType type);
 	//! sets the level at which manual file flushing occurs flushing at the 
 	//! stack level is a heavy hit on performance with only 2 clients connected
 	//! This prevents any messages below the specified level triggering manual

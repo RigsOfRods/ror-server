@@ -785,7 +785,7 @@ void Sequencer::streamDebug()
 			else
 				for(std::map<unsigned int, stream_register_t>::iterator it = instance->clients[i]->streams.begin(); it!=instance->clients[i]->streams.end(); it++)
 				{
-					char *types[] = {"truck", "character", "aitraffic", "chat"};
+					char *types[] = {(char *)"truck", (char *)"character", (char *)"aitraffic", (char *)"chat"};
 					char *typeStr = (char *)"unkown";
 					if(it->second.type>=0 && it->second.type <= 3)
 						typeStr = types[it->second.type];

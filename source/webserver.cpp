@@ -323,9 +323,8 @@ static void show_stats_general(struct mg_connection *conn, const struct mg_reque
 	mg_printf(conn, "%s", " </ul>");
 	mg_printf(conn, "%s", "</ul>");
 
-	mg_printf(conn, "%s", "Advanced Statistics:");
-
 #ifndef WIN32
+	mg_printf(conn, "%s", "Advanced Statistics:");
 	{
 		char filename[255]="";
 		sprintf(filename, "/proc/%d/status", getpid());

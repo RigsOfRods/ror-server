@@ -24,5 +24,11 @@ INSTALL(TARGETS mysocketw
 )
 
 # install the headers: both source and build headers
-INSTALL(DIRECTORY ${socketw_SOURCE_DIR}/ DESTINATION include/socketw FILES_MATCHING PATTERN "*.h" PATTERN ".svn" EXCLUDE)
+INSTALL(
+	DIRECTORY ${socketw_SOURCE_DIR}/ 
+	DESTINATION include/socketw 
+	FILES_MATCHING PATTERN "*.h" 
+	PATTERN ".svn" EXCLUDE
+	PATTERN "CmakeFiles" EXCLUDE
+)
 

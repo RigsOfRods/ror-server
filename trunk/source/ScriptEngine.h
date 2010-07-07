@@ -1,3 +1,4 @@
+#ifdef WITH_ANGELSCRIPT
 #ifndef SCRIPTENGINE_H__
 #define SCRIPTENGINE_H__
 
@@ -97,3 +98,4 @@ public:
 };
 
 #endif //SCRIPTENGINE_H__
+#endif //WITH_ANGELSCRIPT

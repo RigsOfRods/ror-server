@@ -28,7 +28,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define __Sequencer_H__
 
 #include "rornet.h"
+#ifdef WITH_ANGELSCRIPT
 #include "scriptmath3d/scriptmath3d.h" // angelscript addon
+#endif //WITH_ANGELSCRIPT
 #include "mutexutils.h"
 #include <string>
 
@@ -84,8 +86,10 @@ struct client_t
                                 //!< other players
     unsigned int uid;           //!< userid
     unsigned int slotnum;       //!< slot number
-    Vector3 position;           //!< position on the map?
-    char uniqueid[60];          //!< users unique id
+#ifdef WITH_ANGELSCRIPT
+	Vector3 position;           //!< position on the map?
+#endif //WITH_ANGELSCRIPTv
+	char uniqueid[60];          //!< users unique id
     
 	int authstate;              //!< authenticated state
 	int colournumber;           //!< player colour

@@ -369,6 +369,7 @@ static void show_map(struct mg_connection *conn, const struct mg_request_info *r
 {
 	html_header(conn);
 	std::string userlist="<ul>";
+#ifdef WITH_ANGELSCRIPT
 	mg_printf(conn, "%s", "<div style='background-color:#aaaaaa;width:300px;height:300px;position:relative;'>");
 	std::vector<client_t> clients = Sequencer::getClients();
 	for(std::vector<client_t>::iterator it = clients.begin(); it != clients.end(); it++)
@@ -381,7 +382,9 @@ static void show_map(struct mg_connection *conn, const struct mg_request_info *r
 		userlist += "<li>" + std::string(it->nickname) + "</li>";
 	}
 	mg_printf(conn, "%s", "</div>");
-	
+#else //WITH_ANGELSCRIPT
+	mg_printf(conn, "%s", "not available");
+#endif //WITH_ANGELSCRIPT
 	userlist+="</ul>";
 	mg_printf(conn, "<div style='margin:0px;padding:0px;width:340px;padding-left:5px;'>%s</div>", userlist.c_str());
 

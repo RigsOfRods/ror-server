@@ -85,9 +85,11 @@ void Receiver::threadstart()
 
 	//send motd
 	Sequencer::sendMOTD(id);
-	
+
+#ifdef WITH_ANGELSCRIPT
 	if(Sequencer::getScriptEngine())
 		Sequencer::getScriptEngine()->playerAdded(id);
+#endif //WITH_ANGELSCRIPT
 
 	Logger::log(LOG_VERBOSE,"UID %d is switching to FLOW", id);
 	

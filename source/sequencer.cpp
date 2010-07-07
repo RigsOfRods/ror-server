@@ -672,7 +672,7 @@ void Sequencer::serverSay(std::string msg, int uid, int type)
 	{
 		if (instance->clients[i]->status == USED &&
 				instance->clients[i]->flow &&
-				(uid==-1 || instance->clients[i]->uid == uid))
+				(uid==-1 || ((int)instance->clients[i]->uid) == uid))
 			instance->clients[i]->broadcaster->queueMessage(MSG2_CHAT, -1, -1, (int)msg.size(), msg.c_str() );
 	}
 }
@@ -745,7 +745,7 @@ bool Sequencer::unban(int buid)
     Sequencer* instance = Instance();
 	for (unsigned int i = 0; i < instance->bans.size(); i++)
 	{
-		if(instance->bans[i]->uid == buid)
+		if(((int)instance->bans[i]->uid) == buid)
 		{
 			instance->bans.erase(instance->bans.begin() + i);
 			Logger::log(LOG_VERBOSE, "uid unbanned: %d", buid);
@@ -785,11 +785,10 @@ void Sequencer::streamDebug()
 			else
 				for(std::map<unsigned int, stream_register_t>::iterator it = instance->clients[i]->streams.begin(); it!=instance->clients[i]->streams.end(); it++)
 				{
-					char *typeStr="unkown";
-					if(it->second.type == 0) typeStr="truck";
-					if(it->second.type == 1) typeStr="character";
-					if(it->second.type == 2) typeStr="aitraffic";
-					if(it->second.type == 3) typeStr="chat";
+					char *types[] = {"truck", "character", "aitraffic", "chat"};
+					char *typeStr = (char *)"unkown";
+					if(it->second.type>=0 && it->second.type <= 3)
+						typeStr = types[it->second.type];
 					Logger::log(LOG_VERBOSE, "  * %d:%d, type:%s status:%d name:'%s'", instance->clients[i]->uid, it->first, typeStr, it->second.status, it->second.name);
 				}
 		}
@@ -956,7 +955,11 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			for (unsigned int i = 0; i < instance->bans.size(); i++)
 			{
 				char tmp[256]="";
-				sprintf(tmp, "% 3d | %-15s | %-20s | %-20s | %s", instance->bans[i]->uid, instance->bans[i]->ip, instance->bans[i]->nickname, instance->bans[i]->bannedby_nick);
+				sprintf(tmp, "% 3d | %-15s | %-20s | %-20s", 
+					instance->bans[i]->uid, 
+					instance->bans[i]->ip, 
+					instance->bans[i]->nickname, 
+					instance->bans[i]->bannedby_nick);
 				serverSay(std::string(tmp), uid);
 			}
 		}
@@ -1069,8 +1072,8 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 	}
 	else if (type==MSG2_VEHICLE_DATA)
 	{
-		float* fpt=(float*)(data+sizeof(oob_t));
 #ifdef WITH_ANGELSCRIPT
+		float* fpt=(float*)(data+sizeof(oob_t));
 		instance->clients[pos]->position=Vector3(fpt[0], fpt[1], fpt[2]);
 #endif //WITH_ANGELSCRIPT
 		/*

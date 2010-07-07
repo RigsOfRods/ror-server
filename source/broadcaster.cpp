@@ -133,7 +133,7 @@ void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigne
 	// we will limit the entries in this queue
 	
 	// soft limit: we start dropping data packages
-	if(msg_queue.size() > queue_soft_limit && type == MSG2_STREAM_DATA)
+	if(msg_queue.size() > (size_t)queue_soft_limit && type == MSG2_STREAM_DATA)
 	{
 		Logger::log( LOG_DEBUG, "broadcaster queue soft full: thread %u owned by uid %d", ThreadID::getID(), id);
 		return;
@@ -141,7 +141,7 @@ void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigne
 
 	// hard limit drop anything, otherwise we would need to run through the queue and search and remove
 	// data packages, which is not really feasible
-	if(msg_queue.size() > queue_hard_limit)
+	if(msg_queue.size() > (size_t)queue_hard_limit)
 	{
 		Logger::log( LOG_DEBUG, "broadcaster queue hard full: thread %u owned by uid %d", ThreadID::getID(), id);
 		debugMessageQueue();

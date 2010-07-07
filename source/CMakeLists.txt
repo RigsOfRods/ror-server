@@ -3,7 +3,6 @@ FILE(GLOB_RECURSE server_src *.cpp *.c *.h *.rc)
 # general flags
 include_directories (${rorserver_SOURCE_DIR}/socketw)
 
-option(WITH_ANGELSCRIPT "adds scripting support" FALSE)
 if(WITH_ANGELSCRIPT)
 	add_definitions("-DWITH_ANGELSCRIPT")
 	include_directories (${rorserver_SOURCE_DIR}/angelscript/include)

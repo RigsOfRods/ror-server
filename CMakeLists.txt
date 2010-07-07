@@ -55,11 +55,17 @@ IF(NOT WIN32)
 	ADD_DEFINITIONS(-Wall)
 endif()
 
+#options
+option(BUILD_GUI "build server GUI, experimental" FALSE)
+option(WITH_ANGELSCRIPT "adds scripting support" FALSE)
+
+
 add_subdirectory("socketw")
 add_subdirectory("source")
-add_subdirectory("angelscript")
 
-option(BUILD_GUI "build server GUI, experimental" FALSE)
+if(WITH_ANGELSCRIPT)
+	add_subdirectory("angelscript")
+endif(WITH_ANGELSCRIPT)
 if(BUILD_GUI)
 add_subdirectory("servergui")
 endif(BUILD_GUI)

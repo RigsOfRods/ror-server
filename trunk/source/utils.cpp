@@ -78,7 +78,7 @@ std::string hexdump(void *pAddressIn, long  lSize)
 		// create a 64-character formatted output line:
 		sprintf(szBuf, " >                            "
 					 "                      "
-					 "    %08lX", pTmp-pAddress);
+					 "    %08lX", (long unsigned int)(pTmp-pAddress));
 		lOutLen2 = lOutLen;
 
 		for(lIndex = 1+lIndent, lIndex2 = 53-15+lIndent, lRelPos = 0;

@@ -184,12 +184,12 @@ static void show_list(struct mg_connection *conn, const struct mg_request_info *
 	for(std::vector<client_t>::iterator it = clients.begin(); it != clients.end(); it++,slotnum++)
 	{
 		// some auth identifiers
-		char *authst = "none";
-		if(it->authstate & AUTH_BANNED)	authst = "banned";
-		if(it->authstate & AUTH_BOT)    authst = "bot";
-		if(it->authstate & AUTH_RANKED) authst = "ranked";
-		if(it->authstate & AUTH_MOD)    authst = "moderator";
-		if(it->authstate & AUTH_ADMIN)  authst = "admin";
+		char *authst = (char *)"none";
+		if(it->authstate & AUTH_BANNED)	authst = (char *)"banned";
+		if(it->authstate & AUTH_BOT)    authst = (char *)"bot";
+		if(it->authstate & AUTH_RANKED) authst = (char *)"ranked";
+		if(it->authstate & AUTH_MOD)    authst = (char *)"moderator";
+		if(it->authstate & AUTH_ADMIN)  authst = (char *)"admin";
 
 		// construct screen
 		if (it->status == FREE)
@@ -234,11 +234,11 @@ static void show_list(struct mg_connection *conn, const struct mg_request_info *
 			
 			for(std::map<unsigned int, stream_register_t>::iterator sit = it->streams.begin(); sit != it->streams.end(); sit++)
 			{
-				char *typeStr = "unkown";
-				if(sit->second.type == 0) typeStr = "Vehicle";
-				if(sit->second.type == 1) typeStr = "Character";
-				if(sit->second.type == 2) typeStr = "AI Traffic";
-				if(sit->second.type == 3) typeStr = "Chat";
+				char *typeStr = (char *)"unkown";
+				if(sit->second.type == 0) typeStr = (char *)"Vehicle";
+				if(sit->second.type == 1) typeStr = (char *)"Character";
+				if(sit->second.type == 2) typeStr = (char *)"AI Traffic";
+				if(sit->second.type == 3) typeStr = (char *)"Chat";
 
 				// traffic stats
 				stream_traffic_t *traf = 0;
@@ -336,13 +336,13 @@ static void show_configuration(struct mg_connection *conn, const struct mg_reque
 
 	bool advertised = Sequencer::getNotifier()->getAdvertised();
 
-	char *serverMode = "AUTO";
+	char *serverMode = (char *)"AUTO";
 	if(Config::getServerMode()==SERVER_LAN)
-		serverMode = "LAN";
+		serverMode = (char *)"LAN";
 	else if(Config::getServerMode()==SERVER_INET && advertised)
-		serverMode = "Public, Internet";
+		serverMode = (char *)"Public, Internet";
 	else if(Config::getServerMode()==SERVER_INET && !advertised)
-		serverMode = "Private, Internet";
+		serverMode = (char *)"Private, Internet";
 	mg_printf(conn, "<tr><td><b>Server Mode</b></td><td>%s</td></tr>", serverMode);
 
 	mg_printf(conn, "<tr><td><b>Registered at Master Server</b></td><td>%s</td></tr>", advertised?"Yes":"No");
@@ -443,7 +443,7 @@ static void show_userauth(struct mg_connection *conn, const struct mg_request_in
 
 	if(!Sequencer::getUserAuth()) return;
 
-	int loglevel = 3;
+	//int loglevel = 3;
 	char *clear_chr = mg_get_var(conn, "clear");
 	if (clear_chr != NULL)
 	{

@@ -188,7 +188,7 @@ bool Config::checkConfig()
 	{
 
         Logger::log( LOG_INFO, "Starting server in INET mode" );
-	    if( getIPAddr().empty() )
+	    if( getIPAddr() == "0.0.0.0" )
 	    {
 	        Logger::log( LOG_WARN, "no IP address has been specified, attempting to "
 	                "detect.");

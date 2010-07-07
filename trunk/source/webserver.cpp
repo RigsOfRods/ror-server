@@ -332,7 +332,7 @@ static void show_configuration(struct mg_connection *conn, const struct mg_reque
 	mg_printf(conn, "<tr><td><b>Password Protected</b></td><td>%s</td></tr>", Config::getPublicPassword().empty()?"No":"Yes");
 	mg_printf(conn, "<tr><td><b>IP Address</b></td><td>%s</td></tr>", Config::getIPAddr().empty()?"Any":Config::getIPAddr().c_str());
 	mg_printf(conn, "<tr><td><b>Port</b></td><td>%d</td></tr>", Config::getListenPort());
-	mg_printf(conn, "<tr><td><b>Protocol Version</b></td><td>%d</td></tr>", RORNET_VERSION);
+	mg_printf(conn, "<tr><td><b>Protocol Version</b></td><td>%s</td></tr>", RORNET_VERSION);
 
 	bool advertised = Sequencer::getNotifier()->getAdvertised();
 
@@ -412,6 +412,7 @@ static void show_log(struct mg_connection *conn, const struct mg_request_info *r
 		, Logger::getLoglevelName(loglevel));
 	std::string userlist="<ul>";
 	mg_printf(conn, "%s", "<div style='background-color:#CCCCCC;font-family:monospace;'>");
+	
 	std::deque <log_save_t> loghistory = Logger::getLogHistory();
 	for(std::deque <log_save_t>::const_iterator it=loghistory.begin(); it!=loghistory.end(); it++)
 	{

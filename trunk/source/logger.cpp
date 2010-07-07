@@ -17,6 +17,9 @@
 std::deque <log_save_t> Logger::loghistory;
 Mutex Logger::loghistory_mutex;
 
+// take care about mutexes: only manual lock in the Logger, otherwise you 
+// could possibly start a recursion that ends in a deadlock
+
 // shamelessly taken from:
 // http://senzee.blogspot.com/2006/05/c-formatting-stdstring.html   
 std::string format_arg_list(const char *fmt, va_list args)
@@ -113,8 +116,11 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 
 std::deque <log_save_t> Logger::getLogHistory()
 {
-	MutexLocker scoped_lock( loghistory_mutex );
-	return loghistory;
+	pthread_mutex_lock(loghistory_mutex.getRaw());
+	// copy history while locked
+	std::deque <log_save_t> history = loghistory;
+	pthread_mutex_unlock(loghistory_mutex.getRaw());
+	return history; // return copied history
 }
 
 void Logger::setOutputFile(const std::string& filename)

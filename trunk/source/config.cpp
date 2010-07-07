@@ -386,7 +386,7 @@ bool Config::setIPAddr( const std::string& ip ) {
 }
 bool Config::setListenPort( unsigned int port ) {
 	instance.listen_port = port;
-	if(instance.webserver_port == 0)
+	if(instance.webserver_enabled && instance.webserver_port == 0)
 		instance.webserver_port = port + 1000;
 	return true;
 }

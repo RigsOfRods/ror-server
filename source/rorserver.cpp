@@ -80,6 +80,71 @@ void handler(int signalnum)
 
 #ifndef WITHOUTMAIN
 
+#ifndef WIN32
+// from http://www.enderunix.org/docs/eng/daemon.php
+#define LOCK_FILE "rorserver.lock"
+
+void daemonize()
+{
+	int i=0, lfp=0;
+	char str[10];
+	if(getppid() == 1)
+		/* already a daemon */
+		return; 
+	i = fork();
+	if (i < 0) 
+	{
+		perror("error forking into background");
+		exit(1); /* fork error */
+	}
+	if (i > 0)
+	{
+		printf("forked into background");
+		exit(0); /* parent exits */
+	}
+
+	/* child (daemon) continues */
+	
+	/* obtain a new process group */
+	setsid();
+	
+	/* close all descriptors */
+	for (i=getdtablesize();i>=0;--i)
+		close(i); 
+	
+	/* handle standart I/O */
+	i=open("/dev/null",O_RDWR); dup(i); dup(i);
+	
+	/* set newly created file permissions */
+	umask(027);
+
+	//chdir(RUNNING_DIR); /* change running directory */
+	
+	lfp=open(LOCK_FILE,O_RDWR|O_CREAT,0640);
+	if (lfp<0)
+	{
+		/* can not open */
+		perror("could not open lock file");
+		exit(1);
+	}
+	if (lockf(lfp,F_TLOCK,0)<0)
+	{
+		/* can not lock */
+		perror("could not lock");
+		exit(0); 
+	}
+	/* first instance continues */
+	sprintf(str,"%d\n",getpid());
+	write(lfp,str,strlen(str)); /* record pid to lockfile */
+	signal(SIGCHLD,SIG_IGN); /* ignore child */
+	signal(SIGTSTP,SIG_IGN); /* ignore tty signals */
+	signal(SIGTTOU,SIG_IGN);
+	signal(SIGTTIN,SIG_IGN);
+	signal(SIGHUP,signal_handler); /* catch hangup signal */
+	signal(SIGTERM,signal_handler); /* catch kill signal */
+}
+#endif // ! WIN32
+
 int main(int argc, char* argv[])
 {
 	// set default verbose levels
@@ -101,8 +166,15 @@ int main(int argc, char* argv[])
 		exit(-123);
 	}
 
+#ifndef WIN32
+	if(!Config::getForeground())
+		daemonize();
+#endif // ! WIN32
 
 	// so ready to run, then set up signal handling
+#ifndef WIN32
+	signal(SIGHUP, handler);
+#endif // ! WIN32
 	signal(SIGINT, handler);
 	signal(SIGTERM, handler);
 

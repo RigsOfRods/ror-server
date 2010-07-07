@@ -44,7 +44,8 @@ enum
 	OPT_SCRIPTNAME,
 	OPT_WEBSERVER,
 	OPT_WEBSERVER_PORT,
-	OPT_VERSION
+	OPT_VERSION,
+	OPT_FOREGROUND
 };
 
 // option array
@@ -66,6 +67,7 @@ static CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_VERSION,        ((char *)"-version"), SO_NONE },
 	{ OPT_HELP,           ((char *)"-help"), SO_NONE },
 	{ OPT_HELP,           ((char *)"--help"), SO_NONE },
+	{ OPT_FOREGROUND,     ((char *)"-fg"), SO_NONE },
 	{ OPT_HELP,           ((char *)"/help"), SO_NONE },
 	SO_END_OF_OPTIONS
 };
@@ -137,6 +139,7 @@ void showUsage()
 " -webserver-port <number>     sets up the port for the webserver, default is game port + 1000\n" \
 " -script <script.as>          server script to execute\n" \
 " -version                     prints the server version numbers\n" \
+" -fg                          starts the server in the foreground (background by default)\n" \
 " -help                        Show this list\n");
 }
 
@@ -154,7 +157,8 @@ Config::Config():
 	listen_port( 0 ),
 	server_mode( SERVER_AUTO ),
 	print_stats(true),
-	webserver_port( 0 )
+	webserver_port( 0 ),
+	foreground(false)
 {
 }
 
@@ -247,6 +251,9 @@ bool Config::checkConfig()
 bool Config::fromArgs( int argc, char* argv[] )
 {
 #ifndef NOCMDLINE
+	// no stdout output by default to favour deamon mode
+	Logger::setLogLevel(LOGTYPE_DISPLAY, LOG_NONE);
+
 	// parse arguments
 	CSimpleOpt args(argc, argv, cmdline_options);
 	while (args.Next()) {
@@ -305,6 +312,14 @@ bool Config::fromArgs( int argc, char* argv[] )
 			case OPT_MAXCLIENTS:
 				setMaxClients( atoi(args.OptionArg()) );
 			break;
+			case OPT_FOREGROUND:
+			{
+				// setup some logging for stdout
+				if(Logger::getLogLevel(LOGTYPE_DISPLAY) == LOG_NONE)
+					Logger::setLogLevel(LOGTYPE_DISPLAY, LOG_INFO);
+				setForeground(true);
+			}
+			break;
 			
 			case OPT_HELP: 
 			default:
@@ -334,6 +349,7 @@ ServerType         Config::getServerMode()      { return instance.server_mode;  
 bool               Config::getPrintStats()      { return instance.print_stats;     }
 bool               Config::getWebserverEnabled(){ return instance.webserver_enabled; }
 unsigned int       Config::getWebserverPort()   { return instance.webserver_port;     }
+bool               Config::getForeground()      { return instance.foreground;     }
 //!@}
 
 //! setter functions
@@ -395,5 +411,8 @@ bool Config::setServerMode( ServerType mode) {
 void Config::setPrintStats(bool value)
 {
 	instance.print_stats = value;
+}
+void Config::setForeground(bool value) {
+	instance.foreground = value;
 }
 //!@}

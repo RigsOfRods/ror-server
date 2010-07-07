@@ -129,6 +129,11 @@ void Logger::setLogLevel(const LogType type, const LogLevel level)
 	log_level[(int)type] = level;
 }
 
+const LogLevel Logger::getLogLevel(const LogType type)
+{
+	return log_level[(int)type];
+}
+
 void Logger::setFlushLevel(const LogLevel level )
 {
 	flush_level = level;

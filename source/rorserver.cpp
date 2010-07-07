@@ -44,6 +44,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # include <fcntl.h>
 # include <signal.h>
 # include <unistd.h>
+# include <sys/types.h>
+# include <pwd.h>
 #endif // WIN32
 
 int terminate_triggered = 0;
@@ -110,8 +112,36 @@ void handler(int signalnum)
 void daemonize()
 {
 	if(getppid() == 1)
+	{
 		/* already a daemon */
-		return; 
+		return;
+	}
+
+
+	/* Drop user if there is one, and we were run as root */
+	const char *username = "rorserver";
+	// TODO: add flexibility to change the username via cmdline
+	if ( getuid() == 0 || geteuid() == 0 )
+	{
+		Logger::log(LOG_VERBOSE,"changing user to %s", username);
+        	struct passwd *pw = getpwnam(username);
+		if (pw)
+		{
+			int i = setuid( pw->pw_uid );
+			if(i)
+			{
+				perror("unable to change user");
+				exit(1);
+			}
+		} else
+		{
+			//perror("error getting user");
+			Logger::log(LOG_ERROR,"unable to get user %s, Is it existing?", username);
+			printf("unable to get user %s, Is it existing?\n", username);
+			exit(1);
+		}
+	}
+
 	pid_t pid = fork();
 	if (pid < 0) 
 	{
@@ -122,7 +152,7 @@ void daemonize()
 	{
 		// need both here
 		printf("forked into background as pid %d\n", pid);
-		Logger::log(LOG_INFO,"forked into background as pid %d\n", pid);
+		Logger::log(LOG_INFO,"forked into background as pid %d", pid);
 		exit(0); /* parent exits */
 	}
 

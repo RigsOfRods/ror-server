@@ -120,7 +120,9 @@ void daemonize()
 	}
 	if (pid > 0)
 	{
+		// need both here
 		printf("forked into background as pid %d\n", pid);
+		Logger::log(LOG_INFO,"forked into background as pid %d\n", pid);
 		exit(0); /* parent exits */
 	}
 
@@ -130,47 +132,53 @@ void daemonize()
 	umask(0);
 
 	/* obtain a new process group */
-	pid sid = setsid();
+	pid_t sid = setsid();
 	if (sid < 0)
 	{
-		perror("unable to get a new session")
+		perror("unable to get a new session");
 		exit(1);
 	}
 
+	/* Redirect standard files to /dev/null */
+	freopen( "/dev/null", "r", stdin);
+	freopen( "/dev/null", "w", stdout);
+	freopen( "/dev/null", "w", stderr);
+
 	/* close all descriptors */
-	for (i=getdtablesize();i>=0;--i)
-		close(i); 
-
-	/* handle standart I/O */
-	i=open("/dev/null",O_RDWR); dup(i); dup(i);
-
+	for (int i=getdtablesize();i>=0;--i)
+		close(i);
 
 	/* Change the current working directory.  This prevents the current
 	   directory from being locked; hence not being able to remove it. */
 	if ((chdir("/tmp")) < 0)
 	{
-		perror("unable to change working directory to /tmp")
+		perror("unable to change working directory to /tmp");
 		exit(1);
 	}
 
-	FILE *lfp=open(LOCK_FILE,O_RDWR|O_CREAT,0640);
-	if (lfp<0)
+	/*
+	// TODO: add config option for lockfile name
 	{
-		/* can not open */
-		perror("could not open lock file");
-		exit(1);
-	}
-	if (lockf(lfp,F_TLOCK,0)<0)
-	{
-		/* can not lock */
-		perror("could not lock");
-		exit(0); 
-	}
-	/* first instance continues */
+		int lfp=open(LOCK_FILE,O_RDWR|O_CREAT,0640);
+		if (lfp<0)
+		{
+			//cannot open
+			perror("could not open lock file");
+			exit(1);
+		}
+		if (lockf(lfp,F_TLOCK,0)<0)
+		{
+			// cannot lock
+			perror("could not lock");
+			exit(0); 
+		}
 
-	/* record pid to lockfile */
-	fprintf(lfp, "%d\n",getpid());
-	fclose(lfp);
+		// record pid to lockfile
+		char str[10];
+		sprintf(str,"%d\n",getpid());
+		write(lfp,str,strlen(str));
+	}
+	*/
 
 	// ignore some signals
 	signal(SIGCHLD,SIG_IGN); /* ignore child */

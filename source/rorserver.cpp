@@ -117,7 +117,6 @@ void daemonize()
 		return;
 	}
 
-
 	/* Drop user if there is one, and we were run as root */
 	const char *username = "rorserver";
 	// TODO: add flexibility to change the username via cmdline
@@ -174,15 +173,11 @@ void daemonize()
 	freopen( "/dev/null", "w", stdout);
 	freopen( "/dev/null", "w", stderr);
 
-	/* close all descriptors */
-	for (int i=getdtablesize();i>=0;--i)
-		close(i);
-
 	/* Change the current working directory.  This prevents the current
 	   directory from being locked; hence not being able to remove it. */
-	if ((chdir("/tmp")) < 0)
+	if ((chdir("/")) < 0)
 	{
-		perror("unable to change working directory to /tmp");
+		perror("unable to change working directory to /");
 		exit(1);
 	}
 
@@ -232,9 +227,6 @@ int main(int argc, char* argv[])
 	if( !Config::checkConfig() )
 		return 1;
 
-	// no output because of background mode
-	Logger::setLogLevel(LOGTYPE_DISPLAY, LOG_NONE);
-
 
 	if(!sha1check())
 	{
@@ -245,12 +237,9 @@ int main(int argc, char* argv[])
 #ifndef WIN32
 	if(!Config::getForeground())
 	{
+		// no output because of background mode
+		Logger::setLogLevel(LOGTYPE_DISPLAY, LOG_NONE);
 		daemonize();
-	} else
-	{
-		// add some logging when using foreground mode
-		if(Logger::getLogLevel(LOGTYPE_DISPLAY) == LOG_NONE)
-			Logger::setLogLevel(LOGTYPE_DISPLAY, LOG_INFO);
 	}
 #endif // ! WIN32
 

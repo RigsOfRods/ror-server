@@ -34,10 +34,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <csignal>
 #include <stdexcept>
 
+#include <stdio.h>
+#include <string.h>
+
 #ifdef WIN32
-#include "windows.h"
-#include "resource.h"
-#endif
+# include "windows.h"
+# include "resource.h"
+#else // WIN32
+# include <fcntl.h>
+# include <signal.h>
+# include <unistd.h>
+#endif // WIN32
 
 int terminate_triggered = 0;
 
@@ -48,65 +55,87 @@ void handler(int signalnum)
 	// reject handler
 	signal(signalnum, handler);
 
+	bool terminate = false;
+
 	if (signalnum == SIGINT)
 	{
 		Logger::log(LOG_ERROR,"got interrupt signal, terminating ...");
+		terminate = true;
 	}
 	else if (signalnum == SIGTERM)
 	{
 		Logger::log(LOG_ERROR,"got termiante signal, terminating ...");
+		terminate = true;
 	}
+#ifndef WIN32
+	else if (signalnum == SIGHUP)
+	{
+		Logger::log(LOG_ERROR,"got HUP signal, terminating ...");
+		terminate = true;
+	}
+#endif // ! WIN32
 	else
 	{
 		Logger::log(LOG_ERROR,"got unkown signal: %d", signal);
 	}
 
-	Sequencer::cleanUp();
+	if(terminate)
+	{
+		Sequencer::cleanUp();
 
-	if(Config::getServerMode() == SERVER_LAN)
-	{
-		Logger::log(LOG_ERROR,"closing server ... ");
-		Sequencer::cleanUp();
+		if(Config::getServerMode() == SERVER_LAN)
+		{
+			Logger::log(LOG_ERROR,"closing server ... ");
+			Sequencer::cleanUp();
+		}
+		else
+		{
+			Logger::log(LOG_ERROR,"closing server ... unregistering ... ");
+			Sequencer::unregisterServer();
+			Logger::log(LOG_ERROR," unregistered.");
+			Sequencer::cleanUp();
+		}
+		exit(0);
 	}
-	else
-	{
-		Logger::log(LOG_ERROR,"closing server ... unregistering ... ");
-		Sequencer::unregisterServer();
-		Logger::log(LOG_ERROR," unregistered.");
-		Sequencer::cleanUp();
-	}
-	exit(0);
 }
 
 #ifndef WITHOUTMAIN
 
 #ifndef WIN32
 // from http://www.enderunix.org/docs/eng/daemon.php
+// also http://www-theorie.physik.unizh.ch/~dpotter/howto/daemonize
+
 #define LOCK_FILE "rorserver.lock"
 
 void daemonize()
 {
-	int i=0, lfp=0;
-	char str[10];
 	if(getppid() == 1)
 		/* already a daemon */
 		return; 
-	i = fork();
-	if (i < 0) 
+	pid_t pid = fork();
+	if (pid < 0) 
 	{
 		perror("error forking into background");
 		exit(1); /* fork error */
 	}
-	if (i > 0)
+	if (pid > 0)
 	{
-		printf("forked into background");
+		printf("forked into background as pid %d\n", pid);
 		exit(0); /* parent exits */
 	}
 
 	/* child (daemon) continues */
 	
+    /* Change the file mode mask */
+    umask(0);
+
 	/* obtain a new process group */
-	setsid();
+	pid sid = setsid();
+	if (sid < 0)
+	{
+		perror("unable to get a new session")
+        exit(1);
+    }
 	
 	/* close all descriptors */
 	for (i=getdtablesize();i>=0;--i)
@@ -115,12 +144,16 @@ void daemonize()
 	/* handle standart I/O */
 	i=open("/dev/null",O_RDWR); dup(i); dup(i);
 	
-	/* set newly created file permissions */
-	umask(027);
 
-	//chdir(RUNNING_DIR); /* change running directory */
+    /* Change the current working directory.  This prevents the current
+       directory from being locked; hence not being able to remove it. */
+    if ((chdir("/tmp")) < 0)
+	{
+		perror("unable to change working directory to /tmp")
+        exit(1);
+    }
 	
-	lfp=open(LOCK_FILE,O_RDWR|O_CREAT,0640);
+	FILE *lfp=open(LOCK_FILE,O_RDWR|O_CREAT,0640);
 	if (lfp<0)
 	{
 		/* can not open */
@@ -134,14 +167,16 @@ void daemonize()
 		exit(0); 
 	}
 	/* first instance continues */
-	sprintf(str,"%d\n",getpid());
-	write(lfp,str,strlen(str)); /* record pid to lockfile */
+
+	/* record pid to lockfile */
+	fprintf(lfp, "%d\n",getpid());
+	fclose(lfp);
+
+	// ignore some signals
 	signal(SIGCHLD,SIG_IGN); /* ignore child */
 	signal(SIGTSTP,SIG_IGN); /* ignore tty signals */
 	signal(SIGTTOU,SIG_IGN);
 	signal(SIGTTIN,SIG_IGN);
-	signal(SIGHUP,signal_handler); /* catch hangup signal */
-	signal(SIGTERM,signal_handler); /* catch kill signal */
 }
 #endif // ! WIN32
 
@@ -159,6 +194,9 @@ int main(int argc, char* argv[])
 	if( !Config::checkConfig() )
 		return 1;
 
+	// no output because of background mode
+	Logger::setLogLevel(LOGTYPE_DISPLAY, LOG_NONE);
+
 
 	if(!sha1check())
 	{
@@ -168,7 +206,14 @@ int main(int argc, char* argv[])
 
 #ifndef WIN32
 	if(!Config::getForeground())
+	{
 		daemonize();
+	} else
+	{
+		// add some logging when using foreground mode
+		if(Logger::getLogLevel(LOGTYPE_DISPLAY) == LOG_NONE)
+			Logger::setLogLevel(LOGTYPE_DISPLAY, LOG_INFO);
+	}
 #endif // ! WIN32
 
 	// so ready to run, then set up signal handling

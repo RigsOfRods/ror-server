@@ -220,7 +220,7 @@ bool Config::checkConfig()
 	}
 	if( !getListenPort() )
 	{
-		Logger::log( LOG_WARN, "No port supllied, randomly generating one");
+		Logger::log( LOG_WARN, "No port supplied, randomly generating one");
 		setListenPort( getRandomPort() );
 	}
 	Logger::log( LOG_INFO, "port:       %d", getListenPort() );

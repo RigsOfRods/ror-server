@@ -1,4 +1,6 @@
 // created on 22th of June 2009 by Thomas Fischer
+#ifdef WITH_ANGELSCRIPT
+
 #include "logger.h"
 #include "mutexutils.h"
 #include "ScriptEngine.h"
@@ -512,3 +514,5 @@ int ServerScript::getNumClients()
 {
 	return seq->getNumClients();
 }
+
+#endif //WITH_ANGELSCRIPT

@@ -93,11 +93,13 @@ void Sequencer::initilize()
 	instance->listener = new Listener(Config::getListenPort());
 
 	instance->script = 0;
+#ifdef WITH_ANGELSCRIPT
 	if(Config::getEnableScripting())
 	{
 		instance->script = new ScriptEngine(instance);
 		instance->script->loadScript(Config::getScriptName());
 	}
+#endif //WITH_ANGELSCRIPT
 
 	pthread_create(&instance->killerthread, NULL, s_klthreadstart, &instance);
 
@@ -139,8 +141,10 @@ void Sequencer::cleanUp()
 	if(instance->notifier)
 		delete instance->notifier;
 
+#ifdef WITH_ANGELSCRIPT
 	if(instance->script)
 		delete instance->script;
+#endif //WITH_ANGELSCRIPT
 
 	if(instance->authresolver)
 		delete instance->authresolver;
@@ -254,7 +258,9 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	to_add->status=USED;
 	to_add->initialized=false;
 	to_add->vehicle_name[0]=0;
+#ifdef WITH_ANGELSCRIPT
 	to_add->position=Vector3(0,0,0);
+#endif //WITH_ANGELSCRIPT
 	to_add->beambuffersize=0;
 	to_add->sbi=0;
 	to_add->colournumber=playerColour;
@@ -365,7 +371,9 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 
 			char playerdata[1024] = "";
 			char positiondata[128] = "";
+#ifdef WITH_ANGELSCRIPT
 			sprintf(positiondata, "%0.2f,%0.2f,%0.2f", instance->clients[i]->position.x, instance->clients[i]->position.y, instance->clients[i]->position.z);
+#endif //WITH_ANGELSCRIPT
 			sprintf(playerdata, "%d;%s;%s;%s;%s;%s;%s\n", i,
 					instance->clients[i]->vehicle_name,
 					instance->clients[i]->nickname,
@@ -471,8 +479,11 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError)
 	{
 		instance->authresolver->sendUserEvent(instance->clients[pos]->uniqueid, (isError?"crash":"leave"), instance->clients[pos]->nickname, "");
 	}
+
+#ifdef WITH_ANGELSCRIPT
 	if(instance->script)
 		instance->script->playerDeleted(instance->clients[pos]->uid, isError?1:0);
+#endif //WITH_ANGELSCRIPT
 
 	//this routine is a potential trouble maker as it can be called from many thread contexts
 	//so we use a killer thread
@@ -907,11 +918,13 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 		// no broadcast of server commands!
 		if(data[0] == '!') publishMode=0;
 
+#ifdef WITH_ANGELSCRIPT
 		if(instance->script)
 		{
 			int scriptpub = instance->script->playerChat(instance->clients[pos]->uid, data);
 			if(scriptpub>0) publishMode = scriptpub;
 		}
+#endif //WITH_ANGELSCRIPT
 
 		if(!strcmp(data, "!version"))
 		{
@@ -1057,8 +1070,9 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 	else if (type==MSG2_VEHICLE_DATA)
 	{
 		float* fpt=(float*)(data+sizeof(oob_t));
+#ifdef WITH_ANGELSCRIPT
 		instance->clients[pos]->position=Vector3(fpt[0], fpt[1], fpt[2]);
-
+#endif //WITH_ANGELSCRIPT
 		/*
 		char hex[255]="";
 		SHA1FromBuffer(hex, data, len);

@@ -219,7 +219,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	int dupecounter = 2;
 
 	// check if server is full
-	Logger::log(LOG_WARN,"searching free slot for new client...");
+	Logger::log(LOG_DEBUG,"searching free slot for new client...");
 	if( instance->clients.size() >= Config::getMaxClients() )
 	{
 		Logger::log(LOG_WARN,"join request from '%s' on full server: rejecting!", user->username);

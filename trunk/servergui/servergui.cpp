@@ -207,10 +207,10 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) :
 
 	tb->AddTool(btn_start, _T("Start"), wxBitmap(play_xpm) , wxBitmap(play_dis_xpm), wxITEM_NORMAL, _T("Start server"), _T("Start server"));
 	tb->AddTool(btn_stop, _T("Stop"), wxBitmap(stop_xpm) , wxBitmap(stop_dis_xpm), wxITEM_NORMAL, _T("Stop server"), _T("Stop server"));
-	tb->FindById(btn_stop)->Enable(false);
 	tb->AddSeparator();
 	tb->AddTool(btn_exit, _T("Shutdown"), wxBitmap(shutdown_xpm) , wxBitmap(shutdown_dis_xpm), wxITEM_NORMAL, _T("Shutdown server"), _T("Shutdown server"));
 	tb->Realize();
+	tb->EnableTool(btn_stop, false);
 
 
 	// head image - using xpm
@@ -427,8 +427,10 @@ void MyDialog::OnQuit(wxCloseEvent &event)
 
 void MyDialog::OnBtnStart(wxCommandEvent& event)
 {
-	tb->FindById(btn_start)->Enable(false);
-	tb->FindById(btn_stop)->Enable(true);
+	tb->EnableTool(btn_start, false);
+	
+	// TODO: fix stop
+	//tb->EnableTool(btn_stop, true);
 	//startBtn->Disable();
 	//stopBtn->Enable();
 	nbook->SetSelection(1);
@@ -443,7 +445,7 @@ void MyDialog::OnBtnStop(wxCommandEvent& event)
 	// FIXME: bug upon server restart ...
 	//startBtn->Enable();
 	//stopBtn->Disable();
-	tb->FindById(btn_stop)->Enable(false);
+	tb->EnableTool(btn_stop, false);
 }
 
 void MyDialog::OnBtnExit(wxCommandEvent& event)

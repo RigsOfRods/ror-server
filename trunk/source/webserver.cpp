@@ -124,8 +124,12 @@ void html_header(struct mg_connection *conn)
 		"<div style='border:1px solid black;float:left;margin-right:10px;padding:5px;width:135px;'>"
 		"<ul style='margin-left:-20px;list-style-type:none'>"
          "<li><a href='/config'>Configuration</a></li>"
-         "<li><a href='/list'>Player List</a></li>"
-         "<li><a href='/map'>Overview Map</a></li>"
+         "<li><a href='/list'>Player List</a></li>");
+#ifdef HAVE_ANGELSCRIPT
+	mg_printf(conn, "%s",
+	         "<li><a href='/map'>Overview Map</a></li>");
+#endif // HAVE_ANGELSCRIPT
+	mg_printf(conn, "%s",
          "<li><a href='/stats-general'>Statistics</a></li>"
          "<li><a href='/log/'>Log</a></li>"
          "<li><a href='/chat/'>Chat</a></li>"
@@ -318,6 +322,43 @@ static void show_stats_general(struct mg_connection *conn, const struct mg_reque
 	mg_printf(conn, "  <li>outgoing: %s/s</li>", tmp2);
 	mg_printf(conn, "%s", " </ul>");
 	mg_printf(conn, "%s", "</ul>");
+
+	mg_printf(conn, "%s", "Advanced Statistics:");
+
+#ifndef WIN32
+	{
+		char filename[255]="";
+		sprintf(filename, "/proc/%d/status", getpid());
+
+
+		FILE *f = fopen(filename, "r");
+		if (!f)
+		{
+			mg_printf(conn, "%s", "error reading advanced statistics");
+			html_footer(conn);
+			return;
+		}
+		char content[9046] = "";
+		memset(content, 0, 9045);
+
+		// read the file
+		// TODO: read the whole file at once
+		char *ptr = content;
+		while (!feof(f))
+		{
+			*ptr = fgetc(f);
+			ptr++;
+			if(ptr-content > 9044) break;
+		}
+		// remove last character
+		if(ptr > content)
+			*(ptr-1)=0;
+
+		fclose(f);
+		mg_printf(conn, "<pre>%s</pre>", content);
+	}
+#else //!WIN32
+#endif //!WIN32
 	html_footer(conn);
 }
 

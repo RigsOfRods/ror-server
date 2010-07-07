@@ -152,7 +152,7 @@ Config::Config():
 	max_clients( 16 ),
 	server_name( "" ),
 	terrain_name( "any" ),
-	ip_addr( "" ),
+	ip_addr( "0.0.0.0" ),
 	scriptname(""),
 	listen_port( 0 ),
 	server_mode( SERVER_AUTO ),

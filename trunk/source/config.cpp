@@ -136,7 +136,7 @@ void showUsage()
 " -logfilename <server.log>    Sets the filename of the log\n" \
 " -script <script.as>          server script to execute\n" \
 " -webserver                   enables the built-in webserver\n" \
-" -webserver-port <number>     sets up the port for the webserver, default is game port + 1000\n" \
+" -webserver-port <number>     sets up the port for the webserver, default is game port + 100\n" \
 " -script <script.as>          server script to execute\n" \
 " -version                     prints the server version numbers\n" \
 " -fg                          starts the server in the foreground (background by default)\n" \
@@ -223,6 +223,13 @@ bool Config::checkConfig()
 		Logger::log( LOG_WARN, "No port supplied, randomly generating one");
 		setListenPort( getRandomPort() );
 	}
+
+	if( getWebserverEnabled() && !getWebserverPort() )
+	{
+		Logger::log( LOG_WARN, "No Webserver port supplied, using listen port + 100: %d", getListenPort());
+		setWebserverPort(getListenPort() + 100);
+	}
+
 	Logger::log( LOG_INFO, "port:       %d", getListenPort() );
 	
 	if( getTerrainName().empty() )
@@ -392,8 +399,6 @@ bool Config::setIPAddr( const std::string& ip ) {
 }
 bool Config::setListenPort( unsigned int port ) {
 	instance.listen_port = port;
-	if(instance.webserver_enabled && instance.webserver_port == 0)
-		instance.webserver_port = port + 1000;
 	return true;
 }
 void Config::setWebserverPort( unsigned int port ) {

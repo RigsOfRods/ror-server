@@ -25,8 +25,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "mutexutils.h"
 class SWInetSocket;
 
+enum {BC_QUEUE_OK, BC_QUEUE_DROP};
+
 struct queue_entry_t
 {
+	int process_type;
 	int type;
 	int uid;
 	unsigned int streamid;
@@ -49,16 +52,17 @@ private:
 	bool running;
 	void (*disconnect)(int, const char*, bool);
 	int (*sendmessage)(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len, const char* content);
+	void (*dropmessage)(int);
 
-	 void threadstart();
-	 friend void* s_brthreadstart(void* vid);
-	 
-	 void debugMessageQueue();
-	 
-	 int getMessageQueueSize();
+	void threadstart();
+	friend void* s_brthreadstart(void* vid);
 
-	 static const int queue_soft_limit = 250;
-	 static const int queue_hard_limit = 500;
+	void debugMessageQueue();
+
+	int getMessageQueueSize();
+
+	static const int queue_soft_limit = 250;
+	static const int queue_hard_limit = 500;
 
 public:
 	Broadcaster();
@@ -72,7 +76,8 @@ public:
 	void reset(int uid, SWInetSocket *socky,
 			void (*disconnect)(int uid, const char*, bool),
 			int (*sendmessage)(SWInetSocket *socket, int type,
-					int source, unsigned int streamid, unsigned int len, const char* content) );
+				int source, unsigned int streamid, unsigned int len, const char* content),
+			void (*dropmessage)(int) );
 	void stop();
 	/**
 	 * @param[in] uid  uid of the client sending the data??

@@ -302,7 +302,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 
 	instance->clients.push_back( to_add );
 	to_add->receiver->reset(to_add->uid, sock);
-	to_add->broadcaster->reset(to_add->uid, sock, Sequencer::disconnect, Messaging::sendmessage);
+	to_add->broadcaster->reset(to_add->uid, sock, Sequencer::disconnect, Messaging::sendmessage, Messaging::addBandwidthDropOutgoing);
 
 	// process slot infos
 	int npos = instance->getPosfromUid(to_add->uid);
@@ -1255,15 +1255,17 @@ void Sequencer::printStats()
 		int timediff = Messaging::getTime() - instance->startTime;
 		int uphours = timediff/60/60;
 		int upminutes = (timediff-(uphours*60*60))/60;
+		stream_traffic_t traffic = Messaging::getTraffic();
+
 		Logger::log(LOG_INFO, "- traffic statistics (uptime: %d hours, %d "
 				"minutes):", uphours, upminutes);
 		Logger::log(LOG_INFO, "- total: incoming: %0.2fMB , outgoing: %0.2fMB",
-				Messaging::getBandwitdthIncoming()/1024/1024,
-				Messaging::getBandwidthOutgoing()/1024/1024);
+				traffic.bandwidthIncoming/1024/1024,
+				traffic.bandwidthOutgoing/1024/1024);
 		Logger::log(LOG_INFO, "- rate (last minute): incoming: %0.1fkB/s , "
 				"outgoing: %0.1fkB/s",
-				Messaging::getBandwitdthIncomingRate()/1024,
-				Messaging::getBandwidthOutgoingRate()/1024);
+				traffic.bandwidthIncomingRate/1024,
+				traffic.bandwidthOutgoingRate/1024);
 	}
 }
 // used to access the clients from the array rather than using the array pos it's self.

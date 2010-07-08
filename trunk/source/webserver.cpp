@@ -165,6 +165,7 @@ void html_footer(struct mg_connection *conn)
 static void show_index(struct mg_connection *conn, const struct mg_request_info *request_info, void *data)
 {
 	html_header(conn);
+	mg_printf(conn, "%s", "welcome to this RoR server");
 	html_footer(conn);
 }
 
@@ -173,15 +174,28 @@ static void show_list(struct mg_connection *conn, const struct mg_request_info *
 	html_header(conn);
 	mg_printf(conn, "%s", "<table border='1'>"
 		"<tr>"
-		"<td><b>Slot</b></td>"
-		"<td><b>Status</b></td>"
-		"<td><b>UID</b></td>"
-		"<td><b>IP / Type</b></td>"
-		"<td><b>Name</b></td>"
-		"<td><b>Traffic</b></td>"
-		"<td><b>Rate</b></td>"
-		"<td><b>Authentication</b></td>"
-		"</tr>");
+		"<th rowspan='3'>Slot</th>"
+		"<th rowspan='3'>Status</th>"
+		"<th rowspan='3'>UID</th>"
+		"<th rowspan='3'>IP / Type</th>"
+		"<th rowspan='3'>Name</th>"
+		"<th colspan='6'>Traffic</th>"
+		"<th rowspan='3'>Authentication</th>"
+		"</tr>"
+		"<tr>"
+		"<th colspan='2'>Sum</th>"
+		"<th colspan='2'>Rate</th>"
+		"<th colspan='2'>Drop-Rate</th>"
+		"</tr>"
+		"<tr>"
+		"<th>Up</th>"
+		"<th>Down</th>"
+		"<th>Up</th>"
+		"<th>Down</th>"
+		"<th>Up</th>"
+		"<th>Down</th>"
+		"</tr>"
+		);
 
 	std::vector<client_t> clients = Sequencer::getClients();
 	int slotnum=0;
@@ -208,19 +222,25 @@ static void show_list(struct mg_connection *conn, const struct mg_request_info *
 			getPlayerColour(it->colournumber, playerColour);
 
 			// get traffic stats for all streams
-			char str_bw_in[128]="", str_bw_out[128]="", str_bw_in_rate[128]="", str_bw_out_rate[128]="";
-			double bw_in=0, bw_out=0, bw_in_rate=0, bw_out_rate=0;
+			char str_bw_in[128]="", str_bw_out[128]="", str_bw_in_rate[128]="", str_bw_out_rate[128]="", str_bw_drop_in_rate[128]="", str_bw_drop_out_rate[128]="";
+			double bw_in=0, bw_out=0, bw_in_rate=0, bw_out_rate=0, bw_drop_in_rate=0, bw_drop_out_rate=0;
 			for(std::map<unsigned int, stream_traffic_t>::iterator tit = it->streams_traffic.begin(); tit != it->streams_traffic.end(); tit++)
 			{
 				bw_in += tit->second.bandwidthIncoming;
 				bw_in_rate += tit->second.bandwidthIncomingRate;
 				bw_out += tit->second.bandwidthOutgoing;
 				bw_out_rate += tit->second.bandwidthOutgoingRate;
+
+				bw_drop_in_rate += tit->second.bandwidthDropIncomingRate;
+				bw_drop_out_rate += tit->second.bandwidthDropOutgoingRate;
 			}
 			formatBytes(bw_in, str_bw_in);
 			formatBytes(bw_in_rate, str_bw_in_rate);
 			formatBytes(bw_out, str_bw_out);
 			formatBytes(bw_out_rate, str_bw_out_rate);
+
+			formatBytes(bw_drop_in_rate,  str_bw_drop_in_rate);
+			formatBytes(bw_drop_out_rate, str_bw_drop_out_rate);
 
 			// print the row
 			mg_printf(conn, "<tr style='background-color:%s;'>", playerColour);
@@ -229,8 +249,12 @@ static void show_list(struct mg_connection *conn, const struct mg_request_info *
 			mg_printf(conn, "<td><b>%03i</b></td>", it->uid);
 			mg_printf(conn, "<td>%s</td>", it->ip_addr);
 			mg_printf(conn, "<td>%s</td>", it->nickname);
-			mg_printf(conn, "<td>%s, %s</td>", str_bw_in, str_bw_out);
-			mg_printf(conn, "<td>%s/s, %s/s</td>", str_bw_in_rate, str_bw_out_rate);
+			mg_printf(conn, "<td>%s</td>", str_bw_in);
+			mg_printf(conn, "<td>%s</td>", str_bw_out);
+			mg_printf(conn, "<td>%s/s</td>", str_bw_in_rate);
+			mg_printf(conn, "<td>%s/s</td>", str_bw_out_rate);
+			mg_printf(conn, "<td>%s/s</td>", str_bw_drop_in_rate);
+			mg_printf(conn, "<td>%s/s</td>", str_bw_drop_out_rate);
 			mg_printf(conn, "<td>%s</td>", authst);
 			mg_printf(conn, "%s", "</tr>");
 
@@ -261,12 +285,19 @@ static void show_list(struct mg_connection *conn, const struct mg_request_info *
 				{
 					char tmp1[128]="", tmp2[128]="";
 					formatBytes(traf->bandwidthIncoming, tmp1);
+					mg_printf(conn, "<td>%s</td>", tmp1);
 					formatBytes(traf->bandwidthOutgoing, tmp2);
-					mg_printf(conn, "<td>%s, %s</td>", tmp1, tmp2);
+					mg_printf(conn, "<td>%s</td>", tmp2);
 
 					formatBytes(traf->bandwidthIncomingRate, tmp1);
+					mg_printf(conn, "<td>%s/s</td>", tmp1);
 					formatBytes(traf->bandwidthOutgoingRate, tmp2);
-					mg_printf(conn, "<td>%s/s, %s/s</td>", tmp1, tmp2);
+					mg_printf(conn, "<td>%s/s</td>", tmp2);
+
+					formatBytes(traf->bandwidthDropIncomingRate, tmp1);
+					mg_printf(conn, "<td>%s/s</td>", tmp1);
+					formatBytes(traf->bandwidthDropOutgoingRate, tmp2);
+					mg_printf(conn, "<td>%s/s</td>", tmp2);
 				} else
 				{
 					mg_printf(conn, "%s", "<td colspan='2'></td>");
@@ -297,6 +328,7 @@ static void show_stats_general(struct mg_connection *conn, const struct mg_reque
 	int uphours = timediff/60/60;
 	int upminutes = (timediff-(uphours*60*60))/60;
 	int upseconds = (timediff-(uphours*60*60)-(upminutes*60));
+	stream_traffic_t traffic = Messaging::getTraffic();
 
 	char tmp1[128]="", tmp2[128]="";
 
@@ -306,8 +338,8 @@ static void show_stats_general(struct mg_connection *conn, const struct mg_reque
 	mg_printf(conn, "%s", "<li>total traffic:");
 	mg_printf(conn, "%s", " <ul>");
 
-	formatBytes(Messaging::getBandwitdthIncoming(), tmp1);
-	formatBytes(Messaging::getBandwidthOutgoing(), tmp2);
+	formatBytes(traffic.bandwidthIncoming, tmp1);
+	formatBytes(traffic.bandwidthOutgoing, tmp2);
 
 	mg_printf(conn, "  <li>incoming: %s</li>", tmp1);
 	mg_printf(conn, "  <li>outgoing: %s</li>", tmp2);
@@ -315,8 +347,8 @@ static void show_stats_general(struct mg_connection *conn, const struct mg_reque
 	mg_printf(conn, "%s", "<li>bandwidth used (last minute):");
 	mg_printf(conn, "%s", " <ul>");
 
-	formatBytes(Messaging::getBandwitdthIncomingRate(), tmp1);
-	formatBytes(Messaging::getBandwidthOutgoingRate(), tmp2);
+	formatBytes(traffic.bandwidthIncomingRate, tmp1);
+	formatBytes(traffic.bandwidthOutgoingRate, tmp2);
 
 	mg_printf(conn, "  <li>incoming: %s/s</li>", tmp1);
 	mg_printf(conn, "  <li>outgoing: %s/s</li>", tmp2);

@@ -55,7 +55,8 @@ Broadcaster::~Broadcaster()
 
 void Broadcaster::reset(int uid, SWInetSocket *socky,
 		void (*disconnect_func)(int, const char*, bool),
-		int (*sendmessage_func)(SWInetSocket*, int, int, unsigned int, unsigned int, const char*) )
+		int (*sendmessage_func)(SWInetSocket*, int, int, unsigned int, unsigned int, const char*),
+		void (*dropmessage_func)(int) )
 {
 	STACKLOG;
 	id          = uid;
@@ -63,6 +64,7 @@ void Broadcaster::reset(int uid, SWInetSocket *socky,
 	running     = true;
 	disconnect  = disconnect_func;
 	sendmessage = sendmessage_func;
+	dropmessage = dropmessage_func;
 
 	// always clear to free up memory
 	msg_queue.clear();
@@ -95,7 +97,8 @@ void Broadcaster::threadstart()
 	{
 		{   // define a new scope and use a scope lock
 			MutexLocker scoped_lock( queue_mutex );
-			while( msg_queue.empty() && running) {
+			while( msg_queue.empty() && running)
+			{
 				queue_mutex.wait( queue_cv );
 			}
 			if( !running ) return;
@@ -105,12 +108,20 @@ void Broadcaster::threadstart()
 			msg_queue.pop_front();
 		}   // unlock the mutex
 
-		//Send message
-		// TODO WARNING THE SOCKET IS NOT PROTECTED!!!
-		if( sendmessage( sock, msg.type, msg.uid, msg.streamid, msg.datalen, msg.data ) )
+		if(msg.process_type = BC_QUEUE_OK)
 		{
-			disconnect(id, "Broadcaster: Send error", true);
-			return;
+			//Send message
+			// TODO WARNING THE SOCKET IS NOT PROTECTED!!!
+			if( sendmessage( sock, msg.type, msg.uid, msg.streamid, msg.datalen, msg.data ) )
+			{
+				disconnect(id, "Broadcaster: Send error", true);
+				return;
+			}
+		} else if(msg.process_type = BC_QUEUE_DROP)
+		{
+			// add it to the stats, so we know
+			dropmessage(sizeof(header_t) + msg.datalen);
+
 		}
 	}
 }
@@ -124,7 +135,7 @@ void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigne
 	STACKLOG;
 	if( !running ) return;
 	// for now lets just queue msgs in the order received to make things simple
-	queue_entry_t msg = { type, uid, streamid, "", len};
+	queue_entry_t msg = { BC_QUEUE_OK, type, uid, streamid, "", len};
 	memset( msg.data, 0, MAX_MESSAGE_LENGTH );
 	memcpy( msg.data, data, len );
 
@@ -136,7 +147,7 @@ void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigne
 	if(msg_queue.size() > (size_t)queue_soft_limit && type == MSG2_STREAM_DATA)
 	{
 		Logger::log( LOG_DEBUG, "broadcaster queue soft full: thread %u owned by uid %d", ThreadID::getID(), id);
-		return;
+		msg.process_type = BC_QUEUE_DROP;
 	}
 
 	// hard limit drop anything, otherwise we would need to run through the queue and search and remove
@@ -145,7 +156,7 @@ void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigne
 	{
 		Logger::log( LOG_DEBUG, "broadcaster queue hard full: thread %u owned by uid %d", ThreadID::getID(), id);
 		debugMessageQueue();
-		return;
+		msg.process_type = BC_QUEUE_DROP;
 	}
 	
 	msg_queue.push_back( msg );

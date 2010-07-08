@@ -108,7 +108,7 @@ void Broadcaster::threadstart()
 			msg_queue.pop_front();
 		}   // unlock the mutex
 
-		if(msg.process_type = BC_QUEUE_OK)
+		if(msg.process_type == BC_QUEUE_OK)
 		{
 			//Send message
 			// TODO WARNING THE SOCKET IS NOT PROTECTED!!!
@@ -117,7 +117,7 @@ void Broadcaster::threadstart()
 				disconnect(id, "Broadcaster: Send error", true);
 				return;
 			}
-		} else if(msg.process_type = BC_QUEUE_DROP)
+		} else if(msg.process_type == BC_QUEUE_DROP)
 		{
 			// add it to the stats, so we know
 			dropmessage(sizeof(header_t) + msg.datalen);

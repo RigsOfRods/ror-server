@@ -90,9 +90,11 @@ int getPlayerColour(int num, char *res)
 	return 0;
 }
 
-int formatBytes(double bytes, char *res)
+int formatBytes(double bytes, char *res, bool persec=false)
 {
-	if(bytes <= 1024)
+	if(bytes < 1)
+		sprintf(res, "0");
+	else if(bytes <= 1024)
 		sprintf(res, "%0.2f B", bytes);
 	else if(bytes > 1024 && bytes <= 1048576)
 		sprintf(res, "%0.2f KB", bytes / 1024.0f);
@@ -102,6 +104,8 @@ int formatBytes(double bytes, char *res)
 		sprintf(res, "%0.2f GB", bytes / 1024.0f / 1024.0f / 1024.0f);
 	//else if(bytes > 1099511627776)
 	//	sprintf(res, "%0.2f TB", bytes / 1024.0f / 1024.0f / 1024.0f / 1024.0f);
+	if( !(bytes < 1) && persec)
+		strcat(res, " /s");
 	return 0;
 }
 
@@ -235,12 +239,12 @@ static void show_list(struct mg_connection *conn, const struct mg_request_info *
 				bw_drop_out_rate += tit->second.bandwidthDropOutgoingRate;
 			}
 			formatBytes(bw_in, str_bw_in);
-			formatBytes(bw_in_rate, str_bw_in_rate);
+			formatBytes(bw_in_rate, str_bw_in_rate, true);
 			formatBytes(bw_out, str_bw_out);
-			formatBytes(bw_out_rate, str_bw_out_rate);
+			formatBytes(bw_out_rate, str_bw_out_rate, true);
 
-			formatBytes(bw_drop_in_rate,  str_bw_drop_in_rate);
-			formatBytes(bw_drop_out_rate, str_bw_drop_out_rate);
+			formatBytes(bw_drop_in_rate,  str_bw_drop_in_rate, true);
+			formatBytes(bw_drop_out_rate, str_bw_drop_out_rate, true);
 
 			// print the row
 			mg_printf(conn, "<tr style='background-color:%s;'>", playerColour);
@@ -251,10 +255,10 @@ static void show_list(struct mg_connection *conn, const struct mg_request_info *
 			mg_printf(conn, "<td>%s</td>", it->nickname);
 			mg_printf(conn, "<td>%s</td>", str_bw_in);
 			mg_printf(conn, "<td>%s</td>", str_bw_out);
-			mg_printf(conn, "<td>%s/s</td>", str_bw_in_rate);
-			mg_printf(conn, "<td>%s/s</td>", str_bw_out_rate);
-			mg_printf(conn, "<td>%s/s</td>", str_bw_drop_in_rate);
-			mg_printf(conn, "<td>%s/s</td>", str_bw_drop_out_rate);
+			mg_printf(conn, "<td>%s</td>", str_bw_in_rate);
+			mg_printf(conn, "<td>%s</td>", str_bw_out_rate);
+			mg_printf(conn, "<td>%s</td>", str_bw_drop_in_rate);
+			mg_printf(conn, "<td>%s</td>", str_bw_drop_out_rate);
 			mg_printf(conn, "<td>%s</td>", authst);
 			mg_printf(conn, "%s", "</tr>");
 
@@ -289,15 +293,15 @@ static void show_list(struct mg_connection *conn, const struct mg_request_info *
 					formatBytes(traf->bandwidthOutgoing, tmp2);
 					mg_printf(conn, "<td>%s</td>", tmp2);
 
-					formatBytes(traf->bandwidthIncomingRate, tmp1);
-					mg_printf(conn, "<td>%s/s</td>", tmp1);
-					formatBytes(traf->bandwidthOutgoingRate, tmp2);
-					mg_printf(conn, "<td>%s/s</td>", tmp2);
+					formatBytes(traf->bandwidthIncomingRate, tmp1, true);
+					mg_printf(conn, "<td>%s</td>", tmp1);
+					formatBytes(traf->bandwidthOutgoingRate, tmp2, true);
+					mg_printf(conn, "<td>%s</td>", tmp2);
 
-					formatBytes(traf->bandwidthDropIncomingRate, tmp1);
-					mg_printf(conn, "<td>%s/s</td>", tmp1);
-					formatBytes(traf->bandwidthDropOutgoingRate, tmp2);
-					mg_printf(conn, "<td>%s/s</td>", tmp2);
+					formatBytes(traf->bandwidthDropIncomingRate, tmp1, true);
+					mg_printf(conn, "<td>%s</td>", tmp1);
+					formatBytes(traf->bandwidthDropOutgoingRate, tmp2, true);
+					mg_printf(conn, "<td>%s</td>", tmp2);
 				} else
 				{
 					mg_printf(conn, "%s", "<td colspan='2'></td>");
@@ -347,11 +351,11 @@ static void show_stats_general(struct mg_connection *conn, const struct mg_reque
 	mg_printf(conn, "%s", "<li>bandwidth used (last minute):");
 	mg_printf(conn, "%s", " <ul>");
 
-	formatBytes(traffic.bandwidthIncomingRate, tmp1);
-	formatBytes(traffic.bandwidthOutgoingRate, tmp2);
+	formatBytes(traffic.bandwidthIncomingRate, tmp1, true);
+	formatBytes(traffic.bandwidthOutgoingRate, tmp2, true);
 
-	mg_printf(conn, "  <li>incoming: %s/s</li>", tmp1);
-	mg_printf(conn, "  <li>outgoing: %s/s</li>", tmp2);
+	mg_printf(conn, "  <li>incoming: %s</li>", tmp1);
+	mg_printf(conn, "  <li>outgoing: %s</li>", tmp2);
 	mg_printf(conn, "%s", " </ul>");
 	mg_printf(conn, "%s", "</ul>");
 

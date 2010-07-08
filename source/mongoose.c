@@ -834,9 +834,6 @@ pthread_self(void)
 	return (GetCurrentThreadId());
 }
 
-}
-#endif
-
 
 #if defined(_WIN32_WCE)
 
@@ -911,13 +908,18 @@ strftime(char *dst, size_t dst_size, const char *fmt, const struct tm *tm)
 	(void) snprintf(dst, dst_size, "implement strftime() for WinCE");
 	return (0);
 }	
+#endif
 
-#define	set_close_on_exec(fd)	/* No FD_CLOEXEC on Windows */
+//#define	set_close_on_exec(fd)	/* No FD_CLOEXEC on Windows */
 
 static void
 set_close_on_exec(int fd)
 {
+#ifdef _WIN32
+	// TODO: FIX
+#else //_WIN32
 	(void) fcntl(fd, F_SETFD, FD_CLOEXEC);
+#endif // _WIN32
 }
 
 
@@ -936,8 +938,83 @@ start_thread(struct mg_context *ctx, mg_thread_func_t func, void *param)
 	return (hThread == NULL ? -1 : 0);
 }
 
+static char *
+mg_getcwd(char *buf, int buf_len)
+{
+	wchar_t		wbuf[FILENAME_MAX], *basename;
 
+	if (GetModuleFileNameW(NULL, wbuf, ARRAY_SIZE(wbuf))) {
+		if ((basename = wcsrchr(wbuf, DIRSEP)) != NULL) {
+			*basename = L'\0';
+			if (WideCharToMultiByte(CP_UTF8, 0, wbuf, -1, buf,
+			    buf_len, NULL, NULL) > 0)
+				return (buf);
+		}
+	}
 
+	return (NULL);
+}
+
+/*
+ * Change all slashes to backslashes. It is Windows.
+ */
+static void
+fix_directory_separators(char *path)
+{
+	int	i;
+
+	for (i = 0; path[i] != '\0'; i++) {
+		if (path[i] == '/')
+			path[i] = '\\';
+		/* i > 0 check is to preserve UNC paths, \\server\file.txt */
+		if (path[i] == '\\' && i > 0)
+			while (path[i + 1] == '\\' || path[i + 1] == '/')
+				(void) memmove(path + i + 1,
+				    path + i + 2, strlen(path + i + 1));
+	}
+}
+
+/*
+ * Encode 'path' which is assumed UTF-8 string, into UNICODE string.
+ * wbuf and wbuf_len is a target buffer and its length.
+ */
+static void
+to_unicode(const char *path, wchar_t *wbuf, size_t wbuf_len)
+{
+	char	buf[FILENAME_MAX], *p;
+
+	mg_strlcpy(buf, path, sizeof(buf));
+	fix_directory_separators(buf);
+
+	/* Point p to the end of the file name */
+	p = buf + strlen(buf) - 1;
+
+	/* Trim trailing backslash character */
+	while (p > buf && *p == '\\' && p[-1] != ':')
+		*p-- = '\0';
+
+	/*
+	 * Protect from CGI code disclosure.
+	 * This is very nasty hole. Windows happily opens files with
+	 * some garbage in the end of file name. So fopen("a.cgi    ", "r")
+	 * actually opens "a.cgi", and does not return an error!
+	 */
+	if (*p == 0x20 || *p == 0x2e || *p == 0x2b || (*p & ~0x7f)) {
+		(void) fprintf(stderr, "Rejecting suspicious path: [%s]", buf);
+		buf[0] = '\0';
+	}
+
+	(void) MultiByteToWideChar(CP_UTF8, 0, buf, -1, wbuf, (int) wbuf_len);
+}
+
+static HANDLE
+dlopen(const char *dll_name, int flags)
+{
+	wchar_t	wbuf[FILENAME_MAX];
+	flags = 0; /* Unused */
+	to_unicode(dll_name, wbuf, ARRAY_SIZE(wbuf));
+	return (LoadLibraryW(wbuf));
+}
 
 static int
 set_non_blocking_mode(struct mg_connection *conn, SOCKET sock)
@@ -952,7 +1029,11 @@ set_non_blocking_mode(struct mg_connection *conn, SOCKET sock)
 static void
 set_close_on_exec(int fd)
 {
+#ifdef _WIN32
+	// TODO: FIX
+#else //_WIN32
 	(void) fcntl(fd, F_SETFD, FD_CLOEXEC);
+#endif //_WIN32
 }
 
 static int

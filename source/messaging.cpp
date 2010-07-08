@@ -28,38 +28,22 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "SocketW.h"
 
 
-double Messaging::bandwidthIncoming=0;
-double Messaging::bandwidthOutgoing=0;
-double Messaging::bandwidthIncomingLastMinute=0;
-double Messaging::bandwidthOutgoingLastMinute=0;
-double Messaging::bandwidthIncomingRate=0;
-double Messaging::bandwidthOutgoingRate=0;
-
-#if 0
-// asHex MUST be 2x as long as body
-static void bodyblockashex(char* asHex, const char* body, unsigned int len)
-{
-	char tmp[20];
-	unsigned int i=0;
-	while(i<len)
-	{
-		memset(tmp, 0, 20);
-		unsigned char d = (unsigned char)*body;
-		sprintf(tmp, "%x", d);
-		strcat(asHex, tmp);
-		body++;
-		i++;
-	}
-}
-#endif
+stream_traffic_t Messaging::traffic = {0,0,0,0,0,0,0,0,0,0,0,0};
 
 void Messaging::updateMinuteStats()
 {
     STACKLOG;
-	bandwidthIncomingRate = (bandwidthIncoming-bandwidthIncomingLastMinute)/60;
-	bandwidthIncomingLastMinute = bandwidthIncoming;
-	bandwidthOutgoingRate = (bandwidthOutgoing-bandwidthOutgoingLastMinute)/60;
-	bandwidthOutgoingLastMinute = bandwidthOutgoing;
+	// normal bandwidth
+	traffic.bandwidthIncomingRate       = (traffic.bandwidthIncoming - traffic.bandwidthIncomingLastMinute) / 60;
+	traffic.bandwidthIncomingLastMinute = traffic.bandwidthIncoming;
+	traffic.bandwidthOutgoingRate       = (traffic.bandwidthOutgoing - traffic.bandwidthOutgoingLastMinute) / 60;
+	traffic.bandwidthOutgoingLastMinute = traffic.bandwidthOutgoing;
+
+	// dropped bandwidth
+	traffic.bandwidthDropIncomingRate       = (traffic.bandwidthDropIncoming - traffic.bandwidthDropIncomingLastMinute) / 60;
+	traffic.bandwidthDropIncomingLastMinute = traffic.bandwidthDropIncoming;
+	traffic.bandwidthDropOutgoingRate       = (traffic.bandwidthDropOutgoing - traffic.bandwidthDropOutgoingLastMinute) / 60;
+	traffic.bandwidthDropOutgoingLastMinute = traffic.bandwidthDropOutgoing;
 }
 
 /**
@@ -119,8 +103,18 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, int source, unsigned 
 		rlen += sendnum;
 	}
 	//Logger::log(LOG_DEBUG, "message of size %d sent to uid %d.", rlen, source);
-	bandwidthOutgoing += msgsize;
+	traffic.bandwidthOutgoing += msgsize;
 	return 0;
+}
+
+void Messaging::addBandwidthDropIncoming(int bytes)
+{
+	traffic.bandwidthDropIncoming += bytes;
+}
+
+void Messaging::addBandwidthDropOutgoing(int bytes)
+{
+	traffic.bandwidthDropOutgoing += bytes;
 }
 
 /**
@@ -204,15 +198,12 @@ int Messaging::receivemessage(SWInetSocket *socket, int *type, int *source, unsi
 	Logger::log( LOG_DEBUG, "%s", body);
 #endif
 	//Logger::log(LOG_DEBUG, "message of size %d received by uid %d.", hlen, *source);
-	bandwidthIncoming += (int)sizeof(header_t)+(int)head.size;
+	traffic.bandwidthIncoming += (int)sizeof(header_t)+(int)head.size;
 	memcpy(content, buffer+sizeof(header_t), bufferlen);
 	return 0;
 }
 
-double Messaging::getBandwitdthIncoming() { return bandwidthIncoming; };
-double Messaging::getBandwidthOutgoing() { return bandwidthOutgoing; };
-double Messaging::getBandwitdthIncomingRate() { return bandwidthIncomingRate; };
-double Messaging::getBandwidthOutgoingRate() { return bandwidthOutgoingRate; };
+stream_traffic_t Messaging::getTraffic() { return traffic; };
 
 int Messaging::getTime() { return (int)time(NULL); };
 

@@ -63,12 +63,21 @@ class ScriptEngine;
 
 typedef struct stream_traffic_t
 {
+	// normal bandwidth
 	double bandwidthIncoming;
 	double bandwidthOutgoing;
 	double bandwidthIncomingLastMinute;
 	double bandwidthOutgoingLastMinute;
 	double bandwidthIncomingRate;
 	double bandwidthOutgoingRate;
+
+	// drop bandwidth
+	double bandwidthDropIncoming;
+	double bandwidthDropOutgoing;
+	double bandwidthDropIncomingLastMinute;
+	double bandwidthDropOutgoingLastMinute;
+	double bandwidthDropIncomingRate;
+	double bandwidthDropOutgoingRate;
 } stream_traffic_t;
 
 //! A struct to hold information about a client

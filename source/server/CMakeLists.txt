@@ -25,6 +25,7 @@ if(RORSERVER_WITH_ANGELSCRIPT)
 endif(RORSERVER_WITH_ANGELSCRIPT)
 
 IF(WIN32)
+	add_definitions("/wd4251")
 	include_directories (${rorserver_SOURCE_DIR}/dependencies/win32_pthread)
 	target_link_libraries(rorserver ${rorserver_SOURCE_DIR}/dependencies/win32_pthread/pthreadVC2.lib)
 	target_link_libraries(rorserver mysocketw)

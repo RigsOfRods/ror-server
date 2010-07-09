@@ -35,6 +35,7 @@ IF(wxWidgets_FOUND)
   add_definitions(${wxWidgets_DEFINITIONS} ${wxWidgets_CXX_FLAGS})
 
   IF(WIN32)
+	add_definitions("/wd4251")
     include_directories(${wxWidgets_INCLUDE_DIRS}/msvc)
     add_definitions("-D__WIN32__")
   ENDIF(WIN32)

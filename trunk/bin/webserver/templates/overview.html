@@ -1,0 +1,78 @@
+{{>HEADER}}
+
+
+<!-- Combo-handled YUI CSS files: -->
+<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/combo?2.8.1/build/datatable/assets/skins/sam/datatable.css">
+<!-- Combo-handled YUI JS files: -->
+<script type="text/javascript" src="http://yui.yahooapis.com/combo?2.8.1/build/yahoo-dom-event/yahoo-dom-event.js&2.8.1/build/connection/connection-min.js&2.8.1/build/element/element-min.js&2.8.1/build/datasource/datasource-min.js&2.8.1/build/datatable/datatable-min.js&2.8.1/build/json/json-min.js"></script>
+
+<div id="json"></div> 
+
+
+<script type="text/javascript">
+
+var myDataTable;
+
+YAHOO.util.Event.addListener(window, "load", function() {
+    YAHOO.example.XHR_JSON = new function() {
+
+		var myColumnDefs = [
+            {key:"name", label:"Slot", sortable:true},
+            {key:"status", label:"Status", sortable:true},
+            {key:"uid", label:"UID", sortable:true},
+            {key:"ip", label:"IP/Type", sortable:true},
+			{key:"auth", label:"Authentication", sortable:true},
+            {label:"Traffic", children:[ 
+				{label:"Normal", children:[ 
+					{label:"Sum", children:[ 
+						{key:"bw_normal_sum_up", label:"Up"},
+						{key:"bw_normal_sum_down", label:"Down"}
+						]},
+					{label:"Rate", children:[ 
+						{key:"bw_normal_rate_up", label:"Up"},
+						{key:"bw_normal_rate_up", label:"Down"}
+						]},
+				]},
+				{label:"Drop", children:[ 
+					{label:"Sum", children:[ 
+						{key:"bw_drop_sum_up", label:"Up"},
+						{key:"bw_drop_sum_up", label:"Down"}
+						]},
+					{label:"Rate", children:[ 
+						{key:"bw_drop_rate_up", label:"Up"},
+						{key:"bw_drop_rate_up", label:"Down"}
+						]},
+				]},
+			]},
+            
+        ];
+
+        this.myDataSource = new YAHOO.util.DataSource("/data/players/");
+        this.myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSON;
+        this.myDataSource.connXhrMode = "queueRequests";
+        this.myDataSource.responseSchema = {
+            resultsList: "ResultSet.Result",
+            fields: ["name"]
+        };
+
+        myDataTable = new YAHOO.widget.DataTable("json", myColumnDefs,
+                this.myDataSource, {initialRequest:""});
+
+		var myCallback = function(){
+			this.set("sortedBy", null);
+			this.onDataReturnAppendRows.apply(this,arguments);
+		};
+
+	};
+});
+
+function updateTable(){
+	//myDataTable.showTableMessage("Loading...");
+	myDataTable.getDataSource().sendRequest('', { success: myDataTable.onDataReturnInitializeTable, scope: myDataTable });
+	setTimeout('updateTable()', 10000);
+};
+
+setTimeout('updateTable()', 10000);
+</script>
+
+{{>FOOTER}}

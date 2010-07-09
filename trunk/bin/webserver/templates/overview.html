@@ -47,6 +47,11 @@ YAHOO.util.Event.addListener(window, "load", function() {
             
         ];
 
+		var myCallback = function(){
+			this.set("sortedBy", null);
+			this.onDataReturnReplaceRows.apply(this,arguments);
+		};
+		
         this.myDataSource = new YAHOO.util.DataSource("/data/players/");
         this.myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSON;
         this.myDataSource.connXhrMode = "queueRequests";
@@ -58,21 +63,14 @@ YAHOO.util.Event.addListener(window, "load", function() {
         myDataTable = new YAHOO.widget.DataTable("json", myColumnDefs,
                 this.myDataSource, {initialRequest:""});
 
-		var myCallback = function(){
-			this.set("sortedBy", null);
-			this.onDataReturnAppendRows.apply(this,arguments);
-		};
+		myDataTable.getDataSource().setInterval(20000,myDataTable.get("initialRequest"),{
+						success : myCallback,
+						failure : myCallback,
+						scope : myDataTable
+						}); 
 
 	};
 });
-
-function updateTable(){
-	//myDataTable.showTableMessage("Loading...");
-	myDataTable.getDataSource().sendRequest('', { success: myDataTable.onDataReturnInitializeTable, scope: myDataTable });
-	setTimeout('updateTable()', 10000);
-};
-
-setTimeout('updateTable()', 10000);
 </script>
 
 {{>FOOTER}}

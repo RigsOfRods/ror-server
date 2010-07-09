@@ -60,12 +60,12 @@ option(BUILD_GUI "build server GUI, experimental" FALSE)
 option(WITH_ANGELSCRIPT "adds scripting support" FALSE)
 
 
-add_subdirectory("socketw")
-add_subdirectory("source")
+add_subdirectory("dependencies/socketw")
+add_subdirectory("source/server")
 
 if(WITH_ANGELSCRIPT)
-	add_subdirectory("angelscript")
+	add_subdirectory("dependencies/angelscript")
 endif(WITH_ANGELSCRIPT)
 if(BUILD_GUI)
-add_subdirectory("servergui")
+add_subdirectory("source/gui")
 endif(BUILD_GUI)

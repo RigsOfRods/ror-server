@@ -2,7 +2,10 @@ project(servergui)
 
 FILE(GLOB_RECURSE servergui_src *.cpp *.c *.h *.rc)
 
-FILE(GLOB_RECURSE servergui_server_src ${rorserver_SOURCE_DIR}/source/*.cpp ${rorserver_SOURCE_DIR}/source/*.c ${rorserver_SOURCE_DIR}/source/*.h )
+FILE(GLOB_RECURSE servergui_server_src 
+	${rorserver_SOURCE_DIR}/source/server/*.cpp 
+	${rorserver_SOURCE_DIR}/source/server/*.c 
+	${rorserver_SOURCE_DIR}/source/server/*.h )
 
 add_definitions(-DWITHOUTMAIN)
 
@@ -14,13 +17,13 @@ ENDIF(WIN32)
 FIND_PACKAGE(wxWidgets COMPONENTS base core html net)
 IF(wxWidgets_FOUND)
   include_directories(${wxWidgets_INCLUDE_DIRS})
-  include_directories (${rorserver_SOURCE_DIR}/socketw)
-  include_directories (${rorserver_SOURCE_DIR}/source)
+  include_directories (${rorserver_SOURCE_DIR}/dependencies/socketw)
+  include_directories (${rorserver_SOURCE_DIR}/source/server/)
   
   if(WITH_ANGELSCRIPT)
 	add_definitions("-DWITH_ANGELSCRIPT")
-	include_directories (${rorserver_SOURCE_DIR}/angelscript/include)
-	include_directories (${rorserver_SOURCE_DIR}/angelscript/add_on)
+	include_directories (${rorserver_SOURCE_DIR}/dependencies/angelscript/include)
+	include_directories (${rorserver_SOURCE_DIR}/dependencies/angelscript/add_on)
   endif(WITH_ANGELSCRIPT)
 
   add_definitions(${wxWidgets_DEFINITIONS} ${wxWidgets_CXX_FLAGS})
@@ -53,8 +56,8 @@ IF(wxWidgets_FOUND)
 
   TARGET_LINK_LIBRARIES(servergui ${wxWidgets_LIBRARIES} )
   IF(WIN32)
-	include_directories (${rorserver_SOURCE_DIR}/win32_pthread)
-	target_link_libraries(servergui ${rorserver_SOURCE_DIR}/win32_pthread/pthreadVC2.lib)
+	include_directories (${rorserver_SOURCE_DIR}/dependencies/win32_pthread)
+	target_link_libraries(servergui ${rorserver_SOURCE_DIR}/dependencies/win32_pthread/pthreadVC2.lib)
 	target_link_libraries(servergui mysocketw)
   ELSEIF(UNIX)
 	target_link_libraries(servergui mysocketw pthread)

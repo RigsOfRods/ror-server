@@ -42,6 +42,7 @@ struct mg_context	*ctx;
 #include <string.h>
 
 #include <ctemplate/template.h>
+#include <json/json.h>
 
 #include "mongoose.h"
 
@@ -122,9 +123,9 @@ static ctemplate::TemplateDictionary *getTemplateDict(std::string title)
 	dict->SetValue("TITLE", "Rigs of Rods Server - " + title);
 	
 	ctemplate::TemplateDictionary* dict_header = dict->AddIncludeDictionary("HEADER");
-	dict_header->SetFilename("webserver/templates/header.tpl");
+	dict_header->SetFilename("webserver/templates/header.html");
 	ctemplate::TemplateDictionary* dict_footer = dict->AddIncludeDictionary("FOOTER");
-	dict_footer->SetFilename("webserver/templates/footer.tpl");
+	dict_footer->SetFilename("webserver/templates/footer.html");
 	return dict;
 }
 
@@ -145,7 +146,33 @@ static void show_index(struct mg_connection *conn, const struct mg_request_info 
 
 	dict->SetValue("FOO", "test123");
 
-	renderTemplate(dict, conn, "webserver/templates/overview.tpl");
+	renderTemplate(dict, conn, "webserver/templates/overview.html");
+}
+
+
+static void data_players(struct mg_connection *conn, const struct mg_request_info *request_info, void *data)
+{
+	static int i=0;
+	Json::Value root;   // will contains the root value after parsing.
+	root["ResultSet"]["totalResultsAvailable"] = 4;
+	root["ResultSet"]["totalResultsReturned"] = 4;
+	root["ResultSet"]["firstResultPosition"] = 1;
+	Json::Value results;
+	for(int j=0;j<10;j++,i++)
+	{
+		Json::Value result;
+		char tmp[255];
+		sprintf(tmp, "%s%d", "test", i);
+		result["name"] = std::string(tmp);
+		
+		results.append(result);
+	}
+	root["ResultSet"]["Result"] = results;
+
+	Json::StyledWriter writer;
+	std::string output = writer.write( root );
+
+	mg_printf(conn, "%s", output.c_str());
 }
 
 static void show_404(struct mg_connection *conn, const struct mg_request_info *request_info, void *user_data)
@@ -187,6 +214,7 @@ int startWebserver(int port)
 
 	/* Register an index page under two URIs */
 	mg_set_uri_callback(ctx, "/", &show_index, NULL);
+	mg_set_uri_callback(ctx, "/data/players/", &data_players, NULL);
 
 	mg_set_error_callback(ctx, 404, show_404, NULL);
 	return 0;

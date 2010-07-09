@@ -29,6 +29,7 @@ IF(wxWidgets_FOUND)
   if(RORSERVER_WITH_WEBSERVER)
 	add_definitions("-DWITH_WEBSERVER")
 	include_directories (${rorserver_SOURCE_DIR}/dependencies/ctemplate/src/windows/)
+	include_directories (${rorserver_SOURCE_DIR}/dependencies/jsoncpp/include/)
   endif(RORSERVER_WITH_WEBSERVER)
 
 
@@ -62,7 +63,7 @@ IF(wxWidgets_FOUND)
   endif(RORSERVER_WITH_ANGELSCRIPT)
 
   if(RORSERVER_WITH_WEBSERVER)
-	target_link_libraries(servergui ctemplate)
+	target_link_libraries(servergui ctemplate jsoncpp)
   endif(RORSERVER_WITH_WEBSERVER)
   
   TARGET_LINK_LIBRARIES(servergui ${wxWidgets_LIBRARIES} )

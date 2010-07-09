@@ -1,3 +1,4 @@
+#ifdef WITH_WEBSERVER
 /*
  * Copyright (c) 2004-2009 Sergey Lyubka
  * Portions Copyright (c) 2009 Gilbert Wellisch
@@ -2725,3 +2726,5 @@ mg_start(void)
 
 	return (ctx);
 }
+
+#endif //WITH_WEBSERVER

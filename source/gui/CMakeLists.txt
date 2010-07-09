@@ -20,11 +20,17 @@ IF(wxWidgets_FOUND)
   include_directories (${rorserver_SOURCE_DIR}/dependencies/socketw)
   include_directories (${rorserver_SOURCE_DIR}/source/server/)
   
-  if(WITH_ANGELSCRIPT)
+  if(RORSERVER_WITH_ANGELSCRIPT)
 	add_definitions("-DWITH_ANGELSCRIPT")
 	include_directories (${rorserver_SOURCE_DIR}/dependencies/angelscript/include)
 	include_directories (${rorserver_SOURCE_DIR}/dependencies/angelscript/add_on)
-  endif(WITH_ANGELSCRIPT)
+  endif(RORSERVER_WITH_ANGELSCRIPT)
+  
+  if(RORSERVER_WITH_WEBSERVER)
+	add_definitions("-DWITH_WEBSERVER")
+	include_directories (${rorserver_SOURCE_DIR}/dependencies/ctemplate/src/windows/)
+  endif(RORSERVER_WITH_WEBSERVER)
+
 
   add_definitions(${wxWidgets_DEFINITIONS} ${wxWidgets_CXX_FLAGS})
 
@@ -49,11 +55,15 @@ IF(wxWidgets_FOUND)
   set_target_properties(servergui PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
   set_target_properties(servergui PROPERTIES LINK_FLAGS_RELEASE "/LTCG /OPT:REF /OPT:NOWIN98 /SUBSYSTEM:WINDOWS")
 
-  if(WITH_ANGELSCRIPT)
+  if(RORSERVER_WITH_ANGELSCRIPT)
     add_dependencies(servergui angelscript)
     target_link_libraries(servergui angelscript)
-  endif(WITH_ANGELSCRIPT)
+  endif(RORSERVER_WITH_ANGELSCRIPT)
 
+  if(RORSERVER_WITH_WEBSERVER)
+	target_link_libraries(servergui ctemplate)
+  endif(RORSERVER_WITH_WEBSERVER)
+  
   TARGET_LINK_LIBRARIES(servergui ${wxWidgets_LIBRARIES} )
   IF(WIN32)
 	include_directories (${rorserver_SOURCE_DIR}/dependencies/win32_pthread)

@@ -56,16 +56,21 @@ IF(NOT WIN32)
 endif()
 
 #options
-option(BUILD_GUI "build server GUI, experimental" FALSE)
-option(WITH_ANGELSCRIPT "adds scripting support" FALSE)
+option(RORSERVER_GUI "build server GUI, experimental" FALSE)
+option(RORSERVER_WITH_ANGELSCRIPT "adds scripting support" FALSE)
+option(RORSERVER_WITH_WEBSERVER "adds the webserver" FALSE)
 
 
 add_subdirectory("dependencies/socketw")
 add_subdirectory("source/server")
 
-if(WITH_ANGELSCRIPT)
+if(RORSERVER_WITH_ANGELSCRIPT)
 	add_subdirectory("dependencies/angelscript")
-endif(WITH_ANGELSCRIPT)
-if(BUILD_GUI)
+endif(RORSERVER_WITH_ANGELSCRIPT)
+if(RORSERVER_GUI)
 add_subdirectory("source/gui")
-endif(BUILD_GUI)
+endif(RORSERVER_GUI)
+
+if(RORSERVER_WITH_WEBSERVER)
+add_subdirectory("dependencies/ctemplate")
+endif(RORSERVER_WITH_WEBSERVER)

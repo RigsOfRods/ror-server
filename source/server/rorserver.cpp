@@ -252,6 +252,7 @@ int main(int argc, char* argv[])
 
 	Sequencer::initilize();
 
+#ifdef WITH_WEBSERVER
 	// start webserver if used
 	if(Config::getWebserverEnabled())
 	{
@@ -259,6 +260,7 @@ int main(int argc, char* argv[])
 		Logger::log(LOG_INFO, "starting webserver on port %d ...", port);
 		startWebserver(port);
 	}
+#endif //WITH_WEBSERVER
 
 	// start the main program loop
     // if we need to communiate to the master user the notifier routine

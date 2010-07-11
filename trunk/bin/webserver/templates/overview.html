@@ -1,26 +1,69 @@
 {{>HEADER}}
 
+<div id="main_tab_container" class="yui-navset">
+    <ul class="yui-nav">
+        <li class="selected"><a href="#tab1"><em>Overview</em></a></li>
+        <li><a href="#tab2"><em>Configuration</em></a></li>
+        <li><a href="#tab3"><em>Player List</em></a></li>
+        <li><a href="#tab4"><em>Statistics</em></a></li>
+        <li><a href="#tab5"><em>Log</em></a></li>
+        <li><a href="#tab6"><em>Chat</em></a></li>
+    </ul>            
+    <div class="yui-content">
+        <div id="tab1">
+		short introduction text, TBD
+		</div>
+        <div id="tab2"> <div id="configuration_table"></div> </div>
+        <div id="tab3"> <div id="player_table"></div> </div>
+        <div id="tab4">
 
-<!-- Combo-handled YUI CSS files: -->
-<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/combo?2.8.1/build/datatable/assets/skins/sam/datatable.css">
-<!-- Combo-handled YUI JS files: -->
-<script type="text/javascript" src="http://yui.yahooapis.com/combo?2.8.1/build/yahoo-dom-event/yahoo-dom-event.js&2.8.1/build/connection/connection-min.js&2.8.1/build/element/element-min.js&2.8.1/build/datasource/datasource-min.js&2.8.1/build/datatable/datatable-min.js&2.8.1/build/json/json-min.js"></script>
+		<div id="chart_traffic">Unable to load Flash content. The YUI Charts Control requires Flash Player 9.0.45 or higher. You can download the latest version of Flash Player from the <a href="http://www.adobe.com/go/getflashplayer">Adobe Flash Player Download Center</a>.</p></div>
 
-<div id="json"></div> 
-
+		</div>
+        <div id="tab5"><p>4</p></div>
+        <div id="tab6"><p>5</p></div>
+    </div>
+</div>
 
 <script type="text/javascript">
+var tabView = new YAHOO.widget.TabView('main_tab_container');
 
-var myDataTable;
+function createConfigurationTable()
+{
+   YAHOO.example.XHR_JSON = new function() {
 
-YAHOO.util.Event.addListener(window, "load", function() {
+		var myColumnDefs = [
+            {key:"name", label:"Name", sortable:true},
+            {key:"value", label:"Value", sortable:true},
+        ];
+
+		var myCallback = function(){
+			this.set("sortedBy", null);
+			this.onDataReturnReplaceRows.apply(this,arguments);
+		};
+		
+        this.myDataSource = new YAHOO.util.DataSource("/data/configuration/");
+        this.myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSON;
+        this.myDataSource.connXhrMode = "queueRequests";
+        this.myDataSource.responseSchema = {
+            resultsList: "ResultSet.Result",
+            fields: ["name", "value"]
+        };
+
+        myDataTable = new YAHOO.widget.DataTable("configuration_table", myColumnDefs, this.myDataSource, {initialRequest:""});
+	};
+}
+
+function createPlayerTable()
+{
     YAHOO.example.XHR_JSON = new function() {
 
 		var myColumnDefs = [
-            {key:"name", label:"Slot", sortable:true},
+            {key:"slot", label:"Slot", sortable:true},
             {key:"status", label:"Status", sortable:true},
             {key:"uid", label:"UID", sortable:true},
             {key:"ip", label:"IP/Type", sortable:true},
+            {key:"name", label:"Nickname", sortable:true},
 			{key:"auth", label:"Authentication", sortable:true},
             {label:"Traffic", children:[ 
 				{label:"Normal", children:[ 
@@ -30,17 +73,17 @@ YAHOO.util.Event.addListener(window, "load", function() {
 						]},
 					{label:"Rate", children:[ 
 						{key:"bw_normal_rate_up", label:"Up"},
-						{key:"bw_normal_rate_up", label:"Down"}
+						{key:"bw_normal_rate_down", label:"Down"}
 						]},
 				]},
 				{label:"Drop", children:[ 
 					{label:"Sum", children:[ 
 						{key:"bw_drop_sum_up", label:"Up"},
-						{key:"bw_drop_sum_up", label:"Down"}
+						{key:"bw_drop_sum_down", label:"Down"}
 						]},
 					{label:"Rate", children:[ 
 						{key:"bw_drop_rate_up", label:"Up"},
-						{key:"bw_drop_rate_up", label:"Down"}
+						{key:"bw_drop_rate_down", label:"Down"}
 						]},
 				]},
 			]},
@@ -57,20 +100,62 @@ YAHOO.util.Event.addListener(window, "load", function() {
         this.myDataSource.connXhrMode = "queueRequests";
         this.myDataSource.responseSchema = {
             resultsList: "ResultSet.Result",
-            fields: ["name"]
+            fields: ["slot", "status", "uid", "ip", "name", "auth", "bw_normal_sum_up", "bw_normal_sum_down", "bw_normal_rate_up", "bw_normal_rate_down", "bw_drop_sum_up", "bw_drop_sum_down", "bw_drop_rate_up", "bw_drop_rate_down"]
         };
 
-        myDataTable = new YAHOO.widget.DataTable("json", myColumnDefs,
+        myDataTable = new YAHOO.widget.DataTable("player_table", myColumnDefs,
                 this.myDataSource, {initialRequest:""});
 
-		myDataTable.getDataSource().setInterval(20000,myDataTable.get("initialRequest"),{
+		myDataTable.getDataSource().setInterval(20000, myDataTable.get("initialRequest"),{
 						success : myCallback,
 						failure : myCallback,
 						scope : myDataTable
 						}); 
 
 	};
-});
+}
+
+function createStatsTab()
+{
+	//YAHOO.widget.Chart.SWFURL = "http://yui.yahooapis.com/2.8.1/build/charts/assets/charts.swf";
+	var trafficDataSource = new YAHOO.util.DataSource( "/data/stats/traffic" );
+	trafficDataSource.responseType = YAHOO.util.DataSource.TYPE_JSON;
+	trafficDataSource.connMethodPost = true;
+	trafficDataSource.connXhrMode = "queueRequests";
+	trafficDataSource.responseSchema =
+	{
+			resultsList: "Traffic",
+			fields: ["Name","Value"]
+	};
+
+
+	var yAxis = new YAHOO.widget.NumericAxis();
+	yAxis.minimum = 0;
+	yAxis.maximum = 100;
+	
+	var mychart = new YAHOO.widget.LineChart( "chart_traffic", trafficDataSource,
+	{
+		xField: "Name",
+		yField: "Value",
+		yAxis: yAxis,
+		polling: 2000
+	});
+}
+
+function activeTabChange(e) { 
+	if(tabView.get('activeIndex') == 1)
+		createConfigurationTable();
+	if(tabView.get('activeIndex') == 2)
+		createPlayerTable();
+	if(tabView.get('activeIndex') == 3)
+		createStatsTab();
+}
+ 
+tabView.addListener('activeTabChange', activeTabChange);
+
+
+
+
 </script>
 
 {{>FOOTER}}

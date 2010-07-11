@@ -188,7 +188,6 @@ static Json::Value getConfValue(std::string name, int value)
 
 static void data_configuration(struct mg_connection *conn, const struct mg_request_info *request_info, void *data)
 {
-	static int i=0;
 	Json::Value root;   // will contains the root value after parsing.
 	Json::Value results;
 	results.append(getConfValue("Max Clients", Config::getMaxClients()));

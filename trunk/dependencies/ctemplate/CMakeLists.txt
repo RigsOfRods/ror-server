@@ -5,7 +5,6 @@ set(ctemplate_src
 	src/htmlparser/htmlparser.cc
 	src/htmlparser/jsparser.cc
 	src/per_expand_data.cc
-	src/windows/port.cc
 	src/htmlparser/statemachine.cc
 	src/template.cc
 	src/template_annotator.cc
@@ -17,12 +16,16 @@ set(ctemplate_src
 	src/template_string.cc
 )
 
+include_directories (src/)
+
 # libraries
 IF(WIN32)
 	FILE(GLOB_RECURSE ctemplate_os_src src/windows/*.cc src/windows/ctemplate/*.h )
 	include_directories (src/windows/)
-	include_directories (src/)
+
+	set(ctemplate_src ${ctemplate_src} src/windows/port.cc)
 ELSEIF(UNIX)
+	include_directories (src/linux/)
 ELSEIF(APPLE)
 ENDIF(WIN32)
 

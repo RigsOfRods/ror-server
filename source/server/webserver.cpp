@@ -114,19 +114,28 @@ std::string formatBytes(double bytes, bool persec=false)
 	return std::string(res);
 }
 
+static std::string getProgramDir()
+{
+#ifdef WIN32
+	return "";
+#else // WIN32
+	return "/usr/share/rorserver/"; // trailing slash important
+#endif // WIN32
+}
+
 static ctemplate::TemplateDictionary *getTemplateDict(std::string title)
 {
 	ctemplate::TemplateDictionary *dict = new ctemplate::TemplateDictionary("website");
 	
 	// if you remove the following line, it will enforce reading from the disc -> nice to create the templates
-	ctemplate::Template::ClearCache();
+	//ctemplate::Template::ClearCache();
 	
 	dict->SetValue("TITLE", "Rigs of Rods Server - " + title);
 	
 	ctemplate::TemplateDictionary* dict_header = dict->AddIncludeDictionary("HEADER");
-	dict_header->SetFilename("webserver/templates/header.html");
+	dict_header->SetFilename(getProgramDir() + "webserver/templates/header.html");
 	ctemplate::TemplateDictionary* dict_footer = dict->AddIncludeDictionary("FOOTER");
-	dict_footer->SetFilename("webserver/templates/footer.html");
+	dict_footer->SetFilename(getProgramDir() + "webserver/templates/footer.html");
 	return dict;
 }
 
@@ -147,7 +156,7 @@ static void show_index(struct mg_connection *conn, const struct mg_request_info 
 
 	dict->SetValue("FOO", "test123");
 
-	renderTemplate(dict, conn, "webserver/templates/overview.html");
+	renderTemplate(dict, conn, getProgramDir() + "webserver/templates/overview.html");
 }
 
 #define ranrange(a, b) (int)((a) + rand()/(RAND_MAX + 1.0) * ((b) - (a) + 1))

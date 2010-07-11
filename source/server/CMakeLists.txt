@@ -53,5 +53,16 @@ INSTALL(TARGETS rorserver
 	ARCHIVE DESTINATION lib
 )
 
+IF(WIN32)
+ELSEIF(UNIX)
+# install the files required for the runtime
+INSTALL(
+        DIRECTORY ${rorserver_SOURCE_DIR}/bin/webserver
+        DESTINATION share/rorserver
+        FILES_MATCHING PATTERN "*"
+        PATTERN ".svn" EXCLUDE
+)
+
+ENDIF(WIN32)
 
 

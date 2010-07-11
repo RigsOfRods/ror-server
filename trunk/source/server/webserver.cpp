@@ -123,6 +123,13 @@ static std::string getProgramDir()
 #endif // WIN32
 }
 
+
+static void renderJSONHeader(struct mg_connection *conn)
+{
+	std::string json_header = "HTTP/1.1 200 OK\r\nCache-Control: no-cache, must-revalidate\r\nExpires: Mon, 26 Jul 1997 05:00:00 GMT\r\nContent-type: application/json\r\n\r\n";
+	mg_write(conn, json_header.c_str(), json_header.size());
+}
+
 static ctemplate::TemplateDictionary *getTemplateDict(std::string title)
 {
 	ctemplate::TemplateDictionary *dict = new ctemplate::TemplateDictionary("website");
@@ -164,7 +171,7 @@ static void data_stats_traffic(struct mg_connection *conn, const struct mg_reque
 {
 	Json::Value root;   // will contains the root value after parsing.
 	Json::Value results;
-	for(int i=0;i<100;i++)
+	for(int i=0;i<10;i++)
 	{
 		double val = ranrange(0,100);
 		Json::Value result;
@@ -173,9 +180,10 @@ static void data_stats_traffic(struct mg_connection *conn, const struct mg_reque
 		results.append(result);
 	}
 	root["Traffic"] = results;
-	Json::StyledWriter writer;
+	Json::FastWriter writer;
 	std::string output = writer.write( root );
 
+	renderJSONHeader(conn);
 	mg_write(conn, output.c_str(), output.size());
 }
 
@@ -243,9 +251,10 @@ static void data_configuration(struct mg_connection *conn, const struct mg_reque
 	root["ResultSet"]["totalResultsReturned"] = results.size();
 	root["ResultSet"]["firstResultPosition"] = 1;
 
-	Json::StyledWriter writer;
+	Json::FastWriter writer;
 	std::string output = writer.write( root );
 
+	renderJSONHeader(conn);
 	mg_write(conn, output.c_str(), output.size());
 }
 
@@ -368,9 +377,10 @@ static void data_players(struct mg_connection *conn, const struct mg_request_inf
 	root["ResultSet"]["firstResultPosition"]   = 1;
 	root["ResultSet"]["Result"] = rows;
 
-	Json::StyledWriter writer;
+	Json::FastWriter writer;
 	std::string output = writer.write( root );
 
+	renderJSONHeader(conn);
 	mg_write(conn, output.c_str(), output.size());
 }
 

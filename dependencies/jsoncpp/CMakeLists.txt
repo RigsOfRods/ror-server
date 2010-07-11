@@ -21,7 +21,7 @@ INSTALL(TARGETS jsoncpp
 
 # install the headers: both source and build headers
 INSTALL(
-	DIRECTORY ${ctemplate_SOURCE_DIR}/include/json
+	DIRECTORY ${jsoncpp_SOURCE_DIR}/include/json
 	DESTINATION include/jsoncpp 
 	FILES_MATCHING PATTERN "*.h" 
 	PATTERN ".svn" EXCLUDE

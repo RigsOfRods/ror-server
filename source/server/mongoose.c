@@ -447,7 +447,8 @@ cry(struct mg_connection *conn, const char *fmt, ...)
 
 	va_start(ap, fmt);
 	(void) vsnprintf(buf, sizeof(buf), fmt, ap);
-	conn->ctx->log_callback(conn, &conn->request_info, buf);
+	printf("%s", buf);
+	//conn->ctx->log_callback(conn, &conn->request_info, buf);
 	va_end(ap);
 }
 

@@ -17,7 +17,7 @@
         <div id="tab3"> <div id="player_table"></div> </div>
         <div id="tab4">
 
-		<div id="chart_traffic">Unable to load Flash content. The YUI Charts Control requires Flash Player 9.0.45 or higher. You can download the latest version of Flash Player from the <a href="http://www.adobe.com/go/getflashplayer">Adobe Flash Player Download Center</a>.</p></div>
+		<div id="chart_traffic">Unable to load Flash content. The YUI Charts Control requires Flash Player 9.0.45 or higher. You can download the latest version of Flash Player from the <a href="http://www.adobe.com/go/getflashplayer">Adobe Flash Player Download Center</a></div>
 
 		</div>
         <div id="tab5"><p>4</p></div>
@@ -117,10 +117,9 @@ function createPlayerTable()
 
 function createStatsTab()
 {
-	//YAHOO.widget.Chart.SWFURL = "http://yui.yahooapis.com/2.8.1/build/charts/assets/charts.swf";
+	YAHOO.widget.Chart.SWFURL = "http://yui.yahooapis.com/2.8.1/build/charts/assets/charts.swf";
 	var trafficDataSource = new YAHOO.util.DataSource( "/data/stats/traffic" );
 	trafficDataSource.responseType = YAHOO.util.DataSource.TYPE_JSON;
-	trafficDataSource.connMethodPost = true;
 	trafficDataSource.connXhrMode = "queueRequests";
 	trafficDataSource.responseSchema =
 	{
@@ -140,6 +139,7 @@ function createStatsTab()
 		yAxis: yAxis,
 		polling: 2000
 	});
+
 }
 
 function activeTabChange(e) { 

@@ -15,6 +15,8 @@
 #ifdef WIN32
 #include <windows.h>
 #include <time.h>
+#else
+#include <sys/time.h>
 #endif
 
 #ifdef __GNUC__
@@ -81,8 +83,22 @@ static CSimpleOpt::SOption cmdline_options[] = {
 //======== helper functions ====================================================
 int getRandomPort()
 {
-	srand ((int)time (0));
-	return 12000 + (rand()%500);
+	{
+		unsigned int tick_count = 0;
+		// we need to be that precise here as it may happen that we start several servers at once, and thus the seed must be different
+#ifdef WIN32
+		LARGE_INTEGER tick;
+		QueryPerformanceCounter(&tick);
+		tick_count = (unsigned int)tick.QuadPart;
+#else // WIN32
+		struct timeval now;
+		gettimeofday(&now, NULL);
+		tick_count = (now.tv_sec * 1000) + (now.tv_usec / 1000);
+#endif // WIN32
+		// init the random number generator
+		srand (tick_count);
+	}
+	return 12000 + (rand()%1000);
 }
 
 std::string Config::getPublicIP()
@@ -448,12 +464,11 @@ void Config::loadConfigFile(const std::string& filename)
 		if(config.exists("name"))          setServerName(config.getStringValue    ("name"));
 		if(config.exists("scriptname"))    setScriptName(config.getStringValue    ("scriptname"));
 		if(config.exists("terrain"))       setTerrain   (config.getStringValue    ("terrain"));
-		if(config.exists("terrain"))       setTerrain   (config.getStringValue    ("terrain"));
 		if(config.exists("password"))      setPublicPass(config.getStringValue    ("password"));
 		if(config.exists("ip"))            setIPAddr    (config.getStringValue    ("ip"));
 		if(config.exists("port"))          setListenPort(config.getIntValue       ("port"));
 		if(config.exists("mode"))          setServerMode((std::string(config.getStringValue("mode")) == std::string("inet"))?SERVER_INET:SERVER_LAN);
-		
+
 		if(config.exists("printstats"))    setPrintStats(config.getBoolValue      ("printstats"));
 		if(config.exists("webserver"))     setWebserverEnabled(config.getBoolValue("webserver"));
 		if(config.exists("webserverport")) setWebserverPort(config.getIntValue    ("webserverport"));
@@ -462,6 +477,7 @@ void Config::loadConfigFile(const std::string& filename)
 		if(config.exists("verbosity"))     Logger::setLogLevel(LOGTYPE_DISPLAY,   (LogLevel)config.getIntValue("verbosity"));
 		if(config.exists("logverbosity"))  Logger::setLogLevel(LOGTYPE_FILE,      (LogLevel)config.getIntValue("logverbosity"));
 		if(config.exists("resdir"))        setResourceDir(config.getStringValue   ("resdir"));
+		if(config.exists("logfilename"))   Logger::setOutputFile(config.getStringValue("logfilename"));
 	} else
 	{
 		Logger::log(LOG_ERROR, "could not load config file %s : %s", filename.c_str(), config.getError());

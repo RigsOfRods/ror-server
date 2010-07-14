@@ -15,7 +15,7 @@ DESC="Rigs of Rods Multiplayer Server"
 
 
 USERNAME=rorserver
-DAEMON=@CMAKE_INSTALL_PREFIX@/rorserver
+DAEMON=@CMAKE_INSTALL_PREFIX@/bin/rorserver
 CFGDIR=/etc/rorserver/
 LOGDIR=/var/log/rorserver/
 PIDDIR=/var/run/rorserver/

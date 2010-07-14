@@ -452,7 +452,7 @@ void Config::loadConfigFile(const std::string& filename)
 		if(config.exists("password"))      setPublicPass(config.getStringValue    ("password"));
 		if(config.exists("ip"))            setIPAddr    (config.getStringValue    ("ip"));
 		if(config.exists("port"))          setListenPort(config.getIntValue       ("port"));
-		if(config.exists("mode"))          setServerMode(config.getStringValue    ("mode") == "inet"?SERVER_INET:SERVER_LAN);
+		if(config.exists("mode"))          setServerMode((std::string(config.getStringValue("mode")) == std::string("inet"))?SERVER_INET:SERVER_LAN);
 		
 		if(config.exists("printstats"))    setPrintStats(config.getBoolValue      ("printstats"));
 		if(config.exists("webserver"))     setWebserverEnabled(config.getBoolValue("webserver"));

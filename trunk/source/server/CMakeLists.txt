@@ -79,6 +79,7 @@ ELSEIF(UNIX)
 	# add example server configuration
 	INSTALL(FILES ${rorserver_SOURCE_DIR}/contrib/example-config.cfg
 			DESTINATION /etc/rorserver/
+			RENAME simple.cfg.example
 			PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
 	)
 
@@ -94,7 +95,7 @@ ELSEIF(UNIX)
 	INSTALL(CODE "execute_process(COMMAND chown rorserver:rorserver -R /var/log/rorserver)")
 	INSTALL(CODE "execute_process(COMMAND chown rorserver:rorserver -R /var/run/rorserver)")
 	
-	INSTALL(CODE "message(\"example configuration added: /etc/rorserver/example-config.cfg please configure this file to your likings\")")
+	INSTALL(CODE "message(\"example configuration added: /etc/rorserver/simple.cfg.example please configure this file to your likings and rename it to simple.cfg\")")
 	INSTALL(CODE "message(\"after you have configured your server, you can start it with: /etc/init.d/rorserver start\")")
 ENDIF(WIN32)
 

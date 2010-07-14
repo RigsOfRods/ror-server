@@ -1,0 +1,76 @@
+#!/bin/bash
+### BEGIN INIT INFO
+# Provides:          rorserver
+# Required-Start:    $remote_fs $syslog $network
+# Required-Stop:     $remote_fs $syslog $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Rigs of Rods multiplayer server
+# Description:       rorserver is a server for the Rigs of Rods Game
+### END INIT INFO
+
+PATH=@CMAKE_INSTALL_PREFIX@:/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+NAME=rorserver
+DESC="Rigs of Rods Multiplayer Server"
+
+
+USERNAME=rorserver
+DAEMON=@CMAKE_INSTALL_PREFIX@/rorserver
+CFGDIR=/etc/rorserver/
+LOGDIR=/var/log/rorserver/
+PIDDIR=/var/run/rorserver/
+
+[ -x "$DAEMON" ] || exit 0
+[ -d "$CFGDIR" ] || exit 0
+[ -d "$LOGDIR" ] || exit 0
+[ -d "$PIDDIR" ] || exit 0
+
+. /lib/lsb/init-functions
+
+case "$1" in
+  start)
+	for CONFIG in $(ls ${CFGDIR}/*.cfg)
+	do
+		SRVNAME = $(basename ${CONFIG} | awk -F. '{ print $1 }')
+		PIDFILE = ${PIDDIR}/${SRVNAME}.pid
+		LOGFILE = ${LOGDIR}/${SRVNAME}.log
+		RUNNING = 0
+		if [[ -f ${PIDFILE} ]] ; then
+			RUNNING = $(ps -p ${PIDNUM} | wc -l)
+		fi
+		if [[ "${RUNNING}" != "2" ]] ; then
+			# start
+			rm -f ${PIDFILE} >>/dev/null 2>&1
+			log_daemon_msg "starting ${NAME}-${SRVNAME}"
+		fi
+		echo "LOG STARTED" > $LOGFILE
+		start-stop-daemon --start --background --user ${USERNAME} --name ${NAME}-${SRVNAME} --exec $DAEMON --make-pidfile --pidfile ${PIDFILE}  -- -c ${CONFIG} 
+	done
+	log_end_msg 0 
+	;;
+  stop)
+	FILES=$(ls ${PIDDIR}/*.pid 2>/dev/null)
+	if [[ "${FILES}" == "" ]]
+	then
+		log_daemon_msg "no rorservers detected running"
+		log_end_msg 1
+		exit 0
+	fi
+	for PID in ${FILES}
+	do
+ 		log_daemon_msg "Stopping $NAME $PID"
+		start-stop-daemon --stop --user ${USERNAME} --pidfile ${PID} --retry=TERM/30/KILL/5
+		log_end_msg $?
+		rm ${PID} >>/dev/null 2>&1
+	done
+	;;
+  restart)
+	$0 stop && $0 start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

@@ -71,7 +71,7 @@ case "$1" in
 				GDBCMDFILE=${LOGFILE}.${DATENOW}.gdb.cmds
 				GDBLOG=${LOGFILE}.${DATENOW}.gdb.log
 				# now create the gdb command script
-				echo "set args -c ${CONFIG} -resdir ${RESDIR} -logfilename ${LOGFILE} -logverbosity 0 -fg" > ${GDBCMDFILE}
+				echo "set args -c ${CONFIG} -resdir ${RESDIR} -logfilename ${LOGFILE} -fg" > ${GDBCMDFILE}
 				echo "run" >> ${GDBCMDFILE}
 				echo "set logging file ${GDBLOG}" >> ${GDBCMDFILE}
 				echo "set logging on" >> ${GDBCMDFILE}

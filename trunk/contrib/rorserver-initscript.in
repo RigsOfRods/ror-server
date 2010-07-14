@@ -44,17 +44,22 @@ case "$1" in
 		LOGFILE=${LOGDIR}/${SRVNAME}.log
 		RUNNING=0
 		if [[ -f ${PIDFILE} ]] ; then
-			RUNNING = $(ps -p ${PIDNUM} | wc -l)
+			PIDNUM=$(cat ${PIDFILE})
+			RUNNING=$(ps -p ${PIDNUM} 2>/dev/null | wc -l)
 		fi
 		if [[ "${RUNNING}" != "2" ]] ; then
 			# start
 			rm -f ${PIDFILE} >>/dev/null 2>&1
-			log_daemon_msg "starting ${NAME}-${SRVNAME}"
+			log_daemon_msg "starting ${NAME} with config ${SRVNAME}"
+			echo "LOG STARTED" > ${LOGFILE}
+			chown $USERNAME:$USERNAME ${LOGFILE}
+			start-stop-daemon --start --background --user ${USERNAME} --name ${NAME}-${SRVNAME} --exec $DAEMON --make-pidfile --pidfile ${PIDFILE}  -- -c ${CONFIG} -resdir ${RESDIR} -logfilename ${LOGFILE}
+			log_end_msg $? 
+		else
+			log_daemon_msg "${NAME} with config ${SRVNAME} already running"
+			log_end_msg 0
 		fi
-		echo "LOG STARTED" > $LOGFILE
-		start-stop-daemon --start --background --user ${USERNAME} --name ${NAME}-${SRVNAME} --exec $DAEMON --make-pidfile --pidfile ${PIDFILE}  -- -c ${CONFIG} -resdir ${RESDIR} 
 	done
-	log_end_msg 0 
 	;;
   stop)
 	PIDS=$(ls ${PIDDIR}/*.pid 2>/dev/null)

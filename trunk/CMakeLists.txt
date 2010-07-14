@@ -67,6 +67,7 @@ option(RORSERVER_WITH_WEBSERVER "adds the webserver" FALSE)
 
 
 add_subdirectory("dependencies/socketw")
+add_subdirectory("dependencies/rudeconfig")
 add_subdirectory("source/server")
 
 if(RORSERVER_WITH_ANGELSCRIPT)

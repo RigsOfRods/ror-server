@@ -1,0 +1,2 @@
+http://rudeserver.com/config/index.html
+http://rudeserver.com/config/download/rudeconfig-5.0.5.tar.bz2

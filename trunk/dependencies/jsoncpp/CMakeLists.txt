@@ -3,13 +3,8 @@ project(jsoncpp)
 FILE(GLOB_RECURSE jsoncpp_src src/lib_json/*.cpp)
 include_directories (include)
 
-
-
-# general flags
-#add_definitions("-DLIBCTEMPLATE_EXPORTS -D_USRDLL -D_CRT_SECURE_NO_WARNINGS")
-
 # the final lib
-add_library(jsoncpp STATIC ${jsoncpp_src} ${ctemplate_os_src})
+add_library(jsoncpp STATIC ${jsoncpp_src})
 windows_hacks(jsoncpp)
 
 # install the library

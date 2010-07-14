@@ -45,7 +45,8 @@ enum
 	OPT_WEBSERVER,
 	OPT_WEBSERVER_PORT,
 	OPT_VERSION,
-	OPT_FOREGROUND
+	OPT_FOREGROUND,
+	OPT_CONFIGFILE
 };
 
 // option array
@@ -68,6 +69,8 @@ static CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_HELP,           ((char *)"-help"), SO_NONE },
 	{ OPT_HELP,           ((char *)"--help"), SO_NONE },
 	{ OPT_FOREGROUND,     ((char *)"-fg"), SO_NONE },
+	{ OPT_CONFIGFILE,     ((char *)"-c"), SO_REQ_SEP },
+	{ OPT_CONFIGFILE,     ((char *)"-config"), SO_REQ_SEP },
 	{ OPT_HELP,           ((char *)"/help"), SO_NONE },
 	SO_END_OF_OPTIONS
 };
@@ -113,14 +116,13 @@ void showUsage()
 	printf("\n" \
 "Usage: rorserver [OPTIONS] <paramaters>\n" \
 " Where [OPTIONS] and <parameters>\n" \
-" REQUIRED:\n" \
+" -c (-config) <config file>   Loads the configuration from a file rather than from the commandline\n"
 " -name <name>                 Name of the server, no spaces, only \n"
 "                              [a-z,0-9,A-Z]\n"
 " -terrain <mapname>           Map name (defaults to 'any')\n"
 " -maxclients|speed <clients>  Maximum clients allowed \n"
 " -lan|inet                    Private or public server (defaults to inet)\n"
 "\n"
-" OPTIONAL:\n" 
 " -password <password>         Private server password\n"
 " -ip <ip>                     Public IP address to register with.\n"
 " -port <port>                 Port to use (defaults to random 12000-12500)\n"
@@ -319,7 +321,9 @@ bool Config::fromArgs( int argc, char* argv[] )
 			case OPT_FOREGROUND:
 				setForeground(true);
 			break;
-			
+			case OPT_CONFIGFILE:
+				loadConfigFile(args.OptionArg());
+			break;
 			case OPT_HELP: 
 			default:
 				showUsage();
@@ -417,5 +421,10 @@ void Config::setPrintStats(bool value)
 }
 void Config::setForeground(bool value) {
 	instance.foreground = value;
+}
+
+void Config::loadConfigFile(const std::string& filename)
+{
+	// TBD
 }
 //!@}

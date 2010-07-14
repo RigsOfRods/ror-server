@@ -76,6 +76,12 @@ ELSEIF(UNIX)
 			PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
 	)
 
+	# add example server configuration
+	INSTALL(FILES ${rorserver_SOURCE_DIR}/contrib/example-config.cfg
+			DESTINATION /etc/rorserver/
+			PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+	)
+
 	# create user
 	INSTALL(CODE "execute_process(COMMAND useradd -s /bin/false rorserver)")
 
@@ -88,6 +94,8 @@ ELSEIF(UNIX)
 	INSTALL(CODE "execute_process(COMMAND chown rorserver:rorserver -R /var/log/rorserver)")
 	INSTALL(CODE "execute_process(COMMAND chown rorserver:rorserver -R /var/run/rorserver)")
 	
+	INSTALL(CODE "message(\"example configuration added: /etc/rorserver/example-config.cfg please configure this file to your likings\")")
+	INSTALL(CODE "message(\"after you have configured your server, you can start it with: /etc/init.d/rorserver start\")")
 ENDIF(WIN32)
 
 

@@ -2,6 +2,9 @@
 #define CONFIG_H_
 #include <string>
 
+#include <string>
+
+#include <rudeconfig/config.h>
 
 // server modes
 enum ServerType {
@@ -54,6 +57,7 @@ public:
 	static void setWebserverEnabled(bool value);
 	static void setWebserverPort( unsigned int port );
 	static void setForeground(bool value);
+	static void loadConfigFile(const std::string& filename);
 	//!@}
 
 	static std::string getPublicIP();

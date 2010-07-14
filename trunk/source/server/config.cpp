@@ -425,6 +425,29 @@ void Config::setForeground(bool value) {
 
 void Config::loadConfigFile(const std::string& filename)
 {
-	// TBD
+	rude::Config config;
+	if(config.load(filename.c_str()))
+	{
+		if(config.exists("slots"))         setMaxClients(config.getIntValue       ("slots"));
+		if(config.exists("name"))          setServerName(config.getStringValue    ("name"));
+		if(config.exists("scriptname"))    setScriptName(config.getStringValue    ("scriptname"));
+		if(config.exists("terrain"))       setTerrain   (config.getStringValue    ("terrain"));
+		if(config.exists("terrain"))       setTerrain   (config.getStringValue    ("terrain"));
+		if(config.exists("password"))      setPublicPass(config.getStringValue    ("password"));
+		if(config.exists("ip"))            setIPAddr    (config.getStringValue    ("ip"));
+		if(config.exists("port"))          setListenPort(config.getIntValue       ("port"));
+		if(config.exists("mode"))          setServerMode(config.getStringValue    ("mode") == "inet"?SERVER_INET:SERVER_LAN);
+		
+		if(config.exists("printstats"))    setPrintStats(config.getBoolValue      ("printstats"));
+		if(config.exists("webserver"))     setWebserverEnabled(config.getBoolValue("webserver"));
+		if(config.exists("webserverport")) setWebserverPort(config.getIntValue    ("webserverport"));
+		if(config.exists("foreground"))    setForeground(config.getBoolValue      ("foreground"));
+
+		if(config.exists("verbosity"))     Logger::setLogLevel(LOGTYPE_DISPLAY,   (LogLevel)config.getIntValue("verbosity"));
+		if(config.exists("logverbosity"))  Logger::setLogLevel(LOGTYPE_FILE,      (LogLevel)config.getIntValue("logverbosity"));
+	} else
+	{
+		Logger::log(LOG_ERROR, "could not load config file %s : %s", filename.c_str(), config.getError());
+	}
 }
 //!@}

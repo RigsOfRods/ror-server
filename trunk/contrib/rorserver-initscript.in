@@ -13,6 +13,9 @@ PATH=@CMAKE_INSTALL_PREFIX@:/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:
 NAME=rorserver
 DESC="Rigs of Rods Multiplayer Server"
 
+# if you set CRASHREPORTS=1 then the init script will use gdb to catch errors.
+# you should use Debug compile mode. Look in /var/log/rorserver/ for the results
+CRASHREPORTS=0
 
 USERNAME=rorserver
 DAEMON=@CMAKE_INSTALL_PREFIX@/bin/rorserver
@@ -53,8 +56,30 @@ case "$1" in
 			log_daemon_msg "starting ${NAME} with config ${SRVNAME}"
 			echo "LOG STARTED" > ${LOGFILE}
 			chown $USERNAME:$USERNAME ${LOGFILE}
-			start-stop-daemon --start --background --user ${USERNAME} --name ${NAME}-${SRVNAME} --exec $DAEMON --make-pidfile --pidfile ${PIDFILE}  -- -c ${CONFIG} -resdir ${RESDIR} -logfilename ${LOGFILE}
-			log_end_msg $? 
+			if [[ "${CRASHREPORTS}" == "0" ]]
+			then
+				# normal startup, no gdb
+				start-stop-daemon --start --background --user ${USERNAME} --name ${NAME}-${SRVNAME} --exec ${DAEMON} --make-pidfile --pidfile ${PIDFILE}  -- -c ${CONFIG} -resdir ${RESDIR} -logfilename ${LOGFILE}
+				log_end_msg $?
+			else
+				# gdb startup
+				DATENOW=$(date +%s)
+				GDB=$(which gdb)
+				GDBCMDFILE=${LOGFILE}.${DATENOW}.gdb.cmds
+				GDBLOG=${LOGFILE}.${DATENOW}.gdb.log
+				echo "set args -c ${CONFIG} -resdir ${RESDIR} -logfilename ${LOGFILE} -logverbosity 0 -fg" > ${GDBCMDFILE}
+				echo "run" >> ${GDBCMDFILE}
+				echo "set logging file ${GDBLOG}" >> ${GDBCMDFILE}
+				echo "set logging on" >> ${GDBCMDFILE}
+				echo "bt full" >> ${GDBCMDFILE}
+				echo "info frame" >> ${GDBCMDFILE}
+				echo "info frame 2" >> ${GDBCMDFILE}
+				echo "info frame 3" >> ${GDBCMDFILE}
+				echo "quit" >> ${GDBCMDFILE}
+"
+				start-stop-daemon --start --background --user ${USERNAME} --name ${NAME}-${SRVNAME} --exec ${GDB} --make-pidfile --pidfile ${PIDFILE}  -- ${DAEMON} -x ${GDBCMDFILE}
+				log_end_msg $?
+			fi
 		else
 			log_daemon_msg "${NAME} with config ${SRVNAME} already running"
 			log_end_msg 0

@@ -16,9 +16,9 @@ DESC="Rigs of Rods Multiplayer Server"
 
 USERNAME=rorserver
 DAEMON=@CMAKE_INSTALL_PREFIX@/bin/rorserver
-CFGDIR=/etc/rorserver/
-LOGDIR=/var/log/rorserver/
-PIDDIR=/var/run/rorserver/
+CFGDIR=/etc/rorserver
+LOGDIR=/var/log/rorserver
+PIDDIR=/var/run/rorserver
 RESDIR=@CMAKE_INSTALL_PREFIX@/share/rorserver/
 
 [ -x "$DAEMON" ] || exit 0
@@ -31,6 +31,12 @@ RESDIR=@CMAKE_INSTALL_PREFIX@/share/rorserver/
 
 case "$1" in
   start)
+	CONFIGS=$(ls ${CFGDIR}/*.cfg 2>/dev/null)
+	if [[ "${FILES}" == "" ]] ; then
+		log_daemon_msg "no configurations found in ${CFGDIR}"
+		log_end_msg 1
+		exit 0
+	fi
 	for CONFIG in $(ls ${CFGDIR}/*.cfg)
 	do
 		SRVNAME = $(basename ${CONFIG} | awk -F. '{ print $1 }')

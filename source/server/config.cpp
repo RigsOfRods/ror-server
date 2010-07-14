@@ -46,7 +46,8 @@ enum
 	OPT_WEBSERVER_PORT,
 	OPT_VERSION,
 	OPT_FOREGROUND,
-	OPT_CONFIGFILE
+	OPT_CONFIGFILE,
+	OPT_RESDIR,
 };
 
 // option array
@@ -71,6 +72,7 @@ static CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_FOREGROUND,     ((char *)"-fg"), SO_NONE },
 	{ OPT_CONFIGFILE,     ((char *)"-c"), SO_REQ_SEP },
 	{ OPT_CONFIGFILE,     ((char *)"-config"), SO_REQ_SEP },
+	{ OPT_RESDIR,         ((char *)"-resdir"), SO_REQ_SEP },
 	{ OPT_HELP,           ((char *)"/help"), SO_NONE },
 	SO_END_OF_OPTIONS
 };
@@ -142,6 +144,7 @@ void showUsage()
 " -script <script.as>          server script to execute\n" \
 " -version                     prints the server version numbers\n" \
 " -fg                          starts the server in the foreground (background by default)\n" \
+" -resdir <path>               sets the path to the resource directory\n" \
 " -help                        Show this list\n");
 }
 
@@ -160,7 +163,12 @@ Config::Config():
 	server_mode( SERVER_AUTO ),
 	print_stats(false),
 	webserver_port( 0 ),
-	foreground(false)
+	foreground(false),
+#ifdef WIN32
+	resourcedir()
+#else // WIN32
+	resourcedir("/usr/share/rorserver/") // trailing slash important
+#endif // WIN32
 {
 }
 
@@ -321,6 +329,9 @@ bool Config::fromArgs( int argc, char* argv[] )
 			case OPT_FOREGROUND:
 				setForeground(true);
 			break;
+			case OPT_RESDIR:
+				setResourceDir(args.OptionArg());
+			break;
 			case OPT_CONFIGFILE:
 				loadConfigFile(args.OptionArg());
 			break;
@@ -357,8 +368,10 @@ unsigned int       Config::getListenPort()      { return instance.listen_port;  
 ServerType         Config::getServerMode()      { return instance.server_mode;     }
 bool               Config::getPrintStats()      { return instance.print_stats;     }
 bool               Config::getWebserverEnabled(){ return instance.webserver_enabled; }
-unsigned int       Config::getWebserverPort()   { return instance.webserver_port;     }
-bool               Config::getForeground()      { return instance.foreground;     }
+unsigned int       Config::getWebserverPort()   { return instance.webserver_port;  }
+bool               Config::getForeground()      { return instance.foreground;      }
+const std::string& Config::getResourceDir()     { return instance.resourcedir;     }
+
 //!@}
 
 //! setter functions
@@ -422,6 +435,9 @@ void Config::setPrintStats(bool value)
 void Config::setForeground(bool value) {
 	instance.foreground = value;
 }
+void Config::setResourceDir(const std::string& dir) {
+	instance.resourcedir = dir;
+}
 
 void Config::loadConfigFile(const std::string& filename)
 {
@@ -445,6 +461,7 @@ void Config::loadConfigFile(const std::string& filename)
 
 		if(config.exists("verbosity"))     Logger::setLogLevel(LOGTYPE_DISPLAY,   (LogLevel)config.getIntValue("verbosity"));
 		if(config.exists("logverbosity"))  Logger::setLogLevel(LOGTYPE_FILE,      (LogLevel)config.getIntValue("logverbosity"));
+		if(config.exists("resdir"))        setResourceDir(config.getStringValue   ("resdir"));
 	} else
 	{
 		Logger::log(LOG_ERROR, "could not load config file %s : %s", filename.c_str(), config.getError());

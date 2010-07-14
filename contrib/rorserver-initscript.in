@@ -19,11 +19,13 @@ DAEMON=@CMAKE_INSTALL_PREFIX@/rorserver
 CFGDIR=/etc/rorserver/
 LOGDIR=/var/log/rorserver/
 PIDDIR=/var/run/rorserver/
+RESDIR=@CMAKE_INSTALL_PREFIX@/share/rorserver/
 
 [ -x "$DAEMON" ] || exit 0
 [ -d "$CFGDIR" ] || exit 0
 [ -d "$LOGDIR" ] || exit 0
 [ -d "$PIDDIR" ] || exit 0
+[ -d "$RESDIR" ] || exit 0
 
 . /lib/lsb/init-functions
 
@@ -44,7 +46,7 @@ case "$1" in
 			log_daemon_msg "starting ${NAME}-${SRVNAME}"
 		fi
 		echo "LOG STARTED" > $LOGFILE
-		start-stop-daemon --start --background --user ${USERNAME} --name ${NAME}-${SRVNAME} --exec $DAEMON --make-pidfile --pidfile ${PIDFILE}  -- -c ${CONFIG} 
+		start-stop-daemon --start --background --user ${USERNAME} --name ${NAME}-${SRVNAME} --exec $DAEMON --make-pidfile --pidfile ${PIDFILE}  -- -c ${CONFIG} -resdir ${RESDIR} 
 	done
 	log_end_msg 0 
 	;;

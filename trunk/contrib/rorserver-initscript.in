@@ -35,7 +35,8 @@ RESDIR=@CMAKE_INSTALL_PREFIX@/share/rorserver/
 case "$1" in
   start)
 	CONFIGS=$(ls ${CFGDIR}/*.cfg 2>/dev/null)
-	if [[ "${CONFIGS}" == "" ]] ; then
+	if [[ "${CONFIGS}" == "" ]]
+	then
 		log_daemon_msg "no configurations found in ${CFGDIR}"
 		log_end_msg 1
 		exit 0
@@ -46,11 +47,13 @@ case "$1" in
 		PIDFILE=${PIDDIR}/${SRVNAME}.pid
 		LOGFILE=${LOGDIR}/${SRVNAME}.log
 		RUNNING=0
-		if [[ -f ${PIDFILE} ]] ; then
+		if [[ -f ${PIDFILE} ]]
+		then
 			PIDNUM=$(cat ${PIDFILE})
 			RUNNING=$(ps -p ${PIDNUM} 2>/dev/null | wc -l)
 		fi
-		if [[ "${RUNNING}" != "2" ]] ; then
+		if [[ "${RUNNING}" != "2" ]]
+		then
 			# start
 			rm -f ${PIDFILE} >>/dev/null 2>&1
 			log_daemon_msg "starting ${NAME} with config ${SRVNAME}"
@@ -67,6 +70,7 @@ case "$1" in
 				GDB=$(which gdb)
 				GDBCMDFILE=${LOGFILE}.${DATENOW}.gdb.cmds
 				GDBLOG=${LOGFILE}.${DATENOW}.gdb.log
+				# now create the gdb command script
 				echo "set args -c ${CONFIG} -resdir ${RESDIR} -logfilename ${LOGFILE} -logverbosity 0 -fg" > ${GDBCMDFILE}
 				echo "run" >> ${GDBCMDFILE}
 				echo "set logging file ${GDBLOG}" >> ${GDBCMDFILE}
@@ -76,7 +80,7 @@ case "$1" in
 				echo "info frame 2" >> ${GDBCMDFILE}
 				echo "info frame 3" >> ${GDBCMDFILE}
 				echo "quit" >> ${GDBCMDFILE}
-"
+
 				start-stop-daemon --start --background --user ${USERNAME} --name ${NAME}-${SRVNAME} --exec ${GDB} --make-pidfile --pidfile ${PIDFILE}  -- ${DAEMON} -x ${GDBCMDFILE}
 				log_end_msg $?
 			fi

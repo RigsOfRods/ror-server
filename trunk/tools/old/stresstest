@@ -1,8 +1,0 @@
-#!/bin/bash
-
-for i in `seq 0 400`
-do
-	python EchoClient.py 127.0.0.1 12183 bob &
-	sleep 1
-	kill `ps -ef | grep -v grep | grep "python EchoClient.py" | awk '{print $2}'`
-done

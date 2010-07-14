@@ -66,7 +66,10 @@ ELSEIF(UNIX)
 	)
 
 	# configure and install init script
-	CONFIGURE_FILE(${rorserver_SOURCE_DIR}/contrib/rorserver-initscript.in ${rorserver_SOURCE_DIR}/contrib/rorserver-initscript )
+	CONFIGURE_FILE( ${rorserver_SOURCE_DIR}/contrib/rorserver-initscript.in
+			${rorserver_SOURCE_DIR}/contrib/rorserver-initscript
+			@ONLY
+			)
 	INSTALL(FILES ${rorserver_SOURCE_DIR}/contrib/rorserver-initscript  
 			DESTINATION /etc/init.d
 			RENAME rorserver

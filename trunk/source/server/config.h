@@ -40,6 +40,7 @@ public:
 	static bool               getWebserverEnabled();
 	static unsigned int       getWebserverPort();
 	static bool               getForeground();
+	static const std::string& getResourceDir();
 	
 	//!@}
 
@@ -58,6 +59,7 @@ public:
 	static void setWebserverPort( unsigned int port );
 	static void setForeground(bool value);
 	static void loadConfigFile(const std::string& filename);
+	static void setResourceDir(const std::string& dir);
 	//!@}
 
 	static std::string getPublicIP();
@@ -78,6 +80,7 @@ private:
 	bool webserver_enabled;
 	unsigned int webserver_port;
 	bool foreground;
+	std::string resourcedir;
 
 	
 	

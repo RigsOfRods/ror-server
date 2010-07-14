@@ -96,10 +96,12 @@ case "$1" in
 	fi
 	for PID in ${PIDS}
 	do
- 		log_daemon_msg "Stopping $NAME $PID"
+		PIDNAME=$(basename ${PID})
+ 		log_daemon_msg "Stopping ${NAME} - ${PIDNAME}"
 		start-stop-daemon --stop --pidfile ${PID} --retry=TERM/30/KILL/5
-		log_end_msg $?
-		#rm ${PID} >>/dev/null 2>&1
+		RES=$?
+		rm ${PID} >>/dev/null 2>&1
+		log_end_msg ${RES}
 	done
 	;;
   restart)

@@ -56,14 +56,34 @@ INSTALL(TARGETS rorserver
 
 IF(WIN32)
 ELSEIF(UNIX)
-# install the files required for the runtime
-INSTALL(
-        DIRECTORY ${rorserver_SOURCE_DIR}/bin/webserver
-        DESTINATION share/rorserver
-        FILES_MATCHING PATTERN "*"
-        PATTERN ".svn" EXCLUDE
-)
+	# install the files required for the runtime
+	INSTALL(
+			DIRECTORY ${rorserver_SOURCE_DIR}/bin/webserver
+			DESTINATION share/rorserver
+			FILES_MATCHING PATTERN "*"
+			PATTERN ".svn" EXCLUDE
+	)
 
+	# configure and install init script
+	CONFIGURE_FILE(${rorserver_SOURCE_DIR}/contrib/rorserver-initscript.in ${rorserver_SOURCE_DIR}/contrib/rorserver-initscript )
+	INSTALL(FILES ${rorserver_SOURCE_DIR}/contrib/rorserver-initscript  
+			DESTINATION /etc/init.d
+			RENAME rorserver
+			PERMISSIONS OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE
+	)
+
+	# create user
+	INSTALL(CODE "execute_process(COMMAND useradd -s /bin/false rorserver)")
+
+	# create installation directories
+	INSTALL(CODE "execute_process(COMMAND mkdir -p /etc/rorserver)")
+	INSTALL(CODE "execute_process(COMMAND mkdir -p /var/log/rorserver)")
+	INSTALL(CODE "execute_process(COMMAND mkdir -p /var/run/rorserver)")
+
+	INSTALL(CODE "execute_process(COMMAND chown rorserver:rorserver -R /etc/rorserver)")
+	INSTALL(CODE "execute_process(COMMAND chown rorserver:rorserver -R /var/log/rorserver)")
+	INSTALL(CODE "execute_process(COMMAND chown rorserver:rorserver -R /var/run/rorserver)")
+	
 ENDIF(WIN32)
 
 

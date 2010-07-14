@@ -32,17 +32,17 @@ RESDIR=@CMAKE_INSTALL_PREFIX@/share/rorserver/
 case "$1" in
   start)
 	CONFIGS=$(ls ${CFGDIR}/*.cfg 2>/dev/null)
-	if [[ "${FILES}" == "" ]] ; then
+	if [[ "${CONFIGS}" == "" ]] ; then
 		log_daemon_msg "no configurations found in ${CFGDIR}"
 		log_end_msg 1
 		exit 0
 	fi
-	for CONFIG in $(ls ${CFGDIR}/*.cfg)
+	for CONFIG in ${CONFIGS}
 	do
-		SRVNAME = $(basename ${CONFIG} | awk -F. '{ print $1 }')
-		PIDFILE = ${PIDDIR}/${SRVNAME}.pid
-		LOGFILE = ${LOGDIR}/${SRVNAME}.log
-		RUNNING = 0
+		SRVNAME=$(basename ${CONFIG} | awk -F. '{ print $1 }')
+		PIDFILE=${PIDDIR}/${SRVNAME}.pid
+		LOGFILE=${LOGDIR}/${SRVNAME}.log
+		RUNNING=0
 		if [[ -f ${PIDFILE} ]] ; then
 			RUNNING = $(ps -p ${PIDNUM} | wc -l)
 		fi
@@ -57,19 +57,19 @@ case "$1" in
 	log_end_msg 0 
 	;;
   stop)
-	FILES=$(ls ${PIDDIR}/*.pid 2>/dev/null)
-	if [[ "${FILES}" == "" ]]
+	PIDS=$(ls ${PIDDIR}/*.pid 2>/dev/null)
+	if [[ "${PIDS}" == "" ]]
 	then
 		log_daemon_msg "no rorservers detected running"
 		log_end_msg 1
 		exit 0
 	fi
-	for PID in ${FILES}
+	for PID in ${PIDS}
 	do
  		log_daemon_msg "Stopping $NAME $PID"
-		start-stop-daemon --stop --user ${USERNAME} --pidfile ${PID} --retry=TERM/30/KILL/5
+		start-stop-daemon --stop --pidfile ${PID} --retry=TERM/30/KILL/5
 		log_end_msg $?
-		rm ${PID} >>/dev/null 2>&1
+		#rm ${PID} >>/dev/null 2>&1
 	done
 	;;
   restart)

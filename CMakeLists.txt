@@ -67,6 +67,18 @@ option(RORSERVER_WITH_ANGELSCRIPT "adds scripting support" FALSE)
 option(RORSERVER_WITH_WEBSERVER "adds the webserver" FALSE)
 
 
+IF(NOT WIN32)
+	option(RORSERVER_CRASHHANDLER "enables linux startup script crashhandling" FALSE)
+
+	FIND_PROGRAM(GDB_EXECUTABLE gdb)
+	IF(NOT GDB_EXECUTABLE)
+		message("gdb not found, crashhandler disabled")
+		set(RORSERVER_CRASHHANDLER FALSE)
+	ENDIF()
+	mark_as_advanced(GDB_EXECUTABLE)
+endif()
+
+
 add_subdirectory("dependencies/socketw")
 add_subdirectory("dependencies/rudeconfig")
 add_subdirectory("source/server")

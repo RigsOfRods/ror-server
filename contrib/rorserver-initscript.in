@@ -15,7 +15,7 @@ DESC="Rigs of Rods Multiplayer Server"
 
 # if you set CRASHREPORTS=1 then the init script will use gdb to catch errors.
 # you should use Debug compile mode. Look in /var/log/rorserver/ for the results
-CRASHREPORTS=0
+CRASHREPORTS="@RORSERVER_CRASHHANDLER@"
 
 USERNAME=rorserver
 DAEMON=@CMAKE_INSTALL_PREFIX@/bin/rorserver
@@ -59,7 +59,7 @@ case "$1" in
 			log_daemon_msg "starting ${NAME} with config ${SRVNAME}"
 			echo "LOG STARTED" > ${LOGFILE}
 			chown $USERNAME:$USERNAME ${LOGFILE}
-			if [[ "${CRASHREPORTS}" == "0" ]]
+			if [[ "${CRASHREPORTS}" == "OFF" ]]
 			then
 				# normal startup, no gdb
 				start-stop-daemon --start --background --user ${USERNAME} --name ${NAME}-${SRVNAME} --exec ${DAEMON} --make-pidfile --pidfile ${PIDFILE}  -- -c ${CONFIG} -resdir ${RESDIR} -logfilename ${LOGFILE}
@@ -67,18 +67,57 @@ case "$1" in
 			else
 				# gdb startup
 				DATENOW=$(date +%s)
-				GDB=$(which gdb)
+				GDB=@GDB_EXECUTABLE@
 				GDBCMDFILE=${LOGFILE}.${DATENOW}.gdb.cmds
 				GDBLOG=${LOGFILE}.${DATENOW}.gdb.log
+				GDBCORE=${LOGFILE}.${DATENOW}.gdb.core
 				# now create the gdb command script
+				# set program arguments
 				echo "set args -c ${CONFIG} -resdir ${RESDIR} -logfilename ${LOGFILE} -fg" > ${GDBCMDFILE}
+				# prevent output wrapping and pagination
+				echo "set width 0" >> ${GDBCMDFILE}
+				echo "set heigt 0" >> ${GDBCMDFILE}
+				# improve verbosity of the log
+				echo "set verbose on" >> ${GDBCMDFILE}
+				echo "set print elements 0" >> ${GDBCMDFILE}
+				echo "set print address on" >> ${GDBCMDFILE}
+				echo "set print symbol-filename on" >> ${GDBCMDFILE}
+				echo "set print array on" >> ${GDBCMDFILE}
+				echo "set print pretty on" >> ${GDBCMDFILE}
+				echo "set print union on" >> ${GDBCMDFILE}
+				echo "set print demangle on" >> ${GDBCMDFILE}
+				echo "set print asm-demangle on" >> ${GDBCMDFILE}
+				echo "set print object on" >> ${GDBCMDFILE}
+				echo "set print vtbl on" >> ${GDBCMDFILE}
+				echo "set listsize 60" >> ${GDBCMDFILE}
+				# add the directory as source lookup path
+				echo "directory @rorserver_SOURCE_DIR@/source/server/" >> ${GDBCMDFILE}
+				# now start the application
 				echo "run" >> ${GDBCMDFILE}
+				# upon crash, start logging and print out the callstack
 				echo "set logging file ${GDBLOG}" >> ${GDBCMDFILE}
 				echo "set logging on" >> ${GDBCMDFILE}
 				echo "bt full" >> ${GDBCMDFILE}
+				echo "info all-registers" >> ${GDBCMDFILE}
+				echo "info float" >> ${GDBCMDFILE}
+				echo "info vector" >> ${GDBCMDFILE}
+				echo "info mem" >> ${GDBCMDFILE}
 				echo "info frame" >> ${GDBCMDFILE}
+				echo "info args" >> ${GDBCMDFILE}
+				echo "info locals" >> ${GDBCMDFILE}
+				echo "info catch" >> ${GDBCMDFILE}
 				echo "info frame 2" >> ${GDBCMDFILE}
 				echo "info frame 3" >> ${GDBCMDFILE}
+				echo "info sources" >> ${GDBCMDFILE}
+				echo "info functions" >> ${GDBCMDFILE}
+				echo "info variables" >> ${GDBCMDFILE}
+				echo "info classes" >> ${GDBCMDFILE}
+				echo "show osabi" >> ${GDBCMDFILE}
+				echo "show architecture" >> ${GDBCMDFILE}
+				echo "show cp-abi" >> ${GDBCMDFILE}
+				# now produce core file
+				echo "generate-core-file ${GDBCORE}" >> ${GDBCMDFILE}
+				# quit gdb (and the client app)
 				echo "quit" >> ${GDBCMDFILE}
 
 				start-stop-daemon --start --background --user ${USERNAME} --name ${NAME}-${SRVNAME} --exec ${GDB} --make-pidfile --pidfile ${PIDFILE}  -- ${DAEMON} -x ${GDBCMDFILE}

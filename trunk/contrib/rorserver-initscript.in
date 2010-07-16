@@ -76,7 +76,10 @@ case "$1" in
 				echo "set args -c ${CONFIG} -resdir ${RESDIR} -logfilename ${LOGFILE}" > ${GDBCMDFILE}
 				# prevent output wrapping and pagination
 				echo "set width 0" >> ${GDBCMDFILE}
-				echo "set heigt 0" >> ${GDBCMDFILE}
+				echo "set height 0" >> ${GDBCMDFILE}
+				echo "set pagination off" >> ${GDBCMDFILE}
+				echo "set confirm off" >> ${GDBCMDFILE}
+				echo "set trace-commands on" >> ${GDBCMDFILE}
 				# improve verbosity of the log
 				echo "set follow-fork-mode child" >> ${GDBCMDFILE}
 				echo "set verbose on" >> ${GDBCMDFILE}
@@ -100,6 +103,7 @@ case "$1" in
 				echo "set logging file ${GDBLOG}" >> ${GDBCMDFILE}
 				echo "set logging on" >> ${GDBCMDFILE}
 				echo "bt full" >> ${GDBCMDFILE}
+				echo "thread apply all backtrace" >> ${GDBCMDFILE}
 				echo "show paths" >> ${GDBCMDFILE}
 				echo "show environment" >> ${GDBCMDFILE}
 				echo "info threads" >> ${GDBCMDFILE}

@@ -73,11 +73,12 @@ case "$1" in
 				GDBCORE=${LOGFILE}.${DATENOW}.gdb.core
 				# now create the gdb command script
 				# set program arguments
-				echo "set args -c ${CONFIG} -resdir ${RESDIR} -logfilename ${LOGFILE} -fg" > ${GDBCMDFILE}
+				echo "set args -c ${CONFIG} -resdir ${RESDIR} -logfilename ${LOGFILE}" > ${GDBCMDFILE}
 				# prevent output wrapping and pagination
 				echo "set width 0" >> ${GDBCMDFILE}
 				echo "set heigt 0" >> ${GDBCMDFILE}
 				# improve verbosity of the log
+				echo "set follow-fork-mode child" >> ${GDBCMDFILE}
 				echo "set verbose on" >> ${GDBCMDFILE}
 				echo "set print elements 0" >> ${GDBCMDFILE}
 				echo "set print address on" >> ${GDBCMDFILE}
@@ -92,12 +93,16 @@ case "$1" in
 				echo "set listsize 60" >> ${GDBCMDFILE}
 				# add the directory as source lookup path
 				echo "directory @rorserver_SOURCE_DIR@/source/server/" >> ${GDBCMDFILE}
+				echo "pwd" >> ${GDBCMDFILE}
 				# now start the application
 				echo "run" >> ${GDBCMDFILE}
 				# upon crash, start logging and print out the callstack
 				echo "set logging file ${GDBLOG}" >> ${GDBCMDFILE}
 				echo "set logging on" >> ${GDBCMDFILE}
 				echo "bt full" >> ${GDBCMDFILE}
+				echo "show paths" >> ${GDBCMDFILE}
+				echo "show environment" >> ${GDBCMDFILE}
+				echo "info threads" >> ${GDBCMDFILE}
 				echo "info all-registers" >> ${GDBCMDFILE}
 				echo "info float" >> ${GDBCMDFILE}
 				echo "info vector" >> ${GDBCMDFILE}
@@ -117,6 +122,8 @@ case "$1" in
 				echo "show cp-abi" >> ${GDBCMDFILE}
 				# now produce core file
 				echo "generate-core-file ${GDBCORE}" >> ${GDBCMDFILE}
+				# kill the client process
+				echo "kill" >> ${GDBCMDFILE}
 				# quit gdb (and the client app)
 				echo "quit" >> ${GDBCMDFILE}
 

@@ -48,7 +48,7 @@
 #ifdef HAVE_UNISTD_H           // last place uintptr_t might be
 # include <unistd.h>           // also, for getpagesize()
 #endif
-#include "base/arena.h"
+#include "arena.h"
 
 _START_GOOGLE_NAMESPACE_
 

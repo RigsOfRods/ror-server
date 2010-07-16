@@ -16,7 +16,7 @@ set(ctemplate_src
 	src/template_string.cc
 )
 
-include_directories (src/)
+include_directories (src/base)
 
 # libraries
 IF(WIN32)
@@ -26,6 +26,7 @@ IF(WIN32)
 	set(ctemplate_src ${ctemplate_src} src/windows/port.cc)
 ELSEIF(UNIX)
 	include_directories (src/linux/)
+	include_directories (src/)
 ELSEIF(APPLE)
 ENDIF(WIN32)
 

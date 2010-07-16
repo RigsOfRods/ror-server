@@ -219,4 +219,12 @@ typedef struct
 	unsigned int flagmask;
 } oob_t;
 
+typedef struct
+{
+	char name[128];           //!< the truck filename
+	int type;                 //!< stream type
+	int status;               //!< initial stream status
+	int bufferSize;               //!< initial stream status
+} stream_register_trucks_t;
+
 #endif //RORNETPROTOCOL_H__

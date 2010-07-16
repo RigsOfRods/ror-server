@@ -106,7 +106,32 @@ void Listener::threadstart()
 
 			// make sure our first message is a hello message
 			if (type != MSG2_HELLO)
+			{
+				Messaging::sendmessage(ts, MSG2_WRONG_VER, 0, 0, 0, 0);
 				throw std::runtime_error("ERROR Listener: protocol error");
+			}
+
+			// check client version
+			if(source == 5000 && (std::string(buffer) == "MasterServ"))
+			{
+				Logger::log(LOG_VERBOSE, "Master Server knocked ...");
+				// send back some information, then close socket
+				char tmp[2048]="";
+				sprintf(tmp,"protocol:%s\nrev:%s\nbuild_on:%s_%s\n", RORNET_VERSION, VERSION,__DATE__, __TIME__);
+				if (Messaging::sendmessage(ts, MSG2_MASTERINFO, 0, 0, (unsigned int) strlen(tmp), tmp))
+				{
+					throw std::runtime_error("ERROR Listener: sending master info");
+				}
+				// close socket
+				ts->disconnect(&error);
+				delete ts;
+			}
+
+			if(strncmp(buffer, RORNET_VERSION, strlen(RORNET_VERSION)))
+			{
+				Messaging::sendmessage(ts, MSG2_WRONG_VER, 0, 0, 0, 0);
+				throw std::runtime_error("ERROR Listener: bad version: "+std::string(buffer)+". rejecting ...");
+			}
 
 			// send client the which version of rornet the server is running
 			Logger::log(LOG_DEBUG,"Listener sending version");
@@ -120,17 +145,6 @@ void Listener::threadstart()
 					(unsigned int) Config::getTerrainName().length(),
 					Config::getTerrainName().c_str() ) )
 				throw std::runtime_error("ERROR Listener: sending terrain");
-
-			// original code was source  = 5000 should it be left like this
-			// or was the intention source == 5000?
-			if( source == 5000 && (std::string(buffer) == "MasterServ") )
-			{
-				Logger::log(LOG_VERBOSE, "Master Server knocked ...");
-				continue;
-			}
-
-			if(strncmp(buffer, RORNET_VERSION, strlen(RORNET_VERSION)) && source != 5000) // source 5000 = master server (harcoded)
-				throw std::runtime_error("ERROR Listener: bad version: "+std::string(buffer));
 
 			//receive user name
 			if (Messaging::receivemessage(ts, &type, &source, &streamid, &len, buffer, 256))

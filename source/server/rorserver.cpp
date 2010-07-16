@@ -144,6 +144,7 @@ void daemonize()
 	pid_t pid = fork();
 	if (pid < 0) 
 	{
+		Logger::log(LOG_ERROR, "error forking into background");
 		perror("error forking into background");
 		exit(1); /* fork error */
 	}

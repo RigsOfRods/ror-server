@@ -133,7 +133,7 @@ void Sequencer::cleanUp()
 	for( unsigned int i = 0; i < instance->clients.size(); i++)
 	{
 		// HACK-ISH override all thread stuff and directly send it!
-		Messaging::sendmessage(instance->clients[i]->sock, MSG2_DELETE, instance->clients[i]->uid, 0, strlen(str), str);
+		Messaging::sendmessage(instance->clients[i]->sock, MSG2_USER_LEAVE, instance->clients[i]->uid, 0, strlen(str), str);
 		//disconnect(instance->clients[i]->uid, );
 	}
 	Logger::log(LOG_INFO,"all clients disconnected. exiting.");
@@ -312,7 +312,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 	client_info_on_join info_own;
 	memset(&info_own, 0, sizeof(client_info_on_join));
 	info_own.version = 1;
-	info_own.slotid = npos;
+	info_own.slotnum = npos;
 	info_own.colournum = playerColour;
 	strncpy(info_own.nickname, instance->clients[npos]->nickname, 20);
 	info_own.authstatus = instance->clients[npos]->authstate;
@@ -497,14 +497,7 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError)
 	//notify the others
 	for( unsigned int i = 0; i < instance->clients.size(); i++)
 	{
-		// notify of delete always
-		{
-			if(isError)
-				instance->clients[i]->broadcaster->queueMessage(MSG2_DELETE, instance->clients[pos]->uid, 0, (int)strlen(errormsg), errormsg);
-			else
-				instance->clients[i]->broadcaster->queueMessage(MSG2_USER_LEAVE, instance->clients[pos]->uid, 0, (int)strlen(errormsg), errormsg);
-
-		}
+		instance->clients[i]->broadcaster->queueMessage(MSG2_USER_LEAVE, instance->clients[pos]->uid, 0, (int)strlen(errormsg), errormsg);
 	}
 	instance->clients.erase( instance->clients.begin() + pos );
 
@@ -610,7 +603,7 @@ void Sequencer::notifyAllVehicles(int uid, bool lock)
 	client_info_on_join info_own;
 	memset(&info_own, 0, sizeof(client_info_on_join));
 	info_own.version = 1;
-	info_own.slotid = pos;
+	info_own.slotnum = pos;
 	info_own.colournum = instance->clients[pos]->colournumber;
 	strncpy(info_own.nickname, instance->clients[pos]->nickname, 20);
 	info_own.authstatus = instance->clients[pos]->authstate;
@@ -625,7 +618,7 @@ void Sequencer::notifyAllVehicles(int uid, bool lock)
 			info.version = 1;
 			strncpy(info.nickname, instance->clients[i]->nickname, 20);
 			info.authstatus = instance->clients[i]->authstate;
-			info.slotid = instance->clients[i]->slotnum;
+			info.slotnum = instance->clients[i]->slotnum;
 			info.colournum = instance->clients[i]->colournumber;
 
 			// send user infos
@@ -899,7 +892,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 		}
 	}
 #endif //0
-	else if (type==MSG2_DELETE)
+	else if (type==MSG2_USER_LEAVE)
 	{
 		// from client
 		Logger::log(LOG_INFO, "user %s disconnects on request", instance->clients[pos]->nickname);
@@ -1070,6 +1063,8 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			publishMode=0;
 		}
 	}
+#if 0
+	// replaced with stream_data
 	else if (type==MSG2_VEHICLE_DATA)
 	{
 #ifdef WITH_ANGELSCRIPT
@@ -1087,6 +1082,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 
 		publishMode=1;
 	}
+#endif //0
 #if 0
 	else if (type==MSG2_FORCE)
 	{

@@ -71,15 +71,16 @@ case "$1" in
 				GDBCMDFILE=${LOGFILE}.${DATENOW}.gdb.cmds
 				GDBLOG=${LOGFILE}.${DATENOW}.gdb.log
 				GDBCORE=${LOGFILE}.${DATENOW}.gdb.core
+				echo "" > ${GDBCMDFILE}
 				# now create the gdb command script
-				# set program arguments
-				echo "set args -c ${CONFIG} -resdir ${RESDIR} -logfilename ${LOGFILE}" > ${GDBCMDFILE}
+				echo "set logging file ${GDBLOG}" >> ${GDBCMDFILE}
+				echo "set logging on" >> ${GDBCMDFILE}
 				# prevent output wrapping and pagination
+				echo "set trace-commands on" >> ${GDBCMDFILE}
 				echo "set width 0" >> ${GDBCMDFILE}
 				echo "set height 0" >> ${GDBCMDFILE}
 				echo "set pagination off" >> ${GDBCMDFILE}
 				echo "set confirm off" >> ${GDBCMDFILE}
-				echo "set trace-commands on" >> ${GDBCMDFILE}
 				# improve verbosity of the log
 				echo "set follow-fork-mode child" >> ${GDBCMDFILE}
 				echo "set verbose on" >> ${GDBCMDFILE}
@@ -97,11 +98,11 @@ case "$1" in
 				# add the directory as source lookup path
 				echo "directory @rorserver_SOURCE_DIR@/source/server/" >> ${GDBCMDFILE}
 				echo "pwd" >> ${GDBCMDFILE}
+				# set program arguments
+				echo "set args -c ${CONFIG} -resdir ${RESDIR} -logfilename ${LOGFILE}" >> ${GDBCMDFILE}
 				# now start the application
 				echo "run" >> ${GDBCMDFILE}
-				# upon crash, start logging and print out the callstack
-				echo "set logging file ${GDBLOG}" >> ${GDBCMDFILE}
-				echo "set logging on" >> ${GDBCMDFILE}
+				# upon crash, print out the callstack
 				echo "bt full" >> ${GDBCMDFILE}
 				echo "thread apply all backtrace" >> ${GDBCMDFILE}
 				echo "show paths" >> ${GDBCMDFILE}

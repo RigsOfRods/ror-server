@@ -20,7 +20,8 @@ IF(wxWidgets_FOUND)
   include_directories (${rorserver_SOURCE_DIR}/dependencies/socketw)
   include_directories (${rorserver_SOURCE_DIR}/dependencies)
   include_directories (${rorserver_SOURCE_DIR}/source/server/)
-  
+  include_directories (${rorserver_SOURCE_DIR}/source/protocol/)
+
   if(RORSERVER_WITH_ANGELSCRIPT)
 	add_definitions("-DWITH_ANGELSCRIPT")
 	include_directories (${rorserver_SOURCE_DIR}/dependencies/angelscript/include)

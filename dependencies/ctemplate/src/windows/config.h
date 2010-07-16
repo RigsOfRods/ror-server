@@ -213,6 +213,6 @@
 #endif
 
 // TODO(csilvers): include windows/port.h in every relevant source file instead?
-#include "windows/port.h"
+#include "port.h"
 
 #endif  /* GOOGLE_CTEMPLATE_WINDOWS_CONFIG_H_ */

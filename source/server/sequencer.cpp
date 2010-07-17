@@ -133,7 +133,7 @@ void Sequencer::cleanUp()
 	for( unsigned int i = 0; i < instance->clients.size(); i++)
 	{
 		// HACK-ISH override all thread stuff and directly send it!
-		Messaging::sendmessage(instance->clients[i]->sock, MSG2_USER_LEAVE, instance->clients[i]->uid, 0, strlen(str), str);
+		Messaging::sendmessage(instance->clients[i]->sock, MSG2_USER_LEAVE, instance->clients[i]->user.uniqueid, 0, strlen(str), str);
 		//disconnect(instance->clients[i]->uid, );
 	}
 	Logger::log(LOG_INFO,"all clients disconnected. exiting.");
@@ -176,7 +176,7 @@ bool Sequencer::checkNickUnique(char *nick)
 	Sequencer* instance = Instance();
 	for (unsigned int i = 0; i < instance->clients.size(); i++)
 	{
-		if (!strcmp(nick, instance->clients[i]->nickname))
+		if (!strcmp(nick, instance->clients[i]->user.clientname))
 		{
 			return true;
 		}
@@ -195,7 +195,7 @@ int Sequencer::getFreePlayerColour()
 recheck_col:
 	for (unsigned int i = 0; i < instance->clients.size(); i++)
 	{
-		if(instance->clients[i]->colournumber == col)
+		if(instance->clients[i]->user.colournum == col)
 		{
 			col++;
 			goto recheck_col;
@@ -205,7 +205,7 @@ recheck_col:
 }
 
 //this is called by the Listener thread
-void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
+void Sequencer::createClient(SWInetSocket *sock, user_info_t *user)
 {
     STACKLOG;
     Sequencer* instance = Instance();
@@ -216,7 +216,17 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
     MutexLocker scoped_lock(instance->clients_mutex);
 	bool dupeNick = Sequencer::checkNickUnique(user->username);
 	int playerColour = Sequencer::getFreePlayerColour();
+
 	int dupecounter = 2;
+
+	// check if banned
+	SWBaseSocket::SWBaseError error;
+	if(Sequencer::isbanned(sock->get_peerAddr(&error).c_str()))
+	{
+		Logger::log(LOG_VERBOSE,"banned user rejected IP %s", sock->get_peerAddr(&error).c_str());
+		Messaging::sendmessage(sock, MSG2_BANNED, 0, 0, 0, 0);
+		return;
+	}
 
 	// check if server is full
 	Logger::log(LOG_DEBUG,"searching free slot for new client...");
@@ -252,27 +262,24 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 
 
 	client_t* to_add = new client_t;
-
+	to_add->user = user;
 	//okay, create the stuff
 	to_add->flow=false;
 	to_add->status=USED;
 	to_add->initialized=false;
-	to_add->vehicle_name[0]=0;
 #ifdef WITH_ANGELSCRIPT
 	to_add->position=Vector3(0,0,0);
 #endif //WITH_ANGELSCRIPT
-	to_add->beambuffersize=0;
-	to_add->sbi=0;
-	to_add->colournumber=playerColour;
+	to_add->user.colournum = playerColour;
 
 	// auth stuff
-	to_add->authstate = AUTH_NONE;
+	to_add->user.authstatus = AUTH_NONE;
 	if(instance->authresolver)
 	{
 		Logger::log(LOG_INFO, "getting user auth level");
-		int auth_flags = instance->authresolver->getUserModeByUserToken(user->uniqueid);
+		int auth_flags = instance->authresolver->getUserModeByUserToken(user->usertoken);
 		if(auth_flags != AUTH_NONE)
-			to_add->authstate |= auth_flags;
+			to_add->user.authstatus |= auth_flags;
 
 		char authst[4] = "";
 		if(auth_flags & AUTH_ADMIN) strcat(authst, "A");
@@ -282,9 +289,6 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 		Logger::log(LOG_INFO, "user auth flags: " + std::string(authst));
 	}
 
-	memset(to_add->nickname, 0, 32); // for 20 character long nicknames :)
-	strncpy(to_add->nickname, user->username, 20);
-	strncpy(to_add->uniqueid, user->uniqueid, 60);
 	to_add->receiver = new Receiver();
 	to_add->broadcaster = new Broadcaster();
 
@@ -296,49 +300,35 @@ void Sequencer::createClient(SWInetSocket *sock, user_credentials_t *user)
 		// btw, the above code is disfunctional ...
 	}
 
-	to_add->uid=instance->fuid;
+	// assign unique userid
+	to_add->user.uniqueid = instance->fuid;
 	instance->fuid++;
+
 	to_add->sock = sock;//this won't interlock
 
 	instance->clients.push_back( to_add );
-	to_add->receiver->reset(to_add->uid, sock);
-	to_add->broadcaster->reset(to_add->uid, sock, Sequencer::disconnect, Messaging::sendmessage, Messaging::addBandwidthDropOutgoing);
+	to_add->receiver->reset(to_add->user.uniqueid, sock);
+	to_add->broadcaster->reset(to_add->user.uniqueid, 
+								sock, 
+								Sequencer::disconnect,
+								Messaging::sendmessage,
+								Messaging::addBandwidthDropOutgoing);
 
 	// process slot infos
-	int npos = instance->getPosfromUid(to_add->uid);
-	instance->clients[npos]->slotnum = npos;
-
-	// now inform the client of his data
-	client_info_on_join info_own;
-	memset(&info_own, 0, sizeof(client_info_on_join));
-	info_own.version = 1;
-	info_own.slotnum = npos;
-	info_own.colournum = playerColour;
-	strncpy(info_own.nickname, instance->clients[npos]->nickname, 20);
-	info_own.authstatus = instance->clients[npos]->authstate;
-
-
-	SWBaseSocket::SWBaseError error;
-	if(Sequencer::isbanned(sock->get_peerAddr(&error).c_str()))
-	{
-		Logger::log( LOG_DEBUG, "receiver thread %d owned by uid %d terminated (banned user)", ThreadID::getID(), instance->clients[npos]->uid);
-		Logger::log(LOG_VERBOSE,"banned user rejected: uid %i", instance->clients[npos]->uid);
-		Messaging::sendmessage(sock, MSG2_BANNED, instance->clients[npos]->uid, 0, 0, 0);
-		Sequencer::disconnect(instance->clients[npos]->uid, "you are banned");
-		return;
-	}
+	int npos = instance->getPosfromUid(to_add->user.uniqueid);
+	instance->clients[npos]->user.slotnum = npos;
 
 	Logger::log(LOG_VERBOSE,"Sending welcome message to uid %i, slotpos: %i", instance->clients[npos]->uid, npos);
-	if( Messaging::sendmessage(sock, MSG2_WELCOME, instance->clients[npos]->uid, 0, sizeof(playerColour), (char *)&playerColour) )
+	if( Messaging::sendmessage(sock, MSG2_WELCOME, instance->clients[npos]->uid, 0, sizeof(user_info_t), (char *)&to_add->user) )
 	{
-		Sequencer::disconnect(instance->clients[npos]->uid, "error sending welcome message" );
+		Sequencer::disconnect(instance->clients[npos]->user.uniqueid, "error sending welcome message" );
 		return;
 	}
 
 	// notify everyone of the new client
 	for(unsigned int i = 0; i < instance->clients.size(); i++)
 	{
-		instance->clients[i]->broadcaster->queueMessage(MSG2_USER_JOIN, instance->clients[npos]->uid, 0, sizeof(client_info_on_join), (char*)&info_own);
+		instance->clients[i]->broadcaster->queueMessage(MSG2_USER_JOIN, instance->clients[npos]->user.uniqueid, 0, sizeof(user_info_t), (char*)&user_info_t);
 	}
 
 	// done!

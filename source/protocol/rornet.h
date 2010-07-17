@@ -165,9 +165,10 @@ typedef struct
  */
 typedef struct
 {
+	unsigned int uniqueid;     //!< user unique id    
 	char username[20];         //!< the nickname of the user
 	char usertoken[40];        //!< user token
-	char serverpassword[40];  //!< server password
+	char serverpassword[40];   //!< server password
 	char language[5];          //!< user's language. For example "de-DE" or "en-US"
 	char clientname[10];       //!< the name and version of the client. For exmaple: "ror" or "gamebot"
 	char clientversion[25];    //!< a version number of the client. For example 1 for RoR 0.35

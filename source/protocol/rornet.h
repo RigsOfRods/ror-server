@@ -41,59 +41,59 @@ static const char *NEWS_HTML_PAGE = "http://api.rigsofrods.com/news/"; //!< news
  * commands
  */
 enum {
-	MSG2_HELLO  = 1000,              //!< client sends its version as first message
+	MSG2_HELLO  = 1000,                //!< client sends its version as first message
 	// hello responses
-	MSG2_FULL,                       //!< no more slots for us
-	MSG2_WRONG_PW,                   //!< server send that on wrong pw
-	MSG2_WRONG_VER,                  //!< wrong version
-    MSG2_BANNED,                     //!< Uh
-	MSG2_WELCOME,                    //!< we can proceed
+	MSG2_FULL,                         //!< no more slots for us
+	MSG2_WRONG_PW,                     //!< server send that on wrong pw
+	MSG2_WRONG_VER,                    //!< wrong version
+	MSG2_BANNED,                       //!< client not allowed to join
+	MSG2_WELCOME,                      //!< we can proceed
 	
-	MSG2_VERSION,                    //!< server responds with its version
-	MSG2_USE_VEHICLE,                //!< the client says which vehicle it uses
+	MSG2_VERSION,                      //!< server responds with its version
+	MSG2_USE_VEHICLE,                  //!< the client says which vehicle it uses
 	
-	MSG2_REQUEST_VEHICLE_BEAMS,      //!< sent by the client to request beam data
-	MSG2_VEHICLE_BEAMS,              //!< contains beam information
+	MSG2_REQUEST_VEHICLE_BEAMS,        //!< sent by the client to request beam data
+	MSG2_VEHICLE_BEAMS,                //!< contains beam information
 
-	MSG2_CHAT,                       //!< chat line
-	MSG2_FORCE,                      //!< Force information, attached to a netforce_t struct
-	MSG2_LISTUSERS,                  //!< asks for connected users
+	MSG2_CHAT,                         //!< chat line
+	MSG2_FORCE,                        //!< Force information, attached to a netforce_t struct
+	MSG2_LISTUSERS,                    //!< asks for connected users
 
-	MSG2_USER_CREDENTIALS,           //!< improved user credentials
-	MSG2_TERRAIN_RESP,               //!< server send client the terrain name
+	MSG2_USER_CREDENTIALS,             //!< improved user credentials
+	MSG2_TERRAIN_RESP,                 //!< server send client the terrain name
 
-	MSG2_GAME_CMD,                   //!< send to client from server only
+	MSG2_GAME_CMD,                     //!< send to client from server only
 
-	MSG2_USER_CREDENTIALS2,          //!< improved user credentials
-	MSG2_USER_INFO,                  //!< improved user data that is sent from the server to the clients
-	MSG2_PRIVCHAT,                   //!< sent from client to server to send private chat messages
+	MSG2_USER_CREDENTIALS2,            //!< improved user credentials
+	MSG2_USER_INFO,                    //!< improved user data that is sent from the server to the clients
+	MSG2_PRIVCHAT,                     //!< sent from client to server to send private chat messages
 
 	// stream functions
-	MSG2_STREAM_REGISTER,            //!< create new stream
-	MSG2_STREAM_REGISTER_RESP,       //!< reply from server to registering client
-	MSG2_STREAM_CONTROL_FLOW,        //!< suspend/unsuspend streams
-	MSG2_STREAM_CONTROL_FLOW_RESP,   //!< reply from server to requesting client
-	MSG2_STREAM_UNREGISTER,          //!< remove stream
-	MSG2_STREAM_UNREGISTER_RESP,     //!< remove stream response from server to requsting client
-	MSG2_STREAM_TAKEOVER,            //!< stream takeover
-	MSG2_STREAM_TAKEOVER_RESP,       //!< stream takeover response from server
-	MSG2_STREAM_DATA,                //!< stream data
-	MSG2_USER_JOIN,                  //!< new user joined
-	MSG2_USER_LEAVE,                 //!< user leaves
+	MSG2_STREAM_REGISTER,              //!< create new stream
+	MSG2_STREAM_REGISTER_RESP,         //!< reply from server to registering client
+	MSG2_STREAM_CONTROL_FLOW,          //!< suspend/unsuspend streams
+	MSG2_STREAM_CONTROL_FLOW_RESP,     //!< reply from server to requesting client
+	MSG2_STREAM_UNREGISTER,            //!< remove stream
+	MSG2_STREAM_UNREGISTER_RESP,       //!< remove stream response from server to requsting client
+	MSG2_STREAM_TAKEOVER,              //!< stream takeover
+	MSG2_STREAM_TAKEOVER_RESP,         //!< stream takeover response from server
+	MSG2_STREAM_DATA,                  //!< stream data
+	MSG2_USER_JOIN,                    //!< new user joined
+	MSG2_USER_LEAVE,                   //!< user leaves
 
 	// master server interaction
-	MSG2_MASTERINFO,                 //!< master information response
+	MSG2_MASTERINFO,                   //!< master information response
 };
 
 /*
  * user authentication flags on the server
  */
 enum {
-	AUTH_NONE   = 0,                 //!< no authentication
-	AUTH_ADMIN  = BITMASK(1),        //!< admin on the server
-	AUTH_RANKED = BITMASK(2),        //!< ranked status
-	AUTH_MOD    = BITMASK(3),        //!< moderator status
-	AUTH_BOT    = BITMASK(4),        //!< bot status
+	AUTH_NONE   = 0,                   //!< no authentication
+	AUTH_ADMIN  = BITMASK(1),          //!< admin on the server
+	AUTH_RANKED = BITMASK(2),          //!< ranked status
+	AUTH_MOD    = BITMASK(3),          //!< moderator status
+	AUTH_BOT    = BITMASK(4),          //!< bot status
 };
 
 
@@ -130,7 +130,9 @@ typedef struct
 	unsigned int size;        //!< size of the attached data block
 } header_t;
 
-// structure that is send from the cleint to server and vice versa, to broadcast a new stream
+/*
+ * structure that is send from the cleint to server and vice versa, to broadcast a new stream
+ */
 typedef struct
 {
 	char name[128];           //!< the truck filename
@@ -139,13 +141,28 @@ typedef struct
 	char data[8000];		  //!< data used for stream setup
 } stream_register_t;
 
-
-// structure sent to remove a stream
+/*
+ * specialization of stream_register_t for truck registrations
+ */
 typedef struct
 {
-	int sid;                  //!< the unique id of the stream
+	char name[128];            //!< the truck filename
+	int type;                  //!< stream type
+	int status;                //!< initial stream status
+	int bufferSize;            //!< initial stream status
+} stream_register_trucks_t;
+
+/*
+ * structure sent to remove a stream
+ */
+typedef struct
+{
+	int sid;                   //!< the unique id of the stream
 } stream_unregister_t;
 
+/*
+ * general user information structure
+ */
 typedef struct
 {
 	char username[20];         //!< the nickname of the user
@@ -163,6 +180,9 @@ typedef struct
 } user_info_t;
 
 
+/*
+ * net force structure
+ */
 typedef struct
 {
 	unsigned int target_uid;   //!< target UID
@@ -172,6 +192,9 @@ typedef struct
 	float fz;                  //!< force z
 } netforce_t;
 
+/*
+ * truck property structure
+ */
 typedef struct
 {
 	int time;                  //!< time data
@@ -179,14 +202,6 @@ typedef struct
 	float engine_force;        //!< engine acceleration
 	unsigned int flagmask;     //!< flagmask: NETMASK_*
 } oob_t;
-
-typedef struct
-{
-	char name[128];            //!< the truck filename
-	int type;                  //!< stream type
-	int status;                //!< initial stream status
-	int bufferSize;            //!< initial stream status
-} stream_register_trucks_t;
 
 
 // obsolete structs

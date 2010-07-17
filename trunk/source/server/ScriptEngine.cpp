@@ -293,9 +293,7 @@ void ScriptEngine::init()
 	result = engine->RegisterObjectMethod("ServerScriptClass", "int cmd(int uid, string cmd)", asMETHOD(ServerScript,sendGameCommand), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "int getNumClients()", asMETHOD(ServerScript,getNumClients), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserName(int uid)", asMETHOD(ServerScript,getUserName), asCALL_THISCALL); assert_net(result>=0);
-	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserVehicle(int uid)", asMETHOD(ServerScript,getUserVehicle), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserAuth(int uid)", asMETHOD(ServerScript,getUserAuth), asCALL_THISCALL); assert_net(result>=0);
-	result = engine->RegisterObjectMethod("ServerScriptClass", "int getUserPosition(int uid, vector3 &out)", asMETHOD(ServerScript,getUserPosition), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getServerTerrain()", asMETHOD(ServerScript,getServerTerrain), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectBehaviour("ServerScriptClass", asBEHAVE_ADDREF, "void f()",asMETHOD(ServerScript,addRef), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectBehaviour("ServerScriptClass", asBEHAVE_RELEASE, "void f()",asMETHOD(ServerScript,releaseRef), asCALL_THISCALL); assert_net(result>=0);
@@ -472,13 +470,6 @@ std::string ServerScript::getUserName(int uid)
 	return std::string(c->user.clientname);
 }
 
-std::string ServerScript::getUserVehicle(int uid)
-{
-	client_t *c = seq->getClient(uid);
-	if(!c) return "";
-	return std::string(c->vehicle_name);
-}
-
 
 std::string ServerScript::getUserAuth(int uid)
 {
@@ -490,14 +481,6 @@ std::string ServerScript::getUserAuth(int uid)
 	else if(c->user.authstatus & AUTH_BOT) return "bot";
 	//else if(c->user.authstatus & AUTH_NONE) 
 	return "none";
-}
-
-int ServerScript::getUserPosition(int uid, Vector3 &pos)
-{
-	client_t *c = seq->getClient(uid);
-	if(!c) return 1;
-	pos = c->position;
-	return 0;
 }
 
 std::string ServerScript::getServerTerrain()

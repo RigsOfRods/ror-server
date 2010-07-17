@@ -267,9 +267,6 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t *user)
 	to_add->flow=false;
 	to_add->status=USED;
 	to_add->initialized=false;
-#ifdef WITH_ANGELSCRIPT
-	to_add->position=Vector3(0,0,0);
-#endif //WITH_ANGELSCRIPT
 	to_add->user.colournum = playerColour;
 
 	// auth stuff
@@ -361,9 +358,6 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 
 			char playerdata[1024] = "";
 			char positiondata[128] = "";
-#ifdef WITH_ANGELSCRIPT
-			sprintf(positiondata, "%0.2f,%0.2f,%0.2f", instance->clients[i]->position.x, instance->clients[i]->position.y, instance->clients[i]->position.z);
-#endif //WITH_ANGELSCRIPT
 			sprintf(playerdata, "%d;%s;%s;%s;%s;%s;%s\n", i,
 					"unkown",
 					instance->clients[i]->user.clientname,

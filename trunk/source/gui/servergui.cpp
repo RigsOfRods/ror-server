@@ -342,7 +342,7 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) :
 	slotlist->InsertColumn(3, _("IP"), wxLIST_FORMAT_LEFT, 100);
 	slotlist->InsertColumn(4, _("Auth"), wxLIST_FORMAT_LEFT, 40);
 	slotlist->InsertColumn(5, _("Nick"), wxLIST_FORMAT_LEFT, 100);
-	slotlist->InsertColumn(6, _("Vehicle"), wxLIST_FORMAT_LEFT, 120);
+	//slotlist->InsertColumn(6, _("Vehicle"), wxLIST_FORMAT_LEFT, 120);
 
 	for(unsigned int i=0; i<Config::getMaxClients();i++)
 	{
@@ -390,7 +390,7 @@ void MyDialog::updatePlayerList()
 			slotlist->SetItem(i, 3, wxString());
 			slotlist->SetItem(i, 4, wxString());
 			slotlist->SetItem(i, 5, wxString());
-			slotlist->SetItem(i, 6, wxString());
+			//slotlist->SetItem(i, 6, wxString());
 			continue;
 		}
 
@@ -401,19 +401,19 @@ void MyDialog::updatePlayerList()
 		if(clients[i].status == USED)
 			slotlist->SetItem(i, 1, _("USED"));
 
-		slotlist->SetItem(i, 2, wxString::Format(wxT("%d"),clients[i].uid));
+		slotlist->SetItem(i, 2, wxString::Format(wxT("%d"),clients[i].user.uniqueid));
 		slotlist->SetItem(i, 3, conv(clients[i].ip_addr));
 
 		char authst[5] = "";
-		if(clients[i].authstate & AUTH_ADMIN) strcat(authst, "A");
-		if(clients[i].authstate & AUTH_MOD) strcat(authst, "M");
-		if(clients[i].authstate & AUTH_RANKED) strcat(authst, "R");
-		if(clients[i].authstate & AUTH_BOT) strcat(authst, "B");
-		if(clients[i].authstate & AUTH_BANNED) strcat(authst, "X");
+		if(clients[i].user.authstatus & AUTH_ADMIN) strcat(authst, "A");
+		if(clients[i].user.authstatus & AUTH_MOD) strcat(authst, "M");
+		if(clients[i].user.authstatus & AUTH_RANKED) strcat(authst, "R");
+		if(clients[i].user.authstatus & AUTH_BOT) strcat(authst, "B");
+		if(clients[i].user.authstatus & AUTH_BANNED) strcat(authst, "X");
 		slotlist->SetItem(i, 4, conv(authst));
 
-		slotlist->SetItem(i, 5, conv(clients[i].nickname));
-		slotlist->SetItem(i, 6, conv(clients[i].vehicle_name));
+		slotlist->SetItem(i, 5, conv(clients[i].user.clientname));
+		//slotlist->SetItem(i, 6, conv(clients[i].vehicle_name));
 	}
 	slotlist->Thaw();
 }

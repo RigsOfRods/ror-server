@@ -88,7 +88,6 @@ public:
 	int sendGameCommand(int uid, std::string cmd);
 	
 	std::string getUserName(int uid);
-	std::string getUserVehicle(int uid);
 	std::string getUserAuth(int uid);
 	int getUserPosition(int uid, Vector3 &v);
 	int getNumClients();

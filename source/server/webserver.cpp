@@ -260,12 +260,12 @@ static void data_players(struct mg_connection *conn, const struct mg_request_inf
 
 		if (it->status == FREE)
 		{
-			row["slot"] = it->slotnum;
+			row["slot"] = it->user.slotnum;
 			row["status"] = "FREE";
 			rows.append(row);
 		} else if (it->status == BUSY)
 		{
-			row["slot"] = it->slotnum;
+			row["slot"] = it->user.slotnum;
 			row["status"] = "BUSY";
 			rows.append(row);
 		} else if (it->status == USED)
@@ -279,9 +279,9 @@ static void data_players(struct mg_connection *conn, const struct mg_request_inf
 			if(it->user.authstatus & AUTH_ADMIN)  authst = "admin";
 
 			char playerColour[128] = "";
-			getPlayerColour(it->colournumber, playerColour);
+			getPlayerColour(it->user.colournum, playerColour);
 
-			row["slot"]     = it->slotnum;
+			row["slot"]     = it->user.slotnum;
 			row["status"]   = "USED";
 			row["uid"]      = it->user.uniqueid;
 			row["ip"]       = std::string(it->ip_addr);

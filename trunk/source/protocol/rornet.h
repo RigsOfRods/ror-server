@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define BITMASK(x) (1 << (x-1)) 
 
 // protocol settings
+static const int   MAX_PEERS = 64;             //!< maximum clients connected at the same time
 static const int   MAX_MESSAGE_LENGTH = 32768; //!< maximum size of a RoR message. 32768Bytes = 32kB
 
 // protocol version

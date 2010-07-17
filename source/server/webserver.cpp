@@ -272,20 +272,20 @@ static void data_players(struct mg_connection *conn, const struct mg_request_inf
 		{
 			// some auth identifiers
 			std::string authst = "none";
-			if(it->authstate & AUTH_BANNED) authst = "banned";
-			if(it->authstate & AUTH_BOT)    authst = "bot";
-			if(it->authstate & AUTH_RANKED) authst = "ranked";
-			if(it->authstate & AUTH_MOD)    authst = "moderator";
-			if(it->authstate & AUTH_ADMIN)  authst = "admin";
+			if(it->user.authstatus & AUTH_BANNED) authst = "banned";
+			if(it->user.authstatus & AUTH_BOT)    authst = "bot";
+			if(it->user.authstatus & AUTH_RANKED) authst = "ranked";
+			if(it->user.authstatus & AUTH_MOD)    authst = "moderator";
+			if(it->user.authstatus & AUTH_ADMIN)  authst = "admin";
 
 			char playerColour[128] = "";
 			getPlayerColour(it->colournumber, playerColour);
 
 			row["slot"]     = it->slotnum;
 			row["status"]   = "USED";
-			row["uid"]      = it->uid;
+			row["uid"]      = it->user.uniqueid;
 			row["ip"]       = std::string(it->ip_addr);
-			row["name"]     = std::string(it->nickname);
+			row["name"]     = std::string(it->user.clientname);
 			row["auth"]     = authst;
 
 			// get traffic stats for all streams
@@ -334,7 +334,7 @@ static void data_players(struct mg_connection *conn, const struct mg_request_inf
 					traf = &(it->streams_traffic.find(sit->first)->second);
 
 				char uidtmp[128] = "";
-				sprintf(uidtmp, "%03d:%02d", it->uid, sit->first);
+				sprintf(uidtmp, "%03d:%02d", it->user.uniqueid, sit->first);
 
 				trow["slot"]     = "";
 				trow["status"]   = sit->second.status;

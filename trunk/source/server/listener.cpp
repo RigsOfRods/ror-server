@@ -159,14 +159,13 @@ void Listener::threadstart()
 			if (type != MSG2_USER_CREDENTIALS)
 				throw std::runtime_error("Warning Listener: no user name");
 
-			if (len > sizeof(user_credentials_t))
-				throw std::runtime_error( "Error: did not receive proper user "
-						"credentials" );
+			if (len > sizeof(user_info_t))
+				throw std::runtime_error( "Error: did not receive proper user credentials" );
 			Logger::log(LOG_INFO,"Listener creating a new client...");
 
-			user_credentials_t *user = (user_credentials_t *)buffer;
+			user_info_t *user = (user_info_t *)buffer;
 			std::string nickname = std::string(user->username);
-			int authflags = Sequencer::authNick(std::string(user->uniqueid), nickname);
+			int authflags = Sequencer::authNick(std::string(user->usertoken), nickname);
 			if(authflags & AUTH_RANKED)
 			{
 				// we only auth here in order to overwrite the nickname!

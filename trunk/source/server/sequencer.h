@@ -52,13 +52,6 @@ class ScriptEngine;
 
 #define SEQUENCER Sequencer::Instance()
 
-#define AUTH_NONE              0x00000000
-#define AUTH_ADMIN             0x00000001
-#define AUTH_RANKED            0x00000002
-#define AUTH_MOD               0x00000004
-#define AUTH_BOT               0x00000008
-#define AUTH_BANNED            0x00000010
-
 #define VERSION "$Rev: 419 $"
 
 typedef struct stream_traffic_t
@@ -83,6 +76,7 @@ typedef struct stream_traffic_t
 //! A struct to hold information about a client
 struct client_t
 {
+	user_info_t user;           //!< user information
     int status;                 //!< current status of the client, options are
                                 //!< FREE, BUSY or USED
     Receiver* receiver;         //!< pointer to a receiver class, this
@@ -90,24 +84,8 @@ struct client_t
     SWInetSocket* sock;         //!< socket used to communicate with the client
     bool flow;                  //!< flag to see if the client should be sent
                                 //!< data?
-    char vehicle_name[140];     //!< name of the vehicle
-    char nickname[32];          //!< Username, this is what they are called to
-                                //!< other players
-    unsigned int uid;           //!< userid
-    unsigned int slotnum;       //!< slot number
-#ifdef WITH_ANGELSCRIPT
-	Vector3 position;           //!< position on the map?
-#endif //WITH_ANGELSCRIPTv
-	char uniqueid[60];          //!< users unique id
-    
-	int authstate;              //!< authenticated state
-	int colournumber;           //!< player colour
 	bool initialized;
-
-	int beambuffersize;
-	simple_beam_info *sbi;
-	char ip_addr[16]; // do not use directly
-
+	char ip_addr[16];           // do not use directly
 
 	//things for the communication with the webserver below, not used in the main server code
 	std::map<unsigned int, stream_register_t> streams;
@@ -171,7 +149,7 @@ public:
     static void cleanUp();
     
     //! initilize client information
-    static void createClient(SWInetSocket *sock, user_credentials_t *user);
+    static void createClient(SWInetSocket *sock, user_info_t *user);
     
     //! call to start the thread to disconnect clients from the server.
     static void killerthreadstart();

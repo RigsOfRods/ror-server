@@ -94,6 +94,7 @@ enum {
 	AUTH_RANKED = BITMASK(2),          //!< ranked status
 	AUTH_MOD    = BITMASK(3),          //!< moderator status
 	AUTH_BOT    = BITMASK(4),          //!< bot status
+	AUTH_BANNED = BITMASK(5),          //!< banned
 };
 
 

@@ -469,7 +469,7 @@ std::string ServerScript::getUserName(int uid)
 {
 	client_t *c = seq->getClient(uid);
 	if(!c) return "";
-	return std::string(c->nickname);
+	return std::string(c->user.clientname);
 }
 
 std::string ServerScript::getUserVehicle(int uid)
@@ -484,11 +484,11 @@ std::string ServerScript::getUserAuth(int uid)
 {
 	client_t *c = seq->getClient(uid);
 	if(!c) return "none";
-	if(c->authstate & AUTH_ADMIN) return "admin";
-	else if(c->authstate & AUTH_MOD) return "moderator";
-	else if(c->authstate & AUTH_RANKED) return "ranked";
-	else if(c->authstate & AUTH_BOT) return "bot";
-	//else if(c->authstate & AUTH_NONE) 
+	if(c->user.authstatus & AUTH_ADMIN) return "admin";
+	else if(c->user.authstatus & AUTH_MOD) return "moderator";
+	else if(c->user.authstatus & AUTH_RANKED) return "ranked";
+	else if(c->user.authstatus & AUTH_BOT) return "bot";
+	//else if(c->user.authstatus & AUTH_NONE) 
 	return "none";
 }
 

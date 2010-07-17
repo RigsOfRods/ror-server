@@ -178,8 +178,8 @@ void Listener::threadstart()
 			{
 				Logger::log(LOG_DEBUG,"password login: %s == %s?",
 						Config::getPublicPassword().c_str(),
-						user->password);
-				if(strncmp(Config::getPublicPassword().c_str(), user->password, 40))
+						user->serverpassword);
+				if(strncmp(Config::getPublicPassword().c_str(), user->serverpassword, 40))
 				{
 					Messaging::sendmessage(ts, MSG2_WRONG_PW, 0, 0, 0, 0);
 					throw std::runtime_error( "ERROR Listener: wrong password" );

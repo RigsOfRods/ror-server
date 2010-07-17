@@ -130,7 +130,8 @@ bool Notifier::registerServer()
 		// server challenge
 		std::string challenge_response = lines[2].c_str();
 		// server trustness level
-		trustlevel = atoi(lines[3].c_str());
+		if(lines.size() > 2)
+			trustlevel = atoi(lines[3].c_str());
 
 		Logger::log(LOG_DEBUG, "%s: %s", status_short.c_str(), status_long.c_str());
 		Logger::log(LOG_DEBUG, "this server got trustlevel %d", trustlevel);

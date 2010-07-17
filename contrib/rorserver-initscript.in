@@ -104,7 +104,7 @@ case "$1" in
 				echo "run" >> ${GDBCMDFILE}
 				# upon crash, print out the callstack
 				echo "bt full" >> ${GDBCMDFILE}
-				echo "thread apply all backtrace" >> ${GDBCMDFILE}
+				echo "thread apply all backtrace full" >> ${GDBCMDFILE}
 				echo "show paths" >> ${GDBCMDFILE}
 				echo "show environment" >> ${GDBCMDFILE}
 				echo "info threads" >> ${GDBCMDFILE}

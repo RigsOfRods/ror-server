@@ -22,21 +22,24 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define BITMASK(x) (1 << (x-1)) 
 
 // protocol settings
-static const int   MAX_PEERS = 64;
-static const int   MAX_MESSAGE_LENGTH = 32768; // higher value, since we also send around the beam data!
+static const int   MAX_MESSAGE_LENGTH = 32768; //!< maximum size of a RoR message. 32768Bytes = 32kB
 
 // protocol version
-static const char *RORNET_VERSION = "RoRnet_2.33";
+static const char *RORNET_VERSION = "RoRnet_2.33"; //!< the protocol version information
 
 // REGISTRY STUFF
-static const char *REPO_SERVER = "api.rigsofrods.com";
-static const char *REPO_URLPREFIX = "";
+static const char *REPO_SERVER = "api.rigsofrods.com"; //!< the web API URL
+static const char *REPO_URLPREFIX = "";                //!< prefix for the API
 
 // used by configurator
-static const char *REPO_HTML_SERVERLIST = "http://api.rigsofrods.com/serverlist/";
-static const char *NEWS_HTML_PAGE = "http://api.rigsofrods.com/news/";
+static const char *REPO_HTML_SERVERLIST = "http://api.rigsofrods.com/serverlist/"; //!< server list URL
+static const char *NEWS_HTML_PAGE = "http://api.rigsofrods.com/news/"; //!< news html page URL
 
 // ENUMs
+
+/*
+ * commands
+ */
 enum {
 	MSG2_HELLO  = 1000,              //!< client sends its version as first message
 	// hello responses
@@ -82,42 +85,111 @@ enum {
 	MSG2_MASTERINFO,                 //!< master information response
 };
 
+/*
+ * user authentication flags on the server
+ */
 enum {
-	AUTH_NONE   = 0,
-	AUTH_ADMIN  = BITMASK(1),
-	AUTH_RANKED = BITMASK(2),
-	AUTH_MOD    = BITMASK(3),
-	AUTH_BOT    = BITMASK(4),
+	AUTH_NONE   = 0,                 //!< no authentication
+	AUTH_ADMIN  = BITMASK(1),        //!< admin on the server
+	AUTH_RANKED = BITMASK(2),        //!< ranked status
+	AUTH_MOD    = BITMASK(3),        //!< moderator status
+	AUTH_BOT    = BITMASK(4),        //!< bot status
 };
 
 
+/*
+ * used to transport truck states across
+ */
 enum {
-	NETMASK_HORN        = BITMASK(1),
-	NETMASK_LIGHTS      = BITMASK(2),
-	NETMASK_BRAKES      = BITMASK(3),
-	NETMASK_REVERSE     = BITMASK(4),
-	NETMASK_BEACONS     = BITMASK(5),
-	NETMASK_BLINK_LEFT  = BITMASK(6),
-	NETMASK_BLINK_RIGHT = BITMASK(7),
-	NETMASK_BLINK_WARN  = BITMASK(8),
-	NETMASK_CLIGHT1     = BITMASK(9),
-	NETMASK_CLIGHT2     = BITMASK(10),
-	NETMASK_CLIGHT3     = BITMASK(11),
-	NETMASK_CLIGHT4     = BITMASK(12),
-	NETMASK_POLICEAUDIO = BITMASK(13),
-	NETMASK_PARTICLE    = BITMASK(14),
+	NETMASK_HORN        = BITMASK(1),  //!< horn is in use
+	NETMASK_LIGHTS      = BITMASK(2),  //!< lights on
+	NETMASK_BRAKES      = BITMASK(3),  //!< brake lights on
+	NETMASK_REVERSE     = BITMASK(4),  //!< reverse light on
+	NETMASK_BEACONS     = BITMASK(5),  //!< beacons on
+	NETMASK_BLINK_LEFT  = BITMASK(6),  //!< left blinker on
+	NETMASK_BLINK_RIGHT = BITMASK(7),  //!< right blinker on
+	NETMASK_BLINK_WARN  = BITMASK(8),  //!< warn blinker on
+	NETMASK_CLIGHT1     = BITMASK(9),  //!< custom light 1 on
+	NETMASK_CLIGHT2     = BITMASK(10), //!< custom light 2 on
+	NETMASK_CLIGHT3     = BITMASK(11), //!< custom light 3 on
+	NETMASK_CLIGHT4     = BITMASK(12), //!< custom light 4 on
+	NETMASK_POLICEAUDIO = BITMASK(13), //!< police siren on
+	NETMASK_PARTICLE    = BITMASK(14), //!< custom particles on
 };
 
 // structs
+
+/*
+ * this structure defines the header every RoR paket uses
+ */
 typedef struct
 {
-	char version;
-	char nickname[20];
-	int authstatus;
-	int slotnum;
-	int colournum;
-} client_info_on_join;
+	unsigned int command;     //!< the command of this packet: MSG2_*
+	int source;               //!< source of this command: 0 = server
+	unsigned int streamid;    //!< streamid for this command
+	unsigned int size;        //!< size of the attached data block
+} header_t;
 
+// structure that is send from the cleint to server and vice versa, to broadcast a new stream
+typedef struct
+{
+	char name[128];           //!< the truck filename
+	int type;                 //!< stream type
+	int status;               //!< initial stream status
+	char data[8000];		  //!< data used for stream setup
+} stream_register_t;
+
+
+// structure sent to remove a stream
+typedef struct
+{
+	int sid;                  //!< the unique id of the stream
+} stream_unregister_t;
+
+typedef struct
+{
+	char username[20];         //!< the nickname of the user
+	char usertoken[40];        //!< user token
+	char server_password[40];  //!< server password
+	char language[5];          //!< user's language. For example "de-DE" or "en-US"
+	char clientname[10];       //!< the name and version of the client. For exmaple: "ror" or "gamebot"
+	char clientversion[25];    //!< a version number of the client. For example 1 for RoR 0.35
+	char sessiontype[10];      //!< the requested session type. For example "normal", "bot", "rcon"
+	char sessionoptions[128];  //!< reserved for future options
+
+	int authstatus;            //!< auth status set by server: AUTH_*
+	int slotnum;               //!< slot number set by server
+	int colournum;             //!< colour set by server
+} user_info_t;
+
+
+typedef struct
+{
+	unsigned int target_uid;   //!< target UID
+	unsigned int node_id;      //!< node of target
+	float fx;                  //!< force x
+	float fy;                  //!< force y
+	float fz;                  //!< force z
+} netforce_t;
+
+typedef struct
+{
+	int time;                  //!< time data
+	float engine_speed;        //!< engine RPM
+	float engine_force;        //!< engine acceleration
+	unsigned int flagmask;     //!< flagmask: NETMASK_*
+} oob_t;
+
+typedef struct
+{
+	char name[128];            //!< the truck filename
+	int type;                  //!< stream type
+	int status;                //!< initial stream status
+	int bufferSize;            //!< initial stream status
+} stream_register_trucks_t;
+
+
+// obsolete structs
 typedef struct
 {
 	short int node1;
@@ -135,96 +207,5 @@ typedef struct
 	unsigned int beamcount;
 } simple_beam_info_header;
 
-// structure to control flow of a stream, send in both directions
-typedef struct
-{
-	int sid;                  //!< the unique id of the stream
-	int old_uid;              //!< old owner
-	int new_uid;              //!< new owner
-} stream_takeover_t;
-
-// structure that is send from the cleint to server and vice versa, to broadcast a new stream
-typedef struct
-{
-	char name[128];           //!< the truck filename
-	int type;                 //!< stream type
-	int status;               //!< initial stream status
-	char data[8000];		  //!< data used for stream setup
-} stream_register_t;
-
-// structure to control flow of a stream, send in both directions
-typedef struct
-{
-	int sid;                  //!< the unique id of the stream
-	int status;               //!< the rquested / proposed status
-} stream_control_t;
-
-// structure sent to remove a stream
-typedef struct
-{
-	int sid;                  //!< the unique id of the stream
-} stream_unregister_t;
-
-// structure sent from server to clients to update their user information
-typedef struct
-{
-	char truckname[128];      //!< the truck filename
-	char username[20];        //!< the nickname of the user
-	char language[5];         //!< user's language. For example "de-DE" or "en-US"
-	char clientinfo[20];      //!< client info, like 'RoR-0.35'
-	unsigned int flagmask;    //!< flags. Like moderator/admin, authed/non-authed, etc
-} user_info_t;
-
-typedef struct
-{
-	char username[20];
-	char password[40];
-	char uniqueid[40];
-} user_credentials_t;
-
-typedef struct
-{
-	char username[20];         //!< the nickname of the user
-	char password[40];         //!< server password
-	char token[40];            //!< user token
-	char language[5];          //!< user's language. For example "de-DE" or "en-US"
-	char clientname[10];       //!< the name and version of the client. For exmaple: "ror" or "gamebot"
-	int  clientversion;        //!< a version number of the client. For example 1 for RoR 0.35
-	char sessiontype[10];      //!< the requested session type. For example "normal", "bot", "rcon"
-	char sessionoptions[128];  //!< reserved for future options
-} user_credentials2_t;
-
-typedef struct
-{
-	unsigned int command;
-	int source;
-	unsigned int streamid;
-	unsigned int size;
-} header_t;
-
-typedef struct
-{
-	unsigned int target_uid;
-	unsigned int node_id;
-	float fx;
-	float fy;
-	float fz;
-} netforce_t;
-
-typedef struct
-{
-	int time;
-	float engine_speed;
-	float engine_force;
-	unsigned int flagmask;
-} oob_t;
-
-typedef struct
-{
-	char name[128];           //!< the truck filename
-	int type;                 //!< stream type
-	int status;               //!< initial stream status
-	int bufferSize;               //!< initial stream status
-} stream_register_trucks_t;
 
 #endif //RORNETPROTOCOL_H__

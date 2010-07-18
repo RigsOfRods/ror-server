@@ -117,7 +117,7 @@ void Listener::threadstart()
 				Logger::log(LOG_VERBOSE, "Master Server knocked ...");
 				// send back some information, then close socket
 				char tmp[2048]="";
-				sprintf(tmp,"protocol:%s\nrev:%s\nbuild_on:%s_%s\n", RORNET_VERSION, VERSION,__DATE__, __TIME__);
+				sprintf(tmp,"protocol:%s\nrev:%s\nbuild_on:%s_%s\n", RORNET_VERSION, VERSION, __DATE__, __TIME__);
 				if (Messaging::sendmessage(ts, MSG2_MASTERINFO, 0, 0, (unsigned int) strlen(tmp), tmp))
 				{
 					throw std::runtime_error("ERROR Listener: sending master info");
@@ -127,36 +127,47 @@ void Listener::threadstart()
 				delete ts;
 			}
 
+			// compare the versions if they are compatible
 			if(strncmp(buffer, RORNET_VERSION, strlen(RORNET_VERSION)))
 			{
+				// not compatible
 				Messaging::sendmessage(ts, MSG2_WRONG_VER, 0, 0, 0, 0);
 				throw std::runtime_error("ERROR Listener: bad version: "+std::string(buffer)+". rejecting ...");
 			}
 
-			// send client the which version of rornet the server is running
-			Logger::log(LOG_DEBUG,"Listener sending version");
-			if (Messaging::sendmessage(ts, MSG2_VERSION, 0, 0,
-					(unsigned int) strlen(RORNET_VERSION), RORNET_VERSION))
+			// compatible version, continue to send server settings
+			std::string motd_str;
+			{
+				std::vector<std::string> lines;
+				int res = Sequencer::readFile("motd.txt", lines);
+				if(!res)
+					for(std::vector<std::string>::iterator it=lines.begin(); it!=lines.end(); it++)
+						motd_str += *it + "\n";
+			}
+
+			Logger::log(LOG_DEBUG,"Listener sending server settings");
+			server_info_t settings;
+			memset(&settings, 0, sizeof(server_info_t));
+			settings.password = !Config::getPublicPassword().empty();
+			strncpy(settings.info, motd_str.c_str(), motd_str.size());
+			strncpy(settings.protocolversion, RORNET_VERSION, strlen(RORNET_VERSION));
+			strncpy(settings.servername, Config::getServerName().c_str(), Config::getServerName().size());
+			strncpy(settings.terrain, Config::getTerrainName().c_str(), Config::getTerrainName().size());
+
+			if (Messaging::sendmessage(ts, MSG2_HELLO, 0, 0, (unsigned int) sizeof(server_info_t), (char*)&settings))
 				throw std::runtime_error("ERROR Listener: sending version");
 
-			Logger::log(LOG_DEBUG,"Listener sending terrain");
-			//send the terrain information back
-			if( Messaging::sendmessage( ts, MSG2_TERRAIN_RESP, 0, 0,
-					(unsigned int) Config::getTerrainName().length(),
-					Config::getTerrainName().c_str() ) )
-				throw std::runtime_error("ERROR Listener: sending terrain");
-
-			//receive user name
+			//receive user infos
 			if (Messaging::receivemessage(ts, &type, &source, &streamid, &len, buffer, 256))
 			{
 				std::stringstream error_msg;
-				error_msg << "ERROR Listener: receiving user name\n"
+				error_msg << "ERROR Listener: receiving user infos\n"
 					<< "ERROR Listener: got that: "
 					<< type;
 				throw std::runtime_error(error_msg.str());
 			}
 
-			if (type != MSG2_USER_CREDENTIALS)
+			if (type != MSG2_USER_INFO)
 				throw std::runtime_error("Warning Listener: no user name");
 
 			if (len > sizeof(user_info_t))
@@ -172,7 +183,9 @@ void Listener::threadstart()
 				Logger::log(LOG_INFO, "User %s is ranked", nickname.c_str());
 				strncpy(user->username, nickname.c_str(), 20);
 			} else
-				Logger::log(LOG_INFO, "User %s is NOT ranked", nickname.c_str());
+			{
+				Logger::log(LOG_VERBOSE, "User %s is NOT ranked", nickname.c_str());
+			}
 
 			if( Config::isPublic() )
 			{
@@ -192,7 +205,7 @@ void Listener::threadstart()
 			}
 
 			//create a new client
-			Sequencer::createClient(ts, user);
+			Sequencer::createClient(ts, *user); // copy the user info, since the buffer will be cleared soon
 			Logger::log(LOG_DEBUG,"listener returned!");
 		}
 		catch(std::runtime_error e)

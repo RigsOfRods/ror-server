@@ -51,33 +51,25 @@ enum {
 	MSG2_WELCOME,                      //!< we can proceed
 	
 	MSG2_VERSION,                      //!< server responds with its version
-	MSG2_USE_VEHICLE,                  //!< the client says which vehicle it uses
 	
-	MSG2_REQUEST_VEHICLE_BEAMS,        //!< sent by the client to request beam data
-	MSG2_VEHICLE_BEAMS,                //!< contains beam information
-
 	MSG2_CHAT,                         //!< chat line
-	MSG2_FORCE,                        //!< Force information, attached to a netforce_t struct
-	MSG2_LISTUSERS,                    //!< asks for connected users
 
-	MSG2_USER_CREDENTIALS,             //!< improved user credentials
-	MSG2_TERRAIN_RESP,                 //!< server send client the terrain name
+	MSG2_SERVER_SETTINGS,              //!< server send client the terrain name: server_info_t
 
 	MSG2_GAME_CMD,                     //!< send to client from server only
 
-	MSG2_USER_CREDENTIALS2,            //!< improved user credentials
-	MSG2_USER_INFO,                    //!< improved user data that is sent from the server to the clients
+	MSG2_USER_INFO,                    //!< user data that is sent from the server to the clients
 	MSG2_PRIVCHAT,                     //!< sent from client to server to send private chat messages
 
 	// stream functions
 	MSG2_STREAM_REGISTER,              //!< create new stream
-	MSG2_STREAM_REGISTER_RESP,         //!< reply from server to registering client
-	MSG2_STREAM_CONTROL_FLOW,          //!< suspend/unsuspend streams
-	MSG2_STREAM_CONTROL_FLOW_RESP,     //!< reply from server to requesting client
-	MSG2_STREAM_UNREGISTER,            //!< remove stream
-	MSG2_STREAM_UNREGISTER_RESP,       //!< remove stream response from server to requsting client
-	MSG2_STREAM_TAKEOVER,              //!< stream takeover
-	MSG2_STREAM_TAKEOVER_RESP,         //!< stream takeover response from server
+	//MSG2_STREAM_REGISTER_RESP,         //!< reply from server to registering client
+	//MSG2_STREAM_CONTROL_FLOW,          //!< suspend/unsuspend streams
+	//MSG2_STREAM_CONTROL_FLOW_RESP,     //!< reply from server to requesting client
+	//MSG2_STREAM_UNREGISTER,            //!< remove stream
+	//MSG2_STREAM_UNREGISTER_RESP,       //!< remove stream response from server to requsting client
+	//MSG2_STREAM_TAKEOVER,              //!< stream takeover
+	//MSG2_STREAM_TAKEOVER_RESP,         //!< stream takeover response from server
 	MSG2_STREAM_DATA,                  //!< stream data
 	MSG2_USER_JOIN,                    //!< new user joined
 	MSG2_USER_LEAVE,                   //!< user leaves
@@ -171,9 +163,10 @@ typedef struct
 	char username[20];         //!< the nickname of the user
 	char usertoken[40];        //!< user token
 	char serverpassword[40];   //!< server password
-	char language[5];          //!< user's language. For example "de-DE" or "en-US"
+	char language[10];         //!< user's language. For example "de-DE" or "en-US"
 	char clientname[10];       //!< the name and version of the client. For exmaple: "ror" or "gamebot"
 	char clientversion[25];    //!< a version number of the client. For example 1 for RoR 0.35
+	char clientGUID[40];       //!< the clients GUID
 	char sessiontype[10];      //!< the requested session type. For example "normal", "bot", "rcon"
 	char sessionoptions[128];  //!< reserved for future options
 
@@ -207,23 +200,17 @@ typedef struct
 } oob_t;
 
 
-// obsolete structs
+/*
+ * server settings struct
+ */
 typedef struct
 {
-	short int node1;
-	short int node2;
-	char type;
-} simple_beam_info;
-
-typedef struct
-{
-	char version;
-	unsigned int nodebuffersize;
-	unsigned int netbuffersize;
-	unsigned int free_wheel;
-	unsigned int nodecount;
-	unsigned int beamcount;
-} simple_beam_info_header;
+	char protocolversion[20];  //!< protocol version being used
+	char terrain[128];         //!< terrain name
+	char servername[128];      //!< name of the server
+	bool password;             //!< passworded server?
+	char info[9046];           //!< info text
+} server_info_t;
 
 
 #endif //RORNETPROTOCOL_H__

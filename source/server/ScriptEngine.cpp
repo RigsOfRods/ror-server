@@ -467,7 +467,7 @@ std::string ServerScript::getUserName(int uid)
 {
 	client_t *c = seq->getClient(uid);
 	if(!c) return "";
-	return std::string(c->user.clientname);
+	return std::string(c->user.username);
 }
 
 

@@ -139,7 +139,6 @@ protected:
     static Sequencer* mInstance;
 	
 	
-	static int readFile(std::string filename, std::vector<std::string> &lines); //!< reads lines of a file
     
 public:
     //!    initilize theSequencers information
@@ -149,7 +148,7 @@ public:
     static void cleanUp();
     
     //! initilize client information
-    static void createClient(SWInetSocket *sock, user_info_t *user);
+    static void createClient(SWInetSocket *sock, user_info_t  user);
     
     //! call to start the thread to disconnect clients from the server.
     static void killerthreadstart();
@@ -196,6 +195,9 @@ public:
     static std::deque <chat_save_t> getChatHistory();
 
 	static unsigned int connCrash, connCount;
+
+	static int readFile(std::string filename, std::vector<std::string> &lines); //!< reads lines of a file
+
 };
 
 #endif

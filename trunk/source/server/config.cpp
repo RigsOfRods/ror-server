@@ -252,7 +252,7 @@ bool Config::checkConfig()
 
 	if( getWebserverEnabled() && !getWebserverPort() )
 	{
-		Logger::log( LOG_WARN, "No Webserver port supplied, using listen port + 100: %d", getListenPort());
+		Logger::log( LOG_WARN, "No Webserver port supplied, using listen port + 100: %d", getListenPort() + 100);
 		setWebserverPort(getListenPort() + 100);
 	}
 

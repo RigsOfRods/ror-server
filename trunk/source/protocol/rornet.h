@@ -63,6 +63,7 @@ enum {
 
 	// stream functions
 	MSG2_STREAM_REGISTER,              //!< create new stream
+	MSG2_STREAM_REGISTER_RESULT,       //!< result of a stream creation
 	//MSG2_STREAM_REGISTER_RESP,         //!< reply from server to registering client
 	//MSG2_STREAM_CONTROL_FLOW,          //!< suspend/unsuspend streams
 	//MSG2_STREAM_CONTROL_FLOW_RESP,     //!< reply from server to requesting client
@@ -132,6 +133,8 @@ typedef struct
 	char name[128];           //!< the truck filename
 	int type;                 //!< stream type
 	int status;               //!< initial stream status
+	int origin_sourceid;      //!< origin sourceid
+	int origin_streamid;      //!< origin streamid
 	char data[8000];		  //!< data used for stream setup
 } stream_register_t;
 

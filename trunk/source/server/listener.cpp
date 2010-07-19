@@ -112,7 +112,7 @@ void Listener::threadstart()
 			}
 
 			// check client version
-			if(source == 5000 && (std::string(buffer) == "MasterServ"))
+			if(source == 5000 && (std::string(buffer) == "MasterServer"))
 			{
 				Logger::log(LOG_VERBOSE, "Master Server knocked ...");
 				// send back some information, then close socket

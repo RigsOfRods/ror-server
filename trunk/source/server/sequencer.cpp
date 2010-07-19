@@ -261,16 +261,16 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 	}
 
 
+	//okay, create the client slot
 	client_t* to_add = new client_t;
-	to_add->user = user;
-	//okay, create the stuff
-	to_add->flow=false;
-	to_add->status=USED;
-	to_add->initialized=false;
-	to_add->user.colournum = playerColour;
-
-	// auth stuff
+	to_add->user            = user;
+	to_add->flow            = false;
+	to_add->status          = USED;
+	to_add->initialized     = false;
+	to_add->user.colournum  = playerColour;
 	to_add->user.authstatus = AUTH_NONE;
+
+	// auth resolving
 	if(instance->authresolver)
 	{
 		Logger::log(LOG_INFO, "getting user auth level");
@@ -279,15 +279,15 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 			to_add->user.authstatus |= auth_flags;
 
 		char authst[4] = "";
-		if(auth_flags & AUTH_ADMIN) strcat(authst, "A");
-		if(auth_flags & AUTH_MOD) strcat(authst, "M");
+		if(auth_flags & AUTH_ADMIN)  strcat(authst, "A");
+		if(auth_flags & AUTH_MOD)    strcat(authst, "M");
 		if(auth_flags & AUTH_RANKED) strcat(authst, "R");
-		if(auth_flags & AUTH_BOT) strcat(authst, "B");
+		if(auth_flags & AUTH_BOT)    strcat(authst, "B");
 		Logger::log(LOG_INFO, "user auth flags: " + std::string(authst));
 	}
 
 	// create new class instances for the receiving and sending thread
-	to_add->receiver = new Receiver();
+	to_add->receiver    = new Receiver();
 	to_add->broadcaster = new Broadcaster();
 
 	// replace bad characters
@@ -818,6 +818,18 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 		instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoingRate=0;
 
 		publishMode = 1;
+	}
+	else if (type==MSG2_STREAM_REGISTER_RESULT)
+	{
+		// forward message to the stream origin
+		stream_register_t *reg = (stream_register_t *)data;
+		int origin_pos = instance->getPosfromUid(reg->origin_sourceid);
+		if(origin_pos != UID_NOT_FOUND)
+		{
+			instance->clients[origin_pos]->broadcaster->queueMessage(type, uid, 0, sizeof(stream_register_t), (char *)reg);
+			Logger::log(LOG_VERBOSE, "stream registration result for stream %03d:%03d from user %03d: %d", reg->origin_sourceid, reg->origin_streamid, uid, reg->status);
+		}
+		publishMode=0;
 	}
 	else if (type==MSG2_USER_LEAVE)
 	{

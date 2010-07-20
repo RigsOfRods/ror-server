@@ -371,11 +371,13 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 
 			char playerdata[1024] = "";
 			char positiondata[128] = "";
-			sprintf(playerdata, "%d;%s;%s;%s;%s\n", i,
+			sprintf(playerdata, "%d;%s;%s;%s;%d\n",
+					i,
 					instance->clients[i]->user.username,
 					instance->clients[i]->sock->get_peerAddr(&error).c_str(),
-					instance->clients[i]->user.uniqueid,
-					authst);
+					authst,
+					(int)instance->clients[i]->user.uniqueid
+					);
 			strcat(hearbeatdata, playerdata);
 		}
 	}

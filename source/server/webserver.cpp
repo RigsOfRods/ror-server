@@ -248,6 +248,10 @@ static void data_configuration(struct mg_connection *conn, const struct mg_reque
 	mg_write(conn, output.c_str(), output.size());
 }
 
+static void debug_client_list(struct mg_connection *conn, const struct mg_request_info *request_info, void *data)
+{
+}
+
 static void data_players(struct mg_connection *conn, const struct mg_request_info *request_info, void *data)
 {
 	Json::Value rows;
@@ -417,6 +421,7 @@ int startWebserver(int port)
 	mg_set_uri_callback(ctx, "/data/stats/traffic", &data_stats_traffic, NULL);
 	mg_set_uri_callback(ctx, "/data/configuration/", &data_configuration, NULL);
 
+	mg_set_uri_callback(ctx, "/debug/", &debug_client_list, NULL);
 	mg_set_error_callback(ctx, 404, show_404, NULL);
 	return 0;
 }

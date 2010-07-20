@@ -370,7 +370,6 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 			if(instance->clients[i]->user.authstatus & AUTH_BOT) strcat(authst, "B");
 
 			char playerdata[1024] = "";
-			char positiondata[128] = "";
 			sprintf(playerdata, "%d;%s;%s;%s;%d\n",
 					i,
 					instance->clients[i]->user.username,

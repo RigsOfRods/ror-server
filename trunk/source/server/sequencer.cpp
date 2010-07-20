@@ -278,7 +278,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 		if(auth_flags != AUTH_NONE)
 			to_add->user.authstatus |= auth_flags;
 
-		char authst[4] = "";
+		char authst[10] = "";
 		if(auth_flags & AUTH_ADMIN)  strcat(authst, "A");
 		if(auth_flags & AUTH_MOD)    strcat(authst, "M");
 		if(auth_flags & AUTH_RANKED) strcat(authst, "R");
@@ -357,13 +357,13 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 	MutexLocker scoped_lock(instance->clients_mutex);
 
 	sprintf(hearbeatdata, "%s\n" \
-	                      "version4\n" \
+	                      "version5\n" \
 	                      "%i\n", challenge, clientnum);
 	if(clientnum > 0)
 	{
 		for( unsigned int i = 0; i < instance->clients.size(); i++)
 		{
-			char authst[4] = "";
+			char authst[10] = "";
 			if(instance->clients[i]->user.authstatus & AUTH_ADMIN) strcat(authst, "A");
 			if(instance->clients[i]->user.authstatus & AUTH_MOD) strcat(authst, "M");
 			if(instance->clients[i]->user.authstatus & AUTH_RANKED) strcat(authst, "R");
@@ -371,10 +371,8 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 
 			char playerdata[1024] = "";
 			char positiondata[128] = "";
-			sprintf(playerdata, "%d;%s;%s;%s;%s;%s;%s\n", i,
-					"unkown",
+			sprintf(playerdata, "%d;%s;%s;%s;%s\n", i,
 					instance->clients[i]->user.username,
-					positiondata,
 					instance->clients[i]->sock->get_peerAddr(&error).c_str(),
 					instance->clients[i]->user.uniqueid,
 					authst);
@@ -868,7 +866,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			{
 				if(i >= instance->clients.size())
 					break;
-				char authst[5] = "";
+				char authst[10] = "";
 				if(instance->clients[i]->user.authstatus & AUTH_ADMIN) strcat(authst, "A");
 				if(instance->clients[i]->user.authstatus & AUTH_MOD) strcat(authst, "M");
 				if(instance->clients[i]->user.authstatus & AUTH_RANKED) strcat(authst, "R");
@@ -1160,7 +1158,7 @@ void Sequencer::printStats()
 		for (unsigned int i = 0; i < instance->clients.size(); i++)
 		{
 			// some auth identifiers
-			char authst[5] = "";
+			char authst[10] = "";
 			if(instance->clients[i]->user.authstatus & AUTH_ADMIN) strcat(authst, "A");
 			if(instance->clients[i]->user.authstatus & AUTH_MOD) strcat(authst, "M");
 			if(instance->clients[i]->user.authstatus & AUTH_RANKED) strcat(authst, "R");

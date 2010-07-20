@@ -183,7 +183,7 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 		authlevel |= local_auth[user_token];
 
 	// debug output the auth status
-	char authst[4] = "";
+	char authst[10] = "";
 	if(authlevel & AUTH_ADMIN) strcat(authst, "A");
 	if(authlevel & AUTH_MOD) strcat(authst, "M");
 	if(authlevel & AUTH_RANKED) strcat(authst, "R");

@@ -125,6 +125,7 @@ void Listener::threadstart()
 				// close socket
 				ts->disconnect(&error);
 				delete ts;
+				continue;
 			}
 
 			// compare the versions if they are compatible

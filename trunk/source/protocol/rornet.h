@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef RORNETPROTOCOL_H__
 #define RORNETPROTOCOL_H__
 
-#define BITMASK(x) (1 << (x-1)) 
+#define BITMASK(x) (1 << (x-1))
 
 // protocol settings
 static const int   MAX_PEERS = 64;             //!< maximum clients connected at the same time
@@ -49,9 +49,9 @@ enum {
 	MSG2_WRONG_VER,                    //!< wrong version
 	MSG2_BANNED,                       //!< client not allowed to join
 	MSG2_WELCOME,                      //!< we can proceed
-	
+
 	MSG2_VERSION,                      //!< server responds with its version
-	
+
 	MSG2_CHAT,                         //!< chat line
 
 	MSG2_SERVER_SETTINGS,              //!< server send client the terrain name: server_info_t
@@ -135,7 +135,7 @@ typedef struct
 	int status;               //!< initial stream status
 	int origin_sourceid;      //!< origin sourceid
 	int origin_streamid;      //!< origin streamid
-	char data[8000];		  //!< data used for stream setup
+	char data[8000];          //!< data used for stream setup
 } stream_register_t;
 
 /*
@@ -146,7 +146,10 @@ typedef struct
 	char name[128];            //!< the truck filename
 	int type;                  //!< stream type
 	int status;                //!< initial stream status
+	int origin_sourceid;       //!< origin sourceid
+	int origin_streamid;       //!< origin streamid
 	int bufferSize;            //!< initial stream status
+	char truckconfig[10][60];  //!< truck section configuration
 } stream_register_trucks_t;
 
 /*
@@ -162,7 +165,7 @@ typedef struct
  */
 typedef struct
 {
-	unsigned int uniqueid;     //!< user unique id    
+	unsigned int uniqueid;     //!< user unique id
 	char username[20];         //!< the nickname of the user
 	char usertoken[40];        //!< user token
 	char serverpassword[40];   //!< server password

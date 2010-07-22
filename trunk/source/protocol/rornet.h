@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define RORNETPROTOCOL_H__
 
 // fix unused variable warning
+// see http://stackoverflow.com/questions/386220/hide-defined-but-not-used-warning-with-gcc
 #ifdef __GNUC__
 #define VARIABLE_IS_NOT_USED __attribute__ ((unused))
 #else

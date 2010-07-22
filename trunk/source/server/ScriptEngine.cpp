@@ -41,13 +41,13 @@ void *s_sethreadstart(void* se)
 }
 
 ScriptEngine::ScriptEngine(Sequencer *seq) : seq(seq), 
-	exit(false),
 	engine(0),
 	context(0),
-	playerAddedFunctionPtr(0),
+	frameStepFunctionPtr(0),
 	playerDeletedFunctionPtr(0),
+	playerAddedFunctionPtr(0),
 	playerChatFunctionPtr(0),
-	frameStepFunctionPtr(0)
+	exit(false)
 {
 	init();
 }
@@ -368,7 +368,8 @@ int ScriptEngine::framestep(float dt)
 	if( r == asEXECUTION_FINISHED )
 	{
 	  // The return value is only valid if the execution finished successfully
-	  asDWORD ret = context->GetReturnDWord();
+	  //asDWORD ret = context->GetReturnDWord();
+	  context->GetReturnDWord();
 	}
 	return 0;
 }

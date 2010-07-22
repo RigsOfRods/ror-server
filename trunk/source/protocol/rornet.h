@@ -19,6 +19,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef RORNETPROTOCOL_H__
 #define RORNETPROTOCOL_H__
 
+// fix unused variable warning
+#ifdef __GNUC__
+#define VARIABLE_IS_NOT_USED __attribute__ ((unused))
+#else
+#define VARIABLE_IS_NOT_USED
+#endif
+
 #define BITMASK(x) (1 << (x-1))
 
 // protocol settings
@@ -26,15 +33,15 @@ static const int   MAX_PEERS = 64;             //!< maximum clients connected at
 static const int   MAX_MESSAGE_LENGTH = 32768; //!< maximum size of a RoR message. 32768Bytes = 32kB
 
 // protocol version
-static const char *RORNET_VERSION = "RoRnet_2.33"; //!< the protocol version information
+static const char VARIABLE_IS_NOT_USED *RORNET_VERSION = "RoRnet_2.33"; //!< the protocol version information
 
 // REGISTRY STUFF
-static const char *REPO_SERVER = "api.rigsofrods.com"; //!< the web API URL
-static const char *REPO_URLPREFIX = "";                //!< prefix for the API
+static const char VARIABLE_IS_NOT_USED *REPO_SERVER = "api.rigsofrods.com"; //!< the web API URL
+static const char VARIABLE_IS_NOT_USED *REPO_URLPREFIX = "";                //!< prefix for the API
 
 // used by configurator
-static const char *REPO_HTML_SERVERLIST = "http://api.rigsofrods.com/serverlist/"; //!< server list URL
-static const char *NEWS_HTML_PAGE = "http://api.rigsofrods.com/news/"; //!< news html page URL
+static const char VARIABLE_IS_NOT_USED *REPO_HTML_SERVERLIST = "http://api.rigsofrods.com/serverlist/"; //!< server list URL
+static const char VARIABLE_IS_NOT_USED *NEWS_HTML_PAGE = "http://api.rigsofrods.com/news/"; //!< news html page URL
 
 // ENUMs
 

@@ -31,10 +31,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // protocol settings
 static const int   MAX_PEERS = 64;             //!< maximum clients connected at the same time
-static const int   MAX_MESSAGE_LENGTH = 32768; //!< maximum size of a RoR message. 32768Bytes = 32kB
+static const int   MAX_MESSAGE_LENGTH = 8192;  //!< maximum size of a RoR message. 32768 bytes = 8 kilobytes
 
 // protocol version
-static const char VARIABLE_IS_NOT_USED *RORNET_VERSION = "RoRnet_2.33"; //!< the protocol version information
+static const char VARIABLE_IS_NOT_USED *RORNET_VERSION = "RoRnet_2.34"; //!< the protocol version information
 
 // REGISTRY STUFF
 static const char VARIABLE_IS_NOT_USED *REPO_SERVER = "api.rigsofrods.com"; //!< the web API URL
@@ -82,6 +82,8 @@ enum {
 	MSG2_STREAM_DATA,                  //!< stream data
 	MSG2_USER_JOIN,                    //!< new user joined
 	MSG2_USER_LEAVE,                   //!< user leaves
+
+	MSG2_NETQUALITY,                   //!< network quality information
 
 	// master server interaction
 	MSG2_MASTERINFO,                   //!< master information response

@@ -61,8 +61,10 @@ private:
 
 	int getMessageQueueSize();
 
-	static const int queue_soft_limit = 250;
-	static const int queue_hard_limit = 500;
+	int dropstate;
+
+	static const int queue_soft_limit = 100;
+	static const int queue_hard_limit = 300;
 
 public:
 	Broadcaster();
@@ -86,5 +88,8 @@ public:
 	 * @param[in] len  length of data in bytes
 	 */
 	void queueMessage(int type, int uid, unsigned int streamid, unsigned int len, const char* data);
+
+
+	int getDropState() { return dropstate; };
 };
 #endif

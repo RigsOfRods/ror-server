@@ -775,6 +775,23 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
     unsigned short pos = instance->getPosfromUid(uid);
     if( UID_NOT_FOUND == pos ) return;
 
+	// check for full broadcaster queue
+	{
+		int dropstate = instance->clients[pos]->broadcaster->getDropState();
+		if(true)
+		{
+			// queue full, inform client
+			instance->clients[pos]->drop_state = dropstate;
+			instance->clients[pos]->broadcaster->queueMessage(MSG2_NETQUALITY, -1, 0, sizeof(int), (char *)&dropstate);
+		} else if(dropstate == 0 && instance->clients[pos]->drop_state == 1)
+		{
+			// queue working better again, inform client
+			instance->clients[pos]->drop_state = dropstate;
+			instance->clients[pos]->broadcaster->queueMessage(MSG2_NETQUALITY, -1, 0, sizeof(int), (char *)&dropstate);
+		}
+	}
+
+
 	int publishMode=0;
 	// publishMode = 0 no broadcast
 	// publishMode = 1 broadcast to all clients except sender

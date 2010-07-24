@@ -65,6 +65,7 @@ void Broadcaster::reset(int uid, SWInetSocket *socky,
 	disconnect  = disconnect_func;
 	sendmessage = sendmessage_func;
 	dropmessage = dropmessage_func;
+	dropstate   = 0;
 
 	// always clear to free up memory
 	msg_queue.clear();
@@ -148,6 +149,10 @@ void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigne
 	{
 		Logger::log( LOG_DEBUG, "broadcaster queue soft full: thread %u owned by uid %d", ThreadID::getID(), id);
 		msg.process_type = BC_QUEUE_DROP;
+		dropstate = 1;
+	} else if (msg_queue.size() < (size_t)queue_soft_limit - 20) // - 20 to prevent border problems
+	{
+		dropstate = 0;
 	}
 
 	// hard limit drop anything, otherwise we would need to run through the queue and search and remove

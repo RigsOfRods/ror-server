@@ -31,7 +31,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // protocol settings
 static const int   MAX_PEERS = 64;             //!< maximum clients connected at the same time
-static const int   MAX_MESSAGE_LENGTH = 8192;  //!< maximum size of a RoR message. 32768 bytes = 8 kilobytes
+static const int   MAX_MESSAGE_LENGTH = 16384;  //!< maximum size of a RoR message. 32768 bytes = 8 kilobytes
 
 // protocol version
 static const char VARIABLE_IS_NOT_USED *RORNET_VERSION = "RoRnet_2.34"; //!< the protocol version information
@@ -225,7 +225,7 @@ typedef struct
 	char terrain[128];         //!< terrain name
 	char servername[128];      //!< name of the server
 	bool password;             //!< passworded server?
-	char info[9046];           //!< info text
+	char info[4096];           //!< info text
 } server_info_t;
 
 

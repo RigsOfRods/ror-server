@@ -68,6 +68,13 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, int source, unsigned 
 	header_t head;
 
 	const int msgsize = sizeof(header_t) + len;
+
+	if(msgsize >= MAX_MESSAGE_LENGTH)
+	{
+    	Logger::log( LOG_ERROR, "UID: %d - attempt to send too long message", source);
+    	return -4;
+	}
+
 	char buffer[MAX_MESSAGE_LENGTH];
 	
 
@@ -169,6 +176,11 @@ int Messaging::receivemessage(SWInetSocket *socket, int *type, int *source, unsi
 	*wrotelen = head.size;
 	*streamid = head.streamid;
 	
+	if(head.size >= MAX_MESSAGE_LENGTH)
+	{
+    	return -3;
+	}
+
 	if( head.size > 0)
 	{
 		if(!socket)

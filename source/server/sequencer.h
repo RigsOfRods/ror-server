@@ -87,6 +87,8 @@ struct client_t
 	bool initialized;
 	char ip_addr[16];           // do not use directly
 
+	int drop_state;             // dropping outgoing packets?
+
 	//things for the communication with the webserver below, not used in the main server code
 	std::map<unsigned int, stream_register_t> streams;
 	std::map<unsigned int, stream_traffic_t> streams_traffic;

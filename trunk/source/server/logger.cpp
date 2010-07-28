@@ -80,12 +80,16 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 
 	if(file && level >= log_level[LOGTYPE_FILE])
 	{
+#ifndef WIN32
+		// check if we need to reopen the file (i.e. moved by logrotate)
+		struct stat mystat;
+		if (stat(logfilename, &mystat))
+		{
+			file = freopen(logfilename.c_str(), "a+", file);
+		}
+#endif // WIN32
 		fprintf(file, "%s|t%02d|%5s| %s\n", timestr, ThreadID::getID(), loglevelname[(int)level], msg.c_str());
-		// flushing all the time is a serious performance hit, only flush when
-		// we get above the threshold, otherwise let the OS handel flushing 
-		if( level >= flush_level )
-			fflush(file); // important, as if we crash, we want to be sure to 
-			//have the last log entries in the log file!
+		fflush(file);
 	}
 
 	if(callback)
@@ -125,9 +129,10 @@ std::deque <log_save_t> Logger::getLogHistory()
 
 void Logger::setOutputFile(const std::string& filename)
 {
+	logfilename = filename;
 	if(file)
 		fclose(file);
-	file = fopen(filename.c_str(), "a");
+	file = fopen(logfilename.c_str(), "a+");
 }
 
 void Logger::setLogLevel(const LogType type, const LogLevel level)
@@ -140,10 +145,6 @@ const LogLevel Logger::getLogLevel(const LogType type)
 	return log_level[(int)type];
 }
 
-void Logger::setFlushLevel(const LogLevel level )
-{
-	flush_level = level;
-}
 
 void Logger::setCallback(void (*ptr)(int, std::string msg, std::string msgf))
 {
@@ -162,8 +163,8 @@ Logger Logger::theLog;
 FILE *Logger::file = 0;
 LogLevel Logger::log_level[2] = {LOG_VERBOSE, LOG_INFO};
 const char *Logger::loglevelname[] = {"STACK", "DEBUG", "VERBO", "INFO", "WARN", "ERROR"};
-LogLevel Logger::flush_level = LOG_ERROR;
 bool Logger::compress_file = false;
+std::string Logger::logfilename = "server.log";
 
 
 // SCOPELOG

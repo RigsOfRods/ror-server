@@ -53,12 +53,6 @@ public:
 	static void setOutputFile(const std::string& filename);
 	static void setLogLevel(const LogType type, const LogLevel level);
 	static const LogLevel getLogLevel(const LogType type);
-	//! sets the level at which manual file flushing occurs flushing at the 
-	//! stack level is a heavy hit on performance with only 2 clients connected
-	//! This prevents any messages below the specified level triggering manual
-	//! flushing.
-	//! if set to LOG_ERROR then flushing occurs only when an error is logged
-	static void setFlushLevel(const LogLevel level );
 
 	static void setCallback(void (*ptr)(int, std::string msg, std::string msgf));
 
@@ -71,7 +65,7 @@ private:
 	static FILE *file;
 	static LogLevel log_level[2];
 	static const char *loglevelname[];
-	static LogLevel flush_level;
+	static std::string logfilename;
 	static bool compress_file;
 	static void (*callback)(int, std::string msg, std::string msgf);
 	static std::deque <log_save_t> loghistory;

@@ -472,7 +472,6 @@ int MyDialog::startServer()
 	if(logmode->GetValue() == _("ERROR"))   loglevel = LOG_ERROR;
 
 	Logger::setLogLevel(LOGTYPE_FILE, LOG_VERBOSE);
-	Logger::setFlushLevel(LOG_ERROR);
 	Logger::setOutputFile("server.log");
 
 	Config::setPrintStats(false);

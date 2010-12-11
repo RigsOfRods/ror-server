@@ -176,7 +176,7 @@ int Messaging::receivemessage(SWInetSocket *socket, int *type, int *source, unsi
 	*wrotelen = head.size;
 	*streamid = head.streamid;
 	
-	if(head.size >= MAX_MESSAGE_LENGTH)
+	if((int)head.size >= MAX_MESSAGE_LENGTH)
 	{
     	return -3;
 	}

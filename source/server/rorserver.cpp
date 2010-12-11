@@ -46,6 +46,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # include <unistd.h>
 # include <sys/types.h>
 # include <pwd.h>
+# include <sys/types.h>
+# include <sys/stat.h>
 #endif // WIN32
 
 int terminate_triggered = 0;

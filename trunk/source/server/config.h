@@ -41,6 +41,7 @@ public:
 	static unsigned int       getWebserverPort();
 	static bool               getForeground();
 	static const std::string& getResourceDir();
+	static const std::string& getAuthFile();
 	
 	//!@}
 
@@ -60,6 +61,7 @@ public:
 	static void setForeground(bool value);
 	static void loadConfigFile(const std::string& filename);
 	static void setResourceDir(const std::string& dir);
+	static void setAuthFile(const std::string& file);
 	//!@}
 
 	static std::string getPublicIP();
@@ -80,10 +82,9 @@ private:
 	bool webserver_enabled;
 	unsigned int webserver_port;
 	bool foreground;
+	std::string authfile;
 	std::string resourcedir;
 
-	
-	
 };
 
 #endif /*CONFIG_H_*/

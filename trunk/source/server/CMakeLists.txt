@@ -83,6 +83,13 @@ ELSEIF(UNIX)
 			RENAME simple.cfg.example
 			PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
 	)
+	
+	# add example server authorization file
+	INSTALL(FILES ${rorserver_SOURCE_DIR}/contrib/example-auth.auth
+			DESTINATION /etc/rorserver/
+			RENAME simple.auth.example
+			PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+	)
 
 	# create user
 	INSTALL(CODE "execute_process(COMMAND useradd -s /bin/false rorserver)")

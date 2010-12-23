@@ -498,7 +498,7 @@ int MyDialog::startServer()
 		Config::setPublicPass(conv(passwd->GetValue()));
 
 	std::string user_token = conv(adminuid->GetValue());
-	if(Sequencer::getUserAuth()) Sequencer::getUserAuth()->setUserAuth(user_token, AUTH_ADMIN);
+	if(Sequencer::getUserAuth()) Sequencer::getUserAuth()->setUserAuth(AUTH_ADMIN, std::string(""), user_token);
 
 	//server name, replace space with underscore
 	wxString server_name = sname->GetValue();

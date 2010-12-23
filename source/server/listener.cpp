@@ -179,7 +179,7 @@ void Listener::threadstart()
 			user_info_t *user = (user_info_t *)buffer;
 			std::string nickname = std::string(user->username);
 			int authflags = Sequencer::authNick(std::string(user->usertoken), nickname);
-			if(authflags & AUTH_RANKED)
+			if( (authflags & AUTH_RANKED) || (authflags & AUTH_ADMIN) || (authflags & AUTH_MOD) || (authflags & AUTH_BOT) )
 			{
 				// we only auth here in order to overwrite the nickname!
 				Logger::log(LOG_INFO, "User %s is ranked", nickname.c_str());

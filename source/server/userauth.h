@@ -22,18 +22,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "HttpMsg.h"
 #include <vector>
 
-#define ADMINCONFIGFILE "admins.txt"
-
 class UserAuth
 {
 private:
 	std::map< std::string, std::pair<int, std::string> > cache;
 	int HTTPGET(const char* URL, HttpMsg &resp);
 	std::string challenge;
-	std::map< std::string, int > local_auth;
-	int readConfig();
+	int trustlevel;
+	std::map< std::string, std::pair<int, std::string> > local_auth;
+	int readConfig(const char* authFile);
 public:
-	UserAuth(std::string challenge);
+	UserAuth(std::string challenge, int trustlevel, std::string authFile);
 	~UserAuth();
 	
 	int getUserModeByUserToken(std::string token);
@@ -41,7 +40,7 @@ public:
 	int resolve(std::string user_token, std::string &user_nick);
 
 	int getAuthSize();
-	int setUserAuth(std::string token, int flags);
+	int setUserAuth(int flags, std::string user_nick, std::string token);
 
 	int sendUserEvent(std::string user_token, std::string type, std::string arg1, std::string arg2);
 

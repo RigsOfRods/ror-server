@@ -35,11 +35,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
 
-UserAuth::UserAuth(std::string _challenge)
+UserAuth::UserAuth(std::string _challenge, int _trustlevel, std::string authFile)
 {
     STACKLOG;
-	challenge=_challenge;
-	readConfig();
+	challenge  = _challenge;
+	trustlevel = _trustlevel;
+	readConfig(authFile.c_str());
 }
 
 UserAuth::~UserAuth(void)
@@ -47,16 +48,16 @@ UserAuth::~UserAuth(void)
     STACKLOG;
 }
 
-int UserAuth::readConfig()
+int UserAuth::readConfig(const char* authFile)
 {
 	STACKLOG;
-	FILE *f = fopen(ADMINCONFIGFILE, "r");
+	FILE *f = fopen(authFile, "r");
 	if (!f)
 	{
-		Logger::log(LOG_ERROR, "error opening admin configuration file '%s'", ADMINCONFIGFILE);
+		Logger::log(LOG_ERROR, "error opening admin configuration file '%s'", authFile);
 		return -1;
 	}
-	Logger::log(LOG_INFO, "reading admin configuration file...");
+	Logger::log(LOG_VERBOSE, "reading admin configuration file...");
 	int linecounter=0;
 	while(!feof(f))
 	{
@@ -86,16 +87,20 @@ int UserAuth::readConfig()
 		}
 		int authmode = AUTH_NONE;
 		char token[256];
-		int res = sscanf(line, "%d %s", &authmode, token);
-		if(res != 2)
+		char user_nick[20];
+		int res = sscanf(line, "%d %s %s", &authmode, user_nick, token);
+		if(res != 3)
 		{
 			Logger::log(LOG_ERROR, "error parsing admins.txt file: " + std::string(line));
 			continue;
 		}
 		Logger::log(LOG_DEBUG, "adding entry to local auth cache, size: %d", local_auth.size());
-		local_auth[std::string(token)] = authmode;
+		std::pair< int, std::string > p;
+		p.first = authmode;
+		p.second = user_nick;
+		local_auth[std::string(token)] = p;
 	}
-	Logger::log(LOG_INFO, "found %d auth overrides!",  local_auth.size());
+	Logger::log(LOG_INFO, "found %d auth overrides in the authorizations file!",  local_auth.size());
 	fclose (f);
 	return 0;
 }
@@ -122,15 +127,22 @@ int UserAuth::getUserModeByUserToken(std::string token)
 	return resolve(token, nick);
 }
 
-int UserAuth::setUserAuth(std::string token, int flags)
+int UserAuth::setUserAuth(int flags, std::string user_nick, std::string token)
 {
-	local_auth[token] = flags;
+	std::pair< int, std::string > p;
+	p.first = flags;
+	p.second = user_nick;
+	local_auth[token] = p;
 	return 0;
 }
 
 int UserAuth::sendUserEvent(std::string user_token, std::string type, std::string arg1, std::string arg2)
 {
     STACKLOG;
+	
+	// Only contact the master server if we are allowed to do so
+	if(trustlevel<=1) return 0;
+	
 	char url[1024];
 	sprintf(url, "%s/userevent/?v=0&sh=%s&h=%s&t=%s&a1=%s&a2=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), type.c_str(), arg1.c_str(), arg2.c_str());
 	HttpMsg resp;
@@ -147,6 +159,10 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 {
     STACKLOG;
 
+	// There's alot of other info in the user token variable, but we don't need it here.
+	// We only need the first 40 characters = the actual (encoded) token.
+	user_token = user_token.substr(0,40);
+	
 	//check cache first
 	if(cache.find(user_token) != cache.end())
 	{
@@ -154,33 +170,45 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 		user_nick = cache[user_token].second;
 		return cache[user_token].first;
 	}
-
-	// not found in cache, get auth
-	char url[1024];
-	sprintf(url, "%s/authuser/?c=%s&t=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str());
-	HttpMsg resp;
-	if (HTTPGET(url, resp) < 0)
-		return -1;
-
-	int authlevel = AUTH_NONE;
-	std::string body = resp.getBody();
-	Logger::log(LOG_DEBUG,"UserAuth reply: " + body);
 	
-	std::vector<std::string> args;
-	strict_tokenize(body, args, "\t");
-
-	if(args.size() != 2)
+	//then check for overrides in the authorizations file (server admins, etc)
+	if(local_auth.find(user_token) != local_auth.end())
 	{
-		Logger::log(LOG_INFO,"UserAuth: invalid return value from server: " + body);
-		return AUTH_NONE;
+		// local auth hit!
+		// the stored nickname can be empty if the servergui is being used.
+		if(!local_auth[user_token].second.empty())
+			user_nick = local_auth[user_token].second;
+		return local_auth[user_token].first;
 	}
 	
-	authlevel = atoi(args[0].c_str());
-	user_nick = args[1];
+	// initialize the authlevel on none = normal user
+	int authlevel = AUTH_NONE;
 
-	// check for local auth overrides (server admins, etc)
-	if(local_auth.find(user_token) != local_auth.end())
-		authlevel |= local_auth[user_token];
+	// Only contact the master-server if we're allowed to do so
+	if(trustlevel>1)
+	{
+		// not found in cache or local_auth, get auth from masterserver
+		char url[1024];
+		sprintf(url, "%s/authuser/?c=%s&t=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str());
+		HttpMsg resp;
+		if (HTTPGET(url, resp) < 0)
+			return -1;
+
+		std::string body = resp.getBody();
+		Logger::log(LOG_DEBUG,"UserAuth reply: " + body);
+		
+		std::vector<std::string> args;
+		strict_tokenize(body, args, "\t");
+
+		if(args.size() != 2)
+		{
+			Logger::log(LOG_INFO,"UserAuth: invalid return value from server: " + body);
+			return AUTH_NONE;
+		}
+		
+		authlevel = atoi(args[0].c_str());
+		user_nick = args[1];
+	}
 
 	// debug output the auth status
 	char authst[10] = "";
@@ -204,6 +232,14 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 int UserAuth::HTTPGET(const char* URL, HttpMsg &resp)
 {
     STACKLOG;
+	
+	if(trustlevel<=1)
+	{
+		// If this happens, then you did something wrong in the server code
+		Logger::log(LOG_ERROR, "userauth: tried to contact master server without permission. URL: %s", URL);
+		return 0;
+	}
+	
 	char httpresp[65536];  //!< http response from the master server
 	int res=0;
 	SWBaseSocket::SWBaseError error;

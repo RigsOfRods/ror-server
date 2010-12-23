@@ -108,10 +108,8 @@ void Sequencer::initilize()
 	{
 		instance->notifier = new Notifier(instance->authresolver);
 
-		// only start userauth if we are registered with the master server and if we have trustworthyness > 1
-		if(instance->notifier->getAdvertised() && instance->notifier->getTrustLevel()>1)
-			instance->authresolver = new UserAuth(instance->notifier->getChallenge());
-
+		// start userauth
+		instance->authresolver = new UserAuth(instance->notifier->getChallenge(), instance->notifier->getTrustLevel(), Config::getAuthFile());
 	}
 }
 
@@ -269,11 +267,14 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 	to_add->initialized     = false;
 	to_add->user.colournum  = playerColour;
 	to_add->user.authstatus = AUTH_NONE;
+	
+	// log some info about this client
+	Logger::log(LOG_INFO, "New client: %s (%s), using %s %s, with token %s", user.username, user.language, user.clientname, user.clientversion, std::string(user.usertoken).substr(0,40).c_str());
 
 	// auth resolving
 	if(instance->authresolver)
 	{
-		Logger::log(LOG_INFO, "getting user auth level");
+		Logger::log(LOG_VERBOSE, "getting user auth level");
 		int auth_flags = instance->authresolver->getUserModeByUserToken(user.usertoken);
 		if(auth_flags != AUTH_NONE)
 			to_add->user.authstatus |= auth_flags;
@@ -283,7 +284,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 		if(auth_flags & AUTH_MOD)    strcat(authst, "M");
 		if(auth_flags & AUTH_RANKED) strcat(authst, "R");
 		if(auth_flags & AUTH_BOT)    strcat(authst, "B");
-		Logger::log(LOG_INFO, "user auth flags: " + std::string(authst));
+		if(auth_flags != AUTH_NONE) Logger::log(LOG_INFO, "user auth flags: " + std::string(authst));
 	}
 
 	// create new class instances for the receiving and sending thread

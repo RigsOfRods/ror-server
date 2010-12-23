@@ -160,7 +160,9 @@ void (*Logger::callback)(int, std::string msg, std::string msgf) = 0;
 
 Logger::Logger()
 {
-	setOutputFile("server.log");
+	// Commented out, exactly the same is already done in rorserver.ccp
+	// and furthermore, this bugs on ubuntu
+	// setOutputFile("server.log");
 }
 
 Logger Logger::theLog;

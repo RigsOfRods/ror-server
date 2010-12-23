@@ -50,6 +50,7 @@ enum
 	OPT_FOREGROUND,
 	OPT_CONFIGFILE,
 	OPT_RESDIR,
+	OPT_AUTHFILE,
 };
 
 // option array
@@ -75,6 +76,7 @@ static CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_CONFIGFILE,     ((char *)"-c"), SO_REQ_SEP },
 	{ OPT_CONFIGFILE,     ((char *)"-config"), SO_REQ_SEP },
 	{ OPT_RESDIR,         ((char *)"-resdir"), SO_REQ_SEP },
+	{ OPT_AUTHFILE,       ((char *)"-authfile"), SO_REQ_SEP },
 	{ OPT_HELP,           ((char *)"/help"), SO_NONE },
 	SO_END_OF_OPTIONS
 };
@@ -161,6 +163,7 @@ void showUsage()
 " -version                     prints the server version numbers\n" \
 " -fg                          starts the server in the foreground (background by default)\n" \
 " -resdir <path>               sets the path to the resource directory\n" \
+" -authfile <server.auth>      Sets the filename of the file that contains authorization info\n" \
 " -help                        Show this list\n");
 }
 
@@ -180,6 +183,7 @@ Config::Config():
 	print_stats(false),
 	webserver_port( 0 ),
 	foreground(false),
+	authfile("/admins.txt"),
 #ifdef WIN32
 	resourcedir()
 #else // WIN32
@@ -273,6 +277,12 @@ bool Config::checkConfig()
 	}
 	else
 		Logger::log( LOG_INFO, "maxclients: %d", getMaxClients());
+		
+	if( getAuthFile().empty() )
+	{
+			Logger::log( LOG_ERROR, "Authorizations file not specified. Using default (/admins.txt)" );
+			setAuthFile("/admins.txt");
+	}
 	
 	Logger::log( LOG_INFO, "server is%s password protected",
 			getPublicPassword().empty() ? " NOT": "" );
@@ -348,6 +358,9 @@ bool Config::fromArgs( int argc, char* argv[] )
 			case OPT_RESDIR:
 				setResourceDir(args.OptionArg());
 			break;
+			case OPT_AUTHFILE:
+				setAuthFile(args.OptionArg());
+			break;
 			case OPT_CONFIGFILE:
 				loadConfigFile(args.OptionArg());
 			break;
@@ -387,6 +400,7 @@ bool               Config::getWebserverEnabled(){ return instance.webserver_enab
 unsigned int       Config::getWebserverPort()   { return instance.webserver_port;  }
 bool               Config::getForeground()      { return instance.foreground;      }
 const std::string& Config::getResourceDir()     { return instance.resourcedir;     }
+const std::string& Config::getAuthFile()        { return instance.authfile;        }
 
 //!@}
 
@@ -454,6 +468,9 @@ void Config::setForeground(bool value) {
 void Config::setResourceDir(const std::string& dir) {
 	instance.resourcedir = dir;
 }
+void Config::setAuthFile(const std::string& file) {
+	instance.authfile = file;
+}
 
 void Config::loadConfigFile(const std::string& filename)
 {
@@ -478,6 +495,7 @@ void Config::loadConfigFile(const std::string& filename)
 		if(config.exists("logverbosity"))  Logger::setLogLevel(LOGTYPE_FILE,      (LogLevel)config.getIntValue("logverbosity"));
 		if(config.exists("resdir"))        setResourceDir(config.getStringValue   ("resdir"));
 		if(config.exists("logfilename"))   Logger::setOutputFile(config.getStringValue("logfilename"));
+		if(config.exists("authfile"))      setAuthFile(config.getStringValue      ("authfile"));
 	} else
 	{
 		Logger::log(LOG_ERROR, "could not load config file %s : %s", filename.c_str(), config.getError());

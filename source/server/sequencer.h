@@ -50,9 +50,21 @@ class ScriptEngine;
 #define BUSY 1
 #define USED 2
 
+// How many not-vehicles streams has every user by default? (e.g.: "default" and "chat" are not-vehicles streams)
+// This is used for the vehicle-limit
+#define NON_VEHICLE_STREAMS 2
+
 #define SEQUENCER Sequencer::Instance()
 
 #define VERSION "$Rev: 419 $"
+
+// This is used to define who says it, when the server says something
+enum serverSayType {
+	FROM_SERVER = 0,
+	FROM_HOST,
+	FROM_MOTD,
+	FROM_RULES,
+};
 
 typedef struct stream_traffic_t
 {

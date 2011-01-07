@@ -91,6 +91,20 @@ ELSEIF(UNIX)
 			PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
 	)
 
+	# add example server message of the day (MOTD) file
+	INSTALL(FILES ${rorserver_SOURCE_DIR}/contrib/example-motd.motd
+			DESTINATION /etc/rorserver/
+			RENAME simple.motd.example
+			PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+	)
+
+	# add example rules file
+	INSTALL(FILES ${rorserver_SOURCE_DIR}/contrib/example-rules.rules
+			DESTINATION /etc/rorserver/
+			RENAME simple.rules.example
+			PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+	)
+
 	# create user
 	INSTALL(CODE "execute_process(COMMAND useradd -s /bin/false rorserver)")
 

@@ -109,3 +109,20 @@ std::string hexdump(void *pAddressIn, long  lSize)
 	return result;
 }
 
+// Calculates the length of an integer
+int intlen(int num)
+{
+	int length = 0;
+	
+	if(num<0)
+	{
+		num = num*(-1);
+		length = 1; // set on 1 because of the minus sign
+	}
+
+	while(num > 0) {
+		length++;
+		num = num/10;
+	}
+	return length;
+}

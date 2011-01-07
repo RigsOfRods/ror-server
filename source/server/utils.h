@@ -38,4 +38,6 @@ std::string trim(const std::string& str );
 // from http://stahlforce.com/dev/index.php?tool=csc01
 std::string hexdump(void *pAddressIn, long  lSize);
 
+int intlen(int num);
+
 #endif /*UTILS_HPP_*/

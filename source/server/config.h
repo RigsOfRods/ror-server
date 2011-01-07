@@ -42,7 +42,13 @@ public:
 	static bool               getForeground();
 	static const std::string& getResourceDir();
 	static const std::string& getAuthFile();
-	
+	static const std::string& getMOTDFile();
+	static const std::string& getRulesFile();
+	static unsigned int       getMaxVehicles();
+	static const std::string& getOwner();
+	static const std::string& getWebsite();
+	static const std::string& getIRC();
+	static const std::string& getVoIP();
 	//!@}
 
 	//! setter functions
@@ -62,6 +68,13 @@ public:
 	static void loadConfigFile(const std::string& filename);
 	static void setResourceDir(const std::string& dir);
 	static void setAuthFile(const std::string& file);
+	static void setMOTDFile(const std::string& file);
+	static void setRulesFile(const std::string& rulesFile);
+	static void setMaxVehicles(unsigned int num);
+	static void setOwner(const std::string& owner);
+	static void setWebsite(const std::string& website);
+	static void setIRC(const std::string& irc);
+	static void setVoIP(const std::string& voip);
 	//!@}
 
 	static std::string getPublicIP();
@@ -83,6 +96,13 @@ private:
 	unsigned int webserver_port;
 	bool foreground;
 	std::string authfile;
+	std::string motdfile;
+	std::string rulesfile;
+	unsigned int max_vehicles;
+	std::string owner;
+	std::string website;
+	std::string irc;
+	std::string voip;
 	std::string resourcedir;
 
 };

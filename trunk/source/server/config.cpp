@@ -51,6 +51,13 @@ enum
 	OPT_CONFIGFILE,
 	OPT_RESDIR,
 	OPT_AUTHFILE,
+	OPT_MOTDFILE,
+	OPT_RULESFILE,
+	OPT_VEHICLELIMIT,
+	OPT_OWNER,
+	OPT_WEBSITE,
+	OPT_IRC,
+	OPT_VOIP,
 };
 
 // option array
@@ -77,6 +84,13 @@ static CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_CONFIGFILE,     ((char *)"-config"), SO_REQ_SEP },
 	{ OPT_RESDIR,         ((char *)"-resdir"), SO_REQ_SEP },
 	{ OPT_AUTHFILE,       ((char *)"-authfile"), SO_REQ_SEP },
+	{ OPT_MOTDFILE,       ((char *)"-motdfile"), SO_REQ_SEP },
+	{ OPT_RULESFILE,      ((char *)"-rulesfile"), SO_REQ_SEP },
+	{ OPT_VEHICLELIMIT,   ((char *)"-vehiclelimit"), SO_REQ_SEP },
+	{ OPT_OWNER,          ((char *)"-owner"), SO_REQ_SEP },
+	{ OPT_WEBSITE,        ((char *)"-website"), SO_REQ_SEP },
+	{ OPT_IRC,            ((char *)"-irc"), SO_REQ_SEP },
+	{ OPT_VOIP,           ((char *)"-voip"), SO_REQ_SEP },
 	{ OPT_HELP,           ((char *)"/help"), SO_NONE },
 	SO_END_OF_OPTIONS
 };
@@ -164,6 +178,13 @@ void showUsage()
 " -fg                          starts the server in the foreground (background by default)\n" \
 " -resdir <path>               sets the path to the resource directory\n" \
 " -authfile <server.auth>      Sets the filename of the file that contains authorization info\n" \
+" -motdfile <server.motd>      Sets the filename of the file that contains the message of the day\n" \
+" -rulesfile <server.rules>    Sets the filename of the file that contains rules for this server\n" \
+" -vehiclelimit {0-...}        Sets the maximum number of vehicles that a user is allowed to have\n" \
+" -owner <name|organisation>   Sets the owner of this server (for the !owner command) (optional)\n" \
+" -website <URL>               Sets the website of this server (for the !website command) (optional)\n" \
+" -irc <URL>                   Sets the IRC url for this server (for the !irc command) (optional)\n" \
+" -voip <URL>                  Sets the voip url for this server (for the !voip command) (optional)\n" \
 " -help                        Show this list\n");
 }
 
@@ -184,6 +205,13 @@ Config::Config():
 	webserver_port( 0 ),
 	foreground(false),
 	authfile("/admins.txt"),
+	motdfile("/motd.txt"),
+	rulesfile("/rules.txt"),
+	max_vehicles( 20 ),
+	owner(""),
+	website(""),
+	irc(""),
+	voip(""),
 #ifdef WIN32
 	resourcedir()
 #else // WIN32
@@ -280,10 +308,22 @@ bool Config::checkConfig()
 		
 	if( getAuthFile().empty() )
 	{
-			Logger::log( LOG_ERROR, "Authorizations file not specified. Using default (/admins.txt)" );
-			setAuthFile("/admins.txt");
+		Logger::log( LOG_ERROR, "Authorizations file not specified. Using default (/admins.txt)" );
+		setAuthFile("/admins.txt");
 	}
-	
+
+	if( getMOTDFile().empty() )
+	{
+		Logger::log( LOG_ERROR, "MOTD file not specified. Using default (/motd.txt)." );
+		setMOTDFile("/motd.txt");
+	}
+
+	if( getMaxVehicles()<1 )
+	{
+		Logger::log( LOG_ERROR, "The vehicle-limit cannot be less than 1!" );
+		return 0;
+	}
+
 	Logger::log( LOG_INFO, "server is%s password protected",
 			getPublicPassword().empty() ? " NOT": "" );
 
@@ -361,6 +401,27 @@ bool Config::fromArgs( int argc, char* argv[] )
 			case OPT_AUTHFILE:
 				setAuthFile(args.OptionArg());
 			break;
+			case OPT_MOTDFILE:
+				setMOTDFile(args.OptionArg());
+			break;
+			case OPT_RULESFILE:
+				setRulesFile(args.OptionArg());
+			break;
+			case OPT_VEHICLELIMIT:
+				setMaxVehicles( atoi(args.OptionArg()) );
+			break;
+			case OPT_OWNER:
+				setOwner(args.OptionArg());
+			break;
+			case OPT_WEBSITE:
+				setWebsite(args.OptionArg());
+			break;
+			case OPT_IRC:
+				setIRC(args.OptionArg());
+			break;
+			case OPT_VOIP:
+				setVoIP(args.OptionArg());
+			break;
 			case OPT_CONFIGFILE:
 				loadConfigFile(args.OptionArg());
 			break;
@@ -401,6 +462,13 @@ unsigned int       Config::getWebserverPort()   { return instance.webserver_port
 bool               Config::getForeground()      { return instance.foreground;      }
 const std::string& Config::getResourceDir()     { return instance.resourcedir;     }
 const std::string& Config::getAuthFile()        { return instance.authfile;        }
+const std::string& Config::getMOTDFile()        { return instance.motdfile;        }
+const std::string& Config::getRulesFile()       { return instance.rulesfile;       }
+unsigned int       Config::getMaxVehicles()     { return instance.max_vehicles;    }
+const std::string& Config::getOwner()           { return instance.owner;           }
+const std::string& Config::getWebsite()         { return instance.website;         }
+const std::string& Config::getIRC()             { return instance.irc;             }
+const std::string& Config::getVoIP()            { return instance.voip;            }
 
 //!@}
 
@@ -471,6 +539,33 @@ void Config::setResourceDir(const std::string& dir) {
 void Config::setAuthFile(const std::string& file) {
 	instance.authfile = file;
 }
+void Config::setMOTDFile(const std::string& file) {
+	instance.motdfile = file;
+}
+
+void Config::setRulesFile( const std::string& file ) {
+	instance.rulesfile = file;
+}
+
+void Config::setMaxVehicles(unsigned int num) {
+	instance.max_vehicles = num;
+}
+
+void Config::setOwner( const std::string& owner ) {
+	instance.owner = owner;
+}
+
+void Config::setWebsite( const std::string& website ) {
+	instance.website = website;
+}
+
+void Config::setIRC( const std::string& irc ) {
+	instance.irc = irc;
+}
+
+void Config::setVoIP( const std::string& voip ) {
+	instance.voip = voip;
+}
 
 void Config::loadConfigFile(const std::string& filename)
 {
@@ -496,6 +591,13 @@ void Config::loadConfigFile(const std::string& filename)
 		if(config.exists("resdir"))        setResourceDir(config.getStringValue   ("resdir"));
 		if(config.exists("logfilename"))   Logger::setOutputFile(config.getStringValue("logfilename"));
 		if(config.exists("authfile"))      setAuthFile(config.getStringValue      ("authfile"));
+		if(config.exists("motdfile"))      setMOTDFile(config.getStringValue      ("motdfile"));
+		if(config.exists("rulesfile"))     setRulesFile(config.getStringValue     ("rulesfile"));
+		if(config.exists("vehiclelimit"))  setMaxVehicles(config.getIntValue      ("vehiclelimit"));
+		if(config.exists("owner"))         setOwner(config.getStringValue         ("owner"));
+		if(config.exists("website"))       setWebsite(config.getStringValue       ("website"));
+		if(config.exists("irc"))           setIRC(config.getStringValue           ("irc"));
+		if(config.exists("voip"))          setVoIP(config.getStringValue          ("voip"));
 	} else
 	{
 		Logger::log(LOG_ERROR, "could not load config file %s : %s", filename.c_str(), config.getError());

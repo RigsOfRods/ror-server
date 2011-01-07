@@ -522,14 +522,14 @@ int Sequencer::sendMOTD(int uid)
     STACKLOG;
 
 	std::vector<std::string> lines;
-	int res = readFile("motd.txt", lines);
+	int res = readFile(Config::getMOTDFile(), lines);
 	if(res)
 		return res;
 
 	std::vector<std::string>::iterator it;
 	for(it=lines.begin(); it!=lines.end(); it++)
 	{
-		serverSay(*it, uid, 1);
+		serverSay(*it, uid, FROM_MOTD);
 	}
 	return 0;
 }
@@ -632,12 +632,24 @@ int Sequencer::sendGameCommand(int uid, std::string cmd)
 }
 
 // this does not lock the clients_mutex, make sure it is locked before hand
+// note: uid=-1 = broadcast your message to all players
 void Sequencer::serverSay(std::string msg, int uid, int type)
 {
     STACKLOG;
     Sequencer* instance = Instance();
-	if(type==0)
+
+	if(type==FROM_SERVER)
 		msg = std::string("SERVER: ") + msg;
+	if(type==FROM_HOST) {
+		if(uid==-1)
+			msg = std::string("Host(general): ") + msg;
+		else
+			msg = std::string("Host(private): ") + msg;
+	}
+	if(type==FROM_RULES)
+		msg = std::string("Rules: ") + msg;
+	if(type==FROM_MOTD)
+		msg = std::string("MOTD: ") + msg;
 
 	for (int i = 0; i < (int)instance->clients.size(); i++)
 	{
@@ -670,9 +682,14 @@ bool Sequencer::kick(int kuid, int modUID, const char *msg)
 	strcat(kickmsg, instance->clients[posMod]->user.username);
 	if(msg)
 	{
-		strcat(kickmsg, ": ");
+		strcat(kickmsg, " for ");
 		strcat(kickmsg, msg);
 	}
+	
+	char kickmsg2[1024] = "";
+	sprintf(kickmsg2, "player %s was %s",instance->clients[pos]->user.username, kickmsg);
+	serverSay(kickmsg2, -1, FROM_SERVER);
+	
 	Logger::log(LOG_VERBOSE, "player '%s' kicked by '%s'",instance->clients[pos]->user.username, instance->clients[posMod]->user.username);
 	disconnect(instance->clients[pos]->user.uniqueid, kickmsg);
 	return true;
@@ -701,12 +718,13 @@ bool Sequencer::ban(int buid, int modUID, const char *msg)
 	instance->bans.push_back(b);
 	Logger::log(LOG_VERBOSE, "new ban added '%s' by '%s'", instance->clients[pos]->user.username, instance->clients[posMod]->user.username);
 
-	char tmp[1024]="banned";
+	char tmp[1024]="";
 	if(msg)
 	{
-		strcat(tmp, ": ");
 		strcat(tmp, msg);
 	}
+	strcat(tmp, " (banned)");
+
 	return kick(buid, modUID, tmp);
 }
 
@@ -811,30 +829,49 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 	}
 	else if (type==MSG2_STREAM_REGISTER)
 	{
-		if(instance->clients[pos]->streams.size() > 20)
+		if(instance->clients[pos]->streams.size() >= Config::getMaxVehicles()+NON_VEHICLE_STREAMS)
 		{
-			Logger::log(LOG_VERBOSE, " * new stream registered dropped, too much streams for user: %d", instance->clients[pos]->user.uniqueid);
+			// This user has too many vehicles, we drop the stream and then disconnect the user
+			Logger::log(LOG_INFO, "%s(%d) has too many streams. Stream dropped, user kicked.", instance->clients[pos]->user.username, instance->clients[pos]->user.uniqueid);
+
+			// send a message to the user.
+			serverSay("You are now being kicked for having too many vehicles. Please rejoin.",  instance->clients[pos]->user.uniqueid, FROM_SERVER);
+
+			// broadcast a general message that this user was auto-kicked
+			char sayMsg[128] = "";
+			sprintf(sayMsg, "%s was auto-kicked for having too many vehicles (limit: %d)", instance->clients[pos]->user.username, Config::getMaxVehicles());
+			serverSay(sayMsg, -1, FROM_SERVER);
+			disconnect(instance->clients[pos]->user.uniqueid, "You have too many vehicles. Please rejoin.", false);
 			publishMode = 0; // drop
 		}
+		else {
+			if(instance->clients[pos]->streams.size() >= Config::getMaxVehicles()+NON_VEHICLE_STREAMS-3)
+			{
+				// we start warning the user as soon as he has only 3 vehicles left before he will get kicked.
+				char sayMsg[128] = "";
+				sprintf(sayMsg, "You do now have %d vehicles. The vehicle limit on this server is set on %d.", (instance->clients[pos]->streams.size()-1), Config::getMaxVehicles());
+				serverSay(sayMsg, instance->clients[pos]->user.uniqueid, FROM_SERVER);
+			}
 
-		stream_register_t *reg = (stream_register_t *)data;
-		Logger::log(LOG_VERBOSE, " * new stream registered: %d:%d, type: %d, name: '%s', status: %d", instance->clients[pos]->user.uniqueid, streamid, reg->type, reg->name, reg->status);
-		for(int i=0;i<128;i++) if(reg->name[i] == ' ') reg->name[i] = 0; // convert spaces to zero's
-		reg->name[127] = 0;
-		instance->clients[pos]->streams[streamid] = *reg;
+			stream_register_t *reg = (stream_register_t *)data;
+			Logger::log(LOG_VERBOSE, " * new stream registered: %d:%d, type: %d, name: '%s', status: %d", instance->clients[pos]->user.uniqueid, streamid, reg->type, reg->name, reg->status);
+			for(int i=0;i<128;i++) if(reg->name[i] == ' ') reg->name[i] = 0; // convert spaces to zero's
+			reg->name[127] = 0;
+			instance->clients[pos]->streams[streamid] = *reg;
 
-		instance->streamDebug();
+			instance->streamDebug();
 
-		// reset some stats
-		// streams_traffic limited through streams map
-		instance->clients[pos]->streams_traffic[streamid].bandwidthIncoming=0;
-		instance->clients[pos]->streams_traffic[streamid].bandwidthIncomingLastMinute=0;
-		instance->clients[pos]->streams_traffic[streamid].bandwidthIncomingRate=0;
-		instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoing=0;
-		instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoingLastMinute=0;
-		instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoingRate=0;
+			// reset some stats
+			// streams_traffic limited through streams map
+			instance->clients[pos]->streams_traffic[streamid].bandwidthIncoming=0;
+			instance->clients[pos]->streams_traffic[streamid].bandwidthIncomingLastMinute=0;
+			instance->clients[pos]->streams_traffic[streamid].bandwidthIncomingRate=0;
+			instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoing=0;
+			instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoingLastMinute=0;
+			instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoingRate=0;
 
-		publishMode = 1;
+			publishMode = 1;
+		}
 	}
 	else if (type==MSG2_STREAM_REGISTER_RESULT)
 	{
@@ -878,7 +915,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 		{
 			serverSay(std::string(VERSION), uid);
 		}
-		if(!strcmp(data, "!list"))
+		else if(!strcmp(data, "!list"))
 		{
 			serverSay(std::string(" uid | auth   | nick"), uid);
 			for (unsigned int i = 0; i < instance->clients.size(); i++)
@@ -896,9 +933,8 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				sprintf(tmp2, "% 3d | %-6s | %-20s", instance->clients[i]->user.uniqueid, authst, instance->clients[i]->user.username);
 				serverSay(std::string(tmp2), uid);
 			}
-
 		}
-		if(!strncmp(data, "!bans", 5))
+		else if(!strncmp(data, "!bans", 5))
 		{
 			serverSay(std::string("uid | IP              | nickname             | banned by"), uid);
 			for (unsigned int i = 0; i < instance->bans.size(); i++)
@@ -912,7 +948,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				serverSay(std::string(tmp), uid);
 			}
 		}
-		if(!strncmp(data, "!unban", 6) && strlen(data) > 7)
+		else if(!strncmp(data, "!unban", 6) && strlen(data) > 7)
 		{
 			if(instance->clients[pos]->user.authstatus & AUTH_MOD || instance->clients[pos]->user.authstatus & AUTH_ADMIN)
 			{
@@ -935,7 +971,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				serverSay(std::string("You are not authorized to unban people!"), uid);
 			}
 		}
-		if(!strncmp(data, "!ban ", 5) && strlen(data) > 5)
+		else if(!strncmp(data, "!ban ", 5) && strlen(data) > 5)
 		{
 			if(instance->clients[pos]->user.authstatus & AUTH_MOD || instance->clients[pos]->user.authstatus & AUTH_ADMIN)
 			{
@@ -950,7 +986,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 					serverSay(std::string("example: !ban 3 swearing"), uid);
 				} else
 				{
-					bool banned = ban(buid, uid, banMsg.c_str());
+					bool banned = ban(buid, uid, std::string(data).substr(6+intlen(buid),256).c_str());
 					if(!banned)
 						serverSay(std::string("kick + ban not successful: uid not found!"), uid);
 				}
@@ -960,7 +996,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				serverSay(std::string("You are not authorized to ban people!"), uid);
 			}
 		}
-		if(!strncmp(data, "!kick ", 6) && strlen(data) > 6)
+		else if(!strncmp(data, "!kick ", 6) && strlen(data) > 6)
 		{
 			if(instance->clients[pos]->user.authstatus & AUTH_MOD || instance->clients[pos]->user.authstatus & AUTH_ADMIN)
 			{
@@ -975,7 +1011,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 					serverSay(std::string("example: !kick 3 bye!"), uid);
 				} else
 				{
-					bool kicked  = kick(kuid, uid, kickMsg.c_str());
+					bool kicked  = kick(kuid, uid, std::string(data).substr(7+intlen(kuid),256).c_str());
 					if(!kicked)
 						serverSay(std::string("kick not successful: uid not found!"), uid);
 				}
@@ -984,6 +1020,93 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				// not allowed
 				serverSay(std::string("You are not authorized to kick people!"), uid);
 			}
+		}
+		else if(!strcmp(data, "!vehiclelimit"))
+		{
+			char sayMsg[128] = "";
+			sprintf(sayMsg, "The vehicle-limit on this server is set on %d", Config::getMaxVehicles());
+			serverSay(sayMsg, uid, FROM_SERVER);
+		}
+		else if(!strncmp(data, "!say ", 5) && strlen(data) > 5)
+		{
+			if(instance->clients[pos]->user.authstatus & AUTH_MOD || instance->clients[pos]->user.authstatus & AUTH_ADMIN)
+			{
+				int kuid=-2;
+				char saymsg_tmp[256]="";
+				int res = sscanf(data+5, "%d %s", &kuid, saymsg_tmp);
+				std::string sayMsg = std::string(saymsg_tmp);
+
+				sayMsg = trim(sayMsg);
+				if(res != 2 || kuid < -1 || !sayMsg.size())
+				{
+					serverSay(std::string("usage: !say <uid> <message> (use uid -1 for general broadcast)"), uid);
+					serverSay(std::string("example: !say 3 Wecome to this server!"), uid);
+				} else
+				{
+					serverSay(std::string(data).substr(6+intlen(kuid),256), kuid, FROM_HOST);
+				}
+
+			} else
+			{
+				// not allowed
+				serverSay(std::string("You are not authorized to use this command!"), uid);
+			}
+		}
+		else if(!strcmp(data, "!website") || !strcmp(data, "!www"))
+		{
+			if(!Config::getWebsite().empty())
+			{
+				char sayMsg[256] = "";
+				sprintf(sayMsg, "Further information can be found online at %s", Config::getWebsite().c_str());
+				serverSay(sayMsg, uid, FROM_SERVER);
+			}
+		}
+		else if(!strcmp(data, "!irc"))
+		{
+			if(!Config::getIRC().empty())
+			{
+				char sayMsg[256] = "";
+				sprintf(sayMsg, "IRC: %s", Config::getIRC().c_str());
+				serverSay(sayMsg, uid, FROM_SERVER);
+			}
+		}
+		else if(!strcmp(data, "!owner"))
+		{
+			if(!Config::getOwner().empty())
+			{
+				char sayMsg[256] = "";
+				sprintf(sayMsg, "This server is run by %s", Config::getOwner().c_str());
+				serverSay(sayMsg, uid, FROM_SERVER);
+			}
+		}
+		else if(!strcmp(data, "!voip"))
+		{
+			if(!Config::getVoIP().empty())
+			{
+				char sayMsg[256] = "";
+				sprintf(sayMsg, "This server's official VoIP: %s", Config::getVoIP().c_str());
+				serverSay(sayMsg, uid, FROM_SERVER);
+			}
+		}
+		else if(!strcmp(data, "!rules"))
+		{
+			if(!Config::getRulesFile().empty())
+			{
+				std::vector<std::string> lines;
+				int res = readFile(Config::getRulesFile(), lines);
+				if(!res)
+				{
+					std::vector<std::string>::iterator it;
+					for(it=lines.begin(); it!=lines.end(); it++)
+					{
+						serverSay(*it, uid, FROM_RULES);
+					}
+				}
+			}
+		}
+		else if(!strcmp(data, "!motd"))
+		{
+			sendMOTD(uid);
 		}
 
 		// add to chat log

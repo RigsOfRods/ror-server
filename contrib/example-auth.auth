@@ -1,24 +1,24 @@
 ; This files defines who is an admin, moderator etc on your server
-; the syntax is as follows: <authorization> <username> <token>
+; the syntax is as follows: <authorization> <token> <username (optional)>
 ;  - where authorization is a number between 0-5:
 ;		0: none, normal user (no special privileges)
 ;		1: administrator (red name, has access to all admin functions)
 ;		2: ranked user (green name, no special privileges)
-;		3: moderator (red name, has access to all admin functions)
-;		4: bot, robot (blue name, no special privileges)
-;		5: banned, (doesn't work, and is quite pointless anyway)
-;  - nickname is the username that for the player, that will be shown to other players
-;		The username that the user fills in into the configurator will be overridden by this nickname.
+;		4: moderator (red name, has access to all admin functions)
+;		8: bot, robot (blue name, no special privileges)
+;		16: banned, (doesn't work, and is quite pointless anyway)
 ;  - token is the user token of the user. It's the token that uniquely identifies the user, not the username.
 ;		This is not the normal token, but an encoded version of it.
 ;		You can get this token by starting your server, filling in your token
 ;		in your configurator and then look in the logfile for your encoded token.
 ;		A typical encoded token is exactly 40 characters long.
+;  - username is the username that will be shown to other players
+;		The username that the user fills in into their configurator will be overridden by this username.
+;		If you do not specify a username, the username from the client's configurator will be used.
 ;
 ; note: You need to restart server after every edit to this file.
 ; note: Do not use spaces in the usernames
 ; note: Empty lines and lines starting with a ";" will be ignored.
 
-
 ; EXAMPLE ADMIN (replace these with your username and encoded token)
-1 admin_user 9b3c463506f128319a0f16ef08d39d876ca25c68
+1 9b3c463506f128319a0f16ef08d39d876ca25c68 admin_user

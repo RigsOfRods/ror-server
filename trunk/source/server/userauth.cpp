@@ -87,17 +87,17 @@ int UserAuth::readConfig(const char* authFile)
 		}
 		int authmode = AUTH_NONE;
 		char token[256];
-		char user_nick[20];
-		int res = sscanf(line, "%d %s %s", &authmode, user_nick, token);
-		if(res != 3)
+		char user_nick[20] = "";
+		int res = sscanf(line, "%d %s %s", &authmode, token, user_nick);
+		if(res != 3 && res != 2)
 		{
-			Logger::log(LOG_ERROR, "error parsing admins.txt file: " + std::string(line));
+			Logger::log(LOG_ERROR, "error parsing authorizations file: " + std::string(line));
 			continue;
 		}
 		Logger::log(LOG_DEBUG, "adding entry to local auth cache, size: %d", local_auth.size());
 		std::pair< int, std::string > p;
 		p.first = authmode;
-		p.second = user_nick;
+		p.second = std::string(user_nick);
 		local_auth[std::string(token)] = p;
 	}
 	Logger::log(LOG_INFO, "found %d auth overrides in the authorizations file!",  local_auth.size());
@@ -171,16 +171,6 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 		return cache[user_token].first;
 	}
 	
-	//then check for overrides in the authorizations file (server admins, etc)
-	if(local_auth.find(user_token) != local_auth.end())
-	{
-		// local auth hit!
-		// the stored nickname can be empty if the servergui is being used.
-		if(!local_auth[user_token].second.empty())
-			user_nick = local_auth[user_token].second;
-		return local_auth[user_token].first;
-	}
-	
 	// initialize the authlevel on none = normal user
 	int authlevel = AUTH_NONE;
 
@@ -208,6 +198,16 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 		
 		authlevel = atoi(args[0].c_str());
 		user_nick = args[1];
+	}
+	
+	//then check for overrides in the authorizations file (server admins, etc)
+	if(local_auth.find(user_token) != local_auth.end())
+	{
+		// local auth hit!
+		// the stored nickname can be empty if no nickname is specified.
+		if(!local_auth[user_token].second.empty())
+			user_nick = local_auth[user_token].second;
+		authlevel |= local_auth[user_token].first;
 	}
 
 	// debug output the auth status

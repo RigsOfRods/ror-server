@@ -205,7 +205,10 @@ static void data_configuration(struct mg_connection *conn, const struct mg_reque
 	results.append(getConfValue("Listening Port", Config::getListenPort()));
 	results.append(getConfValue("Protocol Version", std::string(RORNET_VERSION)));
 
-	bool advertised = Sequencer::getNotifier()->getAdvertised();
+	bool advertised = false;
+	if( Config::getServerMode() != SERVER_LAN )
+		advertised = Sequencer::getNotifier()->getAdvertised();
+		
 	std::string serverMode = "AUTO";
 	if(Config::getServerMode() == SERVER_LAN)
 		serverMode = "LAN";

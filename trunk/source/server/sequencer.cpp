@@ -728,6 +728,39 @@ bool Sequencer::ban(int buid, int modUID, const char *msg)
 	return kick(buid, modUID, tmp);
 }
 
+void Sequencer::ban(int buid, const char *msg)
+{
+	STACKLOG;
+	Sequencer* instance = Instance();
+	unsigned short pos = instance->getPosfromUid(buid);
+	if( UID_NOT_FOUND != pos )
+	{
+		SWBaseSocket::SWBaseError error;
+
+		// construct ban data and add it to the list
+		ban_t* b = new ban_t;
+		memset(b, 0, sizeof(ban_t));
+
+		b->uid = buid;
+		if(msg) strncpy(b->banmsg, msg, 256);
+		strncpy(b->bannedby_nick, "rorserver", 20);
+		strncpy(b->ip, instance->clients[pos]->sock->get_peerAddr(&error).c_str(), 16);
+		strncpy(b->nickname, instance->clients[pos]->user.username, 20);
+		Logger::log(LOG_DEBUG, "adding ban, size: %d", instance->bans.size());
+		instance->bans.push_back(b);
+		Logger::log(LOG_VERBOSE, "new ban added '%s' by rorserver", instance->clients[pos]->user.username);
+
+		char tmp[1024]="";
+		if(msg)
+			strcat(tmp, msg);
+		strcat(tmp, " (banned)");
+
+		disconnect(instance->clients[pos]->user.uniqueid, tmp);
+	}
+	else
+		Logger::log(LOG_ERROR, "void Sequencer::ban(%d, %s) --> uid %d not found!", buid, msg, buid);
+}
+
 bool Sequencer::unban(int buid)
 {
     STACKLOG;
@@ -845,7 +878,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			publishMode = 0; // drop
 		}
 		else {
-			if(instance->clients[pos]->streams.size() >= Config::getMaxVehicles()+NON_VEHICLE_STREAMS-3)
+			if( (instance->clients[pos]->streams.size() >= Config::getMaxVehicles()+NON_VEHICLE_STREAMS-3) && (instance->clients[pos]->streams.size() >= NON_VEHICLE_STREAMS) )
 			{
 				// we start warning the user as soon as he has only 3 vehicles left before he will get kicked.
 				char sayMsg[128] = "";

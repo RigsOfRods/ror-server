@@ -78,8 +78,8 @@ public:
 
 	void log(std::string &msg);
 	void say(std::string &msg, int uid=-1, int type=0);
-	bool kick(int kuid, std::string &msg);
-	bool ban(int kuid, std::string &msg);
+	void kick(int kuid, std::string &msg);
+	void ban(int kuid, std::string &msg);
 	bool unban(int kuid);
 	int playerChat(int uid, char *str);
 	

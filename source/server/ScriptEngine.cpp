@@ -287,8 +287,8 @@ void ScriptEngine::init()
 	result = engine->RegisterObjectType("ServerScriptClass", sizeof(ServerScript), asOBJ_REF); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "void log(const string &in)", asMETHOD(ServerScript,log), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "void say(const string &in, int uid, int type)", asMETHOD(ServerScript,say), asCALL_THISCALL); assert_net(result>=0);
-	result = engine->RegisterObjectMethod("ServerScriptClass", "bool kick(int kuid, const string &in)", asMETHOD(ServerScript,kick), asCALL_THISCALL); assert_net(result>=0);
-	result = engine->RegisterObjectMethod("ServerScriptClass", "bool ban(int buid, const string &in)", asMETHOD(ServerScript,ban), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "void kick(int kuid, const string &in)", asMETHOD(ServerScript,kick), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "void ban(int buid, const string &in)", asMETHOD(ServerScript,ban), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "bool unban(int buid)", asMETHOD(ServerScript,unban), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "int cmd(int uid, string cmd)", asMETHOD(ServerScript,sendGameCommand), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "int getNumClients()", asMETHOD(ServerScript,getNumClients), asCALL_THISCALL); assert_net(result>=0);
@@ -449,14 +449,14 @@ void ServerScript::say(std::string &msg, int uid, int type)
 	seq->serverSayThreadSave(msg, uid, type);
 }
 
-bool ServerScript::kick(int kuid, std::string &msg)
+void ServerScript::kick(int kuid, std::string &msg)
 {
-	return seq->kick(kuid, 0, msg.c_str());
+	seq->disconnect(kuid, msg.c_str(), false);
 }
 
-bool ServerScript::ban(int buid, std::string &msg)
+void ServerScript::ban(int buid, std::string &msg)
 {
-	return seq->ban(buid, 0, msg.c_str());
+	seq->ban(buid, msg.c_str());
 }
 
 bool ServerScript::unban(int buid)

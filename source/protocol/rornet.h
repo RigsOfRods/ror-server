@@ -34,7 +34,7 @@ static const int   MAX_PEERS = 64;             //!< maximum clients connected at
 static const int   MAX_MESSAGE_LENGTH = 16384;  //!< maximum size of a RoR message. 32768 bytes = 8 kilobytes
 
 // protocol version
-static const char VARIABLE_IS_NOT_USED *RORNET_VERSION = "RoRnet_2.34"; //!< the protocol version information
+static const char VARIABLE_IS_NOT_USED *RORNET_VERSION = "RoRnet_2.35"; //!< the protocol version information
 
 // REGISTRY STUFF
 static const char VARIABLE_IS_NOT_USED *REPO_SERVER = "api.rigsofrods.com"; //!< the web API URL

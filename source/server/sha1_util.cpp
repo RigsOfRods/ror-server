@@ -20,7 +20,7 @@ bool toHex(char *result, unsigned char *data, unsigned int len)
 	{
 		memset(tmp, 0, 20);
 		unsigned char d = (unsigned char)*data;
-		sprintf(tmp, "%x", d);
+		sprintf(tmp, "%02X", d);
 		strcat(result, tmp);
 		data++;
 		i++;
@@ -126,7 +126,7 @@ bool sha1check()
 {
 	char testStr[255]="The quick brown fox jumps over the lazy dog";
 	char result[255]="";
-	char testvalue[255]="2fd4e1c67a2d28fced849ee1bb76e7391b93eb12";
+	char testvalue[255]="2FD4E1C67A2D28FCED849EE1BB76E7391B93EB12";
 	SHA1FromString(result, testStr);
 	return !strcmp(result, testvalue);
 }

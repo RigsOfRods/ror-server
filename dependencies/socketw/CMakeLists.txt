@@ -7,7 +7,6 @@ add_definitions("-DMYSOCKETW_EXPORTS -D_USRDLL -D_CRT_SECURE_NO_WARNINGS")
 
 # the final lib
 add_library(mysocketw SHARED ${socketw_src})
-windows_hacks(mysocketw)
 
 # libraries
 IF(WIN32)

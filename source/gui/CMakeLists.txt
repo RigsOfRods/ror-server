@@ -53,7 +53,6 @@ IF(wxWidgets_FOUND)
   #add_definitions("${CMAKE_WXWINDOWS_CXX_FLAGS}")
 
   add_executable(servergui ${servergui_src} ${servergui_server_src})
-  windows_hacks(servergui)
 
   set_target_properties(servergui PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:WINDOWS")
   set_target_properties(servergui PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")

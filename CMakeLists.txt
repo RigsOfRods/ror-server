@@ -46,15 +46,11 @@ ELSEIF(UNIX)
   set(CMAKE_MODULE_LINKER_FLAGS_DEBUG       "${CMAKE_MODULE_LINKER_FLAGS_DEBUG} -O0 -ggdb")
 endif(WIN32)
 
-macro(windows_hacks NAME)
-IF(WIN32)
-	if (MSVC_IDE)
-		# hack to get around the "Debug" and "Release" directories cmake tries to add on Windows
-		set_target_properties(${NAME} PROPERTIES PREFIX "../")
-		set_target_properties(${NAME} PROPERTIES IMPORT_PREFIX "../")
-	endif(MSVC_IDE)
-ENDIF(WIN32)
-endmacro(windows_hacks)
+# fix executable paths for windows
+SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${RUNTIME_OUTPUT_DIRECTORY})
+SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${RUNTIME_OUTPUT_DIRECTORY})
+SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${RUNTIME_OUTPUT_DIRECTORY})
+SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${RUNTIME_OUTPUT_DIRECTORY})
 
 # some additional compiler flags
 IF(NOT WIN32)

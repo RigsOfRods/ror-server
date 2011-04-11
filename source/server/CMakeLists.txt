@@ -23,7 +23,6 @@ endif(RORSERVER_WITH_WEBSERVER)
 
 # the final lib
 add_executable(rorserver ${server_src})
-windows_hacks(rorserver)
 
 # libraries
 if(RORSERVER_WITH_ANGELSCRIPT)

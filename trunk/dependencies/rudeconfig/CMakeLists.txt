@@ -8,7 +8,6 @@ include_directories (include)
 
 # the final lib
 add_library(rudeconfig STATIC ${rudeconfig_src})
-windows_hacks(rudeconfig)
 
 # install the library
 INSTALL(TARGETS rudeconfig

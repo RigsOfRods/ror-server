@@ -36,7 +36,6 @@ add_definitions("-DLIBCTEMPLATE_EXPORTS -D_USRDLL -D_CRT_SECURE_NO_WARNINGS")
 
 # the final lib
 add_library(ctemplate SHARED ${ctemplate_src} ${ctemplate_os_src})
-windows_hacks(ctemplate)
 
 # install the library
 INSTALL(TARGETS ctemplate

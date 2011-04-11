@@ -5,7 +5,6 @@ include_directories (include)
 
 # the final lib
 add_library(jsoncpp STATIC ${jsoncpp_src})
-windows_hacks(jsoncpp)
 
 # install the library
 INSTALL(TARGETS jsoncpp

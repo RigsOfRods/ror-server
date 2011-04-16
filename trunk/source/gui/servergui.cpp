@@ -1,4 +1,5 @@
 #include <vector>
+#include <deque>
 
 #include <wx/wx.h>
 #include <wx/notebook.h>
@@ -22,6 +23,7 @@
 #include <wx/log.h>
 #include <wx/timer.h>
 #include <wx/listctrl.h>
+#include <wx/menu.h>
 
 #include "statpict.h"
 
@@ -50,6 +52,13 @@ public:
 	virtual bool OnInit();
 };
 
+typedef struct log_queue_element_t
+{
+	int level;
+	std::string msg;
+	std::string msgf;
+} log_queue_element_t;
+
 // Define a new frame type: this is going to be our main frame
 class MyDialog : public wxDialog
 {
@@ -71,14 +80,22 @@ private:
 	wxToolBar *tb;
 	void OnQuit(wxCloseEvent &event);
 	int loglevel;
-
+	pthread_t notifyThread;
+	bool server_is_running;
+	
+	Mutex log_queue_mutex;
+	std::deque <log_queue_element_t> log_queue;
+	
 	void OnBtnStart(wxCommandEvent& event);
 	void OnBtnStop(wxCommandEvent& event);
 	void OnBtnExit(wxCommandEvent& event);
 	void OnBtnPubIP(wxCommandEvent& event);
 
+	void OnContextMenu(wxContextMenuEvent& event);
+
 	int startServer();
 	int stopServer();
+	void updateLogTab();
 	void updatePlayerList();
 
 	void OnTimer(wxTimerEvent& event);
@@ -86,7 +103,7 @@ private:
 	DECLARE_EVENT_TABLE()
 };
 
-enum {btn_start, btn_stop, btn_exit, EVT_timer1, btn_pubip};
+enum {btn_start, btn_stop, btn_exit, EVT_timer1, btn_pubip, ctxtmenu_kick, ctxtmenu_ban, ctxtmenu_pm};
 
 BEGIN_EVENT_TABLE(MyDialog, wxDialog)
 	EVT_CLOSE(MyDialog::OnQuit)
@@ -120,6 +137,12 @@ inline std::string conv(const wxString& s)
 	return std::string(s.mb_str(wxConvUTF8));
 }
 
+void *s_notifyThreadStart(void* vid)
+{
+    STACKLOG;
+	Sequencer::notifyRoutine();
+	return NULL;
+}
 
 MyDialog *dialogInstance = 0; // we need to use this to be able to forward the messages
 MyApp *myApp = 0;
@@ -145,33 +168,16 @@ void pureLogCallback(int level, std::string msg, std::string msgf)
 void MyDialog::logCallback(int level, std::string msg, std::string msgf)
 {
 	if(level < loglevel) return;
-
-	if(level == LOG_INFO)
-		txtConsole->SetDefaultStyle(wxTextAttr(wxColour(0,150,0)));
-	else if(level == LOG_VERBOSE)
-		txtConsole->SetDefaultStyle(wxTextAttr(wxColour(0,180,0)));
-	else if(level == LOG_ERROR)
-		txtConsole->SetDefaultStyle(wxTextAttr(wxColour(150,0,0)));
-	else if(level == LOG_WARN)
-		txtConsole->SetDefaultStyle(wxTextAttr(wxColour(180,130,0)));
-	else if(level == LOG_DEBUG)
-		txtConsole->SetDefaultStyle(wxTextAttr(wxColour(180,150,0)));
-	else if(level == LOG_STACK)
-		txtConsole->SetDefaultStyle(wxTextAttr(wxColour(150,150,150)));
-
-
-    int lines = 0;
-    const char* cstr = msgf.c_str();
-    for( ; *cstr ; ++cstr )
-        if( *cstr == '\n' )
-            ++lines;
-
-	wxString wmsg = conv(msgf);
-	txtConsole->Freeze();
-	txtConsole->AppendText(wmsg);
-	txtConsole->ScrollLines(lines + 1);
-	txtConsole->ShowPosition(txtConsole->GetLastPosition());
-	txtConsole->Thaw();
+	
+	pthread_mutex_lock(log_queue_mutex.getRaw());
+	if(log_queue.size() > 100)
+		log_queue.pop_front();
+	log_queue_element_t h;
+	h.level = level;
+	h.msg = msg;
+	h.msgf = msgf;
+	log_queue.push_back(h);
+	pthread_mutex_unlock(log_queue_mutex.getRaw());
 }
 
 MyDialog::MyDialog(const wxString& title, MyApp *_app) : 
@@ -306,7 +312,7 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) :
 	grid_sizer->Add(logfilename, 0, wxGROW);
 
 	// adminuid
-	dText = new wxStaticText(settingsPanel, wxID_ANY, _("Admin UID:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
+	dText = new wxStaticText(settingsPanel, wxID_ANY, _("Admin user token:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
 	grid_sizer->Add(dText, 0, wxGROW);
 	adminuid = new wxTextCtrl(settingsPanel, wxID_ANY, _(""), wxDefaultPosition, wxDefaultSize);
 	grid_sizer->Add(adminuid, 0, wxGROW);
@@ -315,7 +321,7 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) :
 	//startBtn = new wxButton(settingsPanel, btn_start, _("START"));
 	//grid_sizer->Add(startBtn, 0, wxGROW);
 
-	///stopBtn = new wxButton(settingsPanel, btn_stop, _("STOP"));
+	//stopBtn = new wxButton(settingsPanel, btn_stop, _("STOP"));
 	//stopBtn->Disable();
 	//grid_sizer->Add(stopBtn, 0, wxGROW);
 
@@ -335,20 +341,14 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) :
 	///// player list
 	playersPanel=new wxPanel(nbook, wxID_ANY);
 	wxSizer *playersSizer = new wxBoxSizer(wxVERTICAL);
-	slotlist = new wxListCtrl(playersPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize,wxLC_REPORT);
+	slotlist = new wxListCtrl(playersPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize,wxLC_REPORT|wxLC_SINGLE_SEL);
 	slotlist->InsertColumn(0, _("Slot"), wxLIST_FORMAT_LEFT, 30);
 	slotlist->InsertColumn(1, _("Status"), wxLIST_FORMAT_LEFT, 50);
 	slotlist->InsertColumn(2, _("UID"), wxLIST_FORMAT_LEFT, 30);
 	slotlist->InsertColumn(3, _("IP"), wxLIST_FORMAT_LEFT, 100);
 	slotlist->InsertColumn(4, _("Auth"), wxLIST_FORMAT_LEFT, 40);
 	slotlist->InsertColumn(5, _("Nick"), wxLIST_FORMAT_LEFT, 100);
-	//slotlist->InsertColumn(6, _("Vehicle"), wxLIST_FORMAT_LEFT, 120);
-
-	for(unsigned int i=0; i<Config::getMaxClients();i++)
-	{
-		slotlist->InsertItem(i, wxString::Format(wxT("%d"),i));
-		slotlist->SetItem(i, 1, _("FREE"));
-	}
+	slotlist->Connect(wxID_ANY, wxEVT_CONTEXT_MENU, wxContextMenuEventHandler(MyDialog::OnContextMenu), NULL, this);
 
 	playersSizer->Add(slotlist, 1, wxGROW);
 	playersPanel->SetSizer(playersSizer);
@@ -358,11 +358,12 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) :
 	//exitBtn = new wxButton(this, btn_exit, _("EXIT"));
 	//mainsizer->Add(exitBtn, 0, wxGROW);
 
-
+	server_is_running = false;
 
 	// add the logger callback
 	Logger::setCallback(&pureLogCallback);
 	Logger::log(LOG_INFO, "GUI log callback working");
+	updateLogTab();
 
 	// centers dialog window on the screen
 	Show();
@@ -372,7 +373,53 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) :
 
 void MyDialog::OnTimer(wxTimerEvent& event)
 {
+	STACKLOG;
+	// update the player tab
+	// TODO: add a flag, so this is only updated when needed
 	updatePlayerList();
+	
+	// update the log tab
+	updateLogTab();
+}
+
+void MyDialog::updateLogTab()
+{
+	if( !log_queue.empty() )
+	{
+		pthread_mutex_lock(log_queue_mutex.getRaw());
+		txtConsole->Freeze();
+		int lines = 0;
+		while( !log_queue.empty() )
+		{
+			log_queue_element_t h = log_queue.front();
+			log_queue.pop_front();
+
+			if(h.level == LOG_INFO)
+				txtConsole->SetDefaultStyle(wxTextAttr(wxColour(0,150,0)));
+			else if(h.level == LOG_VERBOSE)
+				txtConsole->SetDefaultStyle(wxTextAttr(wxColour(0,180,0)));
+			else if(h.level == LOG_ERROR)
+				txtConsole->SetDefaultStyle(wxTextAttr(wxColour(150,0,0)));
+			else if(h.level == LOG_WARN)
+				txtConsole->SetDefaultStyle(wxTextAttr(wxColour(180,130,0)));
+			else if(h.level == LOG_DEBUG)
+				txtConsole->SetDefaultStyle(wxTextAttr(wxColour(180,150,0)));
+			else if(h.level == LOG_STACK)
+				txtConsole->SetDefaultStyle(wxTextAttr(wxColour(150,150,150)));
+
+			const char* cstr = h.msgf.c_str();
+			for( ; *cstr ; ++cstr )
+				if( *cstr == '\n' )
+					++lines;
+
+			wxString wmsg = conv(h.msgf);
+			txtConsole->AppendText(wmsg);
+		}
+		txtConsole->ScrollLines(lines + 1);
+		// txtConsole->ShowPosition(txtConsole->GetLastPosition());
+		txtConsole->Thaw();
+		pthread_mutex_unlock(log_queue_mutex.getRaw());
+	}
 }
 
 void MyDialog::updatePlayerList()
@@ -385,6 +432,8 @@ void MyDialog::updatePlayerList()
 
 		if(i>=clients.size())
 		{
+			if( slotlist->GetItemText(i, 1) == _("FREE") )
+				break;
 			slotlist->SetItem(i, 1, _("FREE"));
 			slotlist->SetItem(i, 2, wxString());
 			slotlist->SetItem(i, 3, wxString());
@@ -411,9 +460,7 @@ void MyDialog::updatePlayerList()
 		if(clients[i].user.authstatus & AUTH_BOT) strcat(authst, "B");
 		if(clients[i].user.authstatus & AUTH_BANNED) strcat(authst, "X");
 		slotlist->SetItem(i, 4, conv(authst));
-
-		slotlist->SetItem(i, 5, conv(clients[i].user.clientname));
-		//slotlist->SetItem(i, 6, conv(clients[i].vehicle_name));
+		slotlist->SetItem(i, 5, conv(clients[i].user.username));
 	}
 	slotlist->Thaw();
 }
@@ -424,28 +471,150 @@ void MyDialog::OnQuit(wxCloseEvent &event)
 	exit(0);
 }
 
+void MyDialog::OnContextMenu(wxContextMenuEvent& event)
+{
+	if( server_is_running )
+	{
+		// We stop updating the playerlist, to minimize the chance on errors
+		timer1->Stop();
+		
+		// which client row is selected?
+		long item = -1;
+		int id = -1;
+		for (unsigned int i=0; i<Config::getMaxClients();i++)
+		{
+			item = slotlist->GetNextItem(item,
+				wxLIST_NEXT_ALL,
+				wxLIST_STATE_SELECTED);
+			if ( item == -1 )
+			{
+				timer1->Start();
+				return;
+			}
+
+			id = i;
+			break;
+		}
+		
+		// get the uid of that row
+		int uid = -1;
+		uid = wxAtoi(slotlist->GetItemText(id, 2));
+		if( uid <= 0 )
+		{
+			// this is a row, but there's no player in it
+			timer1->Start();
+			return;
+		}
+			
+		// build the menu
+		wxPoint point = event.GetPosition();
+		point = ScreenToClient(point);
+		wxMenu menu;
+		menu.Append(ctxtmenu_kick, wxT("&kick"));
+		menu.Append(ctxtmenu_ban, wxT("&ban"));
+		menu.AppendSeparator();
+		menu.Append(ctxtmenu_pm, wxT("&private message"));
+		// PopupMenu(&menu, point);
+
+		// get the selection of the user
+		const int rc = GetPopupMenuSelectionFromUser(menu, point);
+		
+		// interpret the selection and take the required action
+		if ( rc == wxID_NONE )
+		{
+			// ignore
+		}
+		else if( rc == ctxtmenu_kick )
+		{
+			wxString msg;
+			msg.sprintf("Are you sure that you wish to kick user '%s'?",slotlist->GetItemText(id, 5));
+			int answer = wxMessageBox(msg, _("Confirmaiton required"), wxYES_NO | wxCANCEL, dialogInstance);
+			if (answer == wxYES)
+					Sequencer::disconnect(uid, "Kicked by host.", false);
+		}
+		else if( rc == ctxtmenu_ban )
+		{
+			wxString msg;
+			msg.sprintf("Are you sure that you wish to kick and ban user '%s'?",slotlist->GetItemText(id, 5));
+			int answer = wxMessageBox(msg, _("Confirmaiton required"), wxYES_NO | wxCANCEL, dialogInstance);
+			if (answer == wxYES)
+					Sequencer::ban(uid, "Banned by host.");
+		}
+		else if( rc == ctxtmenu_pm )
+		{
+			wxString msg;
+			msg = wxGetTextFromUser(_("Please enter your private message:"),
+				_("Private message"),
+				wxEmptyString,
+				this,
+				wxDefaultCoord,
+				wxDefaultCoord,
+				true	 
+			);
+			if( !msg.IsEmpty() )
+				Sequencer::serverSay(std::string(msg.mb_str()), uid, FROM_HOST);
+		}
+		else
+		{
+			// ignore
+		}
+		updatePlayerList();
+		timer1->Start();
+	}
+}
+
 
 void MyDialog::OnBtnStart(wxCommandEvent& event)
 {
 	tb->EnableTool(btn_start, false);
+	settingsPanel->Disable();
+	wxBeginBusyCursor();
 	
-	// TODO: fix stop
-	//tb->EnableTool(btn_stop, true);
 	//startBtn->Disable();
 	//stopBtn->Enable();
 	nbook->SetSelection(1);
-	startServer();
-	timer1->Start(5000);
+	if(startServer())
+	{
+		settingsPanel->Enable();
+		tb->EnableTool(btn_start, true);
+	}
+	else
+	{
+		// build the playerlist
+		for(unsigned int i=0; i<Config::getMaxClients();i++)
+		{
+			slotlist->InsertItem(i, wxString::Format(wxT("%d"),i));
+			slotlist->SetItem(i, 1, _("FREE"));
+		}
+		
+		// update the gui at 2 fps
+		timer1->Start(500);
+		tb->EnableTool(btn_stop, true);
+	}
+	updateLogTab();
+	wxEndBusyCursor();
 }
 
 void MyDialog::OnBtnStop(wxCommandEvent& event)
 {
-	timer1->Stop();
-	stopServer();
-	// FIXME: bug upon server restart ...
-	//startBtn->Enable();
-	//stopBtn->Disable();
 	tb->EnableTool(btn_stop, false);
+	wxBeginBusyCursor();
+	
+	// stop updating the gui
+	timer1->Stop();
+	
+	// stop the server
+	stopServer();
+	
+	// clear the playerlist
+	slotlist->DeleteAllItems();
+
+	// update the log view one last time
+	updateLogTab();
+	
+	tb->EnableTool(btn_start, true);
+	settingsPanel->Enable();
+	wxEndBusyCursor();
 }
 
 void MyDialog::OnBtnExit(wxCommandEvent& event)
@@ -476,50 +645,95 @@ int MyDialog::startServer()
 
 	Config::setPrintStats(false);
 
+	// lan or internet server?
 	if(smode->GetValue() == _("LAN"))
 		Config::setServerMode(SERVER_LAN);
 	else
 		Config::setServerMode(SERVER_INET);
 
+	// set the IP address
 	if(ipaddr->GetValue() != _("0.0.0.0"))
 		Config::setIPAddr(conv(ipaddr->GetValue()));
 
+	// set the log file
 	Logger::setOutputFile(conv(logfilename->GetValue()));
 
+	// set the port number
 	unsigned long portNum=12000;
 	port->GetValue().ToULong(&portNum);
 	Config::setListenPort(portNum);
-
+	
+	// the maximum number of clients
 	unsigned long slotNum=16;
 	slots->GetValue().ToULong(&slotNum);
+	if(slotNum > 64)
+		slotNum = 64;
+	else if(slotNum < 2)
+		slotNum = 2;
 	Config::setMaxClients(slotNum);
 
+	// set the password
 	if(!passwd->GetValue().IsEmpty())
 		Config::setPublicPass(conv(passwd->GetValue()));
 
-	std::string user_token = conv(adminuid->GetValue());
-	if(Sequencer::getUserAuth()) Sequencer::getUserAuth()->setUserAuth(AUTH_ADMIN, std::string(""), user_token);
-
 	//server name, replace space with underscore
 	wxString server_name = sname->GetValue();
-	const wxChar from = wxChar(' ');
-	const wxChar to = wxChar('_');
-	server_name.Replace(&from, &to);
-	Config::setServerName(conv(server_name));
-	Config::setTerrain(conv(terrain->GetValue()));
+	const wxString from = wxString(" ");
+	const wxString to = wxString("%20");
+	server_name.Replace(from, to, true);
 
-	if( !Config::checkConfig() )
+	if( !Config::setServerName(conv(server_name)) )
+	{
+		Logger::log(LOG_ERROR, "Invalid servername!");
+		wxBell();
 		return 1;
+	}
 
+	// set the terrain
+	if( !Config::setTerrain(conv(terrain->GetValue())) )
+	{
+		Logger::log(LOG_ERROR, "Invalid terrain name!");
+		wxBell();
+		return 1;
+	}
+
+	// check the configuration
+	if( !Config::checkConfig() )
+	{
+		wxBell();
+		return 1;
+	}
+
+	// initialize the server
 	Sequencer::initilize();
 
+	// set the admin
+	if(!adminuid->GetValue().IsEmpty())
+	{
+		std::string user_token = conv(adminuid->GetValue());
+		SHA1FromString(user_token, user_token);
+		if(Sequencer::getUserAuth())
+			Sequencer::getUserAuth()->setUserAuth(AUTH_ADMIN, std::string(""), user_token);
+	}
+
+	// start the notifier
 	if(Config::getServerMode() == SERVER_INET)
-		Sequencer::notifyRoutine();
+ 		pthread_create(&notifyThread, NULL, s_notifyThreadStart, this);
+	
+	server_is_running = true;
+	
+	// successfully started server!
 	return 0;
 }
 
 int MyDialog::stopServer()
 {
+	server_is_running = false;
+	if( Sequencer::getNotifier() )
+	{
+		pthread_cancel(notifyThread);
+		pthread_detach(notifyThread);
+	}
 	Sequencer::cleanUp();
 	return 0;
 }

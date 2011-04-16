@@ -52,11 +52,11 @@ IF(wxWidgets_FOUND)
 
   #add_definitions("${CMAKE_WXWINDOWS_CXX_FLAGS}")
 
-  add_executable(servergui ${servergui_src} ${servergui_server_src})
+  add_executable(servergui WIN32 ${servergui_src} ${servergui_server_src})
 
   set_target_properties(servergui PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:WINDOWS")
   set_target_properties(servergui PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
-  set_target_properties(servergui PROPERTIES LINK_FLAGS_RELEASE "/LTCG /OPT:REF /OPT:NOWIN98 /SUBSYSTEM:WINDOWS")
+  set_target_properties(servergui PROPERTIES LINK_FLAGS_RELEASE "/LTCG /OPT:REF /SUBSYSTEM:WINDOWS")
 
   if(RORSERVER_WITH_ANGELSCRIPT)
     add_dependencies(servergui angelscript)

@@ -88,6 +88,8 @@ void Sequencer::initilize()
 {
     STACKLOG;
 
+	if(mInstance)
+		delete mInstance;
     Sequencer* instance  = Instance();
 	instance->clients.reserve( Config::getMaxClients() );
 	instance->listener = new Listener(Config::getListenPort());
@@ -104,6 +106,7 @@ void Sequencer::initilize()
 	pthread_create(&instance->killerthread, NULL, s_klthreadstart, &instance);
 
 	instance->authresolver = 0;
+	instance->notifier = 0;
 	if( Config::getServerMode() != SERVER_LAN )
 	{
 		instance->notifier = new Notifier(instance->authresolver);
@@ -136,8 +139,10 @@ void Sequencer::cleanUp()
 	}
 	Logger::log(LOG_INFO,"all clients disconnected. exiting.");
 
+	instance->notifier->unregisterServer();
 	if(instance->notifier)
 		delete instance->notifier;
+	instance->notifier = 0;
 
 #ifdef WITH_ANGELSCRIPT
 	if(instance->script)
@@ -146,6 +151,8 @@ void Sequencer::cleanUp()
 
 	if(instance->authresolver)
 		delete instance->authresolver;
+	
+	delete instance->listener;
 
 #ifndef WIN32
 	sleep(2);
@@ -153,8 +160,12 @@ void Sequencer::cleanUp()
 	Sleep(2000);
 #endif
 
-	delete instance->listener;
+	
+	pthread_cancel(instance->killerthread);
+	pthread_detach(instance->killerthread);
 	delete instance->mInstance;
+	mInstance = NULL;
+	cleanup = false;
 }
 
 void Sequencer::notifyRoutine()

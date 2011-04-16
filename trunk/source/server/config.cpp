@@ -328,7 +328,7 @@ bool Config::checkConfig()
 			getPublicPassword().empty() ? " NOT": "" );
 
 	return getMaxClients() && getListenPort() && !getIPAddr().empty() && 
-		!getServerName().empty() &&!getTerrainName().empty();
+			!getTerrainName().empty();
 }
 
 bool Config::fromArgs( int argc, char* argv[] )
@@ -480,7 +480,7 @@ bool Config::setScriptName(const std::string& name ) {
  	return true;
 }
 bool Config::setMaxClients(unsigned int num) { 
-	if( num < 2 || (getServerMode() == SERVER_INET) || num > 64 ) return false;
+	if( num < 2 || num > 64 ) return false;
 	instance.max_clients = num;
  	return true;
 }

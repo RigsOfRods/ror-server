@@ -20,12 +20,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define __Listener_H__
 
 #include <pthread.h>
+#include "SocketW.h"
 
 class Listener
 {
 private:
 	pthread_t thread;
 	int lport;
+	bool running;
+	SWInetSocket listSocket;
 public:
 	Listener(int port);
 	~Listener(void);

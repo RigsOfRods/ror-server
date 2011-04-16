@@ -149,14 +149,13 @@ bool Notifier::registerServer()
 bool Notifier::unregisterServer()
 {
     STACKLOG;
-	return true;
-	// this crashes the server, so disabled!
-	if(!wasregistered)
+	if(!wasregistered || !advertised)
 		return false;
 	char unregurl[1024];
 	sprintf(unregurl, "%s/unregister/?challenge=%s", REPO_URLPREFIX, challenge);
 	if (HTTPGET(unregurl) < 0)
 		return false;
+	advertised = false;
 
 	return getResponse() == "ok";
 }
@@ -208,7 +207,7 @@ void Notifier::loop()
 		Sleep(60*1000);
 #endif
 
-		if(advertised)
+		if(advertised && !exit)
 		{
 			bool result = sendHearbeat();
 			if (result) error_count=0;

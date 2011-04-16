@@ -44,6 +44,7 @@ void *s_lsthreadstart(void* vid)
 Listener::Listener(int port): lport( port )
 {
     STACKLOG;
+	running = true;
 	//start a listener thread
 	pthread_create(&thread, NULL, s_lsthreadstart, this);
 }
@@ -52,6 +53,9 @@ Listener::~Listener(void)
 {
     STACKLOG;
 	//pthread_join( thread, NULL );
+	running = false;
+	listSocket.set_timeout(1,0);
+	pthread_cancel(thread);
 }
 
 void Listener::threadstart()
@@ -59,7 +63,6 @@ void Listener::threadstart()
     STACKLOG;
 	Logger::log(LOG_DEBUG,"Listerer thread starting");
 	//here we start
-	SWInetSocket listSocket;
 	SWBaseSocket::SWBaseError error;
 
 	//manage the listening socket
@@ -69,13 +72,14 @@ void Listener::threadstart()
 		//this is an error!
 		Logger::log(LOG_ERROR,"FATAL Listerer: %s", error.get_error().c_str());
 		//there is nothing we can do here
-		exit(1);
+		return;
+		// exit(1);
 	}
 	listSocket.listen();
 
 	//await connections
 	Logger::log(LOG_VERBOSE,"Listener ready");
-	while (1)
+	while (running)
 	{
 		Logger::log(LOG_VERBOSE,"Listener awaiting connections");
 		SWInetSocket *ts=(SWInetSocket *)listSocket.accept(&error);
@@ -83,7 +87,10 @@ void Listener::threadstart()
 		if (error!=SWBaseSocket::ok)
 		{
 			Logger::log(LOG_ERROR,"ERROR Listener: %s", error.get_error().c_str());
-			continue;
+			if( error == SWBaseSocket::notConnected)
+				break;
+			else
+				continue;
 		}
 
 

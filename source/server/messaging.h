@@ -34,6 +34,8 @@ public:
 	static int sendmessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len, const char* content);
 	static int receivemessage(SWInetSocket *socket, int *type, int *source, unsigned int *streamid, unsigned int *wrotelen, char* content, unsigned int bufferlen);
 
+	static int broadcastLAN();
+
 	static void addBandwidthDropIncoming(int bytes);
 	static void addBandwidthDropOutgoing(int bytes);
 	static stream_traffic_t getTraffic();

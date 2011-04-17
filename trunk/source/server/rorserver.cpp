@@ -281,6 +281,11 @@ int main(int argc, char* argv[])
 			// update some statistics (handy to use in here, as we have a minute-timer basically)
 			Messaging::updateMinuteStats();
 			Sequencer::updateMinuteStats();
+
+			// broadcast our "i'm here" signal
+			Messaging::broadcastLAN();
+
+			// sleep a minute
 #ifndef WIN32
 			sleep(60);
 #else

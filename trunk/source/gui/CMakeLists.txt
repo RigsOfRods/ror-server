@@ -35,7 +35,7 @@ IF(wxWidgets_FOUND)
   endif(RORSERVER_WITH_WEBSERVER)
 
 
-  add_definitions(${wxWidgets_DEFINITIONS} ${wxWidgets_CXX_FLAGS})
+  add_definitions(-D${wxWidgets_DEFINITIONS} -D${wxWidgets_CXX_FLAGS})
 
   IF(WIN32)
 	add_definitions("/wd4251")
@@ -45,7 +45,7 @@ IF(wxWidgets_FOUND)
   link_directories (${wxWidgets_LIB_DIR})
   include_directories (${rorserver_SOURCE_DIR}/)
 
-  add_definitions("-D_UNICODE -DNOCMDLINE")
+  add_definitions("-DNOCMDLINE")
 
   # always use no debug, otherwise we cannot link against the wxWidgets lib (that used no debug mode on compile time)
   add_definitions("-DNDEBUG")

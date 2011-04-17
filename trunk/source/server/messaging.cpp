@@ -26,6 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h"
 #include "logger.h"
 #include "SocketW.h"
+#include "config.h"
 
 
 stream_traffic_t Messaging::traffic = {0,0,0,0,0,0,0,0,0,0,0,0};
@@ -92,7 +93,7 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, int source, unsigned 
 	memcpy(buffer + sizeof(header_t), content, len);
 
 #if 0
-	// comment out since this severly bloats teh server log
+	// comment out since this severly bloats the server log
 	char body[len*2+1];
 	memset( body, 0,len*2+1);
 	bodyblockashex(body, content, len);
@@ -219,4 +220,72 @@ stream_traffic_t Messaging::getTraffic() { return traffic; };
 
 int Messaging::getTime() { return (int)time(NULL); };
 
+
+int Messaging::broadcastLAN()
+{
+	// since socketw only abstracts TCP, we are on our own with UDP here :-/
+	// the following code was only tested under windows
+
+	int sockfd = -1;
+	int on = 1;
+	struct sockaddr_in sendaddr;
+	memset(&sendaddr, 0, sizeof(sendaddr));
+	struct sockaddr_in recvaddr;
+	memset(&recvaddr, 0, sizeof(recvaddr));
+
+	if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+	{
+		Logger::log(LOG_ERROR, "error creating socket for LAN broadcast: %s", strerror(errno));
+		return 1;
+	}
+	if (setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (const char *)&on, sizeof(on)) < 0)
+	{	
+		Logger::log(LOG_ERROR, "error setting socket options for LAN broadcast: %s", strerror(errno));
+		return 2;
+	}
+	
+	sendaddr.sin_family      = AF_INET;
+	sendaddr.sin_addr.s_addr = INADDR_ANY;
+	sendaddr.sin_port        = LAN_BROADCAST_PORT;
+
+	if (bind(sockfd, (struct sockaddr *)&sendaddr, sizeof(sendaddr)) < 0)
+	{
+		Logger::log(LOG_ERROR, "error binding socket for LAN broadcast: %s", strerror(errno));
+		return 3;
+	}
+
+	recvaddr.sin_family      = AF_INET;
+	recvaddr.sin_port        = LAN_BROADCAST_PORT;
+	recvaddr.sin_addr.s_addr = INADDR_BROADCAST;
+
+
+	// construct the message
+	char tmp[1024] = "";
+	memset(tmp, 0, 1023);
+	// format:
+	// RoRServer|IP           :PORT |terrain name   |password protected?
+	// RoRServer|192.168.0.235:12001|myterrain.terrn|0
+	sprintf(tmp, "RoRServer|%s:%d|%s|%b", 
+		RORNET_VERSION, 
+		Config::getIPAddr().c_str(),
+		Config::getListenPort(),
+		Config::getTerrainName().c_str(),
+		Config::getPublicPassword().empty()
+		);
+
+	// send the message
+	int numbytes = 0;
+	while((numbytes = sendto(sockfd, tmp, strnlen(tmp, 1024), 0, (struct sockaddr *)&recvaddr, sizeof recvaddr)) < -1) 
+	{
+		Logger::log(LOG_ERROR, "error sending data over socket for LAN broadcast: %s", strerror(errno));
+		return 4;
+	}
+
+	// and close the socket again
+	closesocket(sockfd);
+	
+	Logger::log(LOG_DEBUG, "LAN broadcast successful");
+	
+	return 0;
+}
 

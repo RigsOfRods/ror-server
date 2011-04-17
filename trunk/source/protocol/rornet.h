@@ -33,6 +33,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 static const int   MAX_PEERS = 64;             //!< maximum clients connected at the same time
 static const int   MAX_MESSAGE_LENGTH = 16384;  //!< maximum size of a RoR message. 32768 bytes = 8 kilobytes
 
+static const int   LAN_BROADCAST_PORT = 13000;  //!< port used to send the broadcast announcement in LAN mode
+
 // protocol version
 static const char VARIABLE_IS_NOT_USED *RORNET_VERSION = "RoRnet_2.35"; //!< the protocol version information
 

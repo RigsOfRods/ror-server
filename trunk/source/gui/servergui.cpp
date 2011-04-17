@@ -29,6 +29,7 @@
 
 #include "rornet.h"
 #include "sequencer.h"
+#include "messaging.h"
 #include "logger.h"
 #include "config.h"
 #include "userauth.h"
@@ -80,6 +81,7 @@ private:
 	wxToolBar *tb;
 	void OnQuit(wxCloseEvent &event);
 	int loglevel;
+	int secondsCounter;
 	pthread_t notifyThread;
 	bool server_is_running;
 	
@@ -186,6 +188,8 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) :
 	app=_app;
 	loglevel=LOG_INFO;
 	dialogInstance = this;
+
+	secondsCounter=55; // trigger at start
 
 	SetMinSize(wxSize(600,600));
 	//SetMaxSize(wxSize(500,500));
@@ -380,6 +384,20 @@ void MyDialog::OnTimer(wxTimerEvent& event)
 	
 	// update the log tab
 	updateLogTab();
+
+	secondsCounter++;
+	if(secondsCounter > 60)
+	{
+		if(Config::getServerMode() == SERVER_LAN)
+		{
+			Messaging::updateMinuteStats();
+			Sequencer::updateMinuteStats();
+
+			// broadcast our "i'm here" signal
+			Messaging::broadcastLAN();
+		}
+		secondsCounter=0;
+	}
 }
 
 void MyDialog::updateLogTab()

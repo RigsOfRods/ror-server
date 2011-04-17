@@ -35,7 +35,7 @@ IF(wxWidgets_FOUND)
   endif(RORSERVER_WITH_WEBSERVER)
 
 
-  add_definitions(-D${wxWidgets_DEFINITIONS} -D${wxWidgets_CXX_FLAGS})
+  add_definitions("-D${wxWidgets_DEFINITIONS} -D${wxWidgets_CXX_FLAGS}")
 
   IF(WIN32)
 	add_definitions("/wd4251")

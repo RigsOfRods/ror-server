@@ -263,14 +263,14 @@ int Messaging::broadcastLAN()
 	char tmp[1024] = "";
 	memset(tmp, 0, 1023);
 	// format:
-	// RoRServer|IP           :PORT |terrain name   |password protected?
-	// RoRServer|192.168.0.235:12001|myterrain.terrn|0
-	sprintf(tmp, "RoRServer|%s:%d|%s|%b", 
+	// RoRServer|Protocol V |IP           :PORT |terrain name   |password protected?
+	// RoRServer|RoRnet_2.35|192.168.0.235:12001|myterrain.terrn|0
+	sprintf(tmp, "RoRServer|%s|%s:%d|%s|%d", 
 		RORNET_VERSION, 
 		Config::getIPAddr().c_str(),
 		Config::getListenPort(),
 		Config::getTerrainName().c_str(),
-		Config::getPublicPassword().empty()
+		Config::getPublicPassword() == "" ? 0 : 1
 		);
 
 	// send the message

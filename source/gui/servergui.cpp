@@ -493,70 +493,47 @@ void MyDialog::OnContextMenu(wxContextMenuEvent& event)
 {
 	if( server_is_running )
 	{
-		// We stop updating the playerlist, to minimize the chance on errors
-		timer1->Stop();
-		
 		// which client row is selected?
-		long item = -1;
-		int id = -1;
-		for (unsigned int i=0; i<Config::getMaxClients();i++)
-		{
-			item = slotlist->GetNextItem(item,
-				wxLIST_NEXT_ALL,
-				wxLIST_STATE_SELECTED);
-			if ( item == -1 )
-			{
-				timer1->Start();
-				return;
-			}
-
-			id = i;
-			break;
-		}
+		long item = slotlist->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
+		if ( item == -1 )
+			return;
 		
 		// get the uid of that row
-		int uid = -1;
-		uid = wxAtoi(slotlist->GetItemText(id, 2));
+		int uid = wxAtoi(slotlist->GetItemText(item, 2));
+		wxString username = slotlist->GetItemText(item, 5);
+		
 		if( uid <= 0 )
-		{
-			// this is a row, but there's no player in it
-			timer1->Start();
 			return;
-		}
-			
+		
 		// build the menu
 		wxPoint point = event.GetPosition();
 		point = ScreenToClient(point);
 		wxMenu menu;
+		menu.SetTitle(username);
 		menu.Append(ctxtmenu_kick, wxT("&kick"));
 		menu.Append(ctxtmenu_ban, wxT("&ban"));
 		menu.AppendSeparator();
 		menu.Append(ctxtmenu_pm, wxT("&private message"));
-		// PopupMenu(&menu, point);
 
 		// get the selection of the user
 		const int rc = GetPopupMenuSelectionFromUser(menu, point);
 		
 		// interpret the selection and take the required action
-		if ( rc == wxID_NONE )
-		{
-			// ignore
-		}
-		else if( rc == ctxtmenu_kick )
+		if( rc == ctxtmenu_kick )
 		{
 			wxString msg;
-			msg.sprintf("Are you sure that you wish to kick user '%s'?",slotlist->GetItemText(id, 5));
-			int answer = wxMessageBox(msg, _("Confirmaiton required"), wxYES_NO | wxCANCEL, dialogInstance);
+			msg.sprintf("Are you sure that you wish to kick user '%s'?",username);
+			int answer = wxMessageBox(msg, _("Confirmation required"), wxYES_NO | wxCANCEL, dialogInstance);
 			if (answer == wxYES)
-					Sequencer::disconnect(uid, "Kicked by host.", false);
+				Sequencer::disconnect(uid, "Kicked by host.", false);
 		}
 		else if( rc == ctxtmenu_ban )
 		{
 			wxString msg;
-			msg.sprintf("Are you sure that you wish to kick and ban user '%s'?",slotlist->GetItemText(id, 5));
-			int answer = wxMessageBox(msg, _("Confirmaiton required"), wxYES_NO | wxCANCEL, dialogInstance);
+			msg.sprintf("Are you sure that you wish to kick and ban user '%s'?",username);
+			int answer = wxMessageBox(msg, _("Confirmation required"), wxYES_NO | wxCANCEL, dialogInstance);
 			if (answer == wxYES)
-					Sequencer::ban(uid, "Banned by host.");
+				Sequencer::ban(uid, "Banned by host.");
 		}
 		else if( rc == ctxtmenu_pm )
 		{
@@ -572,12 +549,6 @@ void MyDialog::OnContextMenu(wxContextMenuEvent& event)
 			if( !msg.IsEmpty() )
 				Sequencer::serverSay(std::string(msg.mb_str()), uid, FROM_HOST);
 		}
-		else
-		{
-			// ignore
-		}
-		updatePlayerList();
-		timer1->Start();
 	}
 }
 
@@ -605,8 +576,8 @@ void MyDialog::OnBtnStart(wxCommandEvent& event)
 			slotlist->SetItem(i, 1, _("FREE"));
 		}
 		
-		// update the gui at 2 fps
-		timer1->Start(500);
+		// update the gui at 1 fps
+		timer1->Start(1000);
 		tb->EnableTool(btn_stop, true);
 	}
 	updateLogTab();

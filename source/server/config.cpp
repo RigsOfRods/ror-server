@@ -308,14 +308,14 @@ bool Config::checkConfig()
 		
 	if( getAuthFile().empty() )
 	{
-		Logger::log( LOG_ERROR, "Authorizations file not specified. Using default (/admins.txt)" );
-		setAuthFile("/admins.txt");
+		Logger::log( LOG_ERROR, "Authorizations file not specified. Using default (admins.txt)" );
+		setAuthFile("admins.txt");
 	}
 
 	if( getMOTDFile().empty() )
 	{
-		Logger::log( LOG_ERROR, "MOTD file not specified. Using default (/motd.txt)." );
-		setMOTDFile("/motd.txt");
+		Logger::log( LOG_ERROR, "MOTD file not specified. Using default (motd.txt)." );
+		setMOTDFile("motd.txt");
 	}
 
 	if( getMaxVehicles()<1 )

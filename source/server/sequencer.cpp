@@ -286,7 +286,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 	if(instance->authresolver)
 	{
 		Logger::log(LOG_VERBOSE, "getting user auth level");
-		int auth_flags = instance->authresolver->getUserModeByUserToken(user.usertoken);
+		int auth_flags = instance->authresolver->getUserModeByUserToken(user.usertoken, instance->fuid);
 		if(auth_flags != AUTH_NONE)
 			to_add->user.authstatus |= auth_flags;
 
@@ -410,7 +410,7 @@ int Sequencer::authNick(std::string token, std::string &nickname)
 	MutexLocker scoped_lock(instance->clients_mutex);
 	if(!instance->authresolver)
 		return AUTH_NONE;
-	return instance->authresolver->resolve(token, nickname);
+	return instance->authresolver->resolve(token, nickname, instance->fuid);
 }
 
 ScriptEngine* Sequencer::getScriptEngine()

@@ -35,9 +35,9 @@ public:
 	UserAuth(std::string challenge, int trustlevel, std::string authFile);
 	~UserAuth();
 	
-	int getUserModeByUserToken(std::string token);
+	int getUserModeByUserToken(std::string token, int clientid);
 
-	int resolve(std::string user_token, std::string &user_nick);
+	int resolve(std::string user_token, std::string &user_nick, int clientid);
 
 	int getAuthSize();
 	int setUserAuth(int flags, std::string user_nick, std::string token);
@@ -46,5 +46,7 @@ public:
 
 	std::map< std::string, std::pair<int, std::string> > getAuthCache();
 	void clearCache();
+
+	std::string getNewPlayernameByID(int id);
 };
 #endif

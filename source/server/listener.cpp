@@ -184,17 +184,15 @@ void Listener::threadstart()
 			Logger::log(LOG_INFO,"Listener creating a new client...");
 
 			user_info_t *user = (user_info_t *)buffer;
+			user->authstatus = AUTH_NONE;
+
 			std::string nickname = std::string(user->username);
+			
+			// authenticate
 			int authflags = Sequencer::authNick(std::string(user->usertoken), nickname);
-			if( (authflags & AUTH_RANKED) || (authflags & AUTH_ADMIN) || (authflags & AUTH_MOD) || (authflags & AUTH_BOT) )
-			{
-				// we only auth here in order to overwrite the nickname!
-				Logger::log(LOG_INFO, "User %s is ranked", nickname.c_str());
-				strncpy(user->username, nickname.c_str(), 20);
-			} else
-			{
-				Logger::log(LOG_VERBOSE, "User %s is NOT ranked", nickname.c_str());
-			}
+
+			// save the auth results
+			user->authstatus = authflags;
 
 			if( Config::isPublic() )
 			{

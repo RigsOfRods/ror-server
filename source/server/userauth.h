@@ -35,8 +35,6 @@ public:
 	UserAuth(std::string challenge, int trustlevel, std::string authFile);
 	~UserAuth();
 	
-	int getUserModeByUserToken(std::string token, int clientid);
-
 	int resolve(std::string user_token, std::string &user_nick, int clientid);
 
 	int getAuthSize();

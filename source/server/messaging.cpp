@@ -235,6 +235,13 @@ int Messaging::broadcastLAN()
 	struct sockaddr_in recvaddr;
 	memset(&recvaddr, 0, sizeof(recvaddr));
 
+	WSADATA        wsd;
+	if (WSAStartup(MAKEWORD(2, 2), &wsd) != 0)
+	{
+		Logger::log(LOG_ERROR, "error starting up winsock");
+		return 1;
+	}
+
 	if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
 	{
 		Logger::log(LOG_ERROR, "error creating socket for LAN broadcast: %s", strerror(errno));
@@ -247,18 +254,18 @@ int Messaging::broadcastLAN()
 	}
 	
 	sendaddr.sin_family      = AF_INET;
-	sendaddr.sin_addr.s_addr = INADDR_ANY;
-	sendaddr.sin_port        = LAN_BROADCAST_PORT;
+	sendaddr.sin_port        = htons(LAN_BROADCAST_PORT+1);
+	sendaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	if (bind(sockfd, (struct sockaddr *)&sendaddr, sizeof(sendaddr)) < 0)
+	if (bind(sockfd, (struct sockaddr *)&sendaddr, sizeof(sendaddr))  == SOCKET_ERROR)
 	{
 		Logger::log(LOG_ERROR, "error binding socket for LAN broadcast: %s", strerror(errno));
 		return 3;
 	}
 
 	recvaddr.sin_family      = AF_INET;
-	recvaddr.sin_port        = LAN_BROADCAST_PORT;
-	recvaddr.sin_addr.s_addr = INADDR_BROADCAST;
+	recvaddr.sin_port        = htons(LAN_BROADCAST_PORT);
+	recvaddr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
 
 
 	// construct the message

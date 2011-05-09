@@ -277,26 +277,10 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 	to_add->status          = USED;
 	to_add->initialized     = false;
 	to_add->user.colournum  = playerColour;
-	to_add->user.authstatus = AUTH_NONE;
+	to_add->user.authstatus = user.authstatus;
 	
 	// log some info about this client
 	Logger::log(LOG_INFO, "New client: %s (%s), using %s %s, with token %s", user.username, user.language, user.clientname, user.clientversion, std::string(user.usertoken).substr(0,40).c_str());
-
-	// auth resolving
-	if(instance->authresolver)
-	{
-		Logger::log(LOG_VERBOSE, "getting user auth level");
-		int auth_flags = instance->authresolver->getUserModeByUserToken(user.usertoken, instance->fuid);
-		if(auth_flags != AUTH_NONE)
-			to_add->user.authstatus |= auth_flags;
-
-		char authst[10] = "";
-		if(auth_flags & AUTH_ADMIN)  strcat(authst, "A");
-		if(auth_flags & AUTH_MOD)    strcat(authst, "M");
-		if(auth_flags & AUTH_RANKED) strcat(authst, "R");
-		if(auth_flags & AUTH_BOT)    strcat(authst, "B");
-		if(auth_flags != AUTH_NONE) Logger::log(LOG_INFO, "user auth flags: " + std::string(authst));
-	}
 
 	// create new class instances for the receiving and sending thread
 	to_add->receiver    = new Receiver();

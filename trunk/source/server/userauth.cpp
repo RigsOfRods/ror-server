@@ -120,13 +120,6 @@ std::map< std::string, std::pair<int, std::string> > UserAuth::getAuthCache()
 	return cache;
 }
 
-
-int UserAuth::getUserModeByUserToken(std::string token, int clientid)
-{
-	std::string nick;
-	return resolve(token, nick, clientid);
-}
-
 int UserAuth::setUserAuth(int flags, std::string user_nick, std::string token)
 {
 	std::pair< int, std::string > p;
@@ -145,9 +138,13 @@ int UserAuth::sendUserEvent(std::string user_token, std::string type, std::strin
 	
 	char url[1024];
 	sprintf(url, "%s/userevent/?v=0&sh=%s&h=%s&t=%s&a1=%s&a2=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), type.c_str(), arg1.c_str(), arg2.c_str());
+	Logger::log(LOG_DEBUG, "UserAuth event to server: " + std::string(url));
 	HttpMsg resp;
 	if (HTTPGET(url, resp) < 0)
+	{
+		Logger::log(LOG_ERROR, "UserAuth event query result empty");
 		return -1;
+	}
 
 	std::string body = resp.getBody();
 	Logger::log(LOG_DEBUG,"UserEvent reply: " + body);
@@ -189,9 +186,13 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
 		// not found in cache or local_auth, get auth from masterserver
 		char url[1024];
 		sprintf(url, "%s/authuser/?c=%s&t=%s&u=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), user_nick.c_str());
+		Logger::log(LOG_DEBUG, "UserAuth query to server: " + std::string(url));
 		HttpMsg resp;
 		if (HTTPGET(url, resp) < 0)
+		{
+			Logger::log(LOG_ERROR, "UserAuth resolve query result empty");
 			return -1;
+		}
 
 		std::string body = resp.getBody();
 		Logger::log(LOG_DEBUG,"UserAuth reply: " + body);

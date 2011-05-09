@@ -213,6 +213,7 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
 	}
 	// debug output the auth status
 	char authst[10] = "";
+	if(authlevel & AUTH_NONE) strcat(authst, "N");
 	if(authlevel & AUTH_ADMIN) strcat(authst, "A");
 	if(authlevel & AUTH_MOD) strcat(authst, "M");
 	if(authlevel & AUTH_RANKED) strcat(authst, "R");
@@ -222,6 +223,7 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
 	if(resultNick == "error" || resultNick == "reserved" || resultNick == "notranked")
 	{
 		user_nick = getNewPlayernameByID(clientid);
+		Logger::log(LOG_DEBUG, "got new random name for player: " + user_nick);
 		return AUTH_NONE;
 	}
 

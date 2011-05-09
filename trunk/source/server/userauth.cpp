@@ -179,7 +179,7 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 	{
 		// not found in cache or local_auth, get auth from masterserver
 		char url[1024];
-		sprintf(url, "%s/authuser/?c=%s&t=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str());
+		sprintf(url, "%s/authuser/?c=%s&t=%s&u=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), user_nick.c_str());
 		HttpMsg resp;
 		if (HTTPGET(url, resp) < 0)
 			return -1;

@@ -121,10 +121,10 @@ std::map< std::string, std::pair<int, std::string> > UserAuth::getAuthCache()
 }
 
 
-int UserAuth::getUserModeByUserToken(std::string token)
+int UserAuth::getUserModeByUserToken(std::string token, int clientid)
 {
 	std::string nick;
-	return resolve(token, nick);
+	return resolve(token, nick, clientid);
 }
 
 int UserAuth::setUserAuth(int flags, std::string user_nick, std::string token)
@@ -155,7 +155,14 @@ int UserAuth::sendUserEvent(std::string user_token, std::string type, std::strin
 	return (body!="ok");
 }
 
-int UserAuth::resolve(std::string user_token, std::string &user_nick)
+std::string UserAuth::getNewPlayernameByID(int id)
+{
+	char tmp[255] = "";
+	sprintf(tmp, "Player%d", id);
+	return std::string(tmp);
+}
+
+int UserAuth::resolve(std::string user_token, std::string &user_nick, int clientid)
 {
     STACKLOG;
 
@@ -175,6 +182,8 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 	int authlevel = AUTH_NONE;
 
 	// Only contact the master-server if we're allowed to do so
+	std::string msg = "";
+	std::string resultNick = "";
 	if(trustlevel>1)
 	{
 		// not found in cache or local_auth, get auth from masterserver
@@ -190,15 +199,33 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 		std::vector<std::string> args;
 		strict_tokenize(body, args, "\t");
 
-		if(args.size() != 2)
+		if(args.size() < 2)
 		{
 			Logger::log(LOG_INFO,"UserAuth: invalid return value from server: " + body);
 			return AUTH_NONE;
 		}
 		
 		authlevel = atoi(args[0].c_str());
-		user_nick = args[1];
+		resultNick = args[1];
+		if(args.size() > 2)
+			msg = args[2];
 	}
+	// debug output the auth status
+	char authst[10] = "";
+	if(authlevel & AUTH_ADMIN) strcat(authst, "A");
+	if(authlevel & AUTH_MOD) strcat(authst, "M");
+	if(authlevel & AUTH_RANKED) strcat(authst, "R");
+	if(authlevel & AUTH_BOT) strcat(authst, "B");
+	Logger::log(LOG_DEBUG,"User Auth Result: " + std::string(authst) + " / " + resultNick + " / " + msg);
+
+	if(resultNick == "error" || resultNick == "reserved" || resultNick == "notranked")
+	{
+		user_nick = getNewPlayernameByID(clientid);
+		return AUTH_NONE;
+	}
+
+	// returned name valid, use it
+	user_nick = resultNick;
 	
 	//then check for overrides in the authorizations file (server admins, etc)
 	if(local_auth.find(user_token) != local_auth.end())
@@ -209,14 +236,6 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick)
 			user_nick = local_auth[user_token].second;
 		authlevel |= local_auth[user_token].first;
 	}
-
-	// debug output the auth status
-	char authst[10] = "";
-	if(authlevel & AUTH_ADMIN) strcat(authst, "A");
-	if(authlevel & AUTH_MOD) strcat(authst, "M");
-	if(authlevel & AUTH_RANKED) strcat(authst, "R");
-	if(authlevel & AUTH_BOT) strcat(authst, "B");
-	if(authlevel != AUTH_NONE) Logger::log(LOG_INFO,"User Auth Flags: " + std::string(authst));
 
 	// cache result
 	std::pair< int, std::string > p;

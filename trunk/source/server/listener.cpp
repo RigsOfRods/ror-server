@@ -191,6 +191,9 @@ void Listener::threadstart()
 			// authenticate
 			int authflags = Sequencer::authNick(std::string(user->usertoken), nickname);
 
+			// now copy the resulting nickname over, server enforced
+			strncpy(user->username, nickname.c_str(), 20);
+
 			// save the auth results
 			user->authstatus = authflags;
 

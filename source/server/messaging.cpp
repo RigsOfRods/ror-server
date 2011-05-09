@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdarg.h>
 #include <time.h>
 #include <string>
+#include <errno.h>
 
 #include "messaging.h"
 #include "sequencer.h"
@@ -223,6 +224,7 @@ int Messaging::getTime() { return (int)time(NULL); };
 
 int Messaging::broadcastLAN()
 {
+#ifdef WIN32
 	// since socketw only abstracts TCP, we are on our own with UDP here :-/
 	// the following code was only tested under windows
 
@@ -285,7 +287,7 @@ int Messaging::broadcastLAN()
 	closesocket(sockfd);
 	
 	Logger::log(LOG_DEBUG, "LAN broadcast successful");
-	
+#endif // WIN32	
 	return 0;
 }
 

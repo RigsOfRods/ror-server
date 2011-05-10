@@ -569,6 +569,7 @@ void Config::setVoIP( const std::string& voip ) {
 
 void Config::loadConfigFile(const std::string& filename)
 {
+	Logger::log(LOG_INFO, "loading config file %s ...", filename.c_str());
 	rude::Config config;
 	if(config.load(filename.c_str()))
 	{

@@ -943,6 +943,12 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			if(scriptpub>0) publishMode = scriptpub;
 		}
 #endif //WITH_ANGELSCRIPT
+		if(!strcmp(data, "!help"))
+		{
+			serverSay(std::string("builtin commands:"), uid);
+			serverSay(std::string("!version, !list, !say, !bans, !ban, !unban, !kick, !vehiclelimit"), uid);
+			serverSay(std::string("!website, !irc, !owner, !voip, !rules, !motd"), uid);
+		}
 
 		if(!strcmp(data, "!version"))
 		{

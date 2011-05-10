@@ -572,6 +572,7 @@ void Config::loadConfigFile(const std::string& filename)
 	rude::Config config;
 	if(config.load(filename.c_str()))
 	{
+		if(config.exists("baseconfig"))    loadConfigFile(config.getStringValue   ("baseconfig"));
 		if(config.exists("slots"))         setMaxClients(config.getIntValue       ("slots"));
 		if(config.exists("name"))          setServerName(config.getStringValue    ("name"));
 		if(config.exists("scriptname"))    setScriptName(config.getStringValue    ("scriptname"));

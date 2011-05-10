@@ -191,7 +191,7 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
 		if (HTTPGET(url, resp) < 0)
 		{
 			Logger::log(LOG_ERROR, "UserAuth resolve query result empty");
-			return -1;
+			return AUTH_NONE;
 		}
 
 		std::string body = resp.getBody();

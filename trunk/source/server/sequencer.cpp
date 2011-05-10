@@ -872,7 +872,8 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			disconnect(instance->clients[pos]->user.uniqueid, "You have too many vehicles. Please rejoin.", false);
 			publishMode = 0; // drop
 		}
-		else {
+		else
+		{
 			if( (instance->clients[pos]->streams.size() >= Config::getMaxVehicles()+NON_VEHICLE_STREAMS-3) && (instance->clients[pos]->streams.size() >= NON_VEHICLE_STREAMS) )
 			{
 				// we start warning the user as soon as he has only 3 vehicles left before he will get kicked.
@@ -886,6 +887,10 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			for(int i=0;i<128;i++) if(reg->name[i] == ' ') reg->name[i] = 0; // convert spaces to zero's
 			reg->name[127] = 0;
 			instance->clients[pos]->streams[streamid] = *reg;
+
+			// send an event if user is rankend and if we are a official server
+			if(instance->authresolver && (instance->clients[pos]->user.authstatus & AUTH_RANKED))
+				instance->authresolver->sendUserEvent(instance->clients[pos]->user.usertoken, std::string("newvehicle"), std::string(reg->name), std::string());
 
 			instance->streamDebug();
 

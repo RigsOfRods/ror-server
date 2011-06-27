@@ -179,10 +179,11 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
 	int authlevel = AUTH_NONE;
 
 	// Only contact the master-server if we're allowed to do so
-	std::string msg = "";
-	std::string resultNick = "";
 	if(trustlevel>1)
 	{
+		std::string msg = "";
+		std::string resultNick = "";
+	
 		// not found in cache or local_auth, get auth from masterserver
 		char url[1024];
 		sprintf(url, "%s/authuser/?c=%s&t=%s&u=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), user_nick.c_str());
@@ -210,25 +211,26 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
 		resultNick = args[1];
 		if(args.size() > 2)
 			msg = args[2];
-	}
-	// debug output the auth status
-	char authst[10] = "";
-	if(authlevel & AUTH_NONE) strcat(authst, "N");
-	if(authlevel & AUTH_ADMIN) strcat(authst, "A");
-	if(authlevel & AUTH_MOD) strcat(authst, "M");
-	if(authlevel & AUTH_RANKED) strcat(authst, "R");
-	if(authlevel & AUTH_BOT) strcat(authst, "B");
-	Logger::log(LOG_DEBUG,"User Auth Result: " + std::string(authst) + " / " + resultNick + " / " + msg);
 
-	if(resultNick == "error" || resultNick == "reserved" || resultNick == "notranked")
-	{
-		user_nick = getNewPlayernameByID(clientid);
-		Logger::log(LOG_DEBUG, "got new random name for player: " + user_nick);
-		return AUTH_NONE;
-	}
+		// debug output the auth status
+		char authst[10] = "";
+		if(authlevel & AUTH_NONE) strcat(authst, "N");
+		if(authlevel & AUTH_ADMIN) strcat(authst, "A");
+		if(authlevel & AUTH_MOD) strcat(authst, "M");
+		if(authlevel & AUTH_RANKED) strcat(authst, "R");
+		if(authlevel & AUTH_BOT) strcat(authst, "B");
+		Logger::log(LOG_DEBUG,"User Auth Result: " + std::string(authst) + " / " + resultNick + " / " + msg);
 
-	// returned name valid, use it
-	user_nick = resultNick;
+		if(resultNick == "error" || resultNick == "reserved" || resultNick == "notranked")
+		{
+			user_nick = getNewPlayernameByID(clientid);
+			Logger::log(LOG_DEBUG, "got new random name for player: " + user_nick);
+			return AUTH_NONE;
+		}
+
+		// returned name valid, use it
+		user_nick = resultNick;
+	}
 	
 	//then check for overrides in the authorizations file (server admins, etc)
 	if(local_auth.find(user_token) != local_auth.end())

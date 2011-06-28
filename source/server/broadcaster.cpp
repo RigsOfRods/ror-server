@@ -160,7 +160,8 @@ void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigne
 	if(msg_queue.size() > (size_t)queue_hard_limit)
 	{
 		Logger::log( LOG_DEBUG, "broadcaster queue hard full: thread %u owned by uid %d", ThreadID::getID(), id);
-		debugMessageQueue();
+		// Commented out to decrease CPU usage. Uncomment if you wish to debug the message queue.
+		//debugMessageQueue();
 		msg.process_type = BC_QUEUE_DROP;
 	}
 	

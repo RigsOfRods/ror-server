@@ -242,13 +242,16 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
 		authlevel |= local_auth[user_token].first;
 	}
 
-	// cache result
-	std::pair< int, std::string > p;
-	p.first = authlevel;
-	p.second = user_nick;
-
-	Logger::log(LOG_DEBUG, "adding entry to remote auth cache, size: %d",  cache.size());
-	cache[user_token] = p;
+	// cache result if ranked or higher
+	if(authlevel > AUTH_NONE)
+	{
+		std::pair< int, std::string > p;
+		p.first = authlevel;
+		p.second = user_nick;
+		
+		Logger::log(LOG_DEBUG, "adding entry to remote auth cache, size: %d",  cache.size());
+		cache[user_token] = p;
+	}
 
 	return authlevel;
 }

@@ -338,6 +338,12 @@ MyDialog::MyDialog(const wxString& title, MyApp *_app) :
 	wxSizer *logSizer = new wxBoxSizer(wxVERTICAL);
 	txtConsole = new wxTextCtrl(logPanel, wxID_ANY, _(""), wxDefaultPosition, wxDefaultSize, wxNO_BORDER|wxTE_MULTILINE|wxTE_READONLY|wxTE_RICH|wxTE_RICH2|wxTE_DONTWRAP);
 	logSizer->Add(txtConsole, 1, wxGROW);
+
+	// use monospace for the log
+	wxFont font = txtConsole->GetFont();
+	font = wxFont(font.GetPointSize()-1, wxTELETYPE, font.GetStyle(), font.GetWeight(), font.GetUnderlined()); 
+	txtConsole->SetFont(font);
+	
 	logPanel->SetSizer(logSizer);
 	nbook->AddPage(logPanel, _("Log"), false);
 

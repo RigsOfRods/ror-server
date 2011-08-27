@@ -251,30 +251,18 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 
 	if(dupeNick)
 	{
-		char buf[20] = "";
-		strncpy(buf, user.username, 20);
+		char buf[255] = "";
 		Logger::log(LOG_WARN,"found duplicate nick, getting new one: %s", buf);
-		if(strnlen(buf, 20) == 20)
-		{
-			//shorten the string
-			buf[18] = '\0';
-		}
-		// remove any trailing numbers
-		for(int i=19; i>0; i--)
-		{
-			// only remove trailing numbers and stop when hitting the first non-number character
-			if(buf[i] > '0' && buf[i] < '9')
-				buf[i] = '\0';
-			else
-				break;
-		}
-		// check without a number as well...
-		dupeNick = Sequencer::checkNickUnique(buf);
+
+		// shorten username so the number will fit
+		user.username[16] = '\0';
+
 		// now get a new number
 		while(dupeNick)
 		{
-			sprintf(buf+strnlen(buf, 18), "%d", dupecounter++);
-			Logger::log(LOG_DEBUG,"checked for duplicate nick (2): %s", buf);
+			sprintf(buf, "%s_%d", user.username, dupecounter++);
+			buf[19] = '\0';
+			//Logger::log(LOG_DEBUG,"checked for duplicate nick (2): %s", buf);
 			dupeNick = Sequencer::checkNickUnique(buf);
 		}
 		Logger::log(LOG_WARN,"chose alternate username: %s\n", buf);

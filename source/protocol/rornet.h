@@ -36,7 +36,7 @@ static const int   MAX_MESSAGE_LENGTH = 16384;  //!< maximum size of a RoR messa
 static const int   LAN_BROADCAST_PORT = 13000;  //!< port used to send the broadcast announcement in LAN mode
 
 // protocol version
-static const char VARIABLE_IS_NOT_USED *RORNET_VERSION = "RoRnet_2.35"; //!< the protocol version information
+static const char VARIABLE_IS_NOT_USED *RORNET_VERSION = "RoRnet_2.36"; //!< the protocol version information
 
 // REGISTRY STUFF
 static const char VARIABLE_IS_NOT_USED *REPO_SERVER = "api.rigsofrods.com"; //!< the web API URL
@@ -122,6 +122,17 @@ enum {
 	NETMASK_CLIGHT4     = BITMASK(12), //!< custom light 4 on
 	NETMASK_POLICEAUDIO = BITMASK(13), //!< police siren on
 	NETMASK_PARTICLE    = BITMASK(14), //!< custom particles on
+	NETMASK_PBRAKE      = BITMASK(15), //!< custom particles on
+	NETMASK_TC_ACTIVE   = BITMASK(16), //!< traction control light on?
+	NETMASK_ALB_ACTIVE  = BITMASK(17), //!< anti lock brake light on?
+	NETMASK_ENGINE_CONT = BITMASK(18), //!< ignition on?
+	NETMASK_ENGINE_RUN  = BITMASK(19), //!< engine running?
+
+	NETMASK_ENGINE_MODE_AUTOMATIC     = BITMASK(20), //!< engine mode
+	NETMASK_ENGINE_MODE_SEMIAUTO      = BITMASK(21), //!< engine mode
+	NETMASK_ENGINE_MODE_MANUAL        = BITMASK(22), //!< engine mode
+	NETMASK_ENGINE_MODE_MANUAL_STICK  = BITMASK(23), //!< engine mode
+	NETMASK_ENGINE_MODE_MANUAL_RANGES = BITMASK(24), //!< engine mode
 };
 
 // structs
@@ -214,6 +225,11 @@ typedef struct
 	int time;                  //!< time data
 	float engine_speed;        //!< engine RPM
 	float engine_force;        //!< engine acceleration
+	float engine_clutch;       //!< the clutch value
+	short engine_gear;         //!< engine gear
+	float hydrodirstate;       //!< the turning direction status
+	float brake;               //!< the brake value
+	float wheelspeed;          //!< the wheel speed value
 	unsigned int flagmask;     //!< flagmask: NETMASK_*
 } oob_t;
 

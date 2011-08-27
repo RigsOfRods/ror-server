@@ -268,6 +268,8 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 			else
 				break;
 		}
+		// check without a number as well...
+		dupeNick = Sequencer::checkNickUnique(buf);
 		// now get a new number
 		while(dupeNick)
 		{

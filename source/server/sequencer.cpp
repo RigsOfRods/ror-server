@@ -220,8 +220,8 @@ recheck_col:
 //this is called by the Listener thread
 void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 {
-    STACKLOG;
-    Sequencer* instance = Instance();
+	STACKLOG;
+	Sequencer* instance = Instance();
 	//we have a confirmed client that wants to play
 	//try to find a place for him
 	Logger::log(LOG_DEBUG,"got instance in createClient()");
@@ -229,7 +229,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 	MutexLocker scoped_lock(instance->clients_mutex);
 	
 	UTFString nick = tryConvertUTF(user.username);
-    	bool dupeNick = Sequencer::checkNickUnique(nick);
+	bool dupeNick = Sequencer::checkNickUnique(nick);
 	int playerColour = Sequencer::getFreePlayerColour();
 
 	int dupecounter = 2;
@@ -926,7 +926,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 	else if (type==MSG2_USER_LEAVE)
 	{
 		// from client
-		Logger::log(LOG_INFO, "user %s disconnects on request", UTF8BuffertoString(instance->clients[pos]->user.username).c_str());
+		Logger::log(LOG_INFO, UTFString("user disconnects on request: ") + tryConvertUTF(instance->clients[pos]->user.username));
 
 		//char tmp[1024];
 		//sprintf(tmp, "user %s disconnects on request", UTF8BuffertoString(instance->clients[pos]->user.username).c_str());

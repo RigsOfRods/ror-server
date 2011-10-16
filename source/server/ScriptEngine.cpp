@@ -474,7 +474,7 @@ std::string ServerScript::getUserName(int uid)
 	if(!c) return "";
 
 	
-	return UTF8toString<MAX_USERNAME_LEN>(c->user.username);
+	return UTF8toString(c->user.username);
 }
 
 

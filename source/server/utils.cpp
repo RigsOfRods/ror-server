@@ -156,3 +156,19 @@ std::wstring widen(const std::string& mbs)
 	return std::wstring(wcs.begin(), wcs.end()); 
 }
 
+std::wstring UTF8toWString(const char *str)
+{
+	wchar_t tmp[WSTR_LIMIT];
+	mbstowcs(tmp, str, WSTR_LIMIT);
+	return std::wstring(tmp);
+}
+
+void wStringtoUTF8String(char *str, std::wstring w, int size)
+{
+	wcstombs(str, w.c_str(), size);
+}
+
+std::string UTF8toString(const char *str)
+{
+	return narrow(UTF8toWString(str));
+}

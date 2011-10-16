@@ -654,8 +654,9 @@ void Sequencer::serverSay(std::string msg, int uid, int type)
 				(uid==-1 || ((int)instance->clients[i]->user.uniqueid) == uid))
 		{
 
-			wstring s = widen(msg);
-			instance->clients[i]->broadcaster->queueMessage(MSG2_UTF_CHAT, -1, -1, (int)s.size() * sizeof(wchar_t), (char *)s.c_str() );
+			UTFString s = tryConvertUTF(msg.c_str());
+			const char *str = s.asUTF8_c_str();
+			instance->clients[i]->broadcaster->queueMessage(MSG2_UTF_CHAT, -1, -1, strlen(str), (char *)str );
 		}
 	}
 }

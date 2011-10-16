@@ -188,7 +188,8 @@ bool Sequencer::checkNickUnique(UTFString &nick)
 	Sequencer* instance = Instance();
 	for (unsigned int i = 0; i < instance->clients.size(); i++)
 	{
-		if (nick.compare(UTFString(instance->clients[i]->user.username)))
+		UTFString a = tryConvertUTF(instance->clients[i]->user.username);
+		if (nick == a)
 		{
 			return true;
 		}

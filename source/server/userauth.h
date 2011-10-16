@@ -20,9 +20,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define __Userauth_H__
 
 #include "HttpMsg.h"
+#include "UTFString.h"
 #include <vector>
 
-typedef std::pair<int, std::wstring> user_auth_pair_t;
+typedef std::pair<int, UTFString> user_auth_pair_t;
 
 class UserAuth
 {
@@ -37,10 +38,10 @@ public:
 	UserAuth(std::string challenge, int trustlevel, std::string authFile);
 	~UserAuth();
 	
-	int resolve(std::string user_token, std::wstring &user_nick, int clientid);
+	int resolve(std::string user_token, UTFString &user_nick, int clientid);
 
 	int getAuthSize();
-	int setUserAuth(int flags, std::wstring user_nick, std::string token);
+	int setUserAuth(int flags, UTFString user_nick, std::string token);
 
 	int sendUserEvent(std::string user_token, std::string type, std::string arg1, std::string arg2);
 

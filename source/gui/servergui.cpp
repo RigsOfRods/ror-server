@@ -485,7 +485,7 @@ void MyDialog::updatePlayerList()
 		if(clients[i].user.authstatus & AUTH_BOT) strcat(authst, "B");
 		if(clients[i].user.authstatus & AUTH_BANNED) strcat(authst, "X");
 		slotlist->SetItem(i, 4, conv(authst));
-		wxString un = wxString(std::wstring((wchar_t*)clients[i].user.username));
+		wxString un = wxString(tryConvertUTF(clients[i].user.username).asWStr());
 		slotlist->SetItem(i, 5, un);
 	}
 	slotlist->Thaw();

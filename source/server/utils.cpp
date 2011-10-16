@@ -156,19 +156,29 @@ std::wstring widen(const std::string& mbs)
 	return std::wstring(wcs.begin(), wcs.end()); 
 }
 
-std::wstring UTF8toWString(const char *str)
+UTFString tryConvertUTF(const char *buffer)
 {
-	wchar_t tmp[WSTR_LIMIT];
-	mbstowcs(tmp, str, WSTR_LIMIT);
-	return std::wstring(tmp);
+	try
+	{
+		UTFString s = UTFString(buffer);
+		if(s.empty())
+			s = UTFString("(UTF conversion error 1)");
+		return s;
+
+	} catch(...)
+	{
+		return UTFString("(UTF conversion error 2)");
+	}
+	return UTFString("(UTF conversion error 3)");
 }
 
-void wStringtoUTF8String(char *str, std::wstring w, int size)
+std::string UTF8toString(const char *buffer)
 {
-	wcstombs(str, w.c_str(), size);
+	UTFString u = tryConvertUTF(buffer);
+	return UTF8toString(u);
 }
 
-std::string UTF8toString(const char *str)
+std::string UTF8toString(UTFString &u)
 {
-	return narrow(UTF8toWString(str));
+	return narrow(u.asWStr_c_str());
 }

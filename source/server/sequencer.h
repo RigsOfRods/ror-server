@@ -32,6 +32,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "scriptmath3d/scriptmath3d.h" // angelscript addon
 #endif //WITH_ANGELSCRIPT
 #include "mutexutils.h"
+#include "UTFString.h"
 #include <string>
 
 #include <queue>
@@ -119,8 +120,8 @@ typedef struct chat_save_t
 {
 	int source;
 	std::string time;
-	std::wstring nick;
-	std::wstring msg;
+	UTFString nick;
+	UTFString msg;
 } chat_save_t;
 
 class Sequencer
@@ -191,9 +192,9 @@ public:
     static int sendGameCommand(int uid, std::string cmd);
     static void serverSayThreadSave(std::string msg, int notto=-1, int type=0);
 	
-	static bool checkNickUnique(const wchar_t *nick);
+	static bool checkNickUnique(UTFString &nick);
 	static int getFreePlayerColour();
-	static int authNick(std::string token, std::wstring &nickname);
+	static int authNick(std::string token, UTFString &nickname);
 
     static void  unregisterServer();
 

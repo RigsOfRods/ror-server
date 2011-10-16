@@ -6,6 +6,8 @@
 #include <vector>
 #include <stdexcept>
 
+#include "UTFString.h"
+
 void tokenize(const std::string& str,
 				std::vector<std::string>& tokens,
 				const std::string& delimiters = " ");
@@ -44,10 +46,8 @@ int intlen(int num);
 std::string narrow(const std::wstring& wcs);
 std::wstring widen(const std::string& mbs);
 
-// UTF8 conversions
-#define WSTR_LIMIT 4096
-std::wstring UTF8toWString(const char *str);
-void wStringtoUTF8String(char *str, std::wstring w, int size);
-std::string UTF8toString(const char *str);
+UTFString tryConvertUTF(const char *buffer);
 
+std::string UTF8toString(UTFString &u);
+std::string UTF8toString(const char *buffer);
 #endif /*UTILS_HPP_*/

@@ -186,13 +186,13 @@ void Listener::threadstart()
 			user_info_t *user = (user_info_t *)buffer;
 			user->authstatus = AUTH_NONE;
 
-			std::string nickname = std::string(user->username);
+			std::wstring nickname = std::wstring((wchar_t*)user->username);
 			
 			// authenticate
 			int authflags = Sequencer::authNick(std::string(user->usertoken), nickname);
 
 			// now copy the resulting nickname over, server enforced
-			strncpy(user->username, nickname.c_str(), 20);
+			wcsncpy((wchar_t*)user->username, nickname.c_str(), 20);
 
 			// save the auth results
 			user->authstatus = authflags;

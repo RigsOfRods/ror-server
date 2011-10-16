@@ -22,27 +22,29 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "HttpMsg.h"
 #include <vector>
 
+typedef std::pair<int, std::wstring> user_auth_pair_t;
+
 class UserAuth
 {
 private:
-	std::map< std::string, std::pair<int, std::string> > cache;
+	std::map< std::string, user_auth_pair_t > cache;
 	int HTTPGET(const char* URL, HttpMsg &resp);
 	std::string challenge;
 	int trustlevel;
-	std::map< std::string, std::pair<int, std::string> > local_auth;
+	std::map< std::string, user_auth_pair_t > local_auth;
 	int readConfig(const char* authFile);
 public:
 	UserAuth(std::string challenge, int trustlevel, std::string authFile);
 	~UserAuth();
 	
-	int resolve(std::string user_token, std::string &user_nick, int clientid);
+	int resolve(std::string user_token, std::wstring &user_nick, int clientid);
 
 	int getAuthSize();
-	int setUserAuth(int flags, std::string user_nick, std::string token);
+	int setUserAuth(int flags, std::wstring user_nick, std::string token);
 
 	int sendUserEvent(std::string user_token, std::string type, std::string arg1, std::string arg2);
 
-	std::map< std::string, std::pair<int, std::string> > getAuthCache();
+	std::map< std::string,  user_auth_pair_t> getAuthCache();
 	void clearCache();
 
 	std::string getNewPlayernameByID(int id);

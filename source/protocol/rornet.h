@@ -35,8 +35,10 @@ static const int   MAX_MESSAGE_LENGTH = 16384;  //!< maximum size of a RoR messa
 
 static const int   LAN_BROADCAST_PORT = 13000;  //!< port used to send the broadcast announcement in LAN mode
 
+static const int   MAX_USERNAME_LEN   = 40;  //!< port used to send the broadcast announcement in LAN mode
+
 // protocol version
-static const char VARIABLE_IS_NOT_USED *RORNET_VERSION = "RoRnet_2.36"; //!< the protocol version information
+static const char VARIABLE_IS_NOT_USED *RORNET_VERSION = "RoRnet_2.37"; //!< the protocol version information
 
 // REGISTRY STUFF
 static const char VARIABLE_IS_NOT_USED *REPO_SERVER = "api.rigsofrods.com"; //!< the web API URL
@@ -62,14 +64,17 @@ enum {
 
 	MSG2_VERSION,                      //!< server responds with its version
 
-	MSG2_CHAT,                         //!< chat line
+	// deprecated, use the UTF VERSIONS BELOW!
+	MSG2_CHAT_OBSOLETE,                         //!< chat line
 
 	MSG2_SERVER_SETTINGS,              //!< server send client the terrain name: server_info_t
 
 	MSG2_GAME_CMD,                     //!< send to client from server only
 
 	MSG2_USER_INFO,                    //!< user data that is sent from the server to the clients
-	MSG2_PRIVCHAT,                     //!< sent from client to server to send private chat messages
+
+	// deprecated, use the UTF VERSIONS BELOW!
+	MSG2_PRIVCHAT_OBSOLETE,                     //!< sent from client to server to send private chat messages
 
 	// stream functions
 	MSG2_STREAM_REGISTER,              //!< create new stream
@@ -89,6 +94,10 @@ enum {
 
 	// master server interaction
 	MSG2_MASTERINFO,                   //!< master information response
+
+	// added on 16th of October 2011
+	MSG2_UTF_CHAT,                      //!< chat line in UTF encoding
+	MSG2_UTF_PRIVCHAT,                  //!< private chat line in UTF encoding
 };
 
 /*
@@ -189,7 +198,7 @@ typedef struct
 typedef struct
 {
 	unsigned int uniqueid;     //!< user unique id
-	char username[20];         //!< the nickname of the user
+	wchar_t username[MAX_USERNAME_LEN];      //!< the nickname of the user WIDE CHAR!
 	char usertoken[40];        //!< user token
 	char serverpassword[40];   //!< server password
 	char language[10];         //!< user's language. For example "de-DE" or "en-US"

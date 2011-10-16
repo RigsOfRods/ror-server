@@ -110,8 +110,8 @@ struct ban_t
 {
     unsigned int uid;           //!< userid
     char ip[40];                //!< ip of banned client
-    char nickname[32];          //!< Username, this is what they are called to
-    char bannedby_nick[32];     //!< Username, this is what they are called to	
+    char nickname[MAX_USERNAME_LEN];          //!< Username, this is what they are called to
+    char bannedby_nick[MAX_USERNAME_LEN];     //!< Username, this is what they are called to	
     char banmsg[256];           //!< why he got banned
 };
 
@@ -119,8 +119,8 @@ typedef struct chat_save_t
 {
 	int source;
 	std::string time;
-	std::string nick;
-	std::string msg;
+	std::wstring nick;
+	std::wstring msg;
 } chat_save_t;
 
 class Sequencer
@@ -191,9 +191,9 @@ public:
     static int sendGameCommand(int uid, std::string cmd);
     static void serverSayThreadSave(std::string msg, int notto=-1, int type=0);
 	
-	static bool checkNickUnique(char *nick);
+	static bool checkNickUnique(wchar_t *nick);
 	static int getFreePlayerColour();
-	static int authNick(std::string token, std::string &nickname);
+	static int authNick(std::string token, std::wstring &nickname);
 
     static void  unregisterServer();
 

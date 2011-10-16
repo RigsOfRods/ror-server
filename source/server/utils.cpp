@@ -4,10 +4,13 @@
 #include <string>
 #include <vector>
 
+#include <stdlib.h>
 #include <cstdio>
 #include <iostream> 
 #include <locale> 
 
+
+using namespace std;
 
 void tokenize(const std::string& str,
 				std::vector<std::string>& tokens,
@@ -133,7 +136,7 @@ int intlen(int num)
 std::string narrow(const std::wstring& wcs) 
 { 
 	std::vector<char> mbs(wcs.length()); 
-	std::wcstombs(&mbs[0], wcs.c_str(), wcs.length()); 
+	wcstombs(&mbs[0], wcs.c_str(), wcs.length()); 
 
 	std::string str = std::string(mbs.begin(), mbs.end());
 	for (unsigned int i = 0; i<str.size(); i++)
@@ -149,6 +152,6 @@ std::string narrow(const std::wstring& wcs)
 std::wstring widen(const std::string& mbs) 
 { 
 	std::vector<wchar_t> wcs(mbs.length()); 
-	std::mbstowcs(&wcs[0], mbs.c_str(), mbs.length()); 
+	mbstowcs(&wcs[0], mbs.c_str(), mbs.length()); 
 	return std::wstring(wcs.begin(), wcs.end()); 
 }

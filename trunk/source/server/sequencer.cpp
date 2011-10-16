@@ -265,7 +265,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 		// now get a new number
 		while(dupeNick)
 		{
-			swprintf(buf, 255, L"%s_%d", user.username, dupecounter++);
+			swprintf(buf, 255, L"%ls_%d", user.username, dupecounter++);
 			// cut the name to the allowed limit
 			buf[MAX_USERNAME_LEN] = '\0';
 			//Logger::log(LOG_DEBUG,"checked for duplicate nick (2): %s", buf);
@@ -649,6 +649,7 @@ void Sequencer::serverSay(std::string msg, int uid, int type)
 				instance->clients[i]->flow &&
 				(uid==-1 || ((int)instance->clients[i]->user.uniqueid) == uid))
 		{
+
 			wstring s = widen(msg);
 			instance->clients[i]->broadcaster->queueMessage(MSG2_UTF_CHAT, -1, -1, (int)s.size() * sizeof(wchar_t), (char *)s.c_str() );
 		}
@@ -930,8 +931,8 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 	}
 	else if (type == MSG2_UTF_CHAT)
 	{
-		// get wide data
-		const wchar_t *wData = (wchar_t *)data;
+		wchar_t wData[4096];
+		mbstowcs(wData, (const char *)data, MAX_USERNAME_LEN);
 
 		// get an std::wstring from it
 		wstring wstr = wstring(wData);

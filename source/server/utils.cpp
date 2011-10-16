@@ -165,8 +165,9 @@ UTFString tryConvertUTF(const char *buffer)
 			s = UTFString("(UTF conversion error 1)");
 		return s;
 
-	} catch(...)
+	} catch(std::exception &e)
 	{
+		Logger::log(LOG_INFO, UTFString("UTF conversion error: ") + tryConvertUTF(e.what()));
 		return UTFString("(UTF conversion error 2)");
 	}
 	return UTFString("(UTF conversion error 3)");

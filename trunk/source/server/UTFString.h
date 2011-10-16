@@ -29,6 +29,9 @@
 #ifndef UTFSTRING_H__
 #define UTFSTRING_H__
 
+#define MY_INT32  unsigned int
+#define MY_UINT16 unsigned short
+
 // these are explained later
 #include <iterator>
 #include <string>
@@ -116,9 +119,6 @@ WCHAR_UTF16 - should be defined when wchar_t represents UTF-16 code points,
 // IS_NATIVE_WCHAR_T means that wchar_t isn't a typedef of
 // uint16 or uint32.
 #ifdef _MSC_VER
-
-#define MY_INT32  unsigned int
-#define MY_UINT16 unsigned short
 
 // Don't define wchar_t related functions since it'll duplicate
 // with UTFString::code_point related functions when compile

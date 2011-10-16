@@ -120,7 +120,7 @@ std::map< std::string, user_auth_pair_t > UserAuth::getAuthCache()
 	return cache;
 }
 
-int UserAuth::setUserAuth(int flags, std::wstring user_nick, std::string token)
+int UserAuth::setUserAuth(int flags, UTFString user_nick, std::string token)
 {
 	user_auth_pair_t p;
 	p.first = flags;
@@ -136,8 +136,8 @@ int UserAuth::sendUserEvent(std::string user_token, std::string type, std::strin
 	// Only contact the master server if we are allowed to do so
 	if(trustlevel<=1) return 0;
 	
-	char url[1024];
-	sprintf(url, "%s/userevent/?v=0&sh=%s&h=%s&t=%s&a1=%s&a2=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), type.c_str(), arg1.c_str(), arg2.c_str());
+	char url[2048];
+	sprintf(url, "%s/userevent_utf8/?v=0&sh=%s&h=%s&t=%s&a1=%s&a2=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), type.c_str(), arg1.c_str(), arg2.c_str());
 	Logger::log(LOG_DEBUG, "UserAuth event to server: " + std::string(url));
 	HttpMsg resp;
 	if (HTTPGET(url, resp) < 0)
@@ -159,7 +159,7 @@ std::string UserAuth::getNewPlayernameByID(int id)
 	return std::string(tmp);
 }
 
-int UserAuth::resolve(std::string user_token, std::wstring &user_nick, int clientid)
+int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid)
 {
     STACKLOG;
 
@@ -182,15 +182,11 @@ int UserAuth::resolve(std::string user_token, std::wstring &user_nick, int clien
 	if(trustlevel>1)
 	{
 		std::string msg = "";
-		std::wstring resultNick = L"";
+		UTFString resultNick = L"";
 	
 		// not found in cache or local_auth, get auth from masterserver
-		char url[1024];
-		
-		// UTF specials
-		std::string narrow_nick = narrow(user_nick);
-		
-		sprintf(url, "%s/authuser/?c=%s&t=%s&u=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), narrow_nick.c_str());
+		char url[2048];
+		sprintf(url, "%s/authuser_utf8/?c=%s&t=%s&u=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), user_nick.asUTF8_c_str());
 		Logger::log(LOG_DEBUG, "UserAuth query to server: " + std::string(url));
 		HttpMsg resp;
 		if (HTTPGET(url, resp) < 0)

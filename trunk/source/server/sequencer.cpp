@@ -179,7 +179,7 @@ void Sequencer::notifyRoutine()
     instance->notifier->loop();
 }
 
-bool Sequencer::checkNickUnique(const wchar_t *nick)
+bool Sequencer::checkNickUnique(UTFString &nick)
 {
     STACKLOG;
 	// WARNING: be sure that this is only called within a clients_mutex lock!
@@ -188,7 +188,7 @@ bool Sequencer::checkNickUnique(const wchar_t *nick)
 	Sequencer* instance = Instance();
 	for (unsigned int i = 0; i < instance->clients.size(); i++)
 	{
-		if (!wcsncmp(nick, UTF8toWString(instance->clients[i]->user.username).c_str(), MAX_USERNAME_LEN))
+		if (nick.compare(UTFString(instance->clients[i]->user.username)))
 		{
 			return true;
 		}
@@ -226,7 +226,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 	Logger::log(LOG_DEBUG,"got instance in createClient()");
 
     MutexLocker scoped_lock(instance->clients_mutex);
-	bool dupeNick = Sequencer::checkNickUnique(UTF8toWString(user.username).c_str());
+	bool dupeNick = Sequencer::checkNickUnique(tryConvertUTF(user.username));
 	int playerColour = Sequencer::getFreePlayerColour();
 
 	int dupecounter = 2;
@@ -254,26 +254,24 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 
 	if(dupeNick)
 	{
-		wchar_t buf[255] = L"";
-		memset(buf, 0, sizeof(buf));
-
-		Logger::log(LOG_WARN,"found duplicate nick, getting new one: %s", buf);
+		Logger::log(LOG_WARN,"found duplicate nick, getting new one: %s", UTF8toString(user.username).c_str());
 
 		// shorten username so the number will fit (only if its too long already)
-		user.username[MAX_USERNAME_LEN - 4] = '\0';
-
+		UTFString nick = tryConvertUTF(user.username).substr(0, MAX_USERNAME_LEN - 4);
+		UTFString newNick = nick;
 		// now get a new number
 		while(dupeNick)
 		{
-			swprintf(buf, 255, L"%ls_%d", user.username, dupecounter++);
-			// cut the name to the allowed limit
-			buf[MAX_USERNAME_LEN] = '\0';
-			//Logger::log(LOG_DEBUG,"checked for duplicate nick (2): %s", buf);
-			dupeNick = Sequencer::checkNickUnique(buf);
-		}
-		Logger::log(LOG_WARN,"chose alternate username: %s\n", narrow(buf).c_str());
+			char buf[20] = "";
+			sprintf(buf, "_%d", dupecounter++);
 
-		wStringtoUTF8String(user.username, wstring(buf), 255);
+			newNick = nick + UTFString(buf);
+
+			dupeNick = Sequencer::checkNickUnique(newNick);
+		}
+		Logger::log(LOG_WARN,"chose alternate username: %s\n", UTF8toString(newNick).c_str());
+
+		strncpy(user.username, newNick.asUTF8_c_str(), MAX_USERNAME_LEN);
 
 		// we should send him a message about the nickchange later...
 	}
@@ -385,7 +383,7 @@ int Sequencer::getNumClients()
 	return (int)instance->clients.size();
 }
 
-int Sequencer::authNick(std::string token, std::wstring &nickname)
+int Sequencer::authNick(std::string token, UTFString &nickname)
 {
     STACKLOG;
     Sequencer* instance = Instance();
@@ -933,9 +931,9 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 	else if (type == MSG2_UTF_CHAT)
 	{
 		wchar_t wData[4096];
-		mbstowcs(wData, (const char *)data, MAX_USERNAME_LEN);
+		mbstowcs(wData, (const char *)data, 4096);
 
-		// get an std::wstring from it
+		// get an UTFString from it
 		wstring wstr = wstring(wData);
 		
 		// TODO: make logger UTF ready?
@@ -1174,7 +1172,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				instance->chathistory.pop_front();
 			chat_save_t ch;
 			ch.msg    = wstr;
-			ch.nick   = UTF8toWString(instance->clients[pos]->user.username);
+			ch.nick   = tryConvertUTF(instance->clients[pos]->user.username);
 			ch.source = instance->clients[pos]->user.uniqueid;
 			ch.time   = std::string(timestr);
 			instance->chathistory.push_back(ch);

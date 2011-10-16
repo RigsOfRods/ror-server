@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "SocketW.h"
 #include "logger.h"
 #include "config.h"
+#include "utils.h"
 
 #include <stdexcept>
 #include <string>
@@ -187,16 +188,15 @@ void Listener::threadstart()
 			user->authstatus = AUTH_NONE;
 
 			// convert username UTF8->wchar (MB TO WC)
-			wchar_t nick[255];
-			mbstowcs(nick, (const char *)user->username, MAX_USERNAME_LEN);
-			std::wstring nickname = std::wstring(nick);
+			UTFString nickname = tryConvertUTF(user->username);
 			
 			// authenticate
 			int authflags = Sequencer::authNick(std::string(user->usertoken), nickname);
 
 			// now copy the resulting nickname over, server enforced
 			// and back (WC TO MB)
-			wcstombs((char *)user->username, nickname.c_str(), MAX_USERNAME_LEN);
+			const char *newNick = nickname.asUTF8_c_str();
+			strncpy(user->username, newNick, MAX_USERNAME_LEN);
 
 			// save the auth results
 			user->authstatus = authflags;

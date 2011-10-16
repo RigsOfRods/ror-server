@@ -10,6 +10,8 @@
 
 #include "mutexutils.h"
 
+#include "UTFString.h"
+
 #include <string>
 #include <deque>
 
@@ -35,8 +37,8 @@ typedef struct log_save_t
 {
 	LogLevel level;
 	int threadid;
-	std::string time;
-	std::string msg;
+	UTFString time;
+	UTFString msg;
 } log_save_t;
 
 //extern int loglevel;
@@ -48,13 +50,13 @@ public:
 	virtual ~Logger();
 
 	static void log(const LogLevel& level, const char* format, ...);
-	static void log(const LogLevel& level, const std::string& msg);
+	static void log(const LogLevel& level, const UTFString& msg);
 	
-	static void setOutputFile(const std::string& filename);
+	static void setOutputFile(const UTFString& filename);
 	static void setLogLevel(const LogType type, const LogLevel level);
 	static const LogLevel getLogLevel(const LogType type);
 
-	static void setCallback(void (*ptr)(int, std::string msg, std::string msgf));
+	static void setCallback(void (*ptr)(int, UTFString msg, UTFString msgf));
 
 	static std::deque <log_save_t> getLogHistory();
 	static const char *getLoglevelName(int i) { return loglevelname[i]; };
@@ -65,9 +67,9 @@ private:
 	static FILE *file;
 	static LogLevel log_level[2];
 	static const char *loglevelname[];
-	static std::string logfilename;
+	static UTFString logfilename;
 	static bool compress_file;
-	static void (*callback)(int, std::string msg, std::string msgf);
+	static void (*callback)(int, UTFString msg, UTFString msgf);
 	static std::deque <log_save_t> loghistory;
 	static Mutex loghistory_mutex;
 };
@@ -76,10 +78,10 @@ class ScopeLog
 {
 public:
     ScopeLog(const LogLevel& level, const char* format, ...);
-	ScopeLog(const LogLevel& level, const std::string& func);
+	ScopeLog(const LogLevel& level, const UTFString& func);
 	~ScopeLog();
 private:
-	std::string msg;
+	UTFString msg;
 	const LogLevel level;
 };
 

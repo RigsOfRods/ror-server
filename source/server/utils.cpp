@@ -172,7 +172,7 @@ UTFString tryConvertUTF(const char *buffer)
 	return UTFString("(UTF conversion error 3)");
 }
 
-std::string UTF8toString(const char *buffer)
+std::string UTF8BuffertoString(const char *buffer)
 {
 	UTFString u = tryConvertUTF(buffer);
 	return UTF8toString(u);

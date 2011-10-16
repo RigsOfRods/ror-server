@@ -7,6 +7,7 @@
  */
 #include "logger.h"
 #include "pthread.h"
+#include "utils.h"
 #include "mutexutils.h"
 
 #include <ctime>
@@ -26,7 +27,7 @@ Mutex Logger::loghistory_mutex;
 
 // shamelessly taken from:
 // http://senzee.blogspot.com/2006/05/c-formatting-stdstring.html   
-std::string format_arg_list(const char *fmt, va_list args)
+UTFString format_arg_list(const char *fmt, va_list args)
 {
 	if (!fmt) return "";
 	int   result = -1, length = 256;
@@ -39,7 +40,7 @@ std::string format_arg_list(const char *fmt, va_list args)
 		result = vsnprintf(buffer, length, fmt, args);
 		length *= 2;
 	}
-	std::string s(buffer);
+	UTFString s = tryConvertUTF(buffer);
 	delete [] buffer;
 	return s;
 }
@@ -68,7 +69,7 @@ void Logger::log(const LogLevel& level, const char* format, ...)
 	va_end(args);
 }
 
-void Logger::log(const LogLevel& level, const std::string& msg)
+void Logger::log(const LogLevel& level, const UTFString& msg)
 {
 	time_t lotime = time(NULL);
 	char timestr[50];
@@ -80,7 +81,7 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 	timestr[strlen(timestr)-1]=0;
 	
 	if (level >= log_level[LOGTYPE_DISPLAY])
-		printf("%s|t%02d|%5s|%s\n", timestr, ThreadID::getID(), loglevelname[(int)level], msg.c_str());
+		printf("%s|t%02d|%5s|%s\n", timestr, ThreadID::getID(), loglevelname[(int)level], msg.asUTF8_c_str());
 
 	if(file && level >= log_level[LOGTYPE_FILE])
 	{
@@ -92,15 +93,15 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 			file = freopen(logfilename.c_str(), "a+", file);
 		}
 #endif // WIN32
-		fprintf(file, "%s|t%02d|%5s| %s\n", timestr, ThreadID::getID(), loglevelname[(int)level], msg.c_str());
+		fprintf(file, "%s|t%02d|%5s| %s\n", timestr, ThreadID::getID(), loglevelname[(int)level], msg.asUTF8_c_str());
 		fflush(file);
 	}
 
 	if(callback)
 	{
 		char tmp[2048]="";
-		sprintf(tmp, "%s|t%02d|%5s|%s\n", timestr, ThreadID::getID(), loglevelname[(int)level], msg.c_str());
-		callback(level, msg, std::string(tmp));
+		sprintf(tmp, "%s|t%02d|%5s|", timestr, ThreadID::getID(), loglevelname[(int)level]);
+		callback(level, msg, UTFString(tmp) + msg + "\n");
 	}
 
 	// save history
@@ -114,7 +115,7 @@ void Logger::log(const LogLevel& level, const std::string& msg)
 		log_save_t h;
 		h.level = level;
 		h.threadid = ThreadID::getID();
-		h.time = std::string(timestr);
+		h.time = UTFString(timestr);
 		h.msg = msg;
 		loghistory.push_back(h);
 	}
@@ -131,12 +132,12 @@ std::deque <log_save_t> Logger::getLogHistory()
 	return history; // return copied history
 }
 
-void Logger::setOutputFile(const std::string& filename)
+void Logger::setOutputFile(const UTFString& filename)
 {
 	logfilename = filename;
 	if(file)
 		fclose(file);
-	file = fopen(logfilename.c_str(), "a+");
+	file = fopen(logfilename.asUTF8_c_str(), "a+");
 }
 
 void Logger::setLogLevel(const LogType type, const LogLevel level)
@@ -150,13 +151,13 @@ const LogLevel Logger::getLogLevel(const LogType type)
 }
 
 
-void Logger::setCallback(void (*ptr)(int, std::string msg, std::string msgf))
+void Logger::setCallback(void (*ptr)(int, UTFString msg, UTFString msgf))
 {
 	callback = ptr;
 }
 
 // private:
-void (*Logger::callback)(int, std::string msg, std::string msgf) = 0;
+void (*Logger::callback)(int, UTFString msg, UTFString msgf) = 0;
 
 Logger::Logger()
 {
@@ -170,7 +171,7 @@ FILE *Logger::file = 0;
 LogLevel Logger::log_level[2] = {LOG_VERBOSE, LOG_INFO};
 const char *Logger::loglevelname[] = {"STACK", "DEBUG", "VERBO", "INFO", "WARN", "ERROR"};
 bool Logger::compress_file = false;
-std::string Logger::logfilename = "server.log";
+UTFString Logger::logfilename = "server.log";
 
 
 // SCOPELOG
@@ -180,12 +181,12 @@ ScopeLog::ScopeLog(const LogLevel& level, const char* format, ...)
 {
     va_list args;
     va_start(args, format);
-    msg += format_arg_list(format, args);
+    msg = msg + format_arg_list(format, args);
     va_end(args);
     
     Logger::log(LOG_STACK, "ENTER - %s", msg.c_str());
 }
-ScopeLog::ScopeLog(const LogLevel& level, const std::string& func)
+ScopeLog::ScopeLog(const LogLevel& level, const UTFString& func)
 : msg(func), level(level)
 {
     Logger::log(LOG_STACK, "ENTER - %s", msg.c_str());

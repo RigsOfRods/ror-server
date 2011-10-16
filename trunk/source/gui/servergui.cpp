@@ -57,8 +57,8 @@ public:
 typedef struct log_queue_element_t
 {
 	int level;
-	std::string msg;
-	std::string msgf;
+	UTFString msg;
+	UTFString msgf;
 } log_queue_element_t;
 
 // Define a new frame type: this is going to be our main frame
@@ -68,7 +68,7 @@ public:
 	// ctor(s)
 	MyDialog(const wxString& title, MyApp *_app);
 
-	void logCallback(int level, std::string msg, std::string msgf); //called by callback function
+	void logCallback(int level, UTFString msg, UTFString msgf); //called by callback function
 private:
 	MyApp *app;
 	wxButton *startBtn, *stopBtn, *exitBtn, *pubipBtn;
@@ -163,12 +163,12 @@ bool MyApp::OnInit()
 	return true;
 }
 
-void pureLogCallback(int level, std::string msg, std::string msgf)
+void pureLogCallback(int level, UTFString msg, UTFString msgf)
 {
 	dialogInstance->logCallback(level, msg, msgf);
 }
 
-void MyDialog::logCallback(int level, std::string msg, std::string msgf)
+void MyDialog::logCallback(int level, UTFString msg, UTFString msgf)
 {
 	if(level < loglevel) return;
 	
@@ -432,12 +432,12 @@ void MyDialog::updateLogTab()
 			else if(h.level == LOG_STACK)
 				txtConsole->SetDefaultStyle(wxTextAttr(wxColour(150,150,150)));
 
-			const char* cstr = h.msgf.c_str();
-			for( ; *cstr ; ++cstr )
-				if( *cstr == '\n' )
+			UTFString u = h.msgf;
+			for(unsigned int i=0; i < u.size(); i++)
+				if( u[i] == '\n' )
 					++lines;
 
-			wxString wmsg = conv(h.msgf);
+			wxString wmsg = wxString(u.asWStr());
 			txtConsole->AppendText(wmsg);
 		}
 		txtConsole->ScrollLines(lines + 1);

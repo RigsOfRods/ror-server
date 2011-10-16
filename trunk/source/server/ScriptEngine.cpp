@@ -397,14 +397,13 @@ void ScriptEngine::playerAdded(int uid)
 	context->Execute();
 }
 
-int ScriptEngine::playerChat(int uid, const wchar_t *msg)
+int ScriptEngine::playerChat(int uid, UTFString msg)
 {
 	if(!engine || playerChatFunctionPtr<0) return -1;
 	if(!context) context = engine->CreateContext();
 	context->Prepare(playerChatFunctionPtr);
 
-	std::wstring wstr = std::wstring((wchar_t*) msg);
-	std::string msgstr = narrow(wstr);
+	std::string msgstr = UTF8toString(msg);
 
 	context->SetArgDWord(0, uid);
 	context->SetArgObject(1, (void *)&msgstr);

@@ -244,7 +244,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 	Logger::log(LOG_DEBUG,"searching free slot for new client...");
 	if( instance->clients.size() >= Config::getMaxClients() )
 	{
-		Logger::log(LOG_WARN,"join request from '%s' on full server: rejecting!", UTF8toString(user.username).c_str());
+		Logger::log(LOG_WARN,"join request from '%s' on full server: rejecting!", UTF8BuffertoString(user.username).c_str());
 		// set a low time out because we don't want to cause a back up of
 		// connecting clients
 		sock->set_timeout( 10, 0 );
@@ -254,7 +254,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 
 	if(dupeNick)
 	{
-		Logger::log(LOG_WARN,"found duplicate nick, getting new one: %s", UTF8toString(user.username).c_str());
+		Logger::log(LOG_WARN,"found duplicate nick, getting new one: %s", UTF8BuffertoString(user.username).c_str());
 
 		// shorten username so the number will fit (only if its too long already)
 		UTFString nick = tryConvertUTF(user.username).substr(0, MAX_USERNAME_LEN - 4);
@@ -286,8 +286,10 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 	to_add->user.colournum  = playerColour;
 	to_add->user.authstatus = user.authstatus;
 	
-	// log some info about this client
-	Logger::log(LOG_INFO, "New client: %s (%s), using %s %s, with token %s", UTF8toString(user.username).c_str(), user.language, user.clientname, user.clientversion, std::string(user.usertoken).substr(0,40).c_str());
+	// log some info about this client (in UTF8)
+	char buf[2048];
+	sprintf(buf, "(%s), using %s %s, with token %s", user.language, user.clientname, user.clientversion, std::string(user.usertoken).substr(0,40).c_str());
+	Logger::log(LOG_INFO, UTFString("New client: ") + tryConvertUTF(user.username) + tryConvertUTF(buf));
 
 	// create new class instances for the receiving and sending thread
 	to_add->receiver    = new Receiver();
@@ -364,7 +366,7 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 			char playerdata[1024] = "";
 			sprintf(playerdata, "%d;%s;%s;%s;%d\n",
 					i,
-					UTF8toString(instance->clients[i]->user.username).c_str(),
+					UTF8BuffertoString(instance->clients[i]->user.username).c_str(),
 					instance->clients[i]->sock->get_peerAddr(&error).c_str(),
 					authst,
 					(int)instance->clients[i]->user.uniqueid
@@ -420,7 +422,7 @@ void Sequencer::killerthreadstart()
 		instance->killqueue.pop();
 		instance->killer_mutex.unlock();
 
-		Logger::log(LOG_DEBUG,"Killer called to kill %s", UTF8toString(to_del->user.username).c_str() );
+		Logger::log(LOG_DEBUG,"Killer called to kill %s", UTF8BuffertoString(to_del->user.username).c_str() );
 		// CRITICAL ORDER OF EVENTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		// stop the broadcaster first, then disconnect the socket.
 		// other wise there is a chance (being concurrent code) that the
@@ -456,7 +458,7 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError)
 	// send an event if user is rankend and if we are a official server
 	if(instance->authresolver && (instance->clients[pos]->user.authstatus & AUTH_RANKED))
 	{
-		instance->authresolver->sendUserEvent(instance->clients[pos]->user.usertoken, (isError?"crash":"leave"), UTF8toString(instance->clients[pos]->user.username), "");
+		instance->authresolver->sendUserEvent(instance->clients[pos]->user.usertoken, (isError?"crash":"leave"), UTF8BuffertoString(instance->clients[pos]->user.username), "");
 	}
 
 #ifdef WITH_ANGELSCRIPT
@@ -674,7 +676,7 @@ bool Sequencer::kick(int kuid, int modUID, const char *msg)
 
 	char kickmsg[1024] = "";
 	strcat(kickmsg, "kicked by ");
-	strcat(kickmsg, UTF8toString(instance->clients[posMod]->user.username).c_str());
+	strcat(kickmsg, UTF8BuffertoString(instance->clients[posMod]->user.username).c_str());
 	if(msg)
 	{
 		strcat(kickmsg, " for ");
@@ -682,10 +684,10 @@ bool Sequencer::kick(int kuid, int modUID, const char *msg)
 	}
 	
 	char kickmsg2[1024] = "";
-	sprintf(kickmsg2, "player %s was %s", UTF8toString(instance->clients[pos]->user.username).c_str(), kickmsg);
+	sprintf(kickmsg2, "player %s was %s", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), kickmsg);
 	serverSay(kickmsg2, -1, FROM_SERVER);
 	
-	Logger::log(LOG_VERBOSE, "player '%s' kicked by '%s'", UTF8toString(instance->clients[pos]->user.username).c_str(), UTF8toString(instance->clients[posMod]->user.username).c_str());
+	Logger::log(LOG_VERBOSE, "player '%s' kicked by '%s'", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), UTF8BuffertoString(instance->clients[posMod]->user.username).c_str());
 	disconnect(instance->clients[pos]->user.uniqueid, kickmsg);
 	return true;
 }
@@ -706,12 +708,12 @@ bool Sequencer::ban(int buid, int modUID, const char *msg)
 
 	b->uid = buid;
 	if(msg) strncpy(b->banmsg, msg, 256);
-	strncpy(b->bannedby_nick, UTF8toString(instance->clients[posMod]->user.username).c_str(), MAX_USERNAME_LEN);
+	strncpy(b->bannedby_nick, UTF8BuffertoString(instance->clients[posMod]->user.username).c_str(), MAX_USERNAME_LEN);
 	strncpy(b->ip, instance->clients[pos]->sock->get_peerAddr(&error).c_str(), 16);
-	strncpy(b->nickname, UTF8toString(instance->clients[pos]->user.username).c_str(), MAX_USERNAME_LEN);
+	strncpy(b->nickname, UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), MAX_USERNAME_LEN);
 	Logger::log(LOG_DEBUG, "adding ban, size: %d", instance->bans.size());
 	instance->bans.push_back(b);
-	Logger::log(LOG_VERBOSE, "new ban added '%s' by '%s'", UTF8toString(instance->clients[pos]->user.username).c_str(), UTF8toString(instance->clients[posMod]->user.username).c_str());
+	Logger::log(LOG_VERBOSE, "new ban added '%s' by '%s'", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), UTF8BuffertoString(instance->clients[posMod]->user.username).c_str());
 
 	char tmp[1024]="";
 	if(msg)
@@ -740,10 +742,10 @@ void Sequencer::ban(int buid, const char *msg)
 		if(msg) strncpy(b->banmsg, msg, 256);
 		strncpy(b->bannedby_nick, "rorserver", MAX_USERNAME_LEN);
 		strncpy(b->ip, instance->clients[pos]->sock->get_peerAddr(&error).c_str(), 16);
-		strncpy(b->nickname, UTF8toString(instance->clients[pos]->user.username).c_str(), MAX_USERNAME_LEN);
+		strncpy(b->nickname, UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), MAX_USERNAME_LEN);
 		Logger::log(LOG_DEBUG, "adding ban, size: %d", instance->bans.size());
 		instance->bans.push_back(b);
-		Logger::log(LOG_VERBOSE, "new ban added '%s' by rorserver", UTF8toString(instance->clients[pos]->user.username).c_str());
+		Logger::log(LOG_VERBOSE, "new ban added '%s' by rorserver", UTF8BuffertoString(instance->clients[pos]->user.username).c_str());
 
 		char tmp[1024]="";
 		if(msg)
@@ -796,7 +798,7 @@ void Sequencer::streamDebug()
 	{
 		if (instance->clients[i]->status == USED)
 		{
-			Logger::log(LOG_VERBOSE, " * %d %s (slot %d):", instance->clients[i]->user.uniqueid, UTF8toString(instance->clients[i]->user.username).c_str(), i);
+			Logger::log(LOG_VERBOSE, " * %d %s (slot %d):", instance->clients[i]->user.uniqueid, UTF8BuffertoString(instance->clients[i]->user.username).c_str(), i);
 			if(!instance->clients[i]->streams.size())
 				Logger::log(LOG_VERBOSE, "  * no streams registered for user %d", instance->clients[i]->user.uniqueid);
 			else
@@ -860,14 +862,14 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 		if(instance->clients[pos]->streams.size() >= Config::getMaxVehicles()+NON_VEHICLE_STREAMS)
 		{
 			// This user has too many vehicles, we drop the stream and then disconnect the user
-			Logger::log(LOG_INFO, "%s(%d) has too many streams. Stream dropped, user kicked.", UTF8toString(instance->clients[pos]->user.username).c_str(), instance->clients[pos]->user.uniqueid);
+			Logger::log(LOG_INFO, "%s(%d) has too many streams. Stream dropped, user kicked.", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), instance->clients[pos]->user.uniqueid);
 
 			// send a message to the user.
 			serverSay("You are now being kicked for having too many vehicles. Please rejoin.",  instance->clients[pos]->user.uniqueid, FROM_SERVER);
 
 			// broadcast a general message that this user was auto-kicked
 			char sayMsg[128] = "";
-			sprintf(sayMsg, "%s was auto-kicked for having too many vehicles (limit: %d)", UTF8toString(instance->clients[pos]->user.username).c_str(), Config::getMaxVehicles());
+			sprintf(sayMsg, "%s was auto-kicked for having too many vehicles (limit: %d)", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), Config::getMaxVehicles());
 			serverSay(sayMsg, -1, FROM_SERVER);
 			disconnect(instance->clients[pos]->user.uniqueid, "You have too many vehicles. Please rejoin.", false);
 			publishMode = 0; // drop
@@ -921,47 +923,43 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 	else if (type==MSG2_USER_LEAVE)
 	{
 		// from client
-		Logger::log(LOG_INFO, "user %s disconnects on request", UTF8toString(instance->clients[pos]->user.username).c_str());
+		Logger::log(LOG_INFO, "user %s disconnects on request", UTF8BuffertoString(instance->clients[pos]->user.username).c_str());
 
 		//char tmp[1024];
-		//sprintf(tmp, "user %s disconnects on request", UTF8toString(instance->clients[pos]->user.username).c_str());
+		//sprintf(tmp, "user %s disconnects on request", UTF8BuffertoString(instance->clients[pos]->user.username).c_str());
 		//serverSay(std::string(tmp), -1);
 		disconnect(instance->clients[pos]->user.uniqueid, "disconnected on request", false);
 	}
 	else if (type == MSG2_UTF_CHAT)
 	{
-		wchar_t wData[4096];
-		mbstowcs(wData, (const char *)data, 4096);
-
 		// get an UTFString from it
-		wstring wstr = wstring(wData);
+		UTFString str = tryConvertUTF(data);
 		
-		// TODO: make logger UTF ready?
-		Logger::log(LOG_INFO, "CHAT| %s: %s", UTF8toString(instance->clients[pos]->user.username).c_str(), narrow(wstr).c_str());
+		Logger::log(LOG_INFO, UTFString("CHAT| ") + tryConvertUTF(instance->clients[pos]->user.username) + ": " + str);
 		publishMode=3;
 
 		// no broadcast of server commands!
-		if(wstr[0] == '!') publishMode=0;
+		if(str[0] == '!') publishMode=0;
 
 #ifdef WITH_ANGELSCRIPT
 		if(instance->script)
 		{
-			int scriptpub = instance->script->playerChat(instance->clients[pos]->user.uniqueid, wData);
+			int scriptpub = instance->script->playerChat(instance->clients[pos]->user.uniqueid, str);
 			if(scriptpub>0) publishMode = scriptpub;
 		}
 #endif //WITH_ANGELSCRIPT
-		if(!wcscmp(wData, L"!help"))
+		if(str == UTFString("!help"))
 		{
 			serverSay(std::string("builtin commands:"), uid);
 			serverSay(std::string("!version, !list, !say, !bans, !ban, !unban, !kick, !vehiclelimit"), uid);
 			serverSay(std::string("!website, !irc, !owner, !voip, !rules, !motd"), uid);
 		}
 
-		if(!wcscmp(wData, L"!version"))
+		if(str == UTFString("!version"))
 		{
 			serverSay(std::string(VERSION), uid);
 		}
-		else if(!wcscmp(wData, L"!list"))
+		else if(str == UTFString("!list"))
 		{
 			serverSay(std::string(" uid | auth   | nick"), uid);
 			for (unsigned int i = 0; i < instance->clients.size(); i++)
@@ -976,11 +974,11 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				if(instance->clients[i]->user.authstatus & AUTH_BANNED) strcat(authst, "X");\
 
 				char tmp2[256]="";
-				sprintf(tmp2, "% 3d | %-6s | %-20s", instance->clients[i]->user.uniqueid, authst, UTF8toString(instance->clients[i]->user.username).c_str());
+				sprintf(tmp2, "% 3d | %-6s | %-20s", instance->clients[i]->user.uniqueid, authst, UTF8BuffertoString(instance->clients[i]->user.username).c_str());
 				serverSay(std::string(tmp2), uid);
 			}
 		}
-		else if(!wcsncmp(wData, L"!bans", 5))
+		else if(str.substr(0, 5) == UTFString("!bans"))
 		{
 			serverSay(std::string("uid | IP              | nickname             | banned by"), uid);
 			for (unsigned int i = 0; i < instance->bans.size(); i++)
@@ -994,13 +992,12 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				serverSay(std::string(tmp), uid);
 			}
 		}
-		else if(!wcsncmp(wData, L"!unban", 6) && wcslen(wData) > 7)
+		else if(str.substr(0, 7) == UTFString("!unban "))
 		{
 			if(instance->clients[pos]->user.authstatus & AUTH_MOD || instance->clients[pos]->user.authstatus & AUTH_ADMIN)
 			{
 				int buid=-1;
-				const wchar_t *prefix = L"!unban";
-				int res = swscanf(wData+wcslen(prefix), L"%d", &buid);
+				int res = sscanf(str.substr(7).asUTF8_c_str(), "%d", &buid);
 				if(res != 1 || buid == -1)
 				{
 					serverSay(std::string("usage: !unban <uid>"), uid);
@@ -1018,14 +1015,13 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				serverSay(std::string("You are not authorized to unban people!"), uid);
 			}
 		}
-		else if(!wcsncmp(wData, L"!ban ", 5) && wcslen(wData) > 5)
+		else if(str.substr(0, 5) == UTFString("!ban "))
 		{
 			if(instance->clients[pos]->user.authstatus & AUTH_MOD || instance->clients[pos]->user.authstatus & AUTH_ADMIN)
 			{
 				int buid=-1;
 				char banmsg_tmp[256]="";
-				const wchar_t *prefix = L"!ban ";
-				int res = swscanf(wData+wcslen(prefix), L"%d %s", &buid, banmsg_tmp);
+				int res = sscanf(str.substr(6).asUTF8_c_str(), "%d %s", &buid, banmsg_tmp);
 				std::string banMsg = std::string(banmsg_tmp);
 				banMsg = trim(banMsg);
 				if(res != 2 || buid == -1 || !banMsg.size())
@@ -1034,7 +1030,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 					serverSay(std::string("example: !ban 3 swearing"), uid);
 				} else
 				{
-					bool banned = ban(buid, uid, narrow(wstr).substr(6+intlen(buid),256).c_str());
+					bool banned = ban(buid, uid, narrow(str.asWStr()).substr(6+intlen(buid),256).c_str());
 					if(!banned)
 						serverSay(std::string("kick + ban not successful: uid not found!"), uid);
 				}
@@ -1044,14 +1040,13 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				serverSay(std::string("You are not authorized to ban people!"), uid);
 			}
 		}
-		else if(!wcsncmp(wData, L"!kick ", 6) && wcslen(wData) > 6)
+		else if(str.substr(0, 6) == UTFString("!kick "))
 		{
 			if(instance->clients[pos]->user.authstatus & AUTH_MOD || instance->clients[pos]->user.authstatus & AUTH_ADMIN)
 			{
 				int kuid=-1;
 				char kickmsg_tmp[256]="";
-				const wchar_t *prefix = L"!kick ";
-				int res = swscanf(wData+wcslen(prefix), L"%d %s", &kuid, kickmsg_tmp);
+				int res = sscanf(str.substr(6).asUTF8_c_str(), "%d %s", &kuid, kickmsg_tmp);
 				std::string kickMsg = std::string(kickmsg_tmp);
 				kickMsg = trim(kickMsg);
 				if(res != 2 || kuid == -1 || !kickMsg.size())
@@ -1060,7 +1055,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 					serverSay(std::string("example: !kick 3 bye!"), uid);
 				} else
 				{
-					bool kicked  = kick(kuid, uid, narrow(wstr).substr(7+intlen(kuid),256).c_str());
+					bool kicked  = kick(kuid, uid, narrow(str.asWStr()).substr(7+intlen(kuid),256).c_str());
 					if(!kicked)
 						serverSay(std::string("kick not successful: uid not found!"), uid);
 				}
@@ -1070,20 +1065,19 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				serverSay(std::string("You are not authorized to kick people!"), uid);
 			}
 		}
-		else if(!wcscmp(wData, L"!vehiclelimit"))
+		else if(str == UTFString("!vehiclelimit"))
 		{
 			char sayMsg[128] = "";
 			sprintf(sayMsg, "The vehicle-limit on this server is set on %d", Config::getMaxVehicles());
 			serverSay(sayMsg, uid, FROM_SERVER);
 		}
-		else if(!wcsncmp(wData, L"!say ", 5) && wcslen(wData) > 5)
+		else if(str.substr(0, 5) == UTFString("!say "))
 		{
 			if(instance->clients[pos]->user.authstatus & AUTH_MOD || instance->clients[pos]->user.authstatus & AUTH_ADMIN)
 			{
 				int kuid=-2;
 				char saymsg_tmp[256]="";
-				const wchar_t *prefix = L"!say ";
-				int res = swscanf(wData+wcslen(prefix), L"%d %s", &kuid, saymsg_tmp);
+				int res = sscanf(str.substr(5).asUTF8_c_str(), "%d %s", &kuid, saymsg_tmp);
 				std::string sayMsg = std::string(saymsg_tmp);
 
 				sayMsg = trim(sayMsg);
@@ -1093,7 +1087,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 					serverSay(std::string("example: !say 3 Wecome to this server!"), uid);
 				} else
 				{
-					serverSay(narrow(wstr).substr(6+intlen(kuid),256), kuid, FROM_HOST);
+					serverSay(narrow(str.asWStr()).substr(6+intlen(kuid),256), kuid, FROM_HOST);
 				}
 
 			} else
@@ -1102,7 +1096,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				serverSay(std::string("You are not authorized to use this command!"), uid);
 			}
 		}
-		else if(!wcscmp(wData, L"!website") || !wcscmp(wData, L"!www"))
+		else if(str == UTFString("!website") || str == UTFString("!www"))
 		{
 			if(!Config::getWebsite().empty())
 			{
@@ -1111,7 +1105,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				serverSay(sayMsg, uid, FROM_SERVER);
 			}
 		}
-		else if(!wcscmp(wData, L"!irc"))
+		else if(str == UTFString("!irc"))
 		{
 			if(!Config::getIRC().empty())
 			{
@@ -1120,7 +1114,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				serverSay(sayMsg, uid, FROM_SERVER);
 			}
 		}
-		else if(!wcscmp(wData, L"!owner"))
+		else if(str == UTFString("!owner"))
 		{
 			if(!Config::getOwner().empty())
 			{
@@ -1129,7 +1123,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				serverSay(sayMsg, uid, FROM_SERVER);
 			}
 		}
-		else if(!wcscmp(wData, L"!voip"))
+		else if(str == UTFString("!voip"))
 		{
 			if(!Config::getVoIP().empty())
 			{
@@ -1138,7 +1132,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				serverSay(sayMsg, uid, FROM_SERVER);
 			}
 		}
-		else if(!wcscmp(wData, L"!rules"))
+		else if(str == UTFString("!rules"))
 		{
 			if(!Config::getRulesFile().empty())
 			{
@@ -1154,7 +1148,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				}
 			}
 		}
-		else if(!wcscmp(wData, L"!motd"))
+		else if(str == UTFString("!motd"))
 		{
 			sendMOTD(uid);
 		}
@@ -1171,7 +1165,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			if(instance->chathistory.size() > 500)
 				instance->chathistory.pop_front();
 			chat_save_t ch;
-			ch.msg    = wstr;
+			ch.msg    = str;
 			ch.nick   = tryConvertUTF(instance->clients[pos]->user.username);
 			ch.source = instance->clients[pos]->user.uniqueid;
 			ch.time   = std::string(timestr);
@@ -1364,14 +1358,14 @@ void Sequencer::printStats()
 						instance->clients[i]->user.uniqueid, "-",
 						authst,
 						instance->clients[i]->user.colournum,
-						UTF8toString(instance->clients[i]->user.username).c_str());
+						UTF8BuffertoString(instance->clients[i]->user.username).c_str());
 			else
 				Logger::log(LOG_INFO, "%4i Used %5i %-16s % 4s %d, %s", i,
 						instance->clients[i]->user.uniqueid,
 						instance->clients[i]->sock->get_peerAddr(&error).c_str(),
 						authst,
 						instance->clients[i]->user.colournum,
-						UTF8toString(instance->clients[i]->user.username).c_str());
+						UTF8BuffertoString(instance->clients[i]->user.username).c_str());
 		}
 		Logger::log(LOG_INFO, "--------------------------------------------------");
 		int timediff = Messaging::getTime() - instance->startTime;

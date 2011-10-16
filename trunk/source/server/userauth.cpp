@@ -219,12 +219,12 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
 		if(authlevel & AUTH_MOD) strcat(authst, "M");
 		if(authlevel & AUTH_RANKED) strcat(authst, "R");
 		if(authlevel & AUTH_BOT) strcat(authst, "B");
-		Logger::log(LOG_DEBUG,"User Auth Result: " + std::string(authst) + " / " + narrow(resultNick) + " / " + msg);
+		Logger::log(LOG_DEBUG, UTFString("User Auth Result: ") + tryConvertUTF(authst) + " / " + (resultNick) + " / " + tryConvertUTF(msg.c_str()));
 
 		if(resultNick == L"error" || resultNick == L"reserved" || resultNick == L"notranked")
 		{
 			user_nick = widen(getNewPlayernameByID(clientid));
-			Logger::log(LOG_DEBUG, "got new random name for player: " + narrow(user_nick));
+			Logger::log(LOG_DEBUG, UTFString("got new random name for player: ") + user_nick);
 			return AUTH_NONE;
 		}
 

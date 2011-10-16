@@ -48,6 +48,6 @@ std::wstring widen(const std::string& mbs);
 
 UTFString tryConvertUTF(const char *buffer);
 
+std::string UTF8BuffertoString(const char *buffer);
 std::string UTF8toString(UTFString &u);
-std::string UTF8toString(const char *buffer);
 #endif /*UTILS_HPP_*/

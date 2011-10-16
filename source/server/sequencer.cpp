@@ -291,7 +291,10 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 	
 	// log some info about this client (in UTF8)
 	char buf[2048];
-	sprintf(buf, "(%s), using %s %s, with token %s", user.language, user.clientname, user.clientversion, std::string(user.usertoken).substr(0,40).c_str());
+	if(strlen(user.usertoken) > 0)
+		sprintf(buf, " (%s), using %s %s, with token %s", user.language, user.clientname, user.clientversion, std::string(user.usertoken).substr(0,40).c_str());
+	else
+		sprintf(buf, " (%s), using %s %s, without token", user.language, user.clientname, user.clientversion);
 	Logger::log(LOG_INFO, UTFString("New client: ") + tryConvertUTF(user.username) + tryConvertUTF(buf));
 
 	// create new class instances for the receiving and sending thread

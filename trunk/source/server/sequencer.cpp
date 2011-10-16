@@ -31,6 +31,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "utils.h"
 #include "ScriptEngine.h"
 
+#include <string>
 #include <iostream>
 #include <stdexcept>
 #include <sstream>
@@ -264,7 +265,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 		// now get a new number
 		while(dupeNick)
 		{
-			wsprintf(buf, L"%s_%d", user.username, dupecounter++);
+			swprintf(buf, 255, L"%s_%d", user.username, dupecounter++);
 			// cut the name to the allowed limit
 			buf[MAX_USERNAME_LEN] = '\0';
 			//Logger::log(LOG_DEBUG,"checked for duplicate nick (2): %s", buf);
@@ -998,7 +999,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			if(instance->clients[pos]->user.authstatus & AUTH_MOD || instance->clients[pos]->user.authstatus & AUTH_ADMIN)
 			{
 				int buid=-1;
-				wchar_t *prefix = L"!unban";
+				const wchar_t *prefix = L"!unban";
 				int res = swscanf(wData+wcslen(prefix), L"%d", &buid);
 				if(res != 1 || buid == -1)
 				{
@@ -1023,7 +1024,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			{
 				int buid=-1;
 				char banmsg_tmp[256]="";
-				wchar_t *prefix = L"!ban ";
+				const wchar_t *prefix = L"!ban ";
 				int res = swscanf(wData+wcslen(prefix), L"%d %s", &buid, banmsg_tmp);
 				std::string banMsg = std::string(banmsg_tmp);
 				banMsg = trim(banMsg);
@@ -1049,7 +1050,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			{
 				int kuid=-1;
 				char kickmsg_tmp[256]="";
-				wchar_t *prefix = L"!kick ";
+				const wchar_t *prefix = L"!kick ";
 				int res = swscanf(wData+wcslen(prefix), L"%d %s", &kuid, kickmsg_tmp);
 				std::string kickMsg = std::string(kickmsg_tmp);
 				kickMsg = trim(kickMsg);
@@ -1081,7 +1082,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			{
 				int kuid=-2;
 				char saymsg_tmp[256]="";
-				wchar_t *prefix = L"!say ";
+				const wchar_t *prefix = L"!say ";
 				int res = swscanf(wData+wcslen(prefix), L"%d %s", &kuid, saymsg_tmp);
 				std::string sayMsg = std::string(saymsg_tmp);
 

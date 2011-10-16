@@ -88,9 +88,9 @@ void Logger::log(const LogLevel& level, const UTFString& msg)
 #ifndef WIN32
 		// check if we need to reopen the file (i.e. moved by logrotate)
 		struct stat mystat;
-		if (stat(logfilename.c_str(), &mystat))
+		if (stat(logfilename.asUTF8_c_str(), &mystat))
 		{
-			file = freopen(logfilename.c_str(), "a+", file);
+			file = freopen(logfilename.asUTF8_c_str(), "a+", file);
 		}
 #endif // WIN32
 		fprintf(file, "%s|t%02d|%5s| %s\n", timestr, ThreadID::getID(), loglevelname[(int)level], msg.asUTF8_c_str());

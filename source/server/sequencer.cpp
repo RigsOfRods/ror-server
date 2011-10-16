@@ -226,8 +226,10 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 	//try to find a place for him
 	Logger::log(LOG_DEBUG,"got instance in createClient()");
 
-    MutexLocker scoped_lock(instance->clients_mutex);
-	bool dupeNick = Sequencer::checkNickUnique(tryConvertUTF(user.username));
+	MutexLocker scoped_lock(instance->clients_mutex);
+	
+	UTFString nick = tryConvertUTF(user.username);
+    	bool dupeNick = Sequencer::checkNickUnique(nick);
 	int playerColour = Sequencer::getFreePlayerColour();
 
 	int dupecounter = 2;

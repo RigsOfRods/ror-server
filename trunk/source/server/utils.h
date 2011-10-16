@@ -40,4 +40,9 @@ std::string hexdump(void *pAddressIn, long  lSize);
 
 int intlen(int num);
 
+// Prototype for conversion functions
+std::string narrow(const std::wstring& wcs);
+std::wstring widen(const std::string& mbs);
+
+
 #endif /*UTILS_HPP_*/

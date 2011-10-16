@@ -23,7 +23,7 @@ public:
 
     void playerDeleted(int uid, int crash);
     void playerAdded(int uid);
-    int playerChat(int uid, char *msg);
+    int playerChat(int uid, const wchar_t *msg);
     int framestep(float dt);
 
 	void timerLoop();

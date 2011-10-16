@@ -87,7 +87,7 @@ int UserAuth::readConfig(const char* authFile)
 		}
 		int authmode = AUTH_NONE;
 		char token[256];
-		char user_nick[20] = "";
+		char user_nick[40] = "";
 		int res = sscanf(line, "%d %s %s", &authmode, token, user_nick);
 		if(res != 3 && res != 2)
 		{
@@ -95,9 +95,9 @@ int UserAuth::readConfig(const char* authFile)
 			continue;
 		}
 		Logger::log(LOG_DEBUG, "adding entry to local auth cache, size: %d", local_auth.size());
-		std::pair< int, std::string > p;
+		user_auth_pair_t p;
 		p.first = authmode;
-		p.second = std::string(user_nick);
+		p.second = widen(std::string(user_nick));
 		local_auth[std::string(token)] = p;
 	}
 	Logger::log(LOG_INFO, "found %d auth overrides in the authorizations file!",  local_auth.size());
@@ -115,14 +115,14 @@ void UserAuth::clearCache()
 	local_auth.clear();
 }
 
-std::map< std::string, std::pair<int, std::string> > UserAuth::getAuthCache()
+std::map< std::string, user_auth_pair_t > UserAuth::getAuthCache()
 {
 	return cache;
 }
 
-int UserAuth::setUserAuth(int flags, std::string user_nick, std::string token)
+int UserAuth::setUserAuth(int flags, std::wstring user_nick, std::string token)
 {
-	std::pair< int, std::string > p;
+	user_auth_pair_t p;
 	p.first = flags;
 	p.second = user_nick;
 	local_auth[token] = p;
@@ -159,7 +159,7 @@ std::string UserAuth::getNewPlayernameByID(int id)
 	return std::string(tmp);
 }
 
-int UserAuth::resolve(std::string user_token, std::string &user_nick, int clientid)
+int UserAuth::resolve(std::string user_token, std::wstring &user_nick, int clientid)
 {
     STACKLOG;
 
@@ -182,11 +182,15 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
 	if(trustlevel>1)
 	{
 		std::string msg = "";
-		std::string resultNick = "";
+		std::wstring resultNick = L"";
 	
 		// not found in cache or local_auth, get auth from masterserver
 		char url[1024];
-		sprintf(url, "%s/authuser/?c=%s&t=%s&u=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), user_nick.c_str());
+		
+		// UTF specials
+		std::string narrow_nick = narrow(user_nick);
+		
+		sprintf(url, "%s/authuser/?c=%s&t=%s&u=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), narrow_nick.c_str());
 		Logger::log(LOG_DEBUG, "UserAuth query to server: " + std::string(url));
 		HttpMsg resp;
 		if (HTTPGET(url, resp) < 0)
@@ -208,7 +212,7 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
 		}
 		
 		authlevel = atoi(args[0].c_str());
-		resultNick = args[1];
+		resultNick = widen(args[1]);
 		if(args.size() > 2)
 			msg = args[2];
 
@@ -219,12 +223,12 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
 		if(authlevel & AUTH_MOD) strcat(authst, "M");
 		if(authlevel & AUTH_RANKED) strcat(authst, "R");
 		if(authlevel & AUTH_BOT) strcat(authst, "B");
-		Logger::log(LOG_DEBUG,"User Auth Result: " + std::string(authst) + " / " + resultNick + " / " + msg);
+		Logger::log(LOG_DEBUG,"User Auth Result: " + std::string(authst) + " / " + narrow(resultNick) + " / " + msg);
 
-		if(resultNick == "error" || resultNick == "reserved" || resultNick == "notranked")
+		if(resultNick == L"error" || resultNick == L"reserved" || resultNick == L"notranked")
 		{
-			user_nick = getNewPlayernameByID(clientid);
-			Logger::log(LOG_DEBUG, "got new random name for player: " + user_nick);
+			user_nick = widen(getNewPlayernameByID(clientid));
+			Logger::log(LOG_DEBUG, "got new random name for player: " + narrow(user_nick));
 			return AUTH_NONE;
 		}
 
@@ -245,7 +249,7 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
 	// cache result if ranked or higher
 	if(authlevel > AUTH_NONE)
 	{
-		std::pair< int, std::string > p;
+		user_auth_pair_t p;
 		p.first = authlevel;
 		p.second = user_nick;
 		

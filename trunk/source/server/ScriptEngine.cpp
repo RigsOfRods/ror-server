@@ -10,6 +10,8 @@
 #include "scriptmath/scriptmath.h" // angelscript addon
 #include "scriptmath3d/scriptmath3d.h" // angelscript addon
 
+#include "utils.h"
+
 #include <cstdio>
 
 
@@ -395,13 +397,15 @@ void ScriptEngine::playerAdded(int uid)
 	context->Execute();
 }
 
-int ScriptEngine::playerChat(int uid, char *msg)
+int ScriptEngine::playerChat(int uid, const wchar_t *msg)
 {
 	if(!engine || playerChatFunctionPtr<0) return -1;
 	if(!context) context = engine->CreateContext();
 	context->Prepare(playerChatFunctionPtr);
 
-	std::string msgstr = std::string(msg);
+	std::wstring wstr = std::wstring((wchar_t*) msg);
+	std::string msgstr = narrow(wstr);
+
 	context->SetArgDWord(0, uid);
 	context->SetArgObject(1, (void *)&msgstr);
 	int r = context->Execute();
@@ -468,7 +472,7 @@ std::string ServerScript::getUserName(int uid)
 {
 	client_t *c = seq->getClient(uid);
 	if(!c) return "";
-	return std::string(c->user.username);
+	return narrow(std::wstring(c->user.username));
 }
 
 

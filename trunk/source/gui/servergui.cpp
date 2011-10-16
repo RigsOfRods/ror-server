@@ -37,6 +37,7 @@
 #include "logger.h"
 #include "sha1_util.h"
 #include "sha1.h"
+#include "utils.h"
 
 // xpm images
 #include "server.xpm"
@@ -484,7 +485,8 @@ void MyDialog::updatePlayerList()
 		if(clients[i].user.authstatus & AUTH_BOT) strcat(authst, "B");
 		if(clients[i].user.authstatus & AUTH_BANNED) strcat(authst, "X");
 		slotlist->SetItem(i, 4, conv(authst));
-		slotlist->SetItem(i, 5, conv(clients[i].user.username));
+		wxString un = wxString(std::wstring((wchar_t*)clients[i].user.username));
+		slotlist->SetItem(i, 5, un);
 	}
 	slotlist->Thaw();
 }
@@ -708,7 +710,7 @@ int MyDialog::startServer()
 		std::string user_token = conv(adminuid->GetValue());
 		SHA1FromString(user_token, user_token);
 		if(Sequencer::getUserAuth())
-			Sequencer::getUserAuth()->setUserAuth(AUTH_ADMIN, std::string(""), user_token);
+			Sequencer::getUserAuth()->setUserAuth(AUTH_ADMIN, std::wstring(), user_token);
 	}
 
 	// start the notifier

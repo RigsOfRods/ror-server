@@ -8,6 +8,8 @@
 #include "logger.h"
 #include "config.h"
 
+#include "utils.h"
+
 // important webserver context
 struct mg_context	*ctx;
 
@@ -292,7 +294,7 @@ static void data_players(struct mg_connection *conn, const struct mg_request_inf
 			row["status"]   = "USED";
 			row["uid"]      = it->user.uniqueid;
 			row["ip"]       = std::string(it->ip_addr);
-			row["name"]     = std::string(it->user.username);
+			row["name"]     = narrow(std::wstring(it->user.username));
 			row["auth"]     = authst;
 
 			// get traffic stats for all streams

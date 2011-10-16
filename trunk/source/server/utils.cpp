@@ -5,6 +5,8 @@
 #include <vector>
 
 #include <cstdio>
+#include <iostream> 
+#include <locale> 
 
 
 void tokenize(const std::string& str,
@@ -125,4 +127,28 @@ int intlen(int num)
 		num = num/10;
 	}
 	return length;
+}
+
+// converts a wstring to a string 
+std::string narrow(const std::wstring& wcs) 
+{ 
+	std::vector<char> mbs(wcs.length()); 
+	std::wcstombs(&mbs[0], wcs.c_str(), wcs.length()); 
+
+	std::string str = std::string(mbs.begin(), mbs.end());
+	for (unsigned int i = 0; i<str.size(); i++)
+	{
+		// replace all non-ASCII characters
+		if(str[i] < 32 || str[i] > 125)
+			str[i] = '?';
+	}
+	return str;
+}
+
+// converts a string to a wstring 
+std::wstring widen(const std::string& mbs) 
+{ 
+	std::vector<wchar_t> wcs(mbs.length()); 
+	std::mbstowcs(&wcs[0], mbs.c_str(), mbs.length()); 
+	return std::wstring(wcs.begin(), wcs.end()); 
 }

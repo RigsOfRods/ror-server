@@ -88,7 +88,7 @@ typedef struct stream_traffic_t
 //! A struct to hold information about a client
 struct client_t
 {
-	user_info_t user;           //!< user information
+	user_info_t user;  //!< user information
     int status;                 //!< current status of the client, options are
                                 //!< FREE, BUSY or USED
     Receiver* receiver;         //!< pointer to a receiver class, this
@@ -191,7 +191,7 @@ public:
     static int sendGameCommand(int uid, std::string cmd);
     static void serverSayThreadSave(std::string msg, int notto=-1, int type=0);
 	
-	static bool checkNickUnique(wchar_t *nick);
+	static bool checkNickUnique(const wchar_t *nick);
 	static int getFreePlayerColour();
 	static int authNick(std::string token, std::wstring &nickname);
 

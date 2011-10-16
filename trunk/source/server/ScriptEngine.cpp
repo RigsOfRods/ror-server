@@ -472,7 +472,9 @@ std::string ServerScript::getUserName(int uid)
 {
 	client_t *c = seq->getClient(uid);
 	if(!c) return "";
-	return narrow(std::wstring(c->user.username));
+
+	
+	return UTF8toString<MAX_USERNAME_LEN>(c->user.username);
 }
 
 

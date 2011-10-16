@@ -198,10 +198,7 @@ typedef struct
 typedef struct
 {
 	unsigned int uniqueid;     //!< user unique id
-
-	// attention: sizeof(wchar_t) varies on platforms, for that reason, we encode as UTF8 over the network in this field
-	wchar_t username[MAX_USERNAME_LEN];      //!< the nickname of the user WIDE CHAR!
-	
+	char username[MAX_USERNAME_LEN];      //!< the nickname of the user WIDE CHAR!
 	char usertoken[40];        //!< user token
 	char serverpassword[40];   //!< server password
 	char language[10];         //!< user's language. For example "de-DE" or "en-US"

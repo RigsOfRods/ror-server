@@ -155,3 +155,4 @@ std::wstring widen(const std::string& mbs)
 	mbstowcs(&wcs[0], mbs.c_str(), mbs.length()); 
 	return std::wstring(wcs.begin(), wcs.end()); 
 }
+

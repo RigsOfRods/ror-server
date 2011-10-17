@@ -257,7 +257,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 
 	if(dupeNick)
 	{
-		Logger::log(LOG_WARN,"found duplicate nick, getting new one: %s", UTF8BuffertoString(user.username).c_str());
+		Logger::log(LOG_WARN, UTFString("found duplicate nick, getting new one: ") + tryConvertUTF(user.username));
 
 		// shorten username so the number will fit (only if its too long already)
 		UTFString nick = tryConvertUTF(user.username).substr(0, MAX_USERNAME_LEN - 4);
@@ -272,7 +272,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 
 			dupeNick = Sequencer::checkNickUnique(newNick);
 		}
-		Logger::log(LOG_WARN,"chose alternate username: %s\n", UTF8toString(newNick).c_str());
+		Logger::log(LOG_WARN, UTFString("chose alternate username: ") + newNick);
 
 		strncpy(user.username, newNick.asUTF8_c_str(), MAX_USERNAME_LEN);
 

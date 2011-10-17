@@ -428,7 +428,7 @@ void Sequencer::killerthreadstart()
 		instance->killqueue.pop();
 		instance->killer_mutex.unlock();
 
-		Logger::log(LOG_DEBUG,"Killer called to kill %s", UTF8BuffertoString(to_del->user.username).c_str() );
+		Logger::log(LOG_DEBUG, UTFString("Killer called to kill ") + tryConvertUTF(to_del->user.username) );
 		// CRITICAL ORDER OF EVENTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		// stop the broadcaster first, then disconnect the socket.
 		// other wise there is a chance (being concurrent code) that the

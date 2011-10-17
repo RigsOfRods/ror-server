@@ -208,18 +208,18 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
 		}
 		
 		authlevel = atoi(args[0].c_str());
-		resultNick = widen(args[1]);
+		resultNick = tryConvertUTF(args[1].c_str());
 		if(args.size() > 2)
 			msg = args[2];
 
 		// debug output the auth status
-		char authst[10] = "";
-		if(authlevel & AUTH_NONE) strcat(authst, "N");
-		if(authlevel & AUTH_ADMIN) strcat(authst, "A");
-		if(authlevel & AUTH_MOD) strcat(authst, "M");
-		if(authlevel & AUTH_RANKED) strcat(authst, "R");
-		if(authlevel & AUTH_BOT) strcat(authst, "B");
-		Logger::log(LOG_DEBUG, UTFString("User Auth Result: ") + tryConvertUTF(authst) + " / " + (resultNick) + " / " + tryConvertUTF(msg.c_str()));
+		UTFString authst;
+		if(authlevel & AUTH_NONE)   authst = authst + "N";
+		if(authlevel & AUTH_ADMIN)  authst = authst + "A";
+		if(authlevel & AUTH_MOD)    authst = authst + "M";
+		if(authlevel & AUTH_RANKED) authst = authst + "R";
+		if(authlevel & AUTH_BOT)    authst = authst + "B";
+		Logger::log(LOG_DEBUG, UTFString("User Auth Result: ") + authst + " / " + (resultNick) + " / " + tryConvertUTF(msg.c_str()));
 
 		if(resultNick == L"error" || resultNick == L"reserved" || resultNick == L"notranked")
 		{

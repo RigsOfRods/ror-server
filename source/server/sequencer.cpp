@@ -885,9 +885,15 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 		{
 			if( (instance->clients[pos]->streams.size() >= Config::getMaxVehicles()+NON_VEHICLE_STREAMS-3) && (instance->clients[pos]->streams.size() >= NON_VEHICLE_STREAMS) )
 			{
-				// we start warning the user as soon as he has only 3 vehicles left before he will get kicked.
+				// we start warning the user as soon as he has only 3 vehicles left before he will get kicked (that's why we do minus three in the 'if' statement above).
 				char sayMsg[128] = "";
-				sprintf(sayMsg, "You do now have %d vehicles. The vehicle limit on this server is set on %d.", (instance->clients[pos]->streams.size()-1), Config::getMaxVehicles());
+				
+				// special case if the user has exactly 1 vehicle
+				if(instance->clients[pos]->streams.size() == NON_VEHICLE_STREAMS+1)
+					sprintf(sayMsg, "You now have 1 vehicle. The vehicle limit on this server is set on %d.", Config::getMaxVehicles());
+				else
+					sprintf(sayMsg, "You now have %d vehicles. The vehicle limit on this server is set on %d.", (instance->clients[pos]->streams.size()-1), Config::getMaxVehicles());
+				
 				serverSay(sayMsg, instance->clients[pos]->user.uniqueid, FROM_SERVER);
 			}
 
@@ -1028,7 +1034,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			{
 				int buid=-1;
 				char banmsg_tmp[256]="";
-				int res = sscanf(str.substr(6).asUTF8_c_str(), "%d %s", &buid, banmsg_tmp);
+				int res = sscanf(str.substr(5).asUTF8_c_str(), "%d %s", &buid, banmsg_tmp);
 				std::string banMsg = std::string(banmsg_tmp);
 				banMsg = trim(banMsg);
 				if(res != 2 || buid == -1 || !banMsg.size())

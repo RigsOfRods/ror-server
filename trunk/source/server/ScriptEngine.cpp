@@ -296,6 +296,7 @@ void ScriptEngine::init()
 	result = engine->RegisterObjectMethod("ServerScriptClass", "int getNumClients()", asMETHOD(ServerScript,getNumClients), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserName(int uid)", asMETHOD(ServerScript,getUserName), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserAuth(int uid)", asMETHOD(ServerScript,getUserAuth), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "int getUserColourNum(int uid)", asMETHOD(ServerScript,getUserColourNum), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getServerTerrain()", asMETHOD(ServerScript,getServerTerrain), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectBehaviour("ServerScriptClass", asBEHAVE_ADDREF, "void f()",asMETHOD(ServerScript,addRef), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectBehaviour("ServerScriptClass", asBEHAVE_RELEASE, "void f()",asMETHOD(ServerScript,releaseRef), asCALL_THISCALL); assert_net(result>=0);
@@ -487,6 +488,13 @@ std::string ServerScript::getUserAuth(int uid)
 	else if(c->user.authstatus & AUTH_BOT) return "bot";
 	//else if(c->user.authstatus & AUTH_NONE) 
 	return "none";
+}
+
+int ServerScript::getUserColourNum(int uid)
+{
+	client_t *c = seq->getClient(uid);
+	if(!c) return 0;
+	return c->user.colournum;
 }
 
 std::string ServerScript::getServerTerrain()

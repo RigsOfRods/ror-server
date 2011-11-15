@@ -89,6 +89,7 @@ public:
 	
 	std::string getUserName(int uid);
 	std::string getUserAuth(int uid);
+	int getUserColourNum(int uid);
 	int getUserPosition(int uid, Vector3 &v);
 	int getNumClients();
 

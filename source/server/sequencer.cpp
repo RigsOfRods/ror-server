@@ -1198,6 +1198,15 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			publishMode=0;
 		}
 	}
+
+	else if (type==MSG2_GAME_CMD)
+	{
+		// script message
+#ifdef WITH_ANGELSCRIPT
+		if(instance->script) instance->script->gameCmd(instance->clients[pos]->user.uniqueid, std::string(data));
+#endif //WITH_ANGELSCRIPT
+		publishMode=0;
+	}
 #if 0
 	// replaced with stream_data
 	else if (type==MSG2_VEHICLE_DATA)

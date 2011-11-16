@@ -24,6 +24,7 @@ public:
     void playerDeleted(int uid, int crash);
     void playerAdded(int uid);
     int playerChat(int uid, UTFString msg);
+    void gameCmd(int uid, const std::string& cmd);
     int framestep(float dt);
 
 	void timerLoop();
@@ -35,7 +36,7 @@ protected:
     asIScriptEngine *engine;                //!< instance of the scripting engine
 	asIScriptContext *context;              //!< context in which all scripting happens
 	int frameStepFunctionPtr;               //!< script function pointer to the frameStep function
-	int playerDeletedFunctionPtr, playerAddedFunctionPtr, playerChatFunctionPtr;
+	int playerDeletedFunctionPtr, playerAddedFunctionPtr, playerChatFunctionPtr, gameCmdFunctionPtr;
 	bool exit;
     pthread_t timer_thread;
 
@@ -99,3 +100,4 @@ public:
 
 #endif //SCRIPTENGINE_H__
 #endif //WITH_ANGELSCRIPT
+

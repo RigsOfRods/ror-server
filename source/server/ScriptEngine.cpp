@@ -49,6 +49,7 @@ ScriptEngine::ScriptEngine(Sequencer *seq) : seq(seq),
 	playerDeletedFunctionPtr(0),
 	playerAddedFunctionPtr(0),
 	playerChatFunctionPtr(0),
+	gameCmdFunctionPtr(0),
 	exit(false)
 {
 	init();
@@ -133,6 +134,9 @@ int ScriptEngine::loadScript(std::string scriptname)
 
 	playerChatFunctionPtr = mod->GetFunctionIdByDecl("int playerChat(int, string msg)");
 	if(playerChatFunctionPtr<0) Logger::log(LOG_WARN, "Script Function not used: playerChat");
+
+	gameCmdFunctionPtr = mod->GetFunctionIdByDecl("void gameCmd(int, string)");
+	if(gameCmdFunctionPtr<0) Logger::log(LOG_WARN, "Script Function not used: gameCmd");
 	
 	//eventCallbackFunctionPtr = mod->GetFunctionIdByDecl("void eventCallback(int event, int value)");
 
@@ -416,6 +420,17 @@ int ScriptEngine::playerChat(int uid, UTFString msg)
 	  return ret;
 	}
 	return -1;
+}
+
+void ScriptEngine::gameCmd(int uid, const std::string& cmd)
+{
+	if(!engine || gameCmdFunctionPtr<0) return;
+	if(!context) context = engine->CreateContext();
+	context->Prepare(gameCmdFunctionPtr);
+
+	context->SetArgDWord(0, uid);
+	context->SetArgObject(1, (void *)&cmd);
+	context->Execute();
 }
 
 void ScriptEngine::timerLoop()

@@ -69,7 +69,7 @@ enum {
 
 	MSG2_SERVER_SETTINGS,              //!< server send client the terrain name: server_info_t
 
-	MSG2_GAME_CMD,                     //!< send to client from server only
+	MSG2_GAME_CMD,                     //!< Script message. Can be sent in both directions.
 
 	MSG2_USER_INFO,                    //!< user data that is sent from the server to the clients
 

@@ -52,6 +52,7 @@ class MyApp : public wxApp
 {
 public:
 	virtual bool OnInit();
+	virtual bool OnExceptionInMainLoop();
 };
 
 typedef struct log_queue_element_t
@@ -161,6 +162,27 @@ bool MyApp::OnInit()
 	SetTopWindow(dialog);
 	SetExitOnFrameDelete(false);
 	return true;
+}
+
+bool MyApp::OnExceptionInMainLoop()
+{
+	// something went wrong :/
+	try
+	{
+		throw;
+	}
+	catch ( std::runtime_error e )
+	{
+		wxMessageBox(wxString::Format("Unhandled exception caught, program will terminate. \n%s", e.what()),
+		             wxT("Unhandled exception"), wxOK | wxICON_ERROR);
+ 	}
+	catch ( ... )
+	{
+		wxMessageBox(wxT("Unhandled exception caught, program will terminate."),
+		             wxT("Unhandled exception"), wxOK | wxICON_ERROR);
+	}
+	
+	return false;
 }
 
 void pureLogCallback(int level, UTFString msg, UTFString msgf)

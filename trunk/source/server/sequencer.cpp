@@ -618,15 +618,27 @@ void Sequencer::notifyAllVehicles(int uid, bool lock)
 
 int Sequencer::sendGameCommand(int uid, std::string cmd)
 {
-    STACKLOG;
-    Sequencer* instance = Instance();
-    unsigned short pos = instance->getPosfromUid(uid);
-    if( UID_NOT_FOUND == pos ) return -1;
+	STACKLOG;
+	Sequencer* instance = Instance();
+
 	// send
 	const char *data = cmd.c_str();
 	int size = cmd.size();
-	// -1 = comes from the server
-	instance->clients[pos]->broadcaster->queueMessage(MSG2_GAME_CMD, -1, 0, size, data);
+	
+	if(uid==-1)
+	{
+		for (int i = 0; i < (int)instance->clients.size(); i++)
+		{
+			instance->clients[i]->broadcaster->queueMessage(MSG2_GAME_CMD, -1, 0, size, data);
+		}
+	}
+	else
+	{
+		unsigned short pos = instance->getPosfromUid(uid);
+		if( UID_NOT_FOUND == pos ) return -1;
+		// -1 = comes from the server
+		instance->clients[pos]->broadcaster->queueMessage(MSG2_GAME_CMD, -1, 0, size, data);
+	}
 	return 0;
 }
 

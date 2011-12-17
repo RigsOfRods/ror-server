@@ -71,7 +71,7 @@ private:
 	static bool compress_file;
 	static void (*callback)(int, UTFString msg, UTFString msgf);
 	static std::deque <log_save_t> loghistory;
-	static Mutex loghistory_mutex;
+	static Mutex log_mutex;
 };
 
 class ScopeLog

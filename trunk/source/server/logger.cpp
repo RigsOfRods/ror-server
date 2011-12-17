@@ -20,7 +20,7 @@
 #endif //WIN32
 
 std::deque <log_save_t> Logger::loghistory;
-Mutex Logger::loghistory_mutex;
+Mutex Logger::log_mutex;
 
 // take care about mutexes: only manual lock in the Logger, otherwise you 
 // could possibly start a recursion that ends in a deadlock
@@ -83,6 +83,9 @@ void Logger::log(const LogLevel& level, const UTFString& msg)
 	if (level >= log_level[LOGTYPE_DISPLAY])
 		printf("%s|t%02d|%5s|%s\n", timestr, ThreadID::getID(), loglevelname[(int)level], msg.asUTF8_c_str());
 
+	// do not use the class for locking, otherwise you get recursion because of STACKLOG
+	pthread_mutex_lock(log_mutex.getRaw());
+		
 	if(file && level >= log_level[LOGTYPE_FILE])
 	{
 #ifndef WIN32
@@ -105,9 +108,6 @@ void Logger::log(const LogLevel& level, const UTFString& msg)
 	}
 
 	// save history
-	// do not use the class for locking, otherwise you get recursion because of STACKLOG
-	pthread_mutex_lock(loghistory_mutex.getRaw());
-
 	if(level > LOG_STACK)
 	{
 		if(loghistory.size() > 500)
@@ -119,16 +119,16 @@ void Logger::log(const LogLevel& level, const UTFString& msg)
 		h.msg = msg;
 		loghistory.push_back(h);
 	}
-	pthread_mutex_unlock(loghistory_mutex.getRaw());
+	pthread_mutex_unlock(log_mutex.getRaw());
 
 }
 
 std::deque <log_save_t> Logger::getLogHistory()
 {
-	pthread_mutex_lock(loghistory_mutex.getRaw());
+	pthread_mutex_lock(log_mutex.getRaw());
 	// copy history while locked
 	std::deque <log_save_t> history = loghistory;
-	pthread_mutex_unlock(loghistory_mutex.getRaw());
+	pthread_mutex_unlock(log_mutex.getRaw());
 	return history; // return copied history
 }
 
@@ -184,15 +184,15 @@ ScopeLog::ScopeLog(const LogLevel& level, const char* format, ...)
     msg = msg + format_arg_list(format, args);
     va_end(args);
     
-    Logger::log(LOG_STACK, "ENTER - %s", msg.c_str());
+    Logger::log(LOG_STACK, "ENTER - %s", msg.asUTF8_c_str());
 }
 ScopeLog::ScopeLog(const LogLevel& level, const UTFString& func)
 : msg(func), level(level)
 {
-    Logger::log(LOG_STACK, "ENTER - %s", msg.c_str());
+    Logger::log(LOG_STACK, "ENTER - %s", msg.asUTF8_c_str());
 }
 
 ScopeLog::~ScopeLog()
 {
-    Logger::log(LOG_STACK, "EXIT - %s", msg.c_str());
+    Logger::log(LOG_STACK, "EXIT - %s", msg.asUTF8_c_str());
 }

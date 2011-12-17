@@ -846,7 +846,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 	// check for full broadcaster queue
 	{
 		int dropstate = instance->clients[pos]->broadcaster->getDropState();
-		if(true)
+		if(dropstate == 1 && instance->clients[pos]->drop_state == 0)
 		{
 			// queue full, inform client
 			instance->clients[pos]->drop_state = dropstate;
@@ -901,7 +901,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				char sayMsg[128] = "";
 				
 				// special case if the user has exactly 1 vehicle
-				if(instance->clients[pos]->streams.size() == NON_VEHICLE_STREAMS+1)
+				if(instance->clients[pos]->streams.size() == NON_VEHICLE_STREAMS)
 					sprintf(sayMsg, "You now have 1 vehicle. The vehicle limit on this server is set on %d.", Config::getMaxVehicles());
 				else
 					sprintf(sayMsg, "You now have %d vehicles. The vehicle limit on this server is set on %d.", (instance->clients[pos]->streams.size()-1), Config::getMaxVehicles());

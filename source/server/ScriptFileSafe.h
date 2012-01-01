@@ -1,6 +1,7 @@
 // copied from the angelscript library and edited for use in Rigs of Rods Multiplayer Server
 // 01 Jan 2012
 
+#ifdef WITH_ANGELSCRIPT
 //
 // ScriptFileSafe
 //
@@ -98,3 +99,5 @@ void RegisterScriptFile_Generic(asIScriptEngine *engine);
 END_AS_NAMESPACE
 
 #endif // SCRIPTFILESAFE_H__
+
+#endif // WITH_ANGELSCRIPT

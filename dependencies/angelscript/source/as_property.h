@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2009 Andreas Jonsson
+   Copyright (c) 2003-2011 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -42,36 +42,70 @@
 
 #include "as_string.h"
 #include "as_datatype.h"
+#include "as_atomic.h"
+#include "as_scriptfunction.h"
 
 BEGIN_AS_NAMESPACE
 
 class asCObjectProperty
 {
 public:
+	asCObjectProperty() {accessMask = 0xFFFFFFFF;}
 	asCString   name;
 	asCDataType type;
 	int         byteOffset;
+	bool		isPrivate;
+	asDWORD     accessMask;
 };
 
 class asCGlobalProperty
 {
 public:
-	asCGlobalProperty() { memory = 0; memoryAllocated = false; }
-	~asCGlobalProperty() { if( memoryAllocated ) { asDELETEARRAY(memory); } }
+	asCGlobalProperty();
+	~asCGlobalProperty();
 
-	asCString   name;
-	asCDataType type;
-	int         index;
+	void AddRef();
+	void Release();
+	int  GetRefCount();
+
+	void *GetAddressOfValue();
+	void  AllocateMemory();
+	void  SetRegisteredAddress(void *p);
+	void *GetRegisteredAddress() const;
+
+	asCString          name;
+	asCDataType        type;
+	asUINT             id;
+
+	void SetInitFunc(asCScriptFunction *initFunc);
+	asCScriptFunction *GetInitFunc();
+
+	static void RegisterGCBehaviours(asCScriptEngine *engine);
+
+//protected:
+	void SetGCFlag();
+	bool GetGCFlag();
+	void EnumReferences(asIScriptEngine *);
+	void ReleaseAllHandles(asIScriptEngine *);
+
+	// This is only stored for registered properties, and keeps the pointer given by the application
+	void       *realAddress;
+
 	bool        memoryAllocated;
-
-	void SetAddressOfValue(void *p) { memory = p; }
-	void *GetAddressOfValue() { return memoryAllocated ? memory : &storage; }
-
 	union
 	{
 		void       *memory;
 		asQWORD     storage;
 	};
+
+	asCScriptFunction *initFunc;
+
+	asDWORD accessMask;
+
+	// The global property structure is reference counted, so that the
+	// engine can keep track of how many references to the property there are.
+	asCAtomic refCount;
+	bool      gcFlag;
 };
 
 END_AS_NAMESPACE

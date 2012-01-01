@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2009 Andreas Jonsson
+   Copyright (c) 2003-2011 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied
    warranty. In no event will the authors be held liable for any
@@ -41,14 +41,12 @@
 #include "as_context.h"
 #include "as_scriptengine.h"
 #include "as_tokendef.h"
-#include "as_bytecodedef.h"
 #include "as_texts.h"
 #include "as_callfunc.h"
-#include "as_module.h"
 #include "as_generic.h"
 #include "as_debug.h" // mkdir()
 #include "as_bytecode.h"
-#include "as_scriptstruct.h"
+#include "as_scriptobject.h"
 
 #ifdef _MSC_VER
 #pragma warning(disable:4702) // unreachable code
@@ -58,10 +56,10 @@ BEGIN_AS_NAMESPACE
 
 // We need at least 2 DWORDs reserved for exception handling
 // We need at least 1 DWORD reserved for calling system functions
-const int RESERVE_STACK = 2*PTR_SIZE;
+const int RESERVE_STACK = 2*AS_PTR_SIZE;
 
-// For each script function call we push 6 DWORDs on the call stack
-const int CALLSTACK_FRAME_SIZE = 6;
+// For each script function call we push 5 DWORDs on the call stack
+const int CALLSTACK_FRAME_SIZE = 5;
 
 
 #ifdef AS_DEBUG
@@ -160,22 +158,22 @@ asCContext::asCContext(asCScriptEngine *engine, bool holdRef)
 	status = asEXECUTION_UNINITIALIZED;
 	stackBlockSize = 0;
 	refCount.set(1);
-	module = 0;
 	inExceptionHandler = false;
 	isStackMemoryNotAllocated = false;
 
-	stringFunction = 0;
 	currentFunction = 0;
-	objectRegister = 0;
+	regs.objectRegister = 0;
 	initialFunction = 0;
 
 	lineCallback = false;
 	exceptionCallback = false;
 
-	doProcessSuspend = false;
+	regs.doProcessSuspend = false;
 	doSuspend = false;
 
 	userData = 0;
+
+	regs.ctx = this;
 }
 
 asCContext::~asCContext()
@@ -183,18 +181,18 @@ asCContext::~asCContext()
 	DetachEngine();
 }
 
-int asCContext::AddRef()
+int asCContext::AddRef() const
 {
 	return refCount.atomicInc();
 }
 
-int asCContext::Release()
+int asCContext::Release() const
 {
 	int r = refCount.atomicDec();
 
 	if( r == 0 )
 	{
-		asDELETE(this,asCContext);
+		asDELETE(const_cast<asCContext*>(this),asCContext);
 		return 0;
 	}
 
@@ -211,17 +209,33 @@ void asCContext::DetachEngine()
 	// Free all resources
 	Unprepare();
 
+	// Free the stack blocks
+	for( asUINT n = 0; n < stackBlocks.GetLength(); n++ )
+	{
+		if( stackBlocks[n] )
+		{
+			asDELETEARRAY(stackBlocks[n]);
+		}
+	}
+	stackBlocks.SetLength(0);
+	stackBlockSize = 0;
+
+	// Clean the user data
+	if( userData && engine->cleanContextFunc )
+		engine->cleanContextFunc(this);
+
 	// Clear engine pointer
 	if( holdEngineRef )
 		engine->Release();
 	engine = 0;
 }
 
-asIScriptEngine *asCContext::GetEngine()
+asIScriptEngine *asCContext::GetEngine() const
 {
 	return engine;
 }
 
+// interface
 void *asCContext::SetUserData(void *data)
 {
 	void *oldData = userData;
@@ -229,33 +243,44 @@ void *asCContext::SetUserData(void *data)
 	return oldData;
 }
 
-void *asCContext::GetUserData()
+// interface
+void *asCContext::GetUserData() const
 {
 	return userData;
 }
 
-int asCContext::Prepare(int funcID)
+// interface
+int asCContext::Prepare(int funcId)
 {
+	if( funcId == -1 )
+	{
+		if( initialFunction == 0 )
+			return asNO_FUNCTION;
+
+		funcId = initialFunction->GetId();
+	}
+	return Prepare(engine->GetFunctionById(funcId));
+}
+
+// interface
+int asCContext::Prepare(asIScriptFunction *func)
+{
+	if( func == 0 ) 
+		return asNO_FUNCTION;
+
 	if( status == asEXECUTION_ACTIVE || status == asEXECUTION_SUSPENDED )
 		return asCONTEXT_ACTIVE;
 
 	// Clean the stack if not done before
-	if( status != asEXECUTION_UNINITIALIZED )
+	if( status != asEXECUTION_FINISHED && status != asEXECUTION_UNINITIALIZED )
 		CleanStack();
 
 	// Release the returned object (if any)
 	CleanReturnObject();
 
-	if( funcID == -1 )
+	if( initialFunction && initialFunction == func )
 	{
-		// Use the previously prepared function
-		if( initialFunction == 0 )
-			return asNO_FUNCTION;
-
-		currentFunction = initialFunction;
-	}
-	else if( initialFunction && initialFunction->id == funcID )
-	{
+		// If the same function is executed again, we can skip a lot of the setup 
 		currentFunction = initialFunction;
 	}
 	else
@@ -263,25 +288,36 @@ int asCContext::Prepare(int funcID)
 		// Check engine pointer
 		asASSERT( engine );
 
-		initialFunction = engine->GetScriptFunction(funcID);
-		currentFunction = initialFunction;
-		if( currentFunction == 0 )
-			return asNO_FUNCTION;
+		if( initialFunction )
+			initialFunction->Release();
 
-		// Remove reference to previous module. Add reference to new module
-		if( module ) module->ReleaseContextRef();
-		module = initialFunction->module;
-		if( module )
-			module->AddContextRef();
+		// We trust the application not to pass anything else but a asCScriptFunction
+		initialFunction = reinterpret_cast<asCScriptFunction *>(func);
+		initialFunction->AddRef();
+		currentFunction = initialFunction;
+
+		// TODO: optimize: GetSpaceNeededForArguments() should be precomputed
+		argumentsSize = currentFunction->GetSpaceNeededForArguments() + (currentFunction->objectType ? AS_PTR_SIZE : 0);
+
+#ifndef AS_OLD
+		// Reserve space for the arguments and return value
+		if( currentFunction->DoesReturnOnStack() )
+		{
+			returnValueSize = currentFunction->returnType.GetSizeInMemoryDWords();
+			argumentsSize += AS_PTR_SIZE;
+		}
+		else
+#endif
+			returnValueSize = 0;
 
 		// Determine the minimum stack size needed
-		// TODO: optimize: GetSpaceNeededForArguments() should be precomputed
-		int stackSize = currentFunction->GetSpaceNeededForArguments() + currentFunction->stackNeeded + RESERVE_STACK;
+		int stackSize = argumentsSize + returnValueSize + currentFunction->stackNeeded + RESERVE_STACK;
 
 		stackSize = stackSize > engine->initialContextStackSize ? stackSize : engine->initialContextStackSize;
 
 		if( stackSize > stackBlockSize )
 		{
+			// Free old stack blocks so new ones can be allocted
 			for( asUINT n = 0; n < stackBlocks.GetLength(); n++ )
 				if( stackBlocks[n] )
 				{
@@ -294,49 +330,57 @@ int asCContext::Prepare(int funcID)
 			asDWORD *stack = asNEWARRAY(asDWORD,stackBlockSize);
 			stackBlocks.PushLast(stack);
 		}
-
-		// Reserve space for the arguments and return value
-		returnValueSize = currentFunction->GetSpaceNeededForReturnValue();
-
-		// TODO: optimize: GetSpaceNeededForArguments() should be precomputed
-		argumentsSize = currentFunction->GetSpaceNeededForArguments() + (currentFunction->objectType ? PTR_SIZE : 0);
 	}
-
-	if( currentFunction->funcType == asFUNC_SCRIPT )
-		byteCode = currentFunction->byteCode.AddressOf();
-	else
-		byteCode = 0;
 
 	// Reset state
-	exceptionLine = -1;
-	exceptionFunction = 0;
-	isCallingSystemFunction = false;
-	doAbort = false;
-	doSuspend = false;
-	doProcessSuspend = lineCallback;
-	externalSuspendRequest = false;
+	// Most of the time the previous state will be asEXECUTION_FINISHED, in which case the values are already initialized
+	if( status != asEXECUTION_FINISHED )
+	{
+		exceptionLine           = -1;
+		exceptionFunction       = 0;
+		isCallingSystemFunction = false;
+		doAbort                 = false;
+		doSuspend               = false;
+		regs.doProcessSuspend   = lineCallback;
+		externalSuspendRequest  = false;
+		stackIndex              = 0;
+	}
 	status = asEXECUTION_PREPARED;
 
-	asASSERT(objectRegister == 0);
-	objectRegister = 0;
-
 	// Reserve space for the arguments and return value
-	stackFramePointer = stackBlocks[0] + stackBlockSize - argumentsSize;
-	stackPointer = stackFramePointer;
-	stackIndex = 0;
+	regs.stackFramePointer = stackBlocks[0] + stackBlockSize - argumentsSize - returnValueSize;
+	regs.stackPointer      = regs.stackFramePointer;
 
 	// Set arguments to 0
-	memset(stackPointer, 0, 4*argumentsSize);
+	memset(regs.stackPointer, 0, 4*argumentsSize);
 
-	// Set all object variables to 0
+#ifndef AS_OLD
+	if( returnValueSize )
+	{
+		// Set the address of the location where the return value should be put
+		asDWORD *ptr = regs.stackFramePointer;
+		if( currentFunction->objectType )
+			ptr += AS_PTR_SIZE;
+
+		*(void**)ptr = (void*)(stackBlocks[0] + stackBlockSize - returnValueSize);
+	}
+#endif
+
 	if( currentFunction->funcType == asFUNC_SCRIPT )
 	{
+		regs.programPointer = currentFunction->byteCode.AddressOf();
+
+		// Set all object variables to 0
 		for( asUINT n = 0; n < currentFunction->objVariablePos.GetLength(); n++ )
 		{
+			if( !currentFunction->objVariableIsOnHeap[n] ) continue;
+
 			int pos = currentFunction->objVariablePos[n];
-			*(size_t*)&stackFramePointer[-pos] = 0;
+			*(size_t*)&regs.stackFramePointer[-pos] = 0;
 		}
 	}
+	else
+		regs.programPointer = 0;
 
 	return asSUCCESS;
 }
@@ -347,139 +391,32 @@ int asCContext::Unprepare()
 	if( status == asEXECUTION_ACTIVE || status == asEXECUTION_SUSPENDED )
 		return asCONTEXT_ACTIVE;
 
-	// Only clean the stack if the context was prepared but not executed
-	if( status != asEXECUTION_UNINITIALIZED )
+	// Only clean the stack if the context was prepared but not executed until the end
+	if( status != asEXECUTION_UNINITIALIZED && 
+		status != asEXECUTION_FINISHED )
 		CleanStack();
 
 	// Release the returned object (if any)
 	CleanReturnObject();
 
+	// Release the initial function
+	if( initialFunction )
+		initialFunction->Release();
+
 	// Clear function pointers
 	initialFunction = 0;
 	currentFunction = 0;
 	exceptionFunction = 0;
-	byteCode = 0;
-
-	// Release the module
-	if( module ) module->ReleaseContextRef();
-	module = 0;
+	regs.programPointer = 0;
 
 	// Reset status
 	status = asEXECUTION_UNINITIALIZED;
 
-	// Deallocate the stack blocks
-	for( asUINT n = 0; n < stackBlocks.GetLength(); n++ )
-	{
-		if( stackBlocks[n] )
-		{
-			asDELETEARRAY(stackBlocks[n]);
-		}
-	}
-	stackBlocks.SetLength(0);
-	stackFramePointer = 0;
-	stackPointer = 0;
+	regs.stackFramePointer = 0;
+	regs.stackPointer = 0;
 	stackIndex = 0;
-
-	// Deallocate string function
-	if( stringFunction )
-	{
-		asDELETE(stringFunction, asCScriptFunction);
-		stringFunction = 0;
-	}
 	
 	return 0;
-}
-
-int asCContext::SetExecuteStringFunction(asCScriptFunction *func)
-{
-	// TODO: multithread: Make thread safe
-
-	// TODO: Verify that the context isn't running
-
-	if( stringFunction )
-	{
-		asDELETE(stringFunction,asCScriptFunction);
-	}
-
-	stringFunction = func;
-
-	return 0;
-}
-
-int asCContext::PrepareSpecial(int funcID, asCModule *mod)
-{
-	// Check engine pointer
-	if( engine == 0 ) return asERROR;
-
-	if( status == asEXECUTION_ACTIVE || status == asEXECUTION_SUSPENDED )
-		return asCONTEXT_ACTIVE;
-
-	exceptionLine = -1;
-	exceptionFunction = 0;
-
-	isCallingSystemFunction = false;
-
-	if( module ) module->ReleaseContextRef();
-
-	module = mod;
-	module->AddContextRef();
-
-	if( (funcID & 0xFFFF) == asFUNC_STRING )
-		initialFunction = stringFunction;
-	else
-		initialFunction = module->GetSpecialFunction(funcID & 0xFFFF);
-
-	currentFunction = initialFunction;
-	if( currentFunction == 0 )
-		return asERROR;
-
-	byteCode = currentFunction->byteCode.AddressOf();
-
-	doAbort = false;
-	doSuspend = false;
-	doProcessSuspend = lineCallback;
-	externalSuspendRequest = false;
-	status = asEXECUTION_PREPARED;
-
-	// Determine the minimum stack size needed
-	int stackSize = currentFunction->stackNeeded + RESERVE_STACK;
-
-	stackSize = stackSize > engine->initialContextStackSize ? stackSize : engine->initialContextStackSize;
-
-	if( stackSize != stackBlockSize )
-	{
-		for( asUINT n = 0; n < stackBlocks.GetLength(); n++ )
-			if( stackBlocks[n] )
-			{
-				asDELETEARRAY(stackBlocks[n]);
-			}
-		stackBlocks.SetLength(0);
-
-		stackBlockSize = stackSize;
-
-		asDWORD *stack = asNEWARRAY(asDWORD,stackBlockSize);
-		stackBlocks.PushLast(stack);
-	}
-
-	// Reserve space for the arguments and return value
-	returnValueSize = currentFunction->GetSpaceNeededForReturnValue();
-	argumentsSize = currentFunction->GetSpaceNeededForArguments();
-
-	stackFramePointer = stackBlocks[0] + stackBlockSize - argumentsSize;
-	stackPointer = stackFramePointer;
-	stackIndex = 0;
-
-	// Set arguments to 0
-	memset(stackPointer, 0, 4*argumentsSize);
-
-	// Set all object variables to 0
-	for( asUINT n = 0; n < currentFunction->objVariablePos.GetLength(); n++ )
-	{
-		int pos = currentFunction->objVariablePos[n];
-		*(size_t*)&stackFramePointer[-pos] = 0;
-	}
-
-	return asSUCCESS;
 }
 
 asBYTE asCContext::GetReturnByte()
@@ -490,7 +427,7 @@ asBYTE asCContext::GetReturnByte()
 
 	if( dt->IsObject() || dt->IsReference() ) return 0;
 
-	return *(asBYTE*)&register1;
+	return *(asBYTE*)&regs.valueRegister;
 }
 
 asWORD asCContext::GetReturnWord()
@@ -501,7 +438,7 @@ asWORD asCContext::GetReturnWord()
 
 	if( dt->IsObject() || dt->IsReference() ) return 0;
 
-	return *(asWORD*)&register1;
+	return *(asWORD*)&regs.valueRegister;
 }
 
 asDWORD asCContext::GetReturnDWord()
@@ -512,7 +449,7 @@ asDWORD asCContext::GetReturnDWord()
 
 	if( dt->IsObject() || dt->IsReference() ) return 0;
 
-	return *(asDWORD*)&register1;
+	return *(asDWORD*)&regs.valueRegister;
 }
 
 asQWORD asCContext::GetReturnQWord()
@@ -523,7 +460,7 @@ asQWORD asCContext::GetReturnQWord()
 
 	if( dt->IsObject() || dt->IsReference() ) return 0;
 
-	return register1;
+	return regs.valueRegister;
 }
 
 float asCContext::GetReturnFloat()
@@ -534,7 +471,7 @@ float asCContext::GetReturnFloat()
 
 	if( dt->IsObject() || dt->IsReference() ) return 0;
 
-	return *(float*)&register1;
+	return *(float*)&regs.valueRegister;
 }
 
 double asCContext::GetReturnDouble()
@@ -545,7 +482,7 @@ double asCContext::GetReturnDouble()
 
 	if( dt->IsObject() || dt->IsReference() ) return 0;
 
-	return *(double*)&register1;
+	return *(double*)&regs.valueRegister;
 }
 
 void *asCContext::GetReturnAddress()
@@ -555,9 +492,15 @@ void *asCContext::GetReturnAddress()
 	asCDataType *dt = &initialFunction->returnType;
 
 	if( dt->IsReference() )
-		return *(void**)&register1;
+		return *(void**)&regs.valueRegister;
 	else if( dt->IsObject() )
-		return objectRegister;
+	{
+#ifndef AS_OLD
+		if( initialFunction->DoesReturnOnStack() )
+			return (void*)(stackBlocks[0] + stackBlockSize - returnValueSize);
+#endif		
+		return regs.objectRegister;
+	}
 
 	return 0;
 }
@@ -571,27 +514,16 @@ void *asCContext::GetReturnObject()
 	if( !dt->IsObject() ) return 0;
 
 	if( dt->IsReference() )
-		return *(void**)(size_t)register1;
+		return *(void**)(size_t)regs.valueRegister;
 	else
-		return objectRegister;
-}
-
-#ifdef AS_DEPRECATED
-// deprecated since 2008-11-11, 2.15.0
-void *asCContext::GetReturnPointer()
-{
-	if( status != asEXECUTION_FINISHED ) return 0;
-
-	asCDataType *dt = &initialFunction->returnType;
-
-	// An object is stored in the objectRegister
-	if( !dt->IsReference() && dt->IsObject() )
-		return &objectRegister;
-
-	// Primitives and references are stored in register1
-	return &register1;
-}
+	{
+#ifndef AS_OLD
+		if( initialFunction->DoesReturnOnStack() )
+			return (void*)(stackBlocks[0] + stackBlockSize - returnValueSize);
 #endif
+		return regs.objectRegister;
+	}
+}
 
 void *asCContext::GetAddressOfReturnValue()
 {
@@ -604,12 +536,18 @@ void *asCContext::GetAddressOfReturnValue()
 	{
 		// Need to dereference objects 
 		if( !dt->IsObjectHandle() )
-			return *(void**)&objectRegister;
-		return &objectRegister;
+		{
+#ifndef AS_OLD
+			if( initialFunction->DoesReturnOnStack() )
+				return (void*)(stackBlocks[0] + stackBlockSize - returnValueSize);
+#endif
+			return *(void**)&regs.objectRegister;
+		}
+		return &regs.objectRegister;
 	}
 
-	// Primitives and references are stored in register1
-	return &register1;
+	// Primitives and references are stored in valueRegister
+	return &regs.valueRegister;
 }
 
 int asCContext::SetObject(void *obj)
@@ -623,7 +561,7 @@ int asCContext::SetObject(void *obj)
 		return asERROR;
 	}
 
-	*(size_t*)&stackFramePointer[0] = (size_t)obj;
+	*(size_t*)&regs.stackFramePointer[0] = (size_t)obj;
 
 	return 0;
 }
@@ -656,12 +594,17 @@ int asCContext::SetArgByte(asUINT arg, asBYTE value)
 	// Determine the position of the argument
 	int offset = 0;
 	if( initialFunction->objectType )
-		offset += PTR_SIZE;
+		offset += AS_PTR_SIZE;
+#ifndef AS_OLD
+	// If function returns object by value an extra pointer is pushed on the stack
+	if( returnValueSize )
+		offset += AS_PTR_SIZE;
+#endif
 	for( asUINT n = 0; n < arg; n++ )
 		offset += initialFunction->parameterTypes[n].GetSizeOnStackDWords();
 
 	// Set the value
-	*(asBYTE*)&stackFramePointer[offset] = value;
+	*(asBYTE*)&regs.stackFramePointer[offset] = value;
 
 	return 0;
 }
@@ -694,12 +637,17 @@ int asCContext::SetArgWord(asUINT arg, asWORD value)
 	// Determine the position of the argument
 	int offset = 0;
 	if( initialFunction->objectType )
-		offset += PTR_SIZE;
+		offset += AS_PTR_SIZE;
+#ifndef AS_OLD
+	// If function returns object by value an extra pointer is pushed on the stack
+	if( returnValueSize )
+		offset += AS_PTR_SIZE;
+#endif
 	for( asUINT n = 0; n < arg; n++ )
 		offset += initialFunction->parameterTypes[n].GetSizeOnStackDWords();
 
 	// Set the value
-	*(asWORD*)&stackFramePointer[offset] = value;
+	*(asWORD*)&regs.stackFramePointer[offset] = value;
 
 	return 0;
 }
@@ -732,12 +680,17 @@ int asCContext::SetArgDWord(asUINT arg, asDWORD value)
 	// Determine the position of the argument
 	int offset = 0;
 	if( initialFunction->objectType )
-		offset += PTR_SIZE;
+		offset += AS_PTR_SIZE;
+#ifndef AS_OLD
+	// If function returns object by value an extra pointer is pushed on the stack
+	if( returnValueSize )
+		offset += AS_PTR_SIZE;
+#endif
 	for( asUINT n = 0; n < arg; n++ )
 		offset += initialFunction->parameterTypes[n].GetSizeOnStackDWords();
 
 	// Set the value
-	*(asDWORD*)&stackFramePointer[offset] = value;
+	*(asDWORD*)&regs.stackFramePointer[offset] = value;
 
 	return 0;
 }
@@ -770,12 +723,17 @@ int asCContext::SetArgQWord(asUINT arg, asQWORD value)
 	// Determine the position of the argument
 	int offset = 0;
 	if( initialFunction->objectType )
-		offset += PTR_SIZE;
+		offset += AS_PTR_SIZE;
+#ifndef AS_OLD
+	// If function returns object by value an extra pointer is pushed on the stack
+	if( returnValueSize )
+		offset += AS_PTR_SIZE;
+#endif
 	for( asUINT n = 0; n < arg; n++ )
 		offset += initialFunction->parameterTypes[n].GetSizeOnStackDWords();
 
 	// Set the value
-	*(asQWORD*)(&stackFramePointer[offset]) = value;
+	*(asQWORD*)(&regs.stackFramePointer[offset]) = value;
 
 	return 0;
 }
@@ -808,12 +766,17 @@ int asCContext::SetArgFloat(asUINT arg, float value)
 	// Determine the position of the argument
 	int offset = 0;
 	if( initialFunction->objectType )
-		offset += PTR_SIZE;
+		offset += AS_PTR_SIZE;
+#ifndef AS_OLD
+	// If function returns object by value an extra pointer is pushed on the stack
+	if( returnValueSize )
+		offset += AS_PTR_SIZE;
+#endif
 	for( asUINT n = 0; n < arg; n++ )
 		offset += initialFunction->parameterTypes[n].GetSizeOnStackDWords();
 
 	// Set the value
-	*(float*)(&stackFramePointer[offset]) = value;
+	*(float*)(&regs.stackFramePointer[offset]) = value;
 
 	return 0;
 }
@@ -846,12 +809,17 @@ int asCContext::SetArgDouble(asUINT arg, double value)
 	// Determine the position of the argument
 	int offset = 0;
 	if( initialFunction->objectType )
-		offset += PTR_SIZE;
+		offset += AS_PTR_SIZE;
+#ifndef AS_OLD
+	// If function returns object by value an extra pointer is pushed on the stack
+	if( returnValueSize )
+		offset += AS_PTR_SIZE;
+#endif
 	for( asUINT n = 0; n < arg; n++ )
 		offset += initialFunction->parameterTypes[n].GetSizeOnStackDWords();
 
 	// Set the value
-	*(double*)(&stackFramePointer[offset]) = value;
+	*(double*)(&regs.stackFramePointer[offset]) = value;
 
 	return 0;
 }
@@ -878,13 +846,17 @@ int asCContext::SetArgAddress(asUINT arg, void *value)
 	// Determine the position of the argument
 	int offset = 0;
 	if( initialFunction->objectType )
-		offset += PTR_SIZE;
-
+		offset += AS_PTR_SIZE;
+#ifndef AS_OLD
+	// If function returns object by value an extra pointer is pushed on the stack
+	if( returnValueSize )
+		offset += AS_PTR_SIZE;
+#endif
 	for( asUINT n = 0; n < arg; n++ )
 		offset += initialFunction->parameterTypes[n].GetSizeOnStackDWords();
 
 	// Set the value
-	*(size_t*)(&stackFramePointer[offset]) = (size_t)value;
+	*(size_t*)(&regs.stackFramePointer[offset]) = (size_t)value;
 
 	return 0;
 }
@@ -927,19 +899,26 @@ int asCContext::SetArgObject(asUINT arg, void *obj)
 	// Determine the position of the argument
 	int offset = 0;
 	if( initialFunction->objectType )
-		offset += PTR_SIZE;
+		offset += AS_PTR_SIZE;
+#ifndef AS_OLD
+	// If function returns object by value an extra pointer is pushed on the stack
+	if( returnValueSize )
+		offset += AS_PTR_SIZE;
+#endif
 	for( asUINT n = 0; n < arg; n++ )
 		offset += initialFunction->parameterTypes[n].GetSizeOnStackDWords();
 
 	// Set the value
-	*(size_t*)(&stackFramePointer[offset]) = (size_t)obj;
+	*(size_t*)(&regs.stackFramePointer[offset]) = (size_t)obj;
 
 	return 0;
 }
 
 
-// TODO: We should deprecate this, and implement the SetArgValue(int arg, void *value, bool takeOwnership) instead.
-void *asCContext::GetArgPointer(asUINT arg)
+// TODO: Instead of GetAddressOfArg, maybe we need a SetArgValue(int arg, void *value, bool takeOwnership) instead.
+
+// interface
+void *asCContext::GetAddressOfArg(asUINT arg)
 {
 	if( status != asEXECUTION_PREPARED )
 		return 0;
@@ -950,11 +929,20 @@ void *asCContext::GetArgPointer(asUINT arg)
 	// Determine the position of the argument
 	int offset = 0;
 	if( initialFunction->objectType )
-		offset += PTR_SIZE;
+		offset += AS_PTR_SIZE;
+#ifndef AS_OLD
+	// If function returns object by value an extra pointer is pushed on the stack
+	if( returnValueSize )
+		offset += AS_PTR_SIZE;
+#endif
 	for( asUINT n = 0; n < arg; n++ )
 		offset += initialFunction->parameterTypes[n].GetSizeOnStackDWords();
 
-	return &stackFramePointer[offset];
+	// We should return the address of the location where the argument value will be placed
+
+	// All registered types are always sent by reference, even if  
+	// the function is declared to receive the argument by value.	
+	return &regs.stackFramePointer[offset];
 }
 
 
@@ -968,39 +956,42 @@ int asCContext::Abort()
 		status = asEXECUTION_ABORTED;
 
 	doSuspend = true;
-	doProcessSuspend = true;
+	regs.doProcessSuspend = true;
 	externalSuspendRequest = true;
 	doAbort = true;
 
 	return 0;
 }
 
+// interface
 int asCContext::Suspend()
 {
-	// TODO: multithread: Make thread safe
+	// This function just sets some internal flags and is safe 
+	// to call from a secondary thread, even if the library has
+	// been built without multi-thread support.
 
 	if( engine == 0 ) return asERROR;
 
 	doSuspend = true;
-	doProcessSuspend = true;
 	externalSuspendRequest = true;
+	regs.doProcessSuspend = true;
 
 	return 0;
 }
 
+// interface
 int asCContext::Execute()
 {
-	// Check engine pointer
-	if( engine == 0 ) return asERROR;
+	asASSERT( engine != 0 );
 
 	if( status != asEXECUTION_SUSPENDED && status != asEXECUTION_PREPARED )
 		return asERROR;
 
-	status = asEXECUTION_SUSPENDED;
+	status = asEXECUTION_ACTIVE;
 
 	asPushActiveContext((asIScriptContext *)this);
 
-	if( byteCode == 0 )
+	if( regs.programPointer == 0 )
 	{
 		if( currentFunction->funcType == asFUNC_VIRTUAL ||
 			currentFunction->funcType == asFUNC_INTERFACE )
@@ -1008,7 +999,7 @@ int asCContext::Execute()
 			// The currentFunction is a virtual method
 
 			// Determine the true function from the object
-			asCScriptObject *obj = *(asCScriptObject**)(size_t*)stackFramePointer;
+			asCScriptObject *obj = *(asCScriptObject**)(size_t*)regs.stackFramePointer;
 			if( obj == 0 )
 			{
 				SetInternalException(TXT_NULL_POINTER_ACCESS);
@@ -1051,18 +1042,13 @@ int asCContext::Execute()
 					else
 					{
 						currentFunction = realFunc;
-						byteCode = currentFunction->byteCode.AddressOf();
-
-						if( module ) module->ReleaseContextRef();
-						module = currentFunction->module;
-						if( module )
-							module->AddContextRef();
+						regs.programPointer = currentFunction->byteCode.AddressOf();
 
 						// Set the local objects to 0
 						for( asUINT n = 0; n < currentFunction->objVariablePos.GetLength(); n++ )
 						{
 							int pos = currentFunction->objVariablePos[n];
-							*(size_t*)&stackFramePointer[-pos] = 0;
+							*(size_t*)&regs.stackFramePointer[-pos] = 0;
 						}
 					}
 				}
@@ -1076,7 +1062,7 @@ int asCContext::Execute()
 			CallSystemFunction(currentFunction->id, this, 0);
 			
 			// Was the call successful?
-			if( status == asEXECUTION_SUSPENDED )
+			if( status == asEXECUTION_ACTIVE )
 			{
 				status = asEXECUTION_FINISHED;
 			}
@@ -1088,15 +1074,11 @@ int asCContext::Execute()
 		}
 	}
 
-	while( !doSuspend && status == asEXECUTION_SUSPENDED )
-	{
-		status = asEXECUTION_ACTIVE;
-		while( status == asEXECUTION_ACTIVE )
-			ExecuteNext();
-	}
+	while( status == asEXECUTION_ACTIVE )
+		ExecuteNext();
 
 	doSuspend = false;
-	doProcessSuspend = lineCallback;
+	regs.doProcessSuspend = lineCallback;
 
 	asPopActiveContext((asIScriptContext *)this);
 
@@ -1137,6 +1119,12 @@ int asCContext::Execute()
 */
 #endif
 
+	if( status == asEXECUTION_FINISHED )
+	{
+		regs.objectType = initialFunction->returnType.GetObjectType();
+		return asEXECUTION_FINISHED;
+	}
+
 	if( doAbort )
 	{
 		doAbort = false;
@@ -1148,12 +1136,6 @@ int asCContext::Execute()
 	if( status == asEXECUTION_SUSPENDED )
 		return asEXECUTION_SUSPENDED;
 
-	if( status == asEXECUTION_FINISHED )
-	{
-		objectType = initialFunction->returnType.GetObjectType();
-		return asEXECUTION_FINISHED;
-	}
-
 	if( status == asEXECUTION_EXCEPTION )
 		return asEXECUTION_EXCEPTION;
 
@@ -1164,123 +1146,166 @@ void asCContext::PushCallState()
 {
 	callStack.SetLength(callStack.GetLength() + CALLSTACK_FRAME_SIZE);
 
-	size_t *s = callStack.AddressOf() + callStack.GetLength() - CALLSTACK_FRAME_SIZE;
+    // Separating the loads and stores limits data cache trash, and with a smart compiler
+    // could turn into SIMD style loading/storing if available.
+    // The compiler can't do this itself due to potential pointer aliasing between the pointers,
+    // ie writing to tmp could overwrite the data contained in registers.stackFramePointer for example
+    // for all the compiler knows. So introducing the local variable s, which is never referred to by
+    // its address we avoid this issue.
 
-	s[0] = (size_t)stackFramePointer;
+	size_t s[5];
+	s[0] = (size_t)regs.stackFramePointer;
 	s[1] = (size_t)currentFunction;
-	s[2] = (size_t)byteCode;
-	s[3] = (size_t)stackPointer;
+	s[2] = (size_t)regs.programPointer;
+	s[3] = (size_t)regs.stackPointer;
 	s[4] = stackIndex;
-	s[5] = (size_t)module;
+
+	size_t *tmp = callStack.AddressOf() + callStack.GetLength() - CALLSTACK_FRAME_SIZE;
+	tmp[0] = s[0];
+	tmp[1] = s[1];
+	tmp[2] = s[2];
+	tmp[3] = s[3];
+	tmp[4] = s[4];
 }
 
 void asCContext::PopCallState()
 {
-	size_t *s = callStack.AddressOf() + callStack.GetLength() - CALLSTACK_FRAME_SIZE;
+	// See comments in PushCallState about pointer aliasing and data cache trashing
+	size_t *tmp = callStack.AddressOf() + callStack.GetLength() - CALLSTACK_FRAME_SIZE;
+	size_t s[5];
+	s[0] = tmp[0];
+	s[1] = tmp[1];
+	s[2] = tmp[2];
+	s[3] = tmp[3];
+	s[4] = tmp[4];
 
-	stackFramePointer = (asDWORD*)s[0];
-	currentFunction   = (asCScriptFunction*)s[1];
-	byteCode          = (asDWORD*)s[2];
-	stackPointer      = (asDWORD*)s[3];
-	stackIndex        = (int)s[4];
-	module            = (asCModule*)s[5];
+	regs.stackFramePointer = (asDWORD*)s[0];
+	currentFunction        = (asCScriptFunction*)s[1];
+	regs.programPointer    = (asDWORD*)s[2];
+	regs.stackPointer      = (asDWORD*)s[3];
+	stackIndex             = (int)s[4];
 
 	callStack.SetLength(callStack.GetLength() - CALLSTACK_FRAME_SIZE);
 }
 
-int asCContext::GetCallstackSize()
+// interface
+asUINT asCContext::GetCallstackSize()
 {
-	return (int)callStack.GetLength() / CALLSTACK_FRAME_SIZE;
+	if( currentFunction == 0 ) return 0;
+
+	// The current function is accessed at stackLevel 0
+	return asUINT(1 + callStack.GetLength() / CALLSTACK_FRAME_SIZE);
 }
 
-int asCContext::GetCallstackFunction(int index)
+// interface
+asIScriptFunction *asCContext::GetFunction(asUINT stackLevel)
 {
-	if( index < 0 || index >= GetCallstackSize() ) return asINVALID_ARG;
+	if( stackLevel >= GetCallstackSize() ) return 0;
 
-	size_t *s = callStack.AddressOf() + index*CALLSTACK_FRAME_SIZE;
+	if( stackLevel == 0 ) return currentFunction;
+
+	size_t *s = callStack.AddressOf() + (GetCallstackSize() - stackLevel - 1)*CALLSTACK_FRAME_SIZE;
 	asCScriptFunction *func = (asCScriptFunction*)s[1];
 
-	return func->id;
+	return func;
 }
 
-int asCContext::GetCallstackLineNumber(int index, int *column)
+// interface
+int asCContext::GetLineNumber(asUINT stackLevel, int *column, const char **sectionName)
 {
-	if( index < 0 || index >= GetCallstackSize() ) return asINVALID_ARG;
+	if( stackLevel >= GetCallstackSize() ) return asINVALID_ARG;
 
-	size_t *s = callStack.AddressOf() + index*CALLSTACK_FRAME_SIZE;
-	asCScriptFunction *func = (asCScriptFunction*)s[1];
-	asDWORD *bytePos = (asDWORD*)s[2];
+	asCScriptFunction *func;
+	asDWORD *bytePos;
+	if( stackLevel == 0 )
+	{
+		func = currentFunction;
+		bytePos = regs.programPointer;
+	}
+	else
+	{
+		size_t *s = callStack.AddressOf() + (GetCallstackSize()-stackLevel-1)*CALLSTACK_FRAME_SIZE;
+		func = (asCScriptFunction*)s[1];
+		bytePos = (asDWORD*)s[2];
+	}
 
 	asDWORD line = func->GetLineNumber(int(bytePos - func->byteCode.AddressOf()));
 	if( column ) *column = (line >> 20);
 
+	if( sectionName ) *sectionName = func->GetScriptSectionName();
+
 	return (line & 0xFFFFF);
 }
 
-void asCContext::CallScriptFunction(asCModule *mod, asCScriptFunction *func)
+void asCContext::CallScriptFunction(asCScriptFunction *func)
 {
-	// Push the framepointer, functionid and programCounter on the stack
+	// Push the framepointer, function id and programCounter on the stack
 	PushCallState();
 
 	currentFunction = func;
-	module = func->module ? func->module : mod;
-	byteCode = currentFunction->byteCode.AddressOf();
+
+	regs.programPointer = currentFunction->byteCode.AddressOf();
 
 	// Verify if there is enough room in the stack block. Allocate new block if not
-	asDWORD *oldStackPointer = stackPointer;
-	while( stackPointer - (func->stackNeeded + RESERVE_STACK) < stackBlocks[stackIndex] )
+	if( regs.stackPointer - (func->stackNeeded + RESERVE_STACK) < stackBlocks[stackIndex] )
 	{
+		asDWORD *oldStackPointer = regs.stackPointer;
+
 		// The size of each stack block is determined by the following formula:
 		// size = stackBlockSize << index
 
-		// Make sure we don't allocate more space than allowed
-		if( engine->ep.maximumContextStackSize )
+		while( regs.stackPointer - (func->stackNeeded + RESERVE_STACK) < stackBlocks[stackIndex] )
 		{
-			// This test will only stop growth once it has already crossed the limit
-			if( stackBlockSize * ((1 << (stackIndex+1)) - 1) > engine->ep.maximumContextStackSize )
+			// Make sure we don't allocate more space than allowed
+			if( engine->ep.maximumContextStackSize )
 			{
-				isStackMemoryNotAllocated = true;
+				// This test will only stop growth once it has already crossed the limit
+				if( stackBlockSize * ((1 << (stackIndex+1)) - 1) > engine->ep.maximumContextStackSize )
+				{
+					isStackMemoryNotAllocated = true;
 
-				// Set the stackFramePointer, even though the stackPointer wasn't updated
-				stackFramePointer = stackPointer;
+					// Set the stackFramePointer, even though the stackPointer wasn't updated
+					regs.stackFramePointer = regs.stackPointer;
 
-				// TODO: Make sure the exception handler doesn't try to free objects that have not been initialized
-				SetInternalException(TXT_STACK_OVERFLOW);
-				return;
+					// TODO: Make sure the exception handler doesn't try to free objects that have not been initialized
+					SetInternalException(TXT_STACK_OVERFLOW);
+					return;
+				}
 			}
-		}
 
-		stackIndex++;
-		if( (int)stackBlocks.GetLength() == stackIndex )
-		{
-			asDWORD *stack = asNEWARRAY(asDWORD,(stackBlockSize << stackIndex));
-			stackBlocks.PushLast(stack);
-		}
+			stackIndex++;
+			if( (int)stackBlocks.GetLength() == stackIndex )
+			{
+				asDWORD *stack = asNEWARRAY(asDWORD,(stackBlockSize << stackIndex));
+				stackBlocks.PushLast(stack);
+			}
 
-		stackPointer = stackBlocks[stackIndex] + (stackBlockSize<<stackIndex) - func->GetSpaceNeededForArguments();
-	}
+			regs.stackPointer = stackBlocks[stackIndex] + (stackBlockSize<<stackIndex) - func->GetSpaceNeededForArguments() - (func->objectType ? AS_PTR_SIZE : 0) - (func->DoesReturnOnStack() ? AS_PTR_SIZE : 0);
+		} 
 
-	if( stackPointer != oldStackPointer )
-	{
 		// Copy the function arguments to the new stack space
-		memcpy(stackPointer, oldStackPointer, sizeof(asDWORD)*func->GetSpaceNeededForArguments());
+		int numDwords = func->GetSpaceNeededForArguments() + (func->objectType ? AS_PTR_SIZE : 0) + (func->DoesReturnOnStack() ? AS_PTR_SIZE : 0);
+		memcpy(regs.stackPointer, oldStackPointer, sizeof(asDWORD)*numDwords);
 	}
 
 	// Update framepointer and programCounter
-	stackFramePointer = stackPointer;
+	regs.stackFramePointer = regs.stackPointer;
 
+	// TODO: optimize: This can be avoided handling this as is done for value types in the exception handler
 	// Set all object variables to 0
 	for( asUINT n = 0; n < currentFunction->objVariablePos.GetLength(); n++ )
 	{
+		if( !currentFunction->objVariableIsOnHeap[n] ) continue;
+
 		int pos = currentFunction->objVariablePos[n];
-		*(size_t*)&stackFramePointer[-pos] = 0;
+		*(size_t*)&regs.stackFramePointer[-pos] = 0;
 	}
 }
 
-void asCContext::CallInterfaceMethod(asCModule *mod, asCScriptFunction *func)
+void asCContext::CallInterfaceMethod(asCScriptFunction *func)
 {
 	// Resolve the interface method using the current script type
-	asCScriptObject *obj = *(asCScriptObject**)(size_t*)stackPointer;
+	asCScriptObject *obj = *(asCScriptObject**)(size_t*)regs.stackPointer;
 	if( obj == 0 )
 	{
 		SetInternalException(TXT_NULL_POINTER_ACCESS);
@@ -1293,6 +1318,10 @@ void asCContext::CallInterfaceMethod(asCModule *mod, asCScriptFunction *func)
 	//                 implement interface methods. This list should be ordered by
 	//                 the signatureId so that a binary search can be made, instead
 	//                 of a linear search.
+	//
+	//                 When this is done, we must also make sure the signatureId of a 
+	//                 function never changes, e.g. when if the signature functions are
+	//                 released.
 
 	// Search the object type for a function that matches the interface function
 	asCScriptFunction *realFunc = 0;
@@ -1317,34 +1346,20 @@ void asCContext::CallInterfaceMethod(asCModule *mod, asCScriptFunction *func)
 			return;
 		}
 	}
-	else /* if( func->funcType == asFUNC_VIRTUAL ) */
+	else // if( func->funcType == asFUNC_VIRTUAL )
 	{
 		realFunc = objType->virtualFunctionTable[func->vfTableIdx];
 	}
 
 	// Then call the true script function
-	CallScriptFunction(mod, realFunc);
+	CallScriptFunction(realFunc);
 }
-
-#define DWORDARG(x)  (asDWORD(*(x+1)))
-#define INTARG(x)    (int(*(x+1)))
-#define QWORDARG(x)  (*(asQWORD*)(x+1))
-#define FLOATARG(x)  (*(float*)(x+1))
-#define PTRARG(x)    (asPTRWORD(*(x+1)))
-
-#define WORDARG0(x)   (*(((asWORD*)x)+1))
-#define WORDARG1(x)   (*(((asWORD*)x)+2))
-
-#define SWORDARG0(x) (*(((short*)x)+1))
-#define SWORDARG1(x) (*(((short*)x)+2))
-#define SWORDARG2(x) (*(((short*)x)+3))
-
 
 void asCContext::ExecuteNext()
 {
-	asDWORD *l_bc = byteCode;
-	asDWORD *l_sp = stackPointer;
-	asDWORD *l_fp = stackFramePointer;
+	asDWORD *l_bc = regs.programPointer;
+	asDWORD *l_sp = regs.stackPointer;
+	asDWORD *l_fp = regs.stackFramePointer;
 
 	for(;;)
 	{
@@ -1373,40 +1388,40 @@ void asCContext::ExecuteNext()
 // memory access functions
 
 	// Decrease the stack pointer with n dwords (stack grows downward)
-	case BC_POP:
-		l_sp += WORDARG0(l_bc);
+	case asBC_POP:
+		l_sp += asBC_WORDARG0(l_bc);
 		l_bc++;
 		break;
 
 	// Increase the stack pointer with n dwords
-	case BC_PUSH:
-		l_sp -= WORDARG0(l_bc);
+	case asBC_PUSH:
+		l_sp -= asBC_WORDARG0(l_bc);
 		l_bc++;
 		break;
 
 	// Push a dword value on the stack
-	case BC_PshC4:
+	case asBC_PshC4:
 		--l_sp;
-		*l_sp = DWORDARG(l_bc);
+		*l_sp = asBC_DWORDARG(l_bc);
 		l_bc += 2;
 		break;
 
 	// Push the dword value of a variable on the stack
-	case BC_PshV4:
+	case asBC_PshV4:
 		--l_sp;
-		*l_sp = *(l_fp - SWORDARG0(l_bc));
+		*l_sp = *(l_fp - asBC_SWORDARG0(l_bc));
 		l_bc++;
 		break;
 
 	// Push the address of a variable on the stack
-	case BC_PSF:
-		l_sp -= PTR_SIZE;
-		*(asPTRWORD*)l_sp = (asPTRWORD)size_t(l_fp - SWORDARG0(l_bc));
+	case asBC_PSF:
+		l_sp -= AS_PTR_SIZE;
+		*(asPTRWORD*)l_sp = (asPTRWORD)size_t(l_fp - asBC_SWORDARG0(l_bc));
 		l_bc++;
 		break;
 
 	// Swap the top 2 dwords on the stack
-	case BC_SWAP4:
+	case asBC_SWAP4:
 		{
 			asDWORD d = (asDWORD)*l_sp;
 			*l_sp = *(l_sp+1);
@@ -1416,7 +1431,7 @@ void asCContext::ExecuteNext()
 		break;
 
 	// Do a boolean not operation, modifying the value of the variable
-	case BC_NOT:
+	case asBC_NOT:
 #if AS_SIZEOF_BOOL == 1
 		{
 			// Set the value to true if it is equal to 0
@@ -1424,7 +1439,7 @@ void asCContext::ExecuteNext()
 			// We need to use volatile here to tell the compiler it cannot
 			// change the order of read and write operations on the pointer.
 
-			volatile asBYTE *ptr = (asBYTE*)(l_fp - SWORDARG0(l_bc));
+			volatile asBYTE *ptr = (asBYTE*)(l_fp - asBC_SWORDARG0(l_bc));
 			asBYTE val = (ptr[0] == 0) ? VALUE_OF_BOOLEAN_TRUE : 0;
 			ptr[0] = val; // The result is stored in the lower byte
 			ptr[1] = 0;   // Make sure the rest of the DWORD is 0
@@ -1432,49 +1447,49 @@ void asCContext::ExecuteNext()
 			ptr[3] = 0;
 		}
 #else
-		*(l_fp - SWORDARG0(l_bc)) = (*(l_fp - SWORDARG0(l_bc)) == 0 ? VALUE_OF_BOOLEAN_TRUE : 0);
+		*(l_fp - asBC_SWORDARG0(l_bc)) = (*(l_fp - asBC_SWORDARG0(l_bc)) == 0 ? VALUE_OF_BOOLEAN_TRUE : 0);
 #endif
 		l_bc++;
 		break;
 
 	// Push the dword value of a global variable on the stack
-	case BC_PshG4:
+	case asBC_PshG4:
 		--l_sp;
-		*l_sp = *(asDWORD*)module->globalVarPointers[WORDARG0(l_bc)];
-		l_bc++;
+		*l_sp = *(asDWORD*)(size_t)asBC_PTRARG(l_bc);
+		l_bc += 1 + AS_PTR_SIZE;
 		break;
 
-	// Load the address of a globar variable in the register, then  
+	// Load the address of a global variable in the register, then  
 	// copy the value of the global variable into a local variable
-	case BC_LdGRdR4:
-		*(void**)&register1 = module->globalVarPointers[WORDARG1(l_bc)];
-		*(l_fp - SWORDARG0(l_bc)) = **(asDWORD**)&register1;
-		l_bc += 2;
+	case asBC_LdGRdR4:
+		*(void**)&regs.valueRegister = (void*)(size_t)asBC_PTRARG(l_bc);
+		*(l_fp - asBC_SWORDARG0(l_bc)) = **(asDWORD**)&regs.valueRegister;
+		l_bc += 1+AS_PTR_SIZE;
 		break;
 
 //----------------
 // path control instructions
 
 	// Begin execution of a script function
-	case BC_CALL:
+	case asBC_CALL:
 		{
-			int i = INTARG(l_bc);
+			int i = asBC_INTARG(l_bc);
 			l_bc += 2;
 
 			asASSERT( i >= 0 );
 			asASSERT( (i & FUNC_IMPORTED) == 0 );
 
 			// Need to move the values back to the context
-			byteCode = l_bc;
-			stackPointer = l_sp;
-			stackFramePointer = l_fp;
+			regs.programPointer = l_bc;
+			regs.stackPointer = l_sp;
+			regs.stackFramePointer = l_fp;
 
-			CallScriptFunction(module, module->GetScriptFunction(i));
+			CallScriptFunction(engine->scriptFunctions[i]);
 
 			// Extract the values from the context again
-			l_bc = byteCode;
-			l_sp = stackPointer;
-			l_fp = stackFramePointer;
+			l_bc = regs.programPointer;
+			l_sp = regs.stackPointer;
+			l_fp = regs.stackFramePointer;
 
 			// If status isn't active anymore then we must stop
 			if( status != asEXECUTION_ACTIVE )
@@ -1483,7 +1498,7 @@ void asCContext::ExecuteNext()
 		break;
 
 	// Return to the caller, and remove the arguments from the stack
-	case BC_RET:
+	case asBC_RET:
 		{
 			if( callStack.GetLength() == 0 )
 			{
@@ -1491,20 +1506,15 @@ void asCContext::ExecuteNext()
 				return;
 			}
 
-			asWORD w = WORDARG0(l_bc);
+			asWORD w = asBC_WORDARG0(l_bc);
 
-			// Need to move the values back to the context
-			byteCode = l_bc;
-			stackPointer = l_sp;
-			stackFramePointer = l_fp;
-
-			// Read the old framepointer, functionid, and programCounter from the stack
+			// Read the old framepointer, functionid, and programCounter from the call stack
 			PopCallState();
 
 			// Extract the values from the context again
-			l_bc = byteCode;
-			l_sp = stackPointer;
-			l_fp = stackFramePointer;
+			l_bc = regs.programPointer;
+			l_sp = regs.stackPointer;
+			l_fp = regs.stackFramePointer;
 
 			// Pop arguments from stack
 			l_sp += w;
@@ -1512,57 +1522,57 @@ void asCContext::ExecuteNext()
 		break;
 
 	// Jump to a relative position
-	case BC_JMP:
-		l_bc += 2 + INTARG(l_bc);
+	case asBC_JMP:
+		l_bc += 2 + asBC_INTARG(l_bc);
 		break;
 
 //----------------
 // Conditional jumps
 
 	// Jump to a relative position if the value in the register is 0
-	case BC_JZ:
-		if( *(int*)&register1 == 0 )
-			l_bc += INTARG(l_bc) + 2;
+	case asBC_JZ:
+		if( *(int*)&regs.valueRegister == 0 )
+			l_bc += asBC_INTARG(l_bc) + 2;
 		else
 			l_bc += 2;
 		break;
 
 	// Jump to a relative position if the value in the register is not 0
-	case BC_JNZ:
-		if( *(int*)&register1 != 0 )
-			l_bc += INTARG(l_bc) + 2;
+	case asBC_JNZ:
+		if( *(int*)&regs.valueRegister != 0 )
+			l_bc += asBC_INTARG(l_bc) + 2;
 		else
 			l_bc += 2;
 		break;
 
 	// Jump to a relative position if the value in the register is negative
-	case BC_JS:
-		if( *(int*)&register1 < 0 )
-			l_bc += INTARG(l_bc) + 2;
+	case asBC_JS:
+		if( *(int*)&regs.valueRegister < 0 )
+			l_bc += asBC_INTARG(l_bc) + 2;
 		else
 			l_bc += 2;
 		break;
 
 	// Jump to a relative position if the value in the register it not negative
-	case BC_JNS:
-		if( *(int*)&register1 >= 0 )
-			l_bc += INTARG(l_bc) + 2;
+	case asBC_JNS:
+		if( *(int*)&regs.valueRegister >= 0 )
+			l_bc += asBC_INTARG(l_bc) + 2;
 		else
 			l_bc += 2;
 		break;
 
 	// Jump to a relative position if the value in the register is greater than 0
-	case BC_JP:
-		if( *(int*)&register1 > 0 )
-			l_bc += INTARG(l_bc) + 2;
+	case asBC_JP:
+		if( *(int*)&regs.valueRegister > 0 )
+			l_bc += asBC_INTARG(l_bc) + 2;
 		else
 			l_bc += 2;
 		break;
 
 	// Jump to a relative position if the value in the register is not greater than 0
-	case BC_JNP:
-		if( *(int*)&register1 <= 0 )
-			l_bc += INTARG(l_bc) + 2;
+	case asBC_JNP:
+		if( *(int*)&regs.valueRegister <= 0 )
+			l_bc += asBC_INTARG(l_bc) + 2;
 		else
 			l_bc += 2;
 		break;
@@ -1570,16 +1580,16 @@ void asCContext::ExecuteNext()
 // test instructions
 
 	// If the value in the register is 0, then set the register to 1, else to 0
-	case BC_TZ:
+	case asBC_TZ:
 #if AS_SIZEOF_BOOL == 1
 		{
 			// Set the value to true if it is equal to 0
 
 			// We need to use volatile here to tell the compiler it cannot
-			// change the order of read and write operations on register1.
+			// change the order of read and write operations on valueRegister.
 
-			volatile int    *regPtr  = (int*)&register1;
-			volatile asBYTE *regBptr = (asBYTE*)&register1;
+			volatile int    *regPtr  = (int*)&regs.valueRegister;
+			volatile asBYTE *regBptr = (asBYTE*)&regs.valueRegister;
 			asBYTE val = (regPtr[0] == 0) ? VALUE_OF_BOOLEAN_TRUE : 0;
 			regBptr[0] = val; // The result is stored in the lower byte
 			regBptr[1] = 0;   // Make sure the rest of the register is 0
@@ -1591,22 +1601,22 @@ void asCContext::ExecuteNext()
 			regBptr[7] = 0;
 		}
 #else
-		*(int*)&register1 = (*(int*)&register1 == 0 ? VALUE_OF_BOOLEAN_TRUE : 0);
+		*(int*)&regs.valueRegister = (*(int*)&regs.valueRegister == 0 ? VALUE_OF_BOOLEAN_TRUE : 0);
 #endif
 		l_bc++;
 		break;
 
 	// If the value in the register is not 0, then set the register to 1, else to 0
-	case BC_TNZ:
+	case asBC_TNZ:
 #if AS_SIZEOF_BOOL == 1
 		{
 			// Set the value to true if it is not equal to 0
 
 			// We need to use volatile here to tell the compiler it cannot
-			// change the order of read and write operations on register1.
+			// change the order of read and write operations on valueRegister.
 
-			volatile int    *regPtr  = (int*)&register1;
-			volatile asBYTE *regBptr = (asBYTE*)&register1;
+			volatile int    *regPtr  = (int*)&regs.valueRegister;
+			volatile asBYTE *regBptr = (asBYTE*)&regs.valueRegister;
 			asBYTE val = (regPtr[0] == 0) ? 0 : VALUE_OF_BOOLEAN_TRUE;
 			regBptr[0] = val; // The result is stored in the lower byte
 			regBptr[1] = 0;   // Make sure the rest of the register is 0
@@ -1618,22 +1628,22 @@ void asCContext::ExecuteNext()
 			regBptr[7] = 0;
 		}
 #else
-		*(int*)&register1 = (*(int*)&register1 == 0 ? 0 : VALUE_OF_BOOLEAN_TRUE);
+		*(int*)&regs.valueRegister = (*(int*)&regs.valueRegister == 0 ? 0 : VALUE_OF_BOOLEAN_TRUE);
 #endif
 		l_bc++;
 		break;
 
 	// If the value in the register is negative, then set the register to 1, else to 0
-	case BC_TS:
+	case asBC_TS:
 #if AS_SIZEOF_BOOL == 1
 		{
 			// Set the value to true if it is less than 0
 
 			// We need to use volatile here to tell the compiler it cannot
-			// change the order of read and write operations on register1.
+			// change the order of read and write operations on valueRegister.
 
-			volatile int    *regPtr  = (int*)&register1;
-			volatile asBYTE *regBptr = (asBYTE*)&register1;
+			volatile int    *regPtr  = (int*)&regs.valueRegister;
+			volatile asBYTE *regBptr = (asBYTE*)&regs.valueRegister;
 			asBYTE val = (regPtr[0] < 0) ? VALUE_OF_BOOLEAN_TRUE : 0;
 			regBptr[0] = val; // The result is stored in the lower byte
 			regBptr[1] = 0;   // Make sure the rest of the register is 0
@@ -1645,22 +1655,22 @@ void asCContext::ExecuteNext()
 			regBptr[7] = 0;
 		}
 #else
-		*(int*)&register1 = (*(int*)&register1 < 0 ? VALUE_OF_BOOLEAN_TRUE : 0);
+		*(int*)&regs.valueRegister = (*(int*)&regs.valueRegister < 0 ? VALUE_OF_BOOLEAN_TRUE : 0);
 #endif
 		l_bc++;
 		break;
 
 	// If the value in the register is not negative, then set the register to 1, else to 0
-	case BC_TNS:
+	case asBC_TNS:
 #if AS_SIZEOF_BOOL == 1
 		{
 			// Set the value to true if it is not less than 0
 
 			// We need to use volatile here to tell the compiler it cannot
-			// change the order of read and write operations on register1.
+			// change the order of read and write operations on valueRegister.
 
-			volatile int    *regPtr  = (int*)&register1;
-			volatile asBYTE *regBptr = (asBYTE*)&register1;
+			volatile int    *regPtr  = (int*)&regs.valueRegister;
+			volatile asBYTE *regBptr = (asBYTE*)&regs.valueRegister;
 			asBYTE val = (regPtr[0] >= 0) ? VALUE_OF_BOOLEAN_TRUE : 0;
 			regBptr[0] = val; // The result is stored in the lower byte
 			regBptr[1] = 0;   // Make sure the rest of the register is 0
@@ -1672,22 +1682,22 @@ void asCContext::ExecuteNext()
 			regBptr[7] = 0;
 		}
 #else
-		*(int*)&register1 = (*(int*)&register1 < 0 ? 0 : VALUE_OF_BOOLEAN_TRUE);
+		*(int*)&regs.valueRegister = (*(int*)&regs.valueRegister < 0 ? 0 : VALUE_OF_BOOLEAN_TRUE);
 #endif
 		l_bc++;
 		break;
 
 	// If the value in the register is greater than 0, then set the register to 1, else to 0
-	case BC_TP:
+	case asBC_TP:
 #if AS_SIZEOF_BOOL == 1
 		{
 			// Set the value to true if it is greater than 0
 
 			// We need to use volatile here to tell the compiler it cannot
-			// change the order of read and write operations on register1.
+			// change the order of read and write operations on valueRegister.
 
-			volatile int    *regPtr  = (int*)&register1;
-			volatile asBYTE *regBptr = (asBYTE*)&register1;
+			volatile int    *regPtr  = (int*)&regs.valueRegister;
+			volatile asBYTE *regBptr = (asBYTE*)&regs.valueRegister;
 			asBYTE val = (regPtr[0] > 0) ? VALUE_OF_BOOLEAN_TRUE : 0;
 			regBptr[0] = val; // The result is stored in the lower byte
 			regBptr[1] = 0;   // Make sure the rest of the register is 0
@@ -1699,22 +1709,22 @@ void asCContext::ExecuteNext()
 			regBptr[7] = 0;
 		}
 #else
-		*(int*)&register1 = (*(int*)&register1 > 0 ? VALUE_OF_BOOLEAN_TRUE : 0);
+		*(int*)&regs.valueRegister = (*(int*)&regs.valueRegister > 0 ? VALUE_OF_BOOLEAN_TRUE : 0);
 #endif
 		l_bc++;
 		break;
 
 	// If the value in the register is not greater than 0, then set the register to 1, else to 0
-	case BC_TNP:
+	case asBC_TNP:
 #if AS_SIZEOF_BOOL == 1
 		{
 			// Set the value to true if it is not greater than 0
 
 			// We need to use volatile here to tell the compiler it cannot
-			// change the order of read and write operations on register1.
+			// change the order of read and write operations on valueRegister.
 
-			volatile int    *regPtr  = (int*)&register1;
-			volatile asBYTE *regBptr = (asBYTE*)&register1;
+			volatile int    *regPtr  = (int*)&regs.valueRegister;
+			volatile asBYTE *regBptr = (asBYTE*)&regs.valueRegister;
 			asBYTE val = (regPtr[0] <= 0) ? VALUE_OF_BOOLEAN_TRUE : 0;
 			regBptr[0] = val; // The result is stored in the lower byte
 			regBptr[1] = 0;   // Make sure the rest of the register is 0
@@ -1726,7 +1736,7 @@ void asCContext::ExecuteNext()
 			regBptr[7] = 0;
 		}
 #else
-		*(int*)&register1 = (*(int*)&register1 > 0 ? 0 : VALUE_OF_BOOLEAN_TRUE);
+		*(int*)&regs.valueRegister = (*(int*)&regs.valueRegister > 0 ? 0 : VALUE_OF_BOOLEAN_TRUE);
 #endif
 		l_bc++;
 		break;
@@ -1735,20 +1745,20 @@ void asCContext::ExecuteNext()
 // negate value
 
 	// Negate the integer value in the variable
-	case BC_NEGi:
-		*(l_fp - SWORDARG0(l_bc)) = asDWORD(-int(*(l_fp - SWORDARG0(l_bc))));
+	case asBC_NEGi:
+		*(l_fp - asBC_SWORDARG0(l_bc)) = asDWORD(-int(*(l_fp - asBC_SWORDARG0(l_bc))));
 		l_bc++;
 		break;
 
 	// Negate the float value in the variable
-	case BC_NEGf:
-		*(float*)(l_fp - SWORDARG0(l_bc)) = -*(float*)(l_fp - SWORDARG0(l_bc));
+	case asBC_NEGf:
+		*(float*)(l_fp - asBC_SWORDARG0(l_bc)) = -*(float*)(l_fp - asBC_SWORDARG0(l_bc));
 		l_bc++;
 		break;
 
 	// Negate the double value in the variable
-	case BC_NEGd:
-		*(double*)(l_fp - SWORDARG0(l_bc)) = -*(double*)(l_fp - SWORDARG0(l_bc));
+	case asBC_NEGd:
+		*(double*)(l_fp - asBC_SWORDARG0(l_bc)) = -*(double*)(l_fp - asBC_SWORDARG0(l_bc));
 		l_bc++;
 		break;
 
@@ -1756,74 +1766,74 @@ void asCContext::ExecuteNext()
 // Increment value pointed to by address in register
 
 	// Increment the short value pointed to by the register
-	case BC_INCi16:
-		(**(short**)&register1)++;
+	case asBC_INCi16:
+		(**(short**)&regs.valueRegister)++;
 		l_bc++;
 		break;
 
 	// Increment the byte value pointed to by the register
-	case BC_INCi8:
-		(**(char**)&register1)++;
+	case asBC_INCi8:
+		(**(char**)&regs.valueRegister)++;
 		l_bc++;
 		break;
 
 	// Decrement the short value pointed to by the register
-	case BC_DECi16:
-		(**(short**)&register1)--;
+	case asBC_DECi16:
+		(**(short**)&regs.valueRegister)--;
 		l_bc++;
 		break;
 
 	// Decrement the byte value pointed to by the register
-	case BC_DECi8:
-		(**(char**)&register1)--;
+	case asBC_DECi8:
+		(**(char**)&regs.valueRegister)--;
 		l_bc++;
 		break;
 
 	// Increment the integer value pointed to by the register
-	case BC_INCi:
-		++(**(int**)&register1);
+	case asBC_INCi:
+		++(**(int**)&regs.valueRegister);
 		l_bc++;
 		break;
 
 	// Decrement the integer value pointed to by the register
-	case BC_DECi:
-		--(**(int**)&register1);
+	case asBC_DECi:
+		--(**(int**)&regs.valueRegister);
 		l_bc++;
 		break;
 
 	// Increment the float value pointed to by the register
-	case BC_INCf:
-		++(**(float**)&register1);
+	case asBC_INCf:
+		++(**(float**)&regs.valueRegister);
 		l_bc++;
 		break;
 
 	// Decrement the float value pointed to by the register
-	case BC_DECf:
-		--(**(float**)&register1);
+	case asBC_DECf:
+		--(**(float**)&regs.valueRegister);
 		l_bc++;
 		break;
 
 	// Increment the double value pointed to by the register
-	case BC_INCd:
-		++(**(double**)&register1);
+	case asBC_INCd:
+		++(**(double**)&regs.valueRegister);
 		l_bc++;
 		break;
 
 	// Decrement the double value pointed to by the register
-	case BC_DECd:
-		--(**(double**)&register1);
+	case asBC_DECd:
+		--(**(double**)&regs.valueRegister);
 		l_bc++;
 		break;
 
 	// Increment the local integer variable
-	case BC_IncVi:
-		(*(int*)(l_fp - SWORDARG0(l_bc)))++;
+	case asBC_IncVi:
+		(*(int*)(l_fp - asBC_SWORDARG0(l_bc)))++;
 		l_bc++;
 		break;
 
 	// Decrement the local integer variable
-	case BC_DecVi:
-		(*(int*)(l_fp - SWORDARG0(l_bc)))--;
+	case asBC_DecVi:
+		(*(int*)(l_fp - asBC_SWORDARG0(l_bc)))--;
 		l_bc++;
 		break;
 
@@ -1831,77 +1841,77 @@ void asCContext::ExecuteNext()
 // bits instructions
 
 	// Do a bitwise not on the value in the variable
-	case BC_BNOT:
-		*(l_fp - SWORDARG0(l_bc)) = ~*(l_fp - SWORDARG0(l_bc));
+	case asBC_BNOT:
+		*(l_fp - asBC_SWORDARG0(l_bc)) = ~*(l_fp - asBC_SWORDARG0(l_bc));
 		l_bc++;
 		break;
 
 	// Do a bitwise and of two variables and store the result in a third variable
-	case BC_BAND:
-		*(l_fp - SWORDARG0(l_bc)) = *(l_fp - SWORDARG1(l_bc)) & *(l_fp - SWORDARG2(l_bc));
+	case asBC_BAND:
+		*(l_fp - asBC_SWORDARG0(l_bc)) = *(l_fp - asBC_SWORDARG1(l_bc)) & *(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
 	// Do a bitwise or of two variables and store the result in a third variable
-	case BC_BOR:
-		*(l_fp - SWORDARG0(l_bc)) = *(l_fp - SWORDARG1(l_bc)) | *(l_fp - SWORDARG2(l_bc));
+	case asBC_BOR:
+		*(l_fp - asBC_SWORDARG0(l_bc)) = *(l_fp - asBC_SWORDARG1(l_bc)) | *(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
 	// Do a bitwise xor of two variables and store the result in a third variable
-	case BC_BXOR:
-		*(l_fp - SWORDARG0(l_bc)) = *(l_fp - SWORDARG1(l_bc)) ^ *(l_fp - SWORDARG2(l_bc));
+	case asBC_BXOR:
+		*(l_fp - asBC_SWORDARG0(l_bc)) = *(l_fp - asBC_SWORDARG1(l_bc)) ^ *(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
 	// Do a logical shift left of two variables and store the result in a third variable
-	case BC_BSLL:
-		*(l_fp - SWORDARG0(l_bc)) = *(l_fp - SWORDARG1(l_bc)) << *(l_fp - SWORDARG2(l_bc));
+	case asBC_BSLL:
+		*(l_fp - asBC_SWORDARG0(l_bc)) = *(l_fp - asBC_SWORDARG1(l_bc)) << *(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
 	// Do a logical shift right of two variables and store the result in a third variable
-	case BC_BSRL:
-		*(l_fp - SWORDARG0(l_bc)) = *(l_fp - SWORDARG1(l_bc)) >> *(l_fp - SWORDARG2(l_bc));
+	case asBC_BSRL:
+		*(l_fp - asBC_SWORDARG0(l_bc)) = *(l_fp - asBC_SWORDARG1(l_bc)) >> *(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
 	// Do an arithmetic shift right of two variables and store the result in a third variable
-	case BC_BSRA:
-		*(l_fp - SWORDARG0(l_bc)) = int(*(l_fp - SWORDARG1(l_bc))) >> *(l_fp - SWORDARG2(l_bc));
+	case asBC_BSRA:
+		*(l_fp - asBC_SWORDARG0(l_bc)) = int(*(l_fp - asBC_SWORDARG1(l_bc))) >> *(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_COPY:
+	case asBC_COPY:
 		{
-			void *d = (void*)*(size_t*)l_sp; l_sp += PTR_SIZE;
+			void *d = (void*)*(size_t*)l_sp; l_sp += AS_PTR_SIZE;
 			void *s = (void*)*(size_t*)l_sp;
 			if( s == 0 || d == 0 )
 			{
 				// Need to move the values back to the context
-				byteCode = l_bc;
-				stackPointer = l_sp;
-				stackFramePointer = l_fp;
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
 
 				// Raise exception
 				SetInternalException(TXT_NULL_POINTER_ACCESS);
 				return;
 			}
-			memcpy(d, s, WORDARG0(l_bc)*4);
+			memcpy(d, s, asBC_WORDARG0(l_bc)*4);
 
 			// replace the pointer on the stack with the lvalue
 			*(size_t**)l_sp = (size_t*)d;
 		}
-		l_bc++;
+		l_bc += 2;
 		break;
 
-	case BC_SET8:
+	case asBC_PshC8:
 		l_sp -= 2;
-		*(asQWORD*)l_sp = QWORDARG(l_bc);
+		*(asQWORD*)l_sp = asBC_QWORDARG(l_bc);
 		l_bc += 3;
 		break;
 
-	case BC_RDS8:
+	case asBC_RDS8:
 #ifndef AS_64BIT_PTR
 		*(asQWORD*)(l_sp-1) = *(asQWORD*)*(size_t*)l_sp;
 		--l_sp;
@@ -1911,7 +1921,7 @@ void asCContext::ExecuteNext()
 		l_bc++;
 		break;
 
-	case BC_SWAP8:
+	case asBC_SWAP8:
 		{
 			asQWORD q = *(asQWORD*)l_sp;
 			*(asQWORD*)l_sp = *(asQWORD*)(l_sp+2);
@@ -1922,103 +1932,103 @@ void asCContext::ExecuteNext()
 
 	//----------------------------
 	// Comparisons
-	case BC_CMPd:
+	case asBC_CMPd:
 		{
-			double dbl = *(double*)(l_fp - SWORDARG0(l_bc)) - *(double*)(l_fp - SWORDARG1(l_bc));
-			if( dbl == 0 )     *(int*)&register1 =  0;
-			else if( dbl < 0 ) *(int*)&register1 = -1;
-			else               *(int*)&register1 =  1;
+			double dbl = *(double*)(l_fp - asBC_SWORDARG0(l_bc)) - *(double*)(l_fp - asBC_SWORDARG1(l_bc));
+			if( dbl == 0 )     *(int*)&regs.valueRegister =  0;
+			else if( dbl < 0 ) *(int*)&regs.valueRegister = -1;
+			else               *(int*)&regs.valueRegister =  1;
 			l_bc += 2;
 		}
 		break;
 
-	case BC_CMPu:
+	case asBC_CMPu:
 		{
-			asDWORD d = *(asDWORD*)(l_fp - SWORDARG0(l_bc));
-			asDWORD d2 = *(asDWORD*)(l_fp - SWORDARG1(l_bc));
-			if( d == d2 )     *(int*)&register1 =  0;
-			else if( d < d2 ) *(int*)&register1 = -1;
-			else              *(int*)&register1 =  1;
+			asDWORD d = *(asDWORD*)(l_fp - asBC_SWORDARG0(l_bc));
+			asDWORD d2 = *(asDWORD*)(l_fp - asBC_SWORDARG1(l_bc));
+			if( d == d2 )     *(int*)&regs.valueRegister =  0;
+			else if( d < d2 ) *(int*)&regs.valueRegister = -1;
+			else              *(int*)&regs.valueRegister =  1;
 			l_bc += 2;
 		}
 		break;
 
-	case BC_CMPf:
+	case asBC_CMPf:
 		{
-			float f = *(float*)(l_fp - SWORDARG0(l_bc)) - *(float*)(l_fp - SWORDARG1(l_bc));
-			if( f == 0 )     *(int*)&register1 =  0;
-			else if( f < 0 ) *(int*)&register1 = -1;
-			else             *(int*)&register1 =  1;
+			float f = *(float*)(l_fp - asBC_SWORDARG0(l_bc)) - *(float*)(l_fp - asBC_SWORDARG1(l_bc));
+			if( f == 0 )     *(int*)&regs.valueRegister =  0;
+			else if( f < 0 ) *(int*)&regs.valueRegister = -1;
+			else             *(int*)&regs.valueRegister =  1;
 			l_bc += 2;
 		}
 		break;
 
-	case BC_CMPi:
+	case asBC_CMPi:
 		{
-			int i = *(int*)(l_fp - SWORDARG0(l_bc)) - *(int*)(l_fp - SWORDARG1(l_bc));
-			if( i == 0 )     *(int*)&register1 =  0;
-			else if( i < 0 ) *(int*)&register1 = -1;
-			else             *(int*)&register1 =  1;
+			int i = *(int*)(l_fp - asBC_SWORDARG0(l_bc)) - *(int*)(l_fp - asBC_SWORDARG1(l_bc));
+			if( i == 0 )     *(int*)&regs.valueRegister =  0;
+			else if( i < 0 ) *(int*)&regs.valueRegister = -1;
+			else             *(int*)&regs.valueRegister =  1;
 			l_bc += 2;
 		}
 		break;
 
 	//----------------------------
 	// Comparisons with constant value
-	case BC_CMPIi:
+	case asBC_CMPIi:
 		{
-			int i = *(int*)(l_fp - SWORDARG0(l_bc)) - INTARG(l_bc);
-			if( i == 0 )     *(int*)&register1 =  0;
-			else if( i < 0 ) *(int*)&register1 = -1;
-			else             *(int*)&register1 =  1;
+			int i = *(int*)(l_fp - asBC_SWORDARG0(l_bc)) - asBC_INTARG(l_bc);
+			if( i == 0 )     *(int*)&regs.valueRegister =  0;
+			else if( i < 0 ) *(int*)&regs.valueRegister = -1;
+			else             *(int*)&regs.valueRegister =  1;
 			l_bc += 2;
 		}
 		break;
 
-	case BC_CMPIf:
+	case asBC_CMPIf:
 		{
-			float f = *(float*)(l_fp - SWORDARG0(l_bc)) - FLOATARG(l_bc);
-			if( f == 0 )     *(int*)&register1 =  0;
-			else if( f < 0 ) *(int*)&register1 = -1;
-			else             *(int*)&register1 =  1;
+			float f = *(float*)(l_fp - asBC_SWORDARG0(l_bc)) - asBC_FLOATARG(l_bc);
+			if( f == 0 )     *(int*)&regs.valueRegister =  0;
+			else if( f < 0 ) *(int*)&regs.valueRegister = -1;
+			else             *(int*)&regs.valueRegister =  1;
 			l_bc += 2;
 		}
 		break;
 
-	case BC_CMPIu:
+	case asBC_CMPIu:
 		{
-			asDWORD d1 = *(asDWORD*)(l_fp - SWORDARG0(l_bc));
-			asDWORD d2 = DWORDARG(l_bc);
-			if( d1 == d2 )     *(int*)&register1 =  0;
-			else if( d1 < d2 ) *(int*)&register1 = -1;
-			else               *(int*)&register1 =  1;
+			asDWORD d1 = *(asDWORD*)(l_fp - asBC_SWORDARG0(l_bc));
+			asDWORD d2 = asBC_DWORDARG(l_bc);
+			if( d1 == d2 )     *(int*)&regs.valueRegister =  0;
+			else if( d1 < d2 ) *(int*)&regs.valueRegister = -1;
+			else               *(int*)&regs.valueRegister =  1;
 			l_bc += 2;
 		}
 		break;
 
-	case BC_JMPP:
-		l_bc += 1 + (*(int*)(l_fp - SWORDARG0(l_bc)))*2;
+	case asBC_JMPP:
+		l_bc += 1 + (*(int*)(l_fp - asBC_SWORDARG0(l_bc)))*2;
 		break;
 
-	case BC_PopRPtr:
-		*(asPTRWORD*)&register1 = *(asPTRWORD*)l_sp;
-		l_sp += PTR_SIZE;
+	case asBC_PopRPtr:
+		*(asPTRWORD*)&regs.valueRegister = *(asPTRWORD*)l_sp;
+		l_sp += AS_PTR_SIZE;
 		l_bc++;
 		break;
 
-	case BC_PshRPtr:
-		l_sp -= PTR_SIZE;
-		*(asPTRWORD*)l_sp = *(asPTRWORD*)&register1;
+	case asBC_PshRPtr:
+		l_sp -= AS_PTR_SIZE;
+		*(asPTRWORD*)l_sp = *(asPTRWORD*)&regs.valueRegister;
 		l_bc++;
 		break;
 
-	case BC_STR:
+	case asBC_STR:
 		{
 			// Get the string id from the argument
-			asWORD w = WORDARG0(l_bc);
+			asWORD w = asBC_WORDARG0(l_bc);
 			// Push the string pointer on the stack
-			const asCString &b = module->GetConstantString(w);
-			l_sp -= PTR_SIZE;
+			const asCString &b = engine->GetConstantString(w);
+			l_sp -= AS_PTR_SIZE;
 			*(asPTRWORD*)l_sp = (asPTRWORD)(size_t)b.AddressOf();
 			// Push the string length on the stack
 			--l_sp;
@@ -2027,75 +2037,78 @@ void asCContext::ExecuteNext()
 		}
 		break;
 
-	case BC_CALLSYS:
+	case asBC_CALLSYS:
 		{
 			// Get function ID from the argument
-			int i = INTARG(l_bc);
+			int i = asBC_INTARG(l_bc);
 
-			// Need to move the values back to the context
-			byteCode = l_bc;
-			stackPointer = l_sp;
-			stackFramePointer = l_fp;
+			// Need to move the values back to the context as the called functions
+			// may use the debug interface to inspect the registers
+			regs.programPointer = l_bc;
+			regs.stackPointer = l_sp;
+			regs.stackFramePointer = l_fp;
 
 			l_sp += CallSystemFunction(i, this, 0);
 
 			// Update the program position after the call so that line number is correct
 			l_bc += 2;
 
-			// Should the execution be suspended?
-			if( doSuspend )
+			if( regs.doProcessSuspend )
 			{
-				byteCode = l_bc;
-				stackPointer = l_sp;
-				stackFramePointer = l_fp;
+				// Should the execution be suspended?
+				if( doSuspend )
+				{
+					regs.programPointer = l_bc;
+					regs.stackPointer = l_sp;
+					regs.stackFramePointer = l_fp;
 
-				status = asEXECUTION_SUSPENDED;
-				return;
-			}
-			// An exception might have been raised
-			if( status != asEXECUTION_ACTIVE )
-			{
-				byteCode = l_bc;
-				stackPointer = l_sp;
-				stackFramePointer = l_fp;
+					status = asEXECUTION_SUSPENDED;
+					return;
+				}
+				// An exception might have been raised
+				if( status != asEXECUTION_ACTIVE )
+				{
+					regs.programPointer = l_bc;
+					regs.stackPointer = l_sp;
+					regs.stackFramePointer = l_fp;
 
-				return;
+					return;
+				}
 			}
 		}
 		break;
 
-	case BC_CALLBND:
+	case asBC_CALLBND:
 		{
 			// Get the function ID from the stack
-			int i = INTARG(l_bc);
+			int i = asBC_INTARG(l_bc);
 			l_bc += 2;
 
 			asASSERT( i >= 0 );
 			asASSERT( i & FUNC_IMPORTED );
 
 			// Need to move the values back to the context
-			byteCode = l_bc;
-			stackPointer = l_sp;
-			stackFramePointer = l_fp;
+			regs.programPointer = l_bc;
+			regs.stackPointer = l_sp;
+			regs.stackFramePointer = l_fp;
 
-			int funcID = module->bindInformations[i&0xFFFF].importedFunction;
-			if( funcID == -1 )
+			int funcId = engine->importedFunctions[i&0xFFFF]->boundFunctionId;
+			if( funcId == -1 )
 			{
 				SetInternalException(TXT_UNBOUND_FUNCTION);
 				return;
 			}
 			else
 			{
-				asCScriptFunction *func = engine->GetScriptFunction(funcID);
-				asCModule *callModule = func->module;
+				asCScriptFunction *func = engine->GetScriptFunction(funcId);
 
-				CallScriptFunction(callModule, func);
+				CallScriptFunction(func);
 			}
 
 			// Extract the values from the context again
-			l_bc = byteCode;
-			l_sp = stackPointer;
-			l_fp = stackFramePointer;
+			l_bc = regs.programPointer;
+			l_sp = regs.stackPointer;
+			l_fp = regs.stackFramePointer;
 
 			// If status isn't active anymore then we must stop
 			if( status != asEXECUTION_ACTIVE )
@@ -2103,37 +2116,38 @@ void asCContext::ExecuteNext()
 		}
 		break;
 
-	case BC_SUSPEND:
-		if( doProcessSuspend )
+	case asBC_SUSPEND:
+		if( regs.doProcessSuspend )
 		{
 			if( lineCallback )
 			{
-				byteCode = l_bc;
-				stackPointer = l_sp;
-				stackFramePointer = l_fp;
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
 
 				CallLineCallback();
 			}
-			l_bc++;
 			if( doSuspend )
 			{
+				l_bc++;
+
 				// Need to move the values back to the context
-				byteCode = l_bc;
-				stackPointer = l_sp;
-				stackFramePointer = l_fp;
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
 
 				status = asEXECUTION_SUSPENDED;
 				return;
 			}
 		}
-		else
-			l_bc++;
+
+		l_bc++;
 		break;
 
-	case BC_ALLOC:
+	case asBC_ALLOC:
 		{
-			asCObjectType *objType = (asCObjectType*)(size_t)PTRARG(l_bc);
-			int func = INTARG(l_bc+PTR_SIZE);
+			asCObjectType *objType = (asCObjectType*)(size_t)asBC_PTRARG(l_bc);
+			int func = asBC_INTARG(l_bc+AS_PTR_SIZE);
 
 			if( objType->flags & asOBJ_SCRIPT_OBJECT )
 			{
@@ -2150,22 +2164,22 @@ void asCContext::ExecuteNext()
 				if( a ) *a = mem;
 
 				// Push the object pointer on the stack
-				l_sp -= PTR_SIZE;
+				l_sp -= AS_PTR_SIZE;
 				*(size_t*)l_sp = (size_t)mem;
 
-				l_bc += 2+PTR_SIZE;
+				l_bc += 2+AS_PTR_SIZE;
 
 				// Need to move the values back to the context
-				byteCode = l_bc;
-				stackPointer = l_sp;
-				stackFramePointer = l_fp;
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
 
-				CallScriptFunction(module, f);
+				CallScriptFunction(f);
 
 				// Extract the values from the context again
-				l_bc = byteCode;
-				l_sp = stackPointer;
-				l_fp = stackFramePointer;
+				l_bc = regs.programPointer;
+				l_sp = regs.stackPointer;
+				l_fp = regs.stackFramePointer;
 
 				// If status isn't active anymore then we must stop
 				if( status != asEXECUTION_ACTIVE )
@@ -2178,144 +2192,160 @@ void asCContext::ExecuteNext()
 
 				if( func )
 				{
-					// Need to move the values back to the context
-					byteCode = l_bc;
-					stackPointer = l_sp;
-					stackFramePointer = l_fp;
+					// Need to move the values back to the context as the called functions
+					// may use the debug interface to inspect the registers
+					regs.programPointer = l_bc;
+					regs.stackPointer = l_sp;
+					regs.stackFramePointer = l_fp;
 
 					l_sp += CallSystemFunction(func, this, mem);
 				}
 
 				// Pop the variable address from the stack
 				asDWORD **a = (asDWORD**)*(size_t*)l_sp;
-				l_sp += PTR_SIZE;
+				l_sp += AS_PTR_SIZE;
 				if( a ) *a = mem;
 
-				l_bc += 2+PTR_SIZE;
+				l_bc += 2+AS_PTR_SIZE;
 
-				// Should the execution be suspended?
-				if( doSuspend )
+				if( regs.doProcessSuspend )
 				{
-					byteCode = l_bc;
-					stackPointer = l_sp;
-					stackFramePointer = l_fp;
+					// Should the execution be suspended?
+					if( doSuspend )
+					{
+						regs.programPointer = l_bc;
+						regs.stackPointer = l_sp;
+						regs.stackFramePointer = l_fp;
 
-					status = asEXECUTION_SUSPENDED;
-					return;
-				}
-				// An exception might have been raised
-				if( status != asEXECUTION_ACTIVE )
-				{
-					byteCode = l_bc;
-					stackPointer = l_sp;
-					stackFramePointer = l_fp;
+						status = asEXECUTION_SUSPENDED;
+						return;
+					}
+					// An exception might have been raised
+					if( status != asEXECUTION_ACTIVE )
+					{
+						regs.programPointer = l_bc;
+						regs.stackPointer = l_sp;
+						regs.stackFramePointer = l_fp;
 
-					engine->CallFree(mem);
-					*a = 0;
+						engine->CallFree(mem);
+						*a = 0;
 
-					return;
+						return;
+					}
 				}
 			}
 		}
 		break;
 
-	case BC_FREE:
+	case asBC_FREE:
 		{
-			asDWORD **a = (asDWORD**)*(size_t*)l_sp;
-			l_sp += PTR_SIZE;
-			if( a && *a )
+			// Get the variable that holds the object handle/reference
+			asPTRWORD *a = (asPTRWORD*)size_t(l_fp - asBC_SWORDARG0(l_bc));
+			if( *a )
 			{
-				asCObjectType *objType = (asCObjectType*)(size_t)PTRARG(l_bc);
+				asCObjectType *objType = (asCObjectType*)(size_t)asBC_PTRARG(l_bc);
 				asSTypeBehaviour *beh = &objType->beh;
 
-				// Need to move the values back to the context
-				byteCode = l_bc;
-				stackPointer = l_sp;
-				stackFramePointer = l_fp;
+				// Need to move the values back to the context as the called functions
+				// may use the debug interface to inspect the registers
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
 
 				if( beh->release )
 				{
-					engine->CallObjectMethod(*a, beh->release);
-
-					// The release method will free the memory
+					engine->CallObjectMethod((void*)(size_t)*a, beh->release);
 				}
 				else
 				{
 					if( beh->destruct )
 					{
-						// Call the destructor
-						engine->CallObjectMethod(*a, beh->destruct);
+						engine->CallObjectMethod((void*)(size_t)*a, beh->destruct);
 					}
 
-					engine->CallFree(*a);
+					engine->CallFree((void*)(size_t)*a);
 				}
+
+				// Clear the variable
 				*a = 0;
 			}
 		}
-		l_bc += 1+PTR_SIZE;
+		l_bc += 1+AS_PTR_SIZE;
 		break;
 
-	case BC_LOADOBJ:
+	case asBC_LOADOBJ:
 		{
 			// Move the object pointer from the object variable into the object register
-			void **a = (void**)(l_fp - SWORDARG0(l_bc));
-			objectType = 0;
-			objectRegister = *a;
+			void **a = (void**)(l_fp - asBC_SWORDARG0(l_bc));
+			regs.objectType = 0;
+			regs.objectRegister = *a;
 			*a = 0;
 		}
 		l_bc++;
 		break;
 
-	case BC_STOREOBJ:
+	case asBC_STOREOBJ:
 		// Move the object pointer from the object register to the object variable
-		*(size_t*)(l_fp - SWORDARG0(l_bc)) = size_t(objectRegister);
-		objectRegister = 0;
+		*(size_t*)(l_fp - asBC_SWORDARG0(l_bc)) = size_t(regs.objectRegister);
+		regs.objectRegister = 0;
 		l_bc++;
 		break;
 
-	case BC_GETOBJ:
+	case asBC_GETOBJ:
 		{
-			size_t *a = (size_t*)(l_sp + WORDARG0(l_bc));
+			// Read variable index from location on stack
+			size_t *a = (size_t*)(l_sp + asBC_WORDARG0(l_bc));
 			asDWORD offset = *(asDWORD*)a;
+			// Move pointer from variable to the same location on the stack
 			size_t *v = (size_t*)(l_fp - offset);
 			*a = *v;
+			// Clear variable
 			*v = 0;
 		}
 		l_bc++;
 		break;
 
-	case BC_REFCPY:
+	case asBC_REFCPY:
 		{
-			asCObjectType *objType = (asCObjectType*)(size_t)PTRARG(l_bc);
+			asCObjectType *objType = (asCObjectType*)(size_t)asBC_PTRARG(l_bc);
 			asSTypeBehaviour *beh = &objType->beh;
+
+			// Pop address of destination pointer from the stack
 			void **d = (void**)*(size_t*)l_sp;
-			l_sp += PTR_SIZE;
+			l_sp += AS_PTR_SIZE;
+			
+			// Read wanted pointer from the stack
 			void *s = (void*)*(size_t*)l_sp;
 
-			// Need to move the values back to the context
-			byteCode = l_bc;
-			stackPointer = l_sp;
-			stackFramePointer = l_fp;
+			// Need to move the values back to the context as the called functions
+			// may use the debug interface to inspect the registers
+			regs.programPointer = l_bc;
+			regs.stackPointer = l_sp;
+			regs.stackFramePointer = l_fp;
 
+			// Release previous object held by destination pointer
 			if( *d != 0 )
 				engine->CallObjectMethod(*d, beh->release);
+			// Increase ref counter of wanted object
 			if( s != 0 )
 				engine->CallObjectMethod(s, beh->addref);
+
+			// Set the new object in the destination
 			*d = s;
 		}
-		l_bc += 1+PTR_SIZE;
+		l_bc += 1+AS_PTR_SIZE;
 		break;
 
-	case BC_CHKREF:
+	case asBC_CHKREF:
 		{
 			// Verify if the pointer on the stack is null
 			// This is used when validating a pointer that an operator will work on
 			size_t a = *(size_t*)l_sp;
 			if( a == 0 )
 			{
-				byteCode = l_bc;
-				stackPointer = l_sp;
-				stackFramePointer = l_fp;
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
 
 				SetInternalException(TXT_NULL_POINTER_ACCESS);
 				return;
@@ -2324,23 +2354,29 @@ void asCContext::ExecuteNext()
 		l_bc++;
 		break;
 
-	case BC_GETOBJREF:
+	case asBC_GETOBJREF:
 		{
-			size_t *a = (size_t*)(l_sp + WORDARG0(l_bc));
+			// Get the location on the stack where the reference will be placed
+			size_t *a = (size_t*)(l_sp + asBC_WORDARG0(l_bc));
+
+			// Replace the variable index with the object handle held in the variable
 			*(size_t**)a = *(size_t**)(l_fp - *a);
 		}
 		l_bc++;
 		break;
 
-	case BC_GETREF:
+	case asBC_GETREF:
 		{
-			size_t *a = (size_t*)(l_sp + WORDARG0(l_bc));
+			// Get the location on the stack where the reference will be placed
+			size_t *a = (size_t*)(l_sp + asBC_WORDARG0(l_bc));
+
+			// Replace the variable index with the address of the variable
 			*(size_t**)a = (size_t*)(l_fp - (int)*a);
 		}
 		l_bc++;
 		break;
 
-	case BC_SWAP48:
+	case asBC_SWAP48:
 		{
 			asDWORD d = *(asDWORD*)l_sp;
 			asQWORD q = *(asQWORD*)(l_sp+1);
@@ -2350,7 +2386,7 @@ void asCContext::ExecuteNext()
 		}
 		break;
 
-	case BC_SWAP84:
+	case asBC_SWAP84:
 		{
 			asQWORD q = *(asQWORD*)l_sp;
 			asDWORD d = *(asDWORD*)(l_sp+2);
@@ -2360,103 +2396,102 @@ void asCContext::ExecuteNext()
 		}
 		break;
 
-	case BC_OBJTYPE:
-		l_sp -= PTR_SIZE;
-		*(asPTRWORD*)l_sp = PTRARG(l_bc);
-		l_bc += 1+PTR_SIZE;
+	case asBC_OBJTYPE:
+		// Push the object type on the stack
+		l_sp -= AS_PTR_SIZE;
+		*(asPTRWORD*)l_sp = asBC_PTRARG(l_bc);
+		l_bc += 1+AS_PTR_SIZE;
 		break;
 
-	case BC_TYPEID:
-		{
-			--l_sp;
-			asDWORD typeId = DWORDARG(l_bc);
-			*l_sp = typeId;
-			l_bc += 2;
-		}
-		break;
-
-	case BC_SetV4:
-		*(l_fp - SWORDARG0(l_bc)) = DWORDARG(l_bc);
+	case asBC_TYPEID:
+		// Equivalent to PshC4, but kept as separate instruction for bytecode serialization
+		--l_sp;
+		*l_sp = asBC_DWORDARG(l_bc);
 		l_bc += 2;
 		break;
 
-	case BC_SetV8:
-		*(asQWORD*)(l_fp - SWORDARG0(l_bc)) = QWORDARG(l_bc);
+	case asBC_SetV4:
+		*(l_fp - asBC_SWORDARG0(l_bc)) = asBC_DWORDARG(l_bc);
+		l_bc += 2;
+		break;
+
+	case asBC_SetV8:
+		*(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = asBC_QWORDARG(l_bc);
 		l_bc += 3;
 		break;
 
-	case BC_ADDSi:
-		*(size_t*)l_sp = size_t(asPTRWORD(*(size_t*)l_sp) + INTARG(l_bc));
+	case asBC_ADDSi:
+		*(size_t*)l_sp = size_t(asPTRWORD(*(size_t*)l_sp) + asBC_SWORDARG0(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_CpyVtoV4:
-		*(l_fp - SWORDARG0(l_bc)) = *(l_fp - SWORDARG1(l_bc));
+	case asBC_CpyVtoV4:
+		*(l_fp - asBC_SWORDARG0(l_bc)) = *(l_fp - asBC_SWORDARG1(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_CpyVtoV8:
-		*(asQWORD*)(l_fp - SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - SWORDARG1(l_bc));
+	case asBC_CpyVtoV8:
+		*(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - asBC_SWORDARG1(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_CpyVtoR4:
-		*(asDWORD*)&register1 = *(asDWORD*)(l_fp - SWORDARG0(l_bc));
+	case asBC_CpyVtoR4:
+		*(asDWORD*)&regs.valueRegister = *(asDWORD*)(l_fp - asBC_SWORDARG0(l_bc));
 		l_bc++;
 		break;
 
-	case BC_CpyVtoR8:
-		*(asQWORD*)&register1 = *(asQWORD*)(l_fp - SWORDARG0(l_bc));
+	case asBC_CpyVtoR8:
+		*(asQWORD*)&regs.valueRegister = *(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc));
 		l_bc++;
 		break;
 
-	case BC_CpyVtoG4:
-		*(asDWORD*)module->globalVarPointers[WORDARG0(l_bc)] = *(asDWORD*)(l_fp - SWORDARG1(l_bc));
-		l_bc += 2;
+	case asBC_CpyVtoG4:
+		*(asDWORD*)(size_t)asBC_PTRARG(l_bc) = *(asDWORD*)(l_fp - asBC_SWORDARG0(l_bc));
+		l_bc += 1 + AS_PTR_SIZE;
 		break;
 
-	case BC_CpyRtoV4:
-		*(asDWORD*)(l_fp - SWORDARG0(l_bc)) = *(asDWORD*)&register1;
+	case asBC_CpyRtoV4:
+		*(asDWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = *(asDWORD*)&regs.valueRegister;
 		l_bc++;
 		break;
 
-	case BC_CpyRtoV8:
-		*(asQWORD*)(l_fp - SWORDARG0(l_bc)) = register1;
+	case asBC_CpyRtoV8:
+		*(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = regs.valueRegister;
 		l_bc++;
 		break;
 
-	case BC_CpyGtoV4:
-		*(asDWORD*)(l_fp - SWORDARG0(l_bc)) = *(asDWORD*)module->globalVarPointers[WORDARG1(l_bc)];
-		l_bc += 2;
+	case asBC_CpyGtoV4:
+		*(asDWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = *(asDWORD*)(size_t)asBC_PTRARG(l_bc);
+		l_bc += 1 + AS_PTR_SIZE;
 		break;
 
-	case BC_WRTV1:
+	case asBC_WRTV1:
 		// The pointer in the register points to a byte, and *(l_fp - offset) too
-		**(asBYTE**)&register1 = *(asBYTE*)(l_fp - SWORDARG0(l_bc));
+		**(asBYTE**)&regs.valueRegister = *(asBYTE*)(l_fp - asBC_SWORDARG0(l_bc));
 		l_bc++;
 		break;
 
-	case BC_WRTV2:
+	case asBC_WRTV2:
 		// The pointer in the register points to a word, and *(l_fp - offset) too
-		**(asWORD**)&register1 = *(asWORD*)(l_fp - SWORDARG0(l_bc));
+		**(asWORD**)&regs.valueRegister = *(asWORD*)(l_fp - asBC_SWORDARG0(l_bc));
 		l_bc++;
 		break;
 
-	case BC_WRTV4:
-		**(asDWORD**)&register1 = *(l_fp - SWORDARG0(l_bc));
+	case asBC_WRTV4:
+		**(asDWORD**)&regs.valueRegister = *(l_fp - asBC_SWORDARG0(l_bc));
 		l_bc++;
 		break;
 
-	case BC_WRTV8:
-		**(asQWORD**)&register1 = *(asQWORD*)(l_fp - SWORDARG0(l_bc));
+	case asBC_WRTV8:
+		**(asQWORD**)&regs.valueRegister = *(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc));
 		l_bc++;
 		break;
 
-	case BC_RDR1:
+	case asBC_RDR1:
 		{
 			// The pointer in the register points to a byte, and *(l_fp - offset) will also point to a byte
-			asBYTE *bPtr = (asBYTE*)(l_fp - SWORDARG0(l_bc));
-			bPtr[0] = **(asBYTE**)&register1; // read the byte
+			asBYTE *bPtr = (asBYTE*)(l_fp - asBC_SWORDARG0(l_bc));
+			bPtr[0] = **(asBYTE**)&regs.valueRegister; // read the byte
 			bPtr[1] = 0;                      // 0 the rest of the DWORD
 			bPtr[2] = 0;
 			bPtr[3] = 0;
@@ -2464,43 +2499,43 @@ void asCContext::ExecuteNext()
 		l_bc++;
 		break;
 
-	case BC_RDR2:
+	case asBC_RDR2:
 		{
 			// The pointer in the register points to a word, and *(l_fp - offset) will also point to a word
-			asWORD *wPtr = (asWORD*)(l_fp - SWORDARG0(l_bc));
-			wPtr[0] = **(asWORD**)&register1; // read the word
+			asWORD *wPtr = (asWORD*)(l_fp - asBC_SWORDARG0(l_bc));
+			wPtr[0] = **(asWORD**)&regs.valueRegister; // read the word
 			wPtr[1] = 0;                      // 0 the rest of the DWORD
 		}
 		l_bc++;
 		break;
 
-	case BC_RDR4:
-		*(asDWORD*)(l_fp - SWORDARG0(l_bc)) = **(asDWORD**)&register1;
+	case asBC_RDR4:
+		*(asDWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = **(asDWORD**)&regs.valueRegister;
 		l_bc++;
 		break;
 
-	case BC_RDR8:
-		*(asQWORD*)(l_fp - SWORDARG0(l_bc)) = **(asQWORD**)&register1;
+	case asBC_RDR8:
+		*(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = **(asQWORD**)&regs.valueRegister;
 		l_bc++;
 		break;
 
-	case BC_LDG:
-		*(asDWORD**)&register1 = (asDWORD*)module->globalVarPointers[WORDARG0(l_bc)];
+	case asBC_LDG:
+		*(asPTRWORD*)&regs.valueRegister = asBC_PTRARG(l_bc);
+		l_bc += 1+AS_PTR_SIZE;
+		break;
+
+	case asBC_LDV:
+		*(asDWORD**)&regs.valueRegister = (l_fp - asBC_SWORDARG0(l_bc));
 		l_bc++;
 		break;
 
-	case BC_LDV:
-		*(asDWORD**)&register1 = (l_fp - SWORDARG0(l_bc));
-		l_bc++;
+	case asBC_PGA:
+		l_sp -= AS_PTR_SIZE;
+		*(asPTRWORD*)l_sp = asBC_PTRARG(l_bc);
+		l_bc += 1+AS_PTR_SIZE;
 		break;
 
-	case BC_PGA:
-		l_sp -= PTR_SIZE;
-		*(asPTRWORD*)l_sp = (asPTRWORD)(size_t)module->globalVarPointers[WORDARG0(l_bc)];
-		l_bc++;
-		break;
-
-	case BC_RDS4:
+	case asBC_RDS4:
 #ifndef AS_64BIT_PTR
 		*l_sp = *(asDWORD*)*(size_t*)l_sp;
 #else
@@ -2513,301 +2548,301 @@ void asCContext::ExecuteNext()
 		l_bc++;
 		break;
 
-	case BC_VAR:
-		l_sp -= PTR_SIZE;
-		*(size_t*)l_sp = (size_t)SWORDARG0(l_bc);
+	case asBC_VAR:
+		l_sp -= AS_PTR_SIZE;
+		*(size_t*)l_sp = (size_t)asBC_SWORDARG0(l_bc);
 		l_bc++;
 		break;
 
 	//----------------------------
 	// Type conversions
-	case BC_iTOf:
-		*(float*)(l_fp - SWORDARG0(l_bc)) = float(*(int*)(l_fp - SWORDARG0(l_bc)));
+	case asBC_iTOf:
+		*(float*)(l_fp - asBC_SWORDARG0(l_bc)) = float(*(int*)(l_fp - asBC_SWORDARG0(l_bc)));
 		l_bc++;
 		break;
 
-	case BC_fTOi:
-		*(l_fp - SWORDARG0(l_bc)) = int(*(float*)(l_fp - SWORDARG0(l_bc)));
+	case asBC_fTOi:
+		*(l_fp - asBC_SWORDARG0(l_bc)) = int(*(float*)(l_fp - asBC_SWORDARG0(l_bc)));
 		l_bc++;
 		break;
 
-	case BC_uTOf:
-		*(float*)(l_fp - SWORDARG0(l_bc)) = float(*(l_fp - SWORDARG0(l_bc)));
+	case asBC_uTOf:
+		*(float*)(l_fp - asBC_SWORDARG0(l_bc)) = float(*(l_fp - asBC_SWORDARG0(l_bc)));
 		l_bc++;
 		break;
 
-	case BC_fTOu:
+	case asBC_fTOu:
 		// We must cast to int first, because on some compilers the cast of a negative float value to uint result in 0
-		*(l_fp - SWORDARG0(l_bc)) = asUINT(int(*(float*)(l_fp - SWORDARG0(l_bc))));
+		*(l_fp - asBC_SWORDARG0(l_bc)) = asUINT(int(*(float*)(l_fp - asBC_SWORDARG0(l_bc))));
 		l_bc++;
 		break;
 
-	case BC_sbTOi:
+	case asBC_sbTOi:
 		// *(l_fp - offset) points to a char, and will point to an int afterwards
-		*(l_fp - SWORDARG0(l_bc)) = *(signed char*)(l_fp - SWORDARG0(l_bc));
+		*(l_fp - asBC_SWORDARG0(l_bc)) = *(signed char*)(l_fp - asBC_SWORDARG0(l_bc));
 		l_bc++;
 		break;
 
-	case BC_swTOi:
+	case asBC_swTOi:
 		// *(l_fp - offset) points to a short, and will point to an int afterwards
-		*(l_fp - SWORDARG0(l_bc)) = *(short*)(l_fp - SWORDARG0(l_bc));
+		*(l_fp - asBC_SWORDARG0(l_bc)) = *(short*)(l_fp - asBC_SWORDARG0(l_bc));
 		l_bc++;
 		break;
 
-	case BC_ubTOi:
+	case asBC_ubTOi:
 		// (l_fp - offset) points to a byte, and will point to an int afterwards
-		*(l_fp - SWORDARG0(l_bc)) = *(asBYTE*)(l_fp - SWORDARG0(l_bc));
+		*(l_fp - asBC_SWORDARG0(l_bc)) = *(asBYTE*)(l_fp - asBC_SWORDARG0(l_bc));
 		l_bc++;
 		break;
 
-	case BC_uwTOi:
+	case asBC_uwTOi:
 		// *(l_fp - offset) points to a word, and will point to an int afterwards
-		*(l_fp - SWORDARG0(l_bc)) = *(asWORD*)(l_fp - SWORDARG0(l_bc));
+		*(l_fp - asBC_SWORDARG0(l_bc)) = *(asWORD*)(l_fp - asBC_SWORDARG0(l_bc));
 		l_bc++;
 		break;
 
-	case BC_dTOi:
-		*(l_fp - SWORDARG0(l_bc)) = int(*(double*)(l_fp - SWORDARG1(l_bc)));
+	case asBC_dTOi:
+		*(l_fp - asBC_SWORDARG0(l_bc)) = int(*(double*)(l_fp - asBC_SWORDARG1(l_bc)));
 		l_bc += 2;
 		break;
 
-	case BC_dTOu:
+	case asBC_dTOu:
 		// We must cast to int first, because on some compilers the cast of a negative float value to uint result in 0
-		*(l_fp - SWORDARG0(l_bc)) = asUINT(int(*(double*)(l_fp - SWORDARG1(l_bc))));
+		*(l_fp - asBC_SWORDARG0(l_bc)) = asUINT(int(*(double*)(l_fp - asBC_SWORDARG1(l_bc))));
 		l_bc += 2;
 		break;
 
-	case BC_dTOf:
-		*(float*)(l_fp - SWORDARG0(l_bc)) = float(*(double*)(l_fp - SWORDARG1(l_bc)));
+	case asBC_dTOf:
+		*(float*)(l_fp - asBC_SWORDARG0(l_bc)) = float(*(double*)(l_fp - asBC_SWORDARG1(l_bc)));
 		l_bc += 2;
 		break;
 
-	case BC_iTOd:
-		*(double*)(l_fp - SWORDARG0(l_bc)) = double(*(int*)(l_fp - SWORDARG1(l_bc)));
+	case asBC_iTOd:
+		*(double*)(l_fp - asBC_SWORDARG0(l_bc)) = double(*(int*)(l_fp - asBC_SWORDARG1(l_bc)));
 		l_bc += 2;
 		break;
 
-	case BC_uTOd:
-		*(double*)(l_fp - SWORDARG0(l_bc)) = double(*(asUINT*)(l_fp - SWORDARG1(l_bc)));
+	case asBC_uTOd:
+		*(double*)(l_fp - asBC_SWORDARG0(l_bc)) = double(*(asUINT*)(l_fp - asBC_SWORDARG1(l_bc)));
 		l_bc += 2;
 		break;
 
-	case BC_fTOd:
-		*(double*)(l_fp - SWORDARG0(l_bc)) = double(*(float*)(l_fp - SWORDARG1(l_bc)));
+	case asBC_fTOd:
+		*(double*)(l_fp - asBC_SWORDARG0(l_bc)) = double(*(float*)(l_fp - asBC_SWORDARG1(l_bc)));
 		l_bc += 2;
 		break;
 
 	//------------------------------
 	// Math operations
-	case BC_ADDi:
-		*(int*)(l_fp - SWORDARG0(l_bc)) = *(int*)(l_fp - SWORDARG1(l_bc)) + *(int*)(l_fp - SWORDARG2(l_bc));
+	case asBC_ADDi:
+		*(int*)(l_fp - asBC_SWORDARG0(l_bc)) = *(int*)(l_fp - asBC_SWORDARG1(l_bc)) + *(int*)(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_SUBi:
-		*(int*)(l_fp - SWORDARG0(l_bc)) = *(int*)(l_fp - SWORDARG1(l_bc)) - *(int*)(l_fp - SWORDARG2(l_bc));
+	case asBC_SUBi:
+		*(int*)(l_fp - asBC_SWORDARG0(l_bc)) = *(int*)(l_fp - asBC_SWORDARG1(l_bc)) - *(int*)(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_MULi:
-		*(int*)(l_fp - SWORDARG0(l_bc)) = *(int*)(l_fp - SWORDARG1(l_bc)) * *(int*)(l_fp - SWORDARG2(l_bc));
+	case asBC_MULi:
+		*(int*)(l_fp - asBC_SWORDARG0(l_bc)) = *(int*)(l_fp - asBC_SWORDARG1(l_bc)) * *(int*)(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_DIVi:
+	case asBC_DIVi:
 		{
-			int divider = *(int*)(l_fp - SWORDARG2(l_bc));
+			int divider = *(int*)(l_fp - asBC_SWORDARG2(l_bc));
 			if( divider == 0 )
 			{
 				// Need to move the values back to the context
-				byteCode = l_bc;
-				stackPointer = l_sp;
-				stackFramePointer = l_fp;
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
 
 				// Raise exception
 				SetInternalException(TXT_DIVIDE_BY_ZERO);
 				return;
 			}
-			*(int*)(l_fp - SWORDARG0(l_bc)) = *(int*)(l_fp - SWORDARG1(l_bc)) / divider;
+			*(int*)(l_fp - asBC_SWORDARG0(l_bc)) = *(int*)(l_fp - asBC_SWORDARG1(l_bc)) / divider;
 		}
 		l_bc += 2;
 		break;
 
-	case BC_MODi:
+	case asBC_MODi:
 		{
-			int divider = *(int*)(l_fp - SWORDARG2(l_bc));
+			int divider = *(int*)(l_fp - asBC_SWORDARG2(l_bc));
 			if( divider == 0 )
 			{
 				// Need to move the values back to the context
-				byteCode = l_bc;
-				stackPointer = l_sp;
-				stackFramePointer = l_fp;
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
 
 				// Raise exception
 				SetInternalException(TXT_DIVIDE_BY_ZERO);
 				return;
 			}
-			*(int*)(l_fp - SWORDARG0(l_bc)) = *(int*)(l_fp - SWORDARG1(l_bc)) % divider;
+			*(int*)(l_fp - asBC_SWORDARG0(l_bc)) = *(int*)(l_fp - asBC_SWORDARG1(l_bc)) % divider;
 		}
 		l_bc += 2;
 		break;
 
-	case BC_ADDf:
-		*(float*)(l_fp - SWORDARG0(l_bc)) = *(float*)(l_fp - SWORDARG1(l_bc)) + *(float*)(l_fp - SWORDARG2(l_bc));
+	case asBC_ADDf:
+		*(float*)(l_fp - asBC_SWORDARG0(l_bc)) = *(float*)(l_fp - asBC_SWORDARG1(l_bc)) + *(float*)(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_SUBf:
-		*(float*)(l_fp - SWORDARG0(l_bc)) = *(float*)(l_fp - SWORDARG1(l_bc)) - *(float*)(l_fp - SWORDARG2(l_bc));
+	case asBC_SUBf:
+		*(float*)(l_fp - asBC_SWORDARG0(l_bc)) = *(float*)(l_fp - asBC_SWORDARG1(l_bc)) - *(float*)(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_MULf:
-		*(float*)(l_fp - SWORDARG0(l_bc)) = *(float*)(l_fp - SWORDARG1(l_bc)) * *(float*)(l_fp - SWORDARG2(l_bc));
+	case asBC_MULf:
+		*(float*)(l_fp - asBC_SWORDARG0(l_bc)) = *(float*)(l_fp - asBC_SWORDARG1(l_bc)) * *(float*)(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_DIVf:
+	case asBC_DIVf:
 		{
-			float divider = *(float*)(l_fp - SWORDARG2(l_bc));
+			float divider = *(float*)(l_fp - asBC_SWORDARG2(l_bc));
 			if( divider == 0 )
 			{
 				// Need to move the values back to the context
-				byteCode = l_bc;
-				stackPointer = l_sp;
-				stackFramePointer = l_fp;
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
 
 				// Raise exception
 				SetInternalException(TXT_DIVIDE_BY_ZERO);
 				return;
 			}
-			*(float*)(l_fp - SWORDARG0(l_bc)) = *(float*)(l_fp - SWORDARG1(l_bc)) / divider;
+			*(float*)(l_fp - asBC_SWORDARG0(l_bc)) = *(float*)(l_fp - asBC_SWORDARG1(l_bc)) / divider;
 		}
 		l_bc += 2;
 		break;
 
-	case BC_MODf:
+	case asBC_MODf:
 		{
-			float divider = *(float*)(l_fp - SWORDARG2(l_bc));
+			float divider = *(float*)(l_fp - asBC_SWORDARG2(l_bc));
 			if( divider == 0 )
 			{
 				// Need to move the values back to the context
-				byteCode = l_bc;
-				stackPointer = l_sp;
-				stackFramePointer = l_fp;
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
 
 				// Raise exception
 				SetInternalException(TXT_DIVIDE_BY_ZERO);
 				return;
 			}
-			*(float*)(l_fp - SWORDARG0(l_bc)) = fmodf(*(float*)(l_fp - SWORDARG1(l_bc)), divider);
+			*(float*)(l_fp - asBC_SWORDARG0(l_bc)) = fmodf(*(float*)(l_fp - asBC_SWORDARG1(l_bc)), divider);
 		}
 		l_bc += 2;
 		break;
 
-	case BC_ADDd:
-		*(double*)(l_fp - SWORDARG0(l_bc)) = *(double*)(l_fp - SWORDARG1(l_bc)) + *(double*)(l_fp - SWORDARG2(l_bc));
+	case asBC_ADDd:
+		*(double*)(l_fp - asBC_SWORDARG0(l_bc)) = *(double*)(l_fp - asBC_SWORDARG1(l_bc)) + *(double*)(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_SUBd:
-		*(double*)(l_fp - SWORDARG0(l_bc)) = *(double*)(l_fp - SWORDARG1(l_bc)) - *(double*)(l_fp - SWORDARG2(l_bc));
+	case asBC_SUBd:
+		*(double*)(l_fp - asBC_SWORDARG0(l_bc)) = *(double*)(l_fp - asBC_SWORDARG1(l_bc)) - *(double*)(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_MULd:
-		*(double*)(l_fp - SWORDARG0(l_bc)) = *(double*)(l_fp - SWORDARG1(l_bc)) * *(double*)(l_fp - SWORDARG2(l_bc));
+	case asBC_MULd:
+		*(double*)(l_fp - asBC_SWORDARG0(l_bc)) = *(double*)(l_fp - asBC_SWORDARG1(l_bc)) * *(double*)(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_DIVd:
+	case asBC_DIVd:
 		{
-			double divider = *(double*)(l_fp - SWORDARG2(l_bc));
+			double divider = *(double*)(l_fp - asBC_SWORDARG2(l_bc));
 			if( divider == 0 )
 			{
 				// Need to move the values back to the context
-				byteCode = l_bc;
-				stackPointer = l_sp;
-				stackFramePointer = l_fp;
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
 
 				// Raise exception
 				SetInternalException(TXT_DIVIDE_BY_ZERO);
 				return;
 			}
 
-			*(double*)(l_fp - SWORDARG0(l_bc)) = *(double*)(l_fp - SWORDARG1(l_bc)) / divider;
+			*(double*)(l_fp - asBC_SWORDARG0(l_bc)) = *(double*)(l_fp - asBC_SWORDARG1(l_bc)) / divider;
 			l_bc += 2;
 		}
 		break;
 
-	case BC_MODd:
+	case asBC_MODd:
 		{
-			double divider = *(double*)(l_fp - SWORDARG2(l_bc));
+			double divider = *(double*)(l_fp - asBC_SWORDARG2(l_bc));
 			if( divider == 0 )
 			{
 				// Need to move the values back to the context
-				byteCode = l_bc;
-				stackPointer = l_sp;
-				stackFramePointer = l_fp;
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
 
 				// Raise exception
 				SetInternalException(TXT_DIVIDE_BY_ZERO);
 				return;
 			}
 
-			*(double*)(l_fp - SWORDARG0(l_bc)) = fmod(*(double*)(l_fp - SWORDARG1(l_bc)), divider);
+			*(double*)(l_fp - asBC_SWORDARG0(l_bc)) = fmod(*(double*)(l_fp - asBC_SWORDARG1(l_bc)), divider);
 			l_bc += 2;
 		}
 		break;
 
 	//------------------------------
 	// Math operations with constant value
-	case BC_ADDIi:
-		*(int*)(l_fp - SWORDARG0(l_bc)) = *(int*)(l_fp - SWORDARG1(l_bc)) + INTARG(l_bc+1);
+	case asBC_ADDIi:
+		*(int*)(l_fp - asBC_SWORDARG0(l_bc)) = *(int*)(l_fp - asBC_SWORDARG1(l_bc)) + asBC_INTARG(l_bc+1);
 		l_bc += 3;
 		break;
 
-	case BC_SUBIi:
-		*(int*)(l_fp - SWORDARG0(l_bc)) = *(int*)(l_fp - SWORDARG1(l_bc)) - INTARG(l_bc+1);
+	case asBC_SUBIi:
+		*(int*)(l_fp - asBC_SWORDARG0(l_bc)) = *(int*)(l_fp - asBC_SWORDARG1(l_bc)) - asBC_INTARG(l_bc+1);
 		l_bc += 3;
 		break;
 
-	case BC_MULIi:
-		*(int*)(l_fp - SWORDARG0(l_bc)) = *(int*)(l_fp - SWORDARG1(l_bc)) * INTARG(l_bc+1);
+	case asBC_MULIi:
+		*(int*)(l_fp - asBC_SWORDARG0(l_bc)) = *(int*)(l_fp - asBC_SWORDARG1(l_bc)) * asBC_INTARG(l_bc+1);
 		l_bc += 3;
 		break;
 
-	case BC_ADDIf:
-		*(float*)(l_fp - SWORDARG0(l_bc)) = *(float*)(l_fp - SWORDARG1(l_bc)) + FLOATARG(l_bc+1);
+	case asBC_ADDIf:
+		*(float*)(l_fp - asBC_SWORDARG0(l_bc)) = *(float*)(l_fp - asBC_SWORDARG1(l_bc)) + asBC_FLOATARG(l_bc+1);
 		l_bc += 3;
 		break;
 
-	case BC_SUBIf:
-		*(float*)(l_fp - SWORDARG0(l_bc)) = *(float*)(l_fp - SWORDARG1(l_bc)) - FLOATARG(l_bc+1);
+	case asBC_SUBIf:
+		*(float*)(l_fp - asBC_SWORDARG0(l_bc)) = *(float*)(l_fp - asBC_SWORDARG1(l_bc)) - asBC_FLOATARG(l_bc+1);
 		l_bc += 3;
 		break;
 
-	case BC_MULIf:
-		*(float*)(l_fp - SWORDARG0(l_bc)) = *(float*)(l_fp - SWORDARG1(l_bc)) * FLOATARG(l_bc+1);
+	case asBC_MULIf:
+		*(float*)(l_fp - asBC_SWORDARG0(l_bc)) = *(float*)(l_fp - asBC_SWORDARG1(l_bc)) * asBC_FLOATARG(l_bc+1);
 		l_bc += 3;
 		break;
 
 	//-----------------------------------
-	case BC_SetG4:
-		*(asDWORD*)module->globalVarPointers[WORDARG0(l_bc)] = DWORDARG(l_bc);
-		l_bc += 2;
+	case asBC_SetG4:
+		*(asDWORD*)(size_t)asBC_PTRARG(l_bc) = asBC_DWORDARG(l_bc+AS_PTR_SIZE);
+		l_bc += 2 + AS_PTR_SIZE;
 		break;
 
-	case BC_ChkRefS:
+	case asBC_ChkRefS:
 		{
 			// Verify if the pointer on the stack refers to a non-null value
 			// This is used to validate a reference to a handle
 			asDWORD *a = (asDWORD*)*(size_t*)l_sp;
 			if( *a == 0 )
 			{
-				byteCode = l_bc;
-				stackPointer = l_sp;
-				stackFramePointer = l_fp;
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
 
 				SetInternalException(TXT_NULL_POINTER_ACCESS);
 				return;
@@ -2816,15 +2851,15 @@ void asCContext::ExecuteNext()
 		l_bc++;
 		break;
 
-	case BC_ChkNullV:
+	case asBC_ChkNullV:
 		{
 			// Verify if variable (on the stack) is not null
-			asDWORD *a = *(asDWORD**)(l_fp - SWORDARG0(l_bc));
+			asDWORD *a = *(asDWORD**)(l_fp - asBC_SWORDARG0(l_bc));
 			if( a == 0 )
 			{
-				byteCode = l_bc;
-				stackPointer = l_sp;
-				stackFramePointer = l_fp;
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
 
 				SetInternalException(TXT_NULL_POINTER_ACCESS);
 				return;
@@ -2833,25 +2868,25 @@ void asCContext::ExecuteNext()
 		l_bc++;
 		break;
 
-	case BC_CALLINTF:
+	case asBC_CALLINTF:
 		{
-			int i = INTARG(l_bc);
+			int i = asBC_INTARG(l_bc);
 			l_bc += 2;
 
 			asASSERT( i >= 0 );
 			asASSERT( (i & FUNC_IMPORTED) == 0 );
 
 			// Need to move the values back to the context
-			byteCode = l_bc;
-			stackPointer = l_sp;
-			stackFramePointer = l_fp;
+			regs.programPointer = l_bc;
+			regs.stackPointer = l_sp;
+			regs.stackFramePointer = l_fp;
 
-			CallInterfaceMethod(module, module->GetScriptFunction(i));
+			CallInterfaceMethod(engine->GetScriptFunction(i));
 
 			// Extract the values from the context again
-			l_bc = byteCode;
-			l_sp = stackPointer;
-			l_fp = stackFramePointer;
+			l_bc = regs.programPointer;
+			l_sp = regs.stackPointer;
+			l_fp = regs.stackFramePointer;
 
 			// If status isn't active anymore then we must stop
 			if( status != asEXECUTION_ACTIVE )
@@ -2859,14 +2894,14 @@ void asCContext::ExecuteNext()
 		}
 		break;
 
-	case BC_iTOb:
+	case asBC_iTOb:
 		{
 			// *(l_fp - offset) points to an int, and will point to a byte afterwards
 
 			// We need to use volatile here to tell the compiler not to rearrange
 			// read and write operations during optimizations.
-			volatile asDWORD val  = *(l_fp - SWORDARG0(l_bc));
-			volatile asBYTE *bPtr = (asBYTE*)(l_fp - SWORDARG0(l_bc));
+			volatile asDWORD val  = *(l_fp - asBC_SWORDARG0(l_bc));
+			volatile asBYTE *bPtr = (asBYTE*)(l_fp - asBC_SWORDARG0(l_bc));
 			bPtr[0] = (asBYTE)val; // write the byte
 			bPtr[1] = 0;           // 0 the rest of the DWORD
 			bPtr[2] = 0;
@@ -2875,266 +2910,287 @@ void asCContext::ExecuteNext()
 		l_bc++;
 		break;
 
-	case BC_iTOw:
+	case asBC_iTOw:
 		{
 			// *(l_fp - offset) points to an int, and will point to word afterwards
 
 			// We need to use volatile here to tell the compiler not to rearrange
 			// read and write operations during optimizations.
-			volatile asDWORD val  = *(l_fp - SWORDARG0(l_bc));
-			volatile asWORD *wPtr = (asWORD*)(l_fp - SWORDARG0(l_bc));
+			volatile asDWORD val  = *(l_fp - asBC_SWORDARG0(l_bc));
+			volatile asWORD *wPtr = (asWORD*)(l_fp - asBC_SWORDARG0(l_bc));
 			wPtr[0] = (asWORD)val; // write the word
 			wPtr[1] = 0;           // 0 the rest of the DWORD
 		}
 		l_bc++;
 		break;
 
-	case BC_SetV1:
+	case asBC_SetV1:
+		// TODO: This is exactly the same as SetV4. This is a left over from the time
+		//       when the bytecode instructions were more tightly packed. It can now
+		//       be removed. When removing it, make sure the value is correctly converted
+		//       on big-endian CPUs.
+
 		// The byte is already stored correctly in the argument
-		*(l_fp - SWORDARG0(l_bc)) = DWORDARG(l_bc);
+		*(l_fp - asBC_SWORDARG0(l_bc)) = asBC_DWORDARG(l_bc);
 		l_bc += 2;
 		break;
 
-	case BC_SetV2:
+	case asBC_SetV2:
+		// TODO: This is exactly the same as SetV4. This is a left over from the time
+		//       when the bytecode instructions were more tightly packed. It can now
+		//       be removed. When removing it, make sure the value is correctly converted
+		//       on big-endian CPUs.
+
 		// The word is already stored correctly in the argument
-		*(l_fp - SWORDARG0(l_bc)) = DWORDARG(l_bc);
+		*(l_fp - asBC_SWORDARG0(l_bc)) = asBC_DWORDARG(l_bc);
 		l_bc += 2;
 		break;
 
-	case BC_Cast:
+	case asBC_Cast:
 		// Cast the handle at the top of the stack to the type in the argument
 		{
 			asDWORD **a = (asDWORD**)*(size_t*)l_sp;
 			if( a && *a )
 			{
-				asDWORD typeId = DWORDARG(l_bc);
+				asDWORD typeId = asBC_DWORDARG(l_bc);
 
 				asCScriptObject *obj = (asCScriptObject *)* a;
 				asCObjectType *objType = obj->objType;
 				asCObjectType *to = engine->GetObjectTypeFromTypeId(typeId);
+
+				// This instruction can only be used with script classes and interfaces
+				asASSERT( objType->flags & asOBJ_SCRIPT_OBJECT );
+				asASSERT( to->flags & asOBJ_SCRIPT_OBJECT );
+
 				if( objType->Implements(to) || objType->DerivesFrom(to) )
 				{
-					objectType = 0;
-					objectRegister = obj;
+					regs.objectType = 0;
+					regs.objectRegister = obj;
 					obj->AddRef();
 				}
+				else
+				{
+					// The object register should already be null, so there  
+					// is no need to clear it if the cast is unsuccessful
+					asASSERT( regs.objectRegister == 0 );
+				}
 			}
-			l_sp += PTR_SIZE;
+			l_sp += AS_PTR_SIZE;
 		}
 		l_bc += 2;
 		break;
 
-	case BC_i64TOi:
-		*(l_fp - SWORDARG0(l_bc)) = int(*(asINT64*)(l_fp - SWORDARG1(l_bc)));
+	case asBC_i64TOi:
+		*(l_fp - asBC_SWORDARG0(l_bc)) = int(*(asINT64*)(l_fp - asBC_SWORDARG1(l_bc)));
 		l_bc += 2;
 		break;
 
-	case BC_uTOi64:
-		*(asINT64*)(l_fp - SWORDARG0(l_bc)) = asINT64(*(asUINT*)(l_fp - SWORDARG1(l_bc)));
+	case asBC_uTOi64:
+		*(asINT64*)(l_fp - asBC_SWORDARG0(l_bc)) = asINT64(*(asUINT*)(l_fp - asBC_SWORDARG1(l_bc)));
 		l_bc += 2;
 		break;
 
-	case BC_iTOi64:
-		*(asINT64*)(l_fp - SWORDARG0(l_bc)) = asINT64(*(int*)(l_fp - SWORDARG1(l_bc)));
+	case asBC_iTOi64:
+		*(asINT64*)(l_fp - asBC_SWORDARG0(l_bc)) = asINT64(*(int*)(l_fp - asBC_SWORDARG1(l_bc)));
 		l_bc += 2;
 		break;
 
-	case BC_fTOi64:
-		*(asINT64*)(l_fp - SWORDARG0(l_bc)) = asINT64(*(float*)(l_fp - SWORDARG1(l_bc)));
+	case asBC_fTOi64:
+		*(asINT64*)(l_fp - asBC_SWORDARG0(l_bc)) = asINT64(*(float*)(l_fp - asBC_SWORDARG1(l_bc)));
 		l_bc += 2;
 		break;
 
-	case BC_dTOi64:
-		*(asINT64*)(l_fp - SWORDARG0(l_bc)) = asINT64(*(double*)(l_fp - SWORDARG0(l_bc)));
+	case asBC_dTOi64:
+		*(asINT64*)(l_fp - asBC_SWORDARG0(l_bc)) = asINT64(*(double*)(l_fp - asBC_SWORDARG0(l_bc)));
 		l_bc++;
 		break;
 
-	case BC_fTOu64:
-		*(asQWORD*)(l_fp - SWORDARG0(l_bc)) = asQWORD(asINT64(*(float*)(l_fp - SWORDARG1(l_bc))));
+	case asBC_fTOu64:
+		*(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = asQWORD(asINT64(*(float*)(l_fp - asBC_SWORDARG1(l_bc))));
 		l_bc += 2;
 		break;
 
-	case BC_dTOu64:
-		*(asQWORD*)(l_fp - SWORDARG0(l_bc)) = asQWORD(asINT64(*(double*)(l_fp - SWORDARG0(l_bc))));
+	case asBC_dTOu64:
+		*(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = asQWORD(asINT64(*(double*)(l_fp - asBC_SWORDARG0(l_bc))));
 		l_bc++;
 		break;
 
-	case BC_i64TOf:
-		*(float*)(l_fp - SWORDARG0(l_bc)) = float(*(asINT64*)(l_fp - SWORDARG1(l_bc)));
+	case asBC_i64TOf:
+		*(float*)(l_fp - asBC_SWORDARG0(l_bc)) = float(*(asINT64*)(l_fp - asBC_SWORDARG1(l_bc)));
 		l_bc += 2;
 		break;
 
-	case BC_u64TOf:
+	case asBC_u64TOf:
 #if _MSC_VER <= 1200 // MSVC6 
 		{
 			// MSVC6 doesn't permit UINT64 to double
-			asINT64 v = *(asINT64*)(l_fp - SWORDARG1(l_bc));
+			asINT64 v = *(asINT64*)(l_fp - asBC_SWORDARG1(l_bc));
 			if( v < 0 )
-				*(float*)(l_fp - SWORDARG0(l_bc)) = 18446744073709551615.0f+float(v);
+				*(float*)(l_fp - asBC_SWORDARG0(l_bc)) = 18446744073709551615.0f+float(v);
 			else
-				*(float*)(l_fp - SWORDARG0(l_bc)) = float(v);
+				*(float*)(l_fp - asBC_SWORDARG0(l_bc)) = float(v);
 		}
 #else
-		*(float*)(l_fp - SWORDARG0(l_bc)) = float(*(asQWORD*)(l_fp - SWORDARG1(l_bc)));
+		*(float*)(l_fp - asBC_SWORDARG0(l_bc)) = float(*(asQWORD*)(l_fp - asBC_SWORDARG1(l_bc)));
 #endif
 		l_bc += 2;
 		break;
 
-	case BC_i64TOd:
-		*(double*)(l_fp - SWORDARG0(l_bc)) = double(*(asINT64*)(l_fp - SWORDARG0(l_bc)));
+	case asBC_i64TOd:
+		*(double*)(l_fp - asBC_SWORDARG0(l_bc)) = double(*(asINT64*)(l_fp - asBC_SWORDARG0(l_bc)));
 		l_bc++;
 		break;
 
-	case BC_u64TOd:
+	case asBC_u64TOd:
 #if _MSC_VER <= 1200 // MSVC6 
 		{
 			// MSVC6 doesn't permit UINT64 to double
-			asINT64 v = *(asINT64*)(l_fp - SWORDARG0(l_bc));
+			asINT64 v = *(asINT64*)(l_fp - asBC_SWORDARG0(l_bc));
 			if( v < 0 )
-				*(double*)(l_fp - SWORDARG0(l_bc)) = 18446744073709551615.0+double(v);
+				*(double*)(l_fp - asBC_SWORDARG0(l_bc)) = 18446744073709551615.0+double(v);
 			else
-				*(double*)(l_fp - SWORDARG0(l_bc)) = double(v);
+				*(double*)(l_fp - asBC_SWORDARG0(l_bc)) = double(v);
 		}
 #else
-		*(double*)(l_fp - SWORDARG0(l_bc)) = double(*(asQWORD*)(l_fp - SWORDARG0(l_bc)));
+		*(double*)(l_fp - asBC_SWORDARG0(l_bc)) = double(*(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc)));
 #endif
 		l_bc++;
 		break;
 
-	case BC_NEGi64:
-		*(asINT64*)(l_fp - SWORDARG0(l_bc)) = -*(asINT64*)(l_fp - SWORDARG0(l_bc));
+	case asBC_NEGi64:
+		*(asINT64*)(l_fp - asBC_SWORDARG0(l_bc)) = -*(asINT64*)(l_fp - asBC_SWORDARG0(l_bc));
 		l_bc++;
 		break;
 
-	case BC_INCi64:
-		++(**(asQWORD**)&register1);
+	case asBC_INCi64:
+		++(**(asQWORD**)&regs.valueRegister);
 		l_bc++;
 		break;
 
-	case BC_DECi64:
-		--(**(asQWORD**)&register1);
+	case asBC_DECi64:
+		--(**(asQWORD**)&regs.valueRegister);
 		l_bc++;
 		break;
 
-	case BC_BNOT64:
-		*(asQWORD*)(l_fp - SWORDARG0(l_bc)) = ~*(asQWORD*)(l_fp - SWORDARG0(l_bc));
+	case asBC_BNOT64:
+		*(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = ~*(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc));
 		l_bc++;
 		break;
 
-	case BC_ADDi64:
-		*(asQWORD*)(l_fp - SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - SWORDARG1(l_bc)) + *(asQWORD*)(l_fp - SWORDARG2(l_bc));
+	case asBC_ADDi64:
+		*(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - asBC_SWORDARG1(l_bc)) + *(asQWORD*)(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_SUBi64:
-		*(asQWORD*)(l_fp - SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - SWORDARG1(l_bc)) - *(asQWORD*)(l_fp - SWORDARG2(l_bc));
+	case asBC_SUBi64:
+		*(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - asBC_SWORDARG1(l_bc)) - *(asQWORD*)(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_MULi64:
-		*(asQWORD*)(l_fp - SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - SWORDARG1(l_bc)) * *(asQWORD*)(l_fp - SWORDARG2(l_bc));
+	case asBC_MULi64:
+		*(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - asBC_SWORDARG1(l_bc)) * *(asQWORD*)(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_DIVi64:
+	case asBC_DIVi64:
 		{
-			asQWORD divider = *(asQWORD*)(l_fp - SWORDARG2(l_bc));
+			asINT64 divider = *(asINT64*)(l_fp - asBC_SWORDARG2(l_bc));
 			if( divider == 0 )
 			{
 				// Need to move the values back to the context
-				byteCode = l_bc;
-				stackPointer = l_sp;
-				stackFramePointer = l_fp;
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
 
 				// Raise exception
 				SetInternalException(TXT_DIVIDE_BY_ZERO);
 				return;
 			}
-			*(asQWORD*)(l_fp - SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - SWORDARG1(l_bc)) / divider;
+			*(asINT64*)(l_fp - asBC_SWORDARG0(l_bc)) = *(asINT64*)(l_fp - asBC_SWORDARG1(l_bc)) / divider;
 		}
 		l_bc += 2;
 		break;
 
-	case BC_MODi64:
+	case asBC_MODi64:
 		{
-			asQWORD divider = *(asQWORD*)(l_fp - SWORDARG2(l_bc));
+			asINT64 divider = *(asINT64*)(l_fp - asBC_SWORDARG2(l_bc));
 			if( divider == 0 )
 			{
 				// Need to move the values back to the context
-				byteCode = l_bc;
-				stackPointer = l_sp;
-				stackFramePointer = l_fp;
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
 
 				// Raise exception
 				SetInternalException(TXT_DIVIDE_BY_ZERO);
 				return;
 			}
-			*(asQWORD*)(l_fp - SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - SWORDARG1(l_bc)) % divider;
+			*(asINT64*)(l_fp - asBC_SWORDARG0(l_bc)) = *(asINT64*)(l_fp - asBC_SWORDARG1(l_bc)) % divider;
 		}
 		l_bc += 2;
 		break;
 
-	case BC_BAND64:
-		*(asQWORD*)(l_fp - SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - SWORDARG1(l_bc)) & *(asQWORD*)(l_fp - SWORDARG2(l_bc));
+	case asBC_BAND64:
+		*(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - asBC_SWORDARG1(l_bc)) & *(asQWORD*)(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_BOR64:
-		*(asQWORD*)(l_fp - SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - SWORDARG1(l_bc)) | *(asQWORD*)(l_fp - SWORDARG2(l_bc));
+	case asBC_BOR64:
+		*(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - asBC_SWORDARG1(l_bc)) | *(asQWORD*)(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_BXOR64:
-		*(asQWORD*)(l_fp - SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - SWORDARG1(l_bc)) ^ *(asQWORD*)(l_fp - SWORDARG2(l_bc));
+	case asBC_BXOR64:
+		*(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - asBC_SWORDARG1(l_bc)) ^ *(asQWORD*)(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_BSLL64:
-		*(asQWORD*)(l_fp - SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - SWORDARG1(l_bc)) << *(l_fp - SWORDARG2(l_bc));
+	case asBC_BSLL64:
+		*(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - asBC_SWORDARG1(l_bc)) << *(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_BSRL64:
-		*(asQWORD*)(l_fp - SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - SWORDARG1(l_bc)) >> *(l_fp - SWORDARG2(l_bc));
+	case asBC_BSRL64:
+		*(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - asBC_SWORDARG1(l_bc)) >> *(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_BSRA64:
-		*(asINT64*)(l_fp - SWORDARG0(l_bc)) = *(asINT64*)(l_fp - SWORDARG1(l_bc)) >> *(l_fp - SWORDARG2(l_bc));
+	case asBC_BSRA64:
+		*(asINT64*)(l_fp - asBC_SWORDARG0(l_bc)) = *(asINT64*)(l_fp - asBC_SWORDARG1(l_bc)) >> *(l_fp - asBC_SWORDARG2(l_bc));
 		l_bc += 2;
 		break;
 
-	case BC_CMPi64:
+	case asBC_CMPi64:
 		{
-			asINT64 i = *(asINT64*)(l_fp - SWORDARG0(l_bc)) - *(asINT64*)(l_fp - SWORDARG1(l_bc));
-			if( i == 0 )     *(int*)&register1 =  0;
-			else if( i < 0 ) *(int*)&register1 = -1;
-			else             *(int*)&register1 =  1;
+			asINT64 i = *(asINT64*)(l_fp - asBC_SWORDARG0(l_bc)) - *(asINT64*)(l_fp - asBC_SWORDARG1(l_bc));
+			if( i == 0 )     *(int*)&regs.valueRegister =  0;
+			else if( i < 0 ) *(int*)&regs.valueRegister = -1;
+			else             *(int*)&regs.valueRegister =  1;
 			l_bc += 2;
 		}
 		break;
 
-	case BC_CMPu64:
+	case asBC_CMPu64:
 		{
-			asQWORD d = *(asQWORD*)(l_fp - SWORDARG0(l_bc));
-			asQWORD d2 = *(asQWORD*)(l_fp - SWORDARG1(l_bc));
-			if( d == d2 )     *(int*)&register1 =  0;
-			else if( d < d2 ) *(int*)&register1 = -1;
-			else              *(int*)&register1 =  1;
+			asQWORD d = *(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc));
+			asQWORD d2 = *(asQWORD*)(l_fp - asBC_SWORDARG1(l_bc));
+			if( d == d2 )     *(int*)&regs.valueRegister =  0;
+			else if( d < d2 ) *(int*)&regs.valueRegister = -1;
+			else              *(int*)&regs.valueRegister =  1;
 			l_bc += 2;
 		}
 		break;
 
-	case BC_ChkNullS:
+	case asBC_ChkNullS:
 		{
 			// Verify if the pointer on the stack is null
 			// This is used for example when validating handles passed as function arguments
-			size_t a = *(size_t*)(l_sp + WORDARG0(l_bc));
+			size_t a = *(size_t*)(l_sp + asBC_WORDARG0(l_bc));
 			if( a == 0 )
 			{
-				byteCode = l_bc;
-				stackPointer = l_sp;
-				stackFramePointer = l_fp;
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
 
 				SetInternalException(TXT_NULL_POINTER_ACCESS);
 				return;
@@ -3143,7 +3199,7 @@ void asCContext::ExecuteNext()
 		l_bc++;
 		break;
 
-	case BC_ClrHi:
+	case asBC_ClrHi:
 #if AS_SIZEOF_BOOL == 1
 		{
 			// Clear the upper bytes, so that trash data don't interfere with boolean operations
@@ -3151,7 +3207,7 @@ void asCContext::ExecuteNext()
 			// We need to use volatile here to tell the compiler it cannot
 			// change the order of read and write operations on the pointer.
 
-			volatile asBYTE *ptr = (asBYTE*)&register1;
+			volatile asBYTE *ptr = (asBYTE*)&regs.valueRegister;
 			ptr[1] = 0;   // The boolean value is stored in the lower byte, so we clear the rest
 			ptr[2] = 0;
 			ptr[3] = 0;
@@ -3162,19 +3218,203 @@ void asCContext::ExecuteNext()
 		l_bc++;
 		break;
 
+	case asBC_JitEntry:
+		{
+			if( currentFunction->jitFunction )
+			{
+				asPWORD jitArg = asBC_PTRARG(l_bc);
+
+				if( jitArg )
+				{
+					// Resume JIT operation
+					regs.programPointer = l_bc;
+					regs.stackPointer = l_sp;
+					regs.stackFramePointer = l_fp;
+
+					(currentFunction->jitFunction)(&regs, jitArg);
+				
+					l_bc = regs.programPointer;
+					l_sp = regs.stackPointer;
+					l_fp = regs.stackFramePointer;
+
+					// If status isn't active anymore then we must stop
+					if( status != asEXECUTION_ACTIVE )
+						return;
+				
+					break;
+				}
+			}
+
+			// Not a JIT resume point, treat as nop
+			l_bc++;
+		}
+		break;
+
+	case asBC_CallPtr:
+		{
+			// Get the function pointer from the local variable
+			asCScriptFunction *func = *(asCScriptFunction**)(l_fp - asBC_SWORDARG0(l_bc));
+			l_bc++;
+
+			// Need to move the values back to the context
+			regs.programPointer = l_bc;
+			regs.stackPointer = l_sp;
+			regs.stackFramePointer = l_fp;
+
+			if( func == 0 )
+			{
+				// TODO: funcdef: Should we have a different exception string?
+				SetInternalException(TXT_UNBOUND_FUNCTION);
+				return;
+			}
+			else
+				CallScriptFunction(func);
+
+			// Extract the values from the context again
+			l_bc = regs.programPointer;
+			l_sp = regs.stackPointer;
+			l_fp = regs.stackFramePointer;
+
+			// If status isn't active anymore then we must stop
+			if( status != asEXECUTION_ACTIVE )
+				return;
+		}
+		break;
+
+	case asBC_FuncPtr:
+		// Push the function pointer on the stack. The pointer is in the argument
+		l_sp -= AS_PTR_SIZE;
+		*(asPTRWORD*)l_sp = asBC_PTRARG(l_bc);
+		l_bc += 1+AS_PTR_SIZE;
+		break;
+
+	case asBC_LoadThisR:
+		{
+			// PshVPtr 0
+			asPTRWORD tmp = *(asPTRWORD*)l_fp;
+
+			// ADDSi
+			tmp = tmp + asBC_SWORDARG0(l_bc);
+
+			// PopRPtr
+			*(asPTRWORD*)&regs.valueRegister = tmp;
+			l_bc += 2;
+		}
+		break;
+
+	// Push the qword value of a variable on the stack
+	case asBC_PshV8:
+		l_sp -= 2;
+		*(asQWORD*)l_sp = *(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc));
+		l_bc++;
+		break;
+
+	case asBC_DIVu:
+		{
+			asUINT divider = *(asUINT*)(l_fp - asBC_SWORDARG2(l_bc));
+			if( divider == 0 )
+			{
+				// Need to move the values back to the context
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
+
+				// Raise exception
+				SetInternalException(TXT_DIVIDE_BY_ZERO);
+				return;
+			}
+			*(asUINT*)(l_fp - asBC_SWORDARG0(l_bc)) = *(asUINT*)(l_fp - asBC_SWORDARG1(l_bc)) / divider;
+		}
+		l_bc += 2;
+		break;
+
+	case asBC_MODu:
+		{
+			asUINT divider = *(asUINT*)(l_fp - asBC_SWORDARG2(l_bc));
+			if( divider == 0 )
+			{
+				// Need to move the values back to the context
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
+
+				// Raise exception
+				SetInternalException(TXT_DIVIDE_BY_ZERO);
+				return;
+			}
+			*(asUINT*)(l_fp - asBC_SWORDARG0(l_bc)) = *(asUINT*)(l_fp - asBC_SWORDARG1(l_bc)) % divider;
+		}
+		l_bc += 2;
+		break;
+
+	case asBC_DIVu64:
+		{
+			asQWORD divider = *(asQWORD*)(l_fp - asBC_SWORDARG2(l_bc));
+			if( divider == 0 )
+			{
+				// Need to move the values back to the context
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
+
+				// Raise exception
+				SetInternalException(TXT_DIVIDE_BY_ZERO);
+				return;
+			}
+			*(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - asBC_SWORDARG1(l_bc)) / divider;
+		}
+		l_bc += 2;
+		break;
+
+	case asBC_MODu64:
+		{
+			asQWORD divider = *(asQWORD*)(l_fp - asBC_SWORDARG2(l_bc));
+			if( divider == 0 )
+			{
+				// Need to move the values back to the context
+				regs.programPointer = l_bc;
+				regs.stackPointer = l_sp;
+				regs.stackFramePointer = l_fp;
+
+				// Raise exception
+				SetInternalException(TXT_DIVIDE_BY_ZERO);
+				return;
+			}
+			*(asQWORD*)(l_fp - asBC_SWORDARG0(l_bc)) = *(asQWORD*)(l_fp - asBC_SWORDARG1(l_bc)) % divider;
+		}
+		l_bc += 2;
+		break;
+
+	case asBC_LoadRObjR:
+		{
+			// PshVPtr x
+			asPTRWORD tmp = *(asPTRWORD*)(l_fp - asBC_SWORDARG0(l_bc)); 
+
+			// ADDSi y
+			tmp = tmp + asBC_SWORDARG1(l_bc);
+
+			// PopRPtr
+			*(asPTRWORD*)&regs.valueRegister = tmp;
+			l_bc += 3;
+		}
+		break;
+
+	case asBC_LoadVObjR:
+		{
+			// PSF x
+			asPTRWORD tmp = (asPTRWORD)(size_t)(l_fp - asBC_SWORDARG0(l_bc)); 
+
+			// ADDSi y
+			tmp = tmp + asBC_SWORDARG1(l_bc);
+
+			// PopRPtr
+			*(asPTRWORD*)&regs.valueRegister = tmp;
+			l_bc += 3;
+		}
+		break;
+
 	// Don't let the optimizer optimize for size,
 	// since it requires extra conditions and jumps
-	case 175: l_bc = (asDWORD*)175; break;
-	case 176: l_bc = (asDWORD*)176; break;
-	case 177: l_bc = (asDWORD*)177; break;
-	case 178: l_bc = (asDWORD*)178; break;
-	case 179: l_bc = (asDWORD*)179; break;
-	case 180: l_bc = (asDWORD*)180; break;
-	case 181: l_bc = (asDWORD*)181; break;
-	case 182: l_bc = (asDWORD*)182; break;
-	case 183: l_bc = (asDWORD*)183; break;
-	case 184: l_bc = (asDWORD*)184; break;
-	case 185: l_bc = (asDWORD*)185; break;
 	case 186: l_bc = (asDWORD*)186; break;
 	case 187: l_bc = (asDWORD*)187; break;
 	case 188: l_bc = (asDWORD*)188; break;
@@ -3261,10 +3501,11 @@ void asCContext::ExecuteNext()
 
 #ifdef AS_DEBUG
 		asDWORD instr = *(asBYTE*)old;
-		if( instr != BC_JMP && instr != BC_JMPP && (instr < BC_JZ || instr > BC_JNP) &&
-			instr != BC_CALL && instr != BC_CALLBND && instr != BC_CALLINTF && instr != BC_RET && instr != BC_ALLOC )
+		if( instr != asBC_JMP && instr != asBC_JMPP && (instr < asBC_JZ || instr > asBC_JNP) &&
+			instr != asBC_CALL && instr != asBC_CALLBND && instr != asBC_CALLINTF && instr != asBC_RET && instr != asBC_ALLOC && instr != asBC_CallPtr && 
+			instr != asBC_JitEntry )
 		{
-			asASSERT( (l_bc - old) == asCByteCode::SizeOfType(bcTypes[instr]) );
+			asASSERT( (l_bc - old) == asBCTypeSize[asBCInfo[instr].type] );
 		}
 #endif
 	}
@@ -3290,13 +3531,14 @@ void asCContext::SetInternalException(const char *descr)
 		return; // but if it does, at least this will not crash the application
 	}
 
-	status = asEXECUTION_EXCEPTION;
+	status                = asEXECUTION_EXCEPTION;
+	regs.doProcessSuspend = true;
 
-	exceptionString   = descr;
-	exceptionFunction = currentFunction->id;
-	exceptionLine     = currentFunction->GetLineNumber(int(byteCode - currentFunction->byteCode.AddressOf()));
-	exceptionColumn   = exceptionLine >> 20;
-	exceptionLine    &= 0xFFFFF;
+	exceptionString       = descr;
+	exceptionFunction     = currentFunction->id;
+	exceptionLine         = currentFunction->GetLineNumber(int(regs.programPointer - currentFunction->byteCode.AddressOf()));
+	exceptionColumn       = exceptionLine >> 20;
+	exceptionLine        &= 0xFFFFF;
 
 	if( exceptionCallback )
 		CallExceptionCallback();
@@ -3304,29 +3546,40 @@ void asCContext::SetInternalException(const char *descr)
 
 void asCContext::CleanReturnObject()
 {
-	if( objectRegister == 0 ) return;
+#ifndef AS_OLD
+	if( initialFunction && initialFunction->DoesReturnOnStack() && status == asEXECUTION_FINISHED )
+	{
+		// If function returns on stack we need to call the destructor on the returned object
+		if( initialFunction->returnType.GetObjectType()->beh.destruct )
+			engine->CallObjectMethod((void*)(stackBlocks[0] + stackBlockSize - returnValueSize), initialFunction->returnType.GetObjectType()->beh.destruct);
 
-	asASSERT( objectType != 0 );
+		return;
+	}
+#endif
 
-	if( objectType )
+	if( regs.objectRegister == 0 ) return;
+
+	asASSERT( regs.objectType != 0 );
+
+	if( regs.objectType )
 	{
 		// Call the destructor on the object
-		asSTypeBehaviour *beh = &objectType->beh;
+		asSTypeBehaviour *beh = &((asCObjectType*)regs.objectType)->beh;
 		if( beh->release )
 		{
-			engine->CallObjectMethod(objectRegister, beh->release);
-			objectRegister = 0;
+			engine->CallObjectMethod(regs.objectRegister, beh->release);
+			regs.objectRegister = 0;
 
 			// The release method is responsible for freeing the memory
 		}
 		else
 		{
 			if( beh->destruct )
-				engine->CallObjectMethod(objectRegister, beh->destruct);
+				engine->CallObjectMethod(regs.objectRegister, beh->destruct);
 
 			// Free the memory
-			engine->CallFree(objectRegister);
-			objectRegister = 0;
+			engine->CallFree(regs.objectRegister);
+			regs.objectRegister = 0;
 		}
 	}
 }
@@ -3347,32 +3600,219 @@ void asCContext::CleanStack()
 	inExceptionHandler = false;
 }
 
+// Interface
+bool asCContext::IsVarInScope(asUINT varIndex, asUINT stackLevel)
+{
+	asASSERT( stackLevel < GetCallstackSize() );
+
+	asCScriptFunction *func;
+	asUINT pos;
+
+	if( stackLevel == 0 )
+	{
+		func = currentFunction;
+		pos = asUINT(regs.programPointer - func->byteCode.AddressOf());
+	}
+	else
+	{
+		size_t *s = callStack.AddressOf() + (GetCallstackSize()-stackLevel-1)*CALLSTACK_FRAME_SIZE;
+		func = (asCScriptFunction*)s[1];
+		pos = asUINT((asDWORD*)s[2] - func->byteCode.AddressOf());
+	}
+
+	// First determine if the program position is after the variable declaration
+	if( func->variables.GetLength() <= varIndex ) return false;
+	if( func->variables[varIndex]->declaredAtProgramPos > pos ) return false;
+
+	asUINT declaredAt = func->variables[varIndex]->declaredAtProgramPos;
+
+	// If the program position is after the variable declaration it is necessary 
+	// determine if the program position is still inside the statement block where 
+	// the variable was delcared.
+	for( int n = 0; n < (int)func->objVariableInfo.GetLength(); n++ )
+	{
+		if( func->objVariableInfo[n].programPos >= declaredAt )
+		{
+			// If the current block ends between the declaredAt and current 
+			// program position, then we know the variable is no longer visible
+			int level = 0;
+			for( ; n < (int)func->objVariableInfo.GetLength(); n++ )
+			{
+				if( func->objVariableInfo[n].programPos > pos )
+					break;
+
+				if( func->objVariableInfo[n].option == asBLOCK_BEGIN ) level++;
+				if( func->objVariableInfo[n].option == asBLOCK_END && --level < 0 )
+					return false;
+			}
+
+			break;
+		}
+	}
+
+	// Variable is visible
+	return true;
+}
+
+// Internal
+void asCContext::DetermineLiveObjects(asCArray<int> &liveObjects, asUINT stackLevel)
+{
+	asASSERT( stackLevel < GetCallstackSize() );
+
+	asCScriptFunction *func;
+	asUINT pos;
+
+	if( stackLevel == 0 )
+	{
+		func = currentFunction;
+		pos = asUINT(regs.programPointer - func->byteCode.AddressOf());
+	}
+	else
+	{
+		size_t *s = callStack.AddressOf() + (GetCallstackSize()-stackLevel-1)*CALLSTACK_FRAME_SIZE;
+		func = (asCScriptFunction*)s[1];
+		pos = asUINT((asDWORD*)s[2] - func->byteCode.AddressOf());
+	}
+
+	if( status == asEXECUTION_EXCEPTION )
+	{
+		// Don't consider the last instruction as executed, as it failed with an exception
+		// It's not actually necessary to decrease the exact size of the instruction. Just 
+		// before the current position is enough to disconsider it.
+		pos--;
+	}
+
+
+	// Determine which object variables that are really live ones
+	liveObjects.SetLength(func->objVariablePos.GetLength());
+	memset(liveObjects.AddressOf(), 0, sizeof(int)*liveObjects.GetLength());
+	for( int n = 0; n < (int)func->objVariableInfo.GetLength(); n++ )
+	{
+		// Find the first variable info with a larger position than the current
+		// As the variable info are always placed on the instruction right after the 
+		// one that initialized or freed the object, the current position needs to be 
+		// considered as valid.
+		if( func->objVariableInfo[n].programPos > pos )
+		{
+			// We've determined how far the execution ran, now determine which variables are alive
+			for( --n; n >= 0; n-- )
+			{
+				switch( func->objVariableInfo[n].option )
+				{
+				case asOBJ_UNINIT: // Object was destroyed
+					{
+						// TODO: optimize: This should have been done by the compiler already
+						// Which variable is this?
+						asUINT var = 0;
+						for( asUINT v = 0; v < func->objVariablePos.GetLength(); v++ )
+							if( func->objVariablePos[v] == func->objVariableInfo[n].variableOffset )
+							{
+								var = v;
+								break;
+							}
+						liveObjects[var] -= 1;
+					}
+					break;
+				case asOBJ_INIT: // Object was created
+					{
+						// Which variable is this?
+						asUINT var = 0;
+						for( asUINT v = 0; v < func->objVariablePos.GetLength(); v++ )
+							if( func->objVariablePos[v] == func->objVariableInfo[n].variableOffset )
+							{
+								var = v;
+								break;
+							}
+						liveObjects[var] += 1;
+					}
+					break;
+				case asBLOCK_BEGIN: // Start block
+					// We should ignore start blocks, since it just means the  
+					// program was within the block when the exception ocurred
+					break;
+				case asBLOCK_END: // End block
+					// We need to skip the entire block, as the objects created
+					// and destroyed inside this block are already out of scope
+					{
+						int nested = 1;
+						while( nested > 0 )
+						{
+							int option = func->objVariableInfo[--n].option;
+							if( option == 3 )
+								nested++;
+							if( option == 2 )
+								nested--;
+						}
+					}
+					break;
+				}
+			}
+
+			// We're done with the investigation
+			break;
+		}
+	}
+}
+
 void asCContext::CleanStackFrame()
 {
 	// Clean object variables
 	if( !isStackMemoryNotAllocated )
 	{
+		// Determine which object variables that are really live ones
+		asCArray<int> liveObjects;
+		DetermineLiveObjects(liveObjects, 0);
+
 		for( asUINT n = 0; n < currentFunction->objVariablePos.GetLength(); n++ )
 		{
 			int pos = currentFunction->objVariablePos[n];
-			if( *(size_t*)&stackFramePointer[-pos] )
+			if( currentFunction->objVariableIsOnHeap[n] )
 			{
-				// Call the object's destructor
-				asSTypeBehaviour *beh = &currentFunction->objVariableTypes[n]->beh;
-				if( beh->release )
+				// Check if the pointer is initialized
+				if( *(size_t*)&regs.stackFramePointer[-pos] )
 				{
-					engine->CallObjectMethod((void*)*(size_t*)&stackFramePointer[-pos], beh->release);
-					*(size_t*)&stackFramePointer[-pos] = 0;
-				}
-				else
-				{
-					if( beh->destruct )
-						engine->CallObjectMethod((void*)*(size_t*)&stackFramePointer[-pos], beh->destruct);
+					// Call the object's destructor
+					asSTypeBehaviour *beh = &currentFunction->objVariableTypes[n]->beh;
+					if( beh->release )
+					{
+						engine->CallObjectMethod((void*)*(size_t*)&regs.stackFramePointer[-pos], beh->release);
+						*(size_t*)&regs.stackFramePointer[-pos] = 0;
+					}
+					else
+					{
+						if( beh->destruct )
+							engine->CallObjectMethod((void*)*(size_t*)&regs.stackFramePointer[-pos], beh->destruct);
 
-					// Free the memory
-					engine->CallFree((void*)*(size_t*)&stackFramePointer[-pos]);
-					*(size_t*)&stackFramePointer[-pos] = 0;
+						// Free the memory
+						engine->CallFree((void*)*(size_t*)&regs.stackFramePointer[-pos]);
+						*(size_t*)&regs.stackFramePointer[-pos] = 0;
+					}
 				}
+			}
+			else
+			{
+				asASSERT( currentFunction->objVariableTypes[n]->GetFlags() & asOBJ_VALUE );
+
+				// Only destroy the object if it is truly alive
+				if( liveObjects[n] > 0 )
+				{
+					asSTypeBehaviour *beh = &currentFunction->objVariableTypes[n]->beh;
+					if( beh->destruct )
+						engine->CallObjectMethod((void*)(size_t*)&regs.stackFramePointer[-pos], beh->destruct);
+				}
+			}
+		}
+
+		// If the object is a script declared object, then we must release it
+		// as the compiler adds a reference at the entry of the function. Make sure
+		// the function has actually been entered
+		if( currentFunction->objectType && regs.programPointer != currentFunction->byteCode.AddressOf() )
+		{
+			asSTypeBehaviour *beh = &currentFunction->objectType->beh;
+			if( beh->release && *(size_t*)&regs.stackFramePointer[0] != 0 )
+			{
+				engine->CallObjectMethod((void*)*(size_t*)&regs.stackFramePointer[0], beh->release);
+				*(size_t*)&regs.stackFramePointer[0] = 0;
 			}
 		}
 	}
@@ -3387,38 +3827,29 @@ void asCContext::CleanStackFrame()
 	int offset = 0;
 	if( currentFunction->objectType )
 	{
-		offset += PTR_SIZE;
-
-		// If the object is a script declared object, then we must release it
-		// as the compiler adds a reference at the entry of the function
-		asSTypeBehaviour *beh = &currentFunction->objectType->beh;
-		if( beh->release && *(size_t*)&stackFramePointer[0] != 0 )
-		{
-			engine->CallObjectMethod((void*)*(size_t*)&stackFramePointer[0], beh->release);
-			*(size_t*)&stackFramePointer[0] = 0;
-		}
+		offset += AS_PTR_SIZE;
 	}
 	for( asUINT n = 0; n < currentFunction->parameterTypes.GetLength(); n++ )
 	{
 		if( currentFunction->parameterTypes[n].IsObject() && !currentFunction->parameterTypes[n].IsReference() )
 		{
-			if( *(size_t*)&stackFramePointer[offset] )
+			if( *(size_t*)&regs.stackFramePointer[offset] )
 			{
 				// Call the object's destructor
 				asSTypeBehaviour *beh = currentFunction->parameterTypes[n].GetBehaviour();
 				if( beh->release )
 				{
-					engine->CallObjectMethod((void*)*(size_t*)&stackFramePointer[offset], beh->release);
-					*(size_t*)&stackFramePointer[offset] = 0;
+					engine->CallObjectMethod((void*)*(size_t*)&regs.stackFramePointer[offset], beh->release);
+					*(size_t*)&regs.stackFramePointer[offset] = 0;
 				}
 				else
 				{
 					if( beh->destruct )
-						engine->CallObjectMethod((void*)*(size_t*)&stackFramePointer[offset], beh->destruct);
+						engine->CallObjectMethod((void*)*(size_t*)&regs.stackFramePointer[offset], beh->destruct);
 
 					// Free the memory
-					engine->CallFree((void*)*(size_t*)&stackFramePointer[offset]);
-					*(size_t*)&stackFramePointer[offset] = 0;
+					engine->CallFree((void*)*(size_t*)&regs.stackFramePointer[offset]);
+					*(size_t*)&regs.stackFramePointer[offset] = 0;
 				}
 			}
 		}
@@ -3427,15 +3858,19 @@ void asCContext::CleanStackFrame()
 	}
 }
 
-int asCContext::GetExceptionLineNumber(int *column)
+// interface
+int asCContext::GetExceptionLineNumber(int *column, const char **sectionName)
 {
 	if( GetState() != asEXECUTION_EXCEPTION ) return asERROR;
 
 	if( column ) *column = exceptionColumn;
 
+	if( sectionName ) *sectionName = engine->scriptFunctions[exceptionFunction]->GetScriptSectionName();
+
 	return exceptionLine;
 }
 
+// interface
 int asCContext::GetExceptionFunction()
 {
 	if( GetState() != asEXECUTION_EXCEPTION ) return asERROR;
@@ -3443,27 +3878,7 @@ int asCContext::GetExceptionFunction()
 	return exceptionFunction;
 }
 
-int asCContext::GetCurrentFunction()
-{
-	if( status == asEXECUTION_SUSPENDED || status == asEXECUTION_ACTIVE )
-		return currentFunction->id;
-
-	return -1;
-}
-
-int asCContext::GetCurrentLineNumber(int *column)
-{
-	if( status == asEXECUTION_SUSPENDED || status == asEXECUTION_ACTIVE )
-	{
-		asDWORD line = currentFunction->GetLineNumber(int(byteCode - currentFunction->byteCode.AddressOf()));
-		if( column ) *column = line >> 20;
-
-		return line & 0xFFFFF;
-	}
-
-	return -1;
-}
-
+// interface
 const char *asCContext::GetExceptionString()
 {
 	if( GetState() != asEXECUTION_EXCEPTION ) return 0;
@@ -3471,21 +3886,23 @@ const char *asCContext::GetExceptionString()
 	return exceptionString.AddressOf();
 }
 
-asEContextState asCContext::GetState()
+// interface
+asEContextState asCContext::GetState() const
 {
 	return status;
 }
 
+// interface
 int asCContext::SetLineCallback(asSFuncPtr callback, void *obj, int callConv)
 {
 	lineCallback = true;
-	doProcessSuspend = true;
+	regs.doProcessSuspend = true;
 	lineCallbackObj = obj;
 	bool isObj = false;
 	if( (unsigned)callConv == asCALL_GENERIC )
 	{
 		lineCallback = false;
-		doProcessSuspend = doSuspend;
+		regs.doProcessSuspend = doSuspend;
 		return asNOT_SUPPORTED;
 	}
 	if( (unsigned)callConv >= asCALL_THISCALL )
@@ -3494,7 +3911,7 @@ int asCContext::SetLineCallback(asSFuncPtr callback, void *obj, int callConv)
 		if( obj == 0 )
 		{
 			lineCallback = false;
-			doProcessSuspend = doSuspend;
+			regs.doProcessSuspend = doSuspend;
 			return asINVALID_ARG;
 		}
 	}
@@ -3502,7 +3919,7 @@ int asCContext::SetLineCallback(asSFuncPtr callback, void *obj, int callConv)
 	int r = DetectCallingConvention(isObj, callback, callConv, &lineCallbackFunc);
 	if( r < 0 ) lineCallback = false;
 
-	doProcessSuspend = doSuspend || lineCallback;
+	regs.doProcessSuspend = doSuspend || lineCallback;
 
 	return r;
 }
@@ -3515,6 +3932,7 @@ void asCContext::CallLineCallback()
 		engine->CallObjectMethod(lineCallbackObj, this, &lineCallbackFunc, 0);
 }
 
+// interface
 int asCContext::SetExceptionCallback(asSFuncPtr callback, void *obj, int callConv)
 {
 	exceptionCallback = true;
@@ -3544,12 +3962,14 @@ void asCContext::CallExceptionCallback()
 		engine->CallObjectMethod(exceptionCallbackObj, this, &exceptionCallbackFunc, 0);
 }
 
+// interface
 void asCContext::ClearLineCallback()
 {
 	lineCallback = false;
-	doProcessSuspend = doSuspend;
+	regs.doProcessSuspend = doSuspend;
 }
 
+// interface
 void asCContext::ClearExceptionCallback()
 {
 	exceptionCallback = false;
@@ -3561,7 +3981,7 @@ int asCContext::CallGeneric(int id, void *objectPointer)
 	asSSystemFunctionInterface *sysFunc = sysFunction->sysFuncIntf;
 	void (*func)(asIScriptGeneric*) = (void (*)(asIScriptGeneric*))sysFunc->func;
 	int popSize = sysFunc->paramSize;
-	asDWORD *args = stackPointer;
+	asDWORD *args = regs.stackPointer;
 
 	// Verify the object pointer if it is a class method
 	void *currentObject = 0;
@@ -3577,7 +3997,7 @@ int asCContext::CallGeneric(int id, void *objectPointer)
 		else
 		{
 			// The object pointer should be popped from the context stack
-			popSize += PTR_SIZE;
+			popSize += AS_PTR_SIZE;
 
 			// Check for null pointer
 			currentObject = (void*)*(size_t*)(args);
@@ -3591,9 +4011,18 @@ int asCContext::CallGeneric(int id, void *objectPointer)
 			currentObject = (void*)(size_t(currentObject) + sysFunc->baseOffset);
 
 			// Skip object pointer
-			args += PTR_SIZE;
+			args += AS_PTR_SIZE;
 		}
 	}
+
+#ifndef AS_OLD
+	if( sysFunction->DoesReturnOnStack() )
+	{
+		// Skip the address where the return value will be stored
+		args += AS_PTR_SIZE;
+		popSize += AS_PTR_SIZE;
+	}
+#endif
 
 	asCGeneric gen(engine, sysFunction, currentObject, args);
 
@@ -3601,9 +4030,9 @@ int asCContext::CallGeneric(int id, void *objectPointer)
 	func(&gen);
 	isCallingSystemFunction = false;
 
-	register1 = gen.returnVal;
-	objectRegister = gen.objectRegister;
-	objectType = sysFunction->returnType.GetObjectType();
+	regs.valueRegister = gen.returnVal;
+	regs.objectRegister = gen.objectRegister;
+	regs.objectType = sysFunction->returnType.GetObjectType();
 
 	// Clean up function parameters
 	int offset = 0;
@@ -3635,112 +4064,61 @@ int asCContext::CallGeneric(int id, void *objectPointer)
 	return popSize;
 }
 
-int asCContext::GetVarCount(int stackLevel)
+// interface
+int asCContext::GetVarCount(asUINT stackLevel)
 {
-	if( stackLevel < -1 || stackLevel >= GetCallstackSize() ) return asINVALID_ARG;
+	asIScriptFunction *func = GetFunction(stackLevel);
+	if( func == 0 ) return asINVALID_ARG;
 
-	asCScriptFunction *func;
-	if( stackLevel == -1 )
-		func = currentFunction;
-	else
-	{
-		size_t *s = callStack.AddressOf() + stackLevel*CALLSTACK_FRAME_SIZE;
-		func = (asCScriptFunction*)s[1];
-	}
-
-	if( func == 0 )
-		return asERROR;
-
-	return (int)func->variables.GetLength();
+	return func->GetVarCount();
 }
 
-const char *asCContext::GetVarName(int varIndex, int stackLevel)
+// interface
+const char *asCContext::GetVarName(asUINT varIndex, asUINT stackLevel)
 {
-	if( stackLevel < -1 || stackLevel >= GetCallstackSize() ) return 0;
+	asIScriptFunction *func = GetFunction(stackLevel);
+	if( func == 0 ) return 0;
 
-	asCScriptFunction *func;
-	if( stackLevel == -1 )
-		func = currentFunction;
-	else
-	{
-		size_t *s = callStack.AddressOf() + stackLevel*CALLSTACK_FRAME_SIZE;
-		func = (asCScriptFunction*)s[1];
-	}
-
-	if( func == 0 )
-		return 0;
-
-	if( varIndex < 0 || varIndex >= (signed)func->variables.GetLength() )
-		return 0;
-
-	return func->variables[varIndex]->name.AddressOf();
+	const char *name = 0;
+	int r = func->GetVar(varIndex, &name);
+	return r >= 0 ? name : 0;
 }
 
-const char *asCContext::GetVarDeclaration(int varIndex, int stackLevel)
+// interface
+const char *asCContext::GetVarDeclaration(asUINT varIndex, asUINT stackLevel)
 {
-	if( stackLevel < -1 || stackLevel >= GetCallstackSize() ) return 0;
+	asIScriptFunction *func = GetFunction(stackLevel);
+	if( func == 0 ) return 0;
 
-	asCScriptFunction *func;
-	if( stackLevel == -1 )
-		func = currentFunction;
-	else
-	{
-		size_t *s = callStack.AddressOf() + stackLevel*CALLSTACK_FRAME_SIZE;
-		func = (asCScriptFunction*)s[1];
-	}
-
-	if( func == 0 )
-		return 0;
-
-	if( varIndex < 0 || varIndex >= (signed)func->variables.GetLength() )
-		return 0;
-
-	asASSERT(threadManager);
-	asCString *tempString = &threadManager->GetLocalData()->string;
-	*tempString = func->variables[varIndex]->type.Format();
-	*tempString += " " + func->variables[varIndex]->name;
-
-	return tempString->AddressOf();
+	return func->GetVarDecl(varIndex);
 }
 
-int asCContext::GetVarTypeId(int varIndex, int stackLevel)
+// interface
+int asCContext::GetVarTypeId(asUINT varIndex, asUINT stackLevel)
 {
-	if( stackLevel < -1 || stackLevel >= GetCallstackSize() ) return asINVALID_ARG;
+	asIScriptFunction *func = GetFunction(stackLevel);
+	if( func == 0 ) return asINVALID_ARG;
 
-	asCScriptFunction *func;
-	if( stackLevel == -1 )
-		func = currentFunction;
-	else
-	{
-		size_t *s = callStack.AddressOf() + stackLevel*CALLSTACK_FRAME_SIZE;
-		func = (asCScriptFunction*)s[1];
-	}
-
-	if( func == 0 )
-		return asINVALID_ARG;
-
-	if( varIndex < 0 || varIndex >= (signed)func->variables.GetLength() )
-		return asINVALID_ARG;
-
-	return engine->GetTypeIdFromDataType(func->variables[varIndex]->type);
+	int typeId;
+	int r = func->GetVar(varIndex, 0, &typeId);
+	return r < 0 ? r : typeId;
 }
 
-#ifdef AS_DEPRECATED
-// deprecated since 2008-11-11, 2.15.0
-void *asCContext::GetVarPointer(int varIndex, int stackLevel)
+// interface
+void *asCContext::GetAddressOfVar(asUINT varIndex, asUINT stackLevel)
 {
-	if( stackLevel < -1 || stackLevel >= GetCallstackSize() ) return 0;
+	if( stackLevel >= GetCallstackSize() ) return 0;
 
 	asCScriptFunction *func;
 	asDWORD *sf;
-	if( stackLevel == -1 )
+	if( stackLevel == 0 )
 	{
 		func = currentFunction;
-		sf = stackFramePointer;
+		sf = regs.stackFramePointer;
 	}
 	else
 	{
-		size_t *s = callStack.AddressOf() + stackLevel*CALLSTACK_FRAME_SIZE;
+		size_t *s = callStack.AddressOf() + (GetCallstackSize()-stackLevel-1)*CALLSTACK_FRAME_SIZE;
 		func = (asCScriptFunction*)s[1];
 		sf = (asDWORD*)s[0];
 	}
@@ -3748,111 +4126,100 @@ void *asCContext::GetVarPointer(int varIndex, int stackLevel)
 	if( func == 0 )
 		return 0;
 
-	if( varIndex < 0 || varIndex >= (signed)func->variables.GetLength() )
-		return 0;
-
-	return sf - func->variables[varIndex]->stackOffset;
-}
-#endif
-
-void *asCContext::GetAddressOfVar(int varIndex, int stackLevel)
-{
-	if( stackLevel < -1 || stackLevel >= GetCallstackSize() ) return 0;
-
-	asCScriptFunction *func;
-	asDWORD *sf;
-	if( stackLevel == -1 )
-	{
-		func = currentFunction;
-		sf = stackFramePointer;
-	}
-	else
-	{
-		size_t *s = callStack.AddressOf() + stackLevel*CALLSTACK_FRAME_SIZE;
-		func = (asCScriptFunction*)s[1];
-		sf = (asDWORD*)s[0];
-	}
-
-	if( func == 0 )
-		return 0;
-
-	if( varIndex < 0 || varIndex >= (signed)func->variables.GetLength() )
+	if( varIndex >= func->variables.GetLength() )
 		return 0;
 
 	// For object variables it's necessary to dereference the pointer to get the address of the value
 	if( func->variables[varIndex]->type.IsObject() && !func->variables[varIndex]->type.IsObjectHandle() )
-		return *(void**)(sf - func->variables[varIndex]->stackOffset);
+	{
+		// Determine if the object is really on the heap
+		bool onHeap = true;
+		if( func->variables[varIndex]->type.GetObjectType()->GetFlags() & asOBJ_VALUE )
+		{
+			int pos = func->variables[varIndex]->stackOffset;
+			for( asUINT n = 0; n < func->objVariablePos.GetLength(); n++ )
+			{
+				if( func->objVariablePos[n] == pos )
+				{
+					onHeap = func->objVariableIsOnHeap[n];
+
+					if( !onHeap )
+					{
+						// If the object on the stack is not initialized return a null pointer instead
+						asCArray<int> liveObjects;
+						DetermineLiveObjects(liveObjects, stackLevel);
+
+						if( liveObjects[n] <= 0 )
+							return 0;
+					}
+
+					break;
+				}
+			}
+		}
+
+		if( onHeap )
+			return *(void**)(sf - func->variables[varIndex]->stackOffset);
+	}
 
 	return sf - func->variables[varIndex]->stackOffset;
 }
 
+// interface
 // returns the typeId of the 'this' object at the given call stack level (-1 for current)
 // returns 0 if the function call at the given stack level is not a method
-int asCContext::GetThisTypeId(int stackLevel)
+int asCContext::GetThisTypeId(asUINT stackLevel)
 {
-       if( stackLevel < -1 || stackLevel >= GetCallstackSize() )
-               return 0;
+	asIScriptFunction *func = GetFunction(stackLevel);
+	if( func == 0 ) return asINVALID_ARG;
 
-       asCScriptFunction *func = 0;
-       if( stackLevel == -1 )
-       {
-               func = currentFunction;
-       }
-       else
-       {
-               size_t *s = callStack.AddressOf() + stackLevel*CALLSTACK_FRAME_SIZE;
-               func = (asCScriptFunction*)s[1];
-       }
+	if( func->GetObjectType() == 0 )
+		return 0; // not in a method
 
-       if( func == 0 )
-               return 0;
+	// create a datatype
+	asCDataType dt = asCDataType::CreateObject((asCObjectType*)func->GetObjectType(), false);
 
-       if( func->objectType == 0 )
-               return 0; // not in a method
-
-       // create a datatype
-       asCDataType dt = asCDataType::CreateObject( func->objectType, false);
-
-       // return a typeId from the data type
-       return engine->GetTypeIdFromDataType( dt );
+	// return a typeId from the data type
+	return engine->GetTypeIdFromDataType(dt);
 }
 
+// interface
 // returns the 'this' object pointer at the given call stack level (-1 for current)
 // returns 0 if the function call at the given stack level is not a method
-void *asCContext::GetThisPointer(int stackLevel)
+void *asCContext::GetThisPointer(asUINT stackLevel)
 {
-       if( stackLevel < -1 || stackLevel >= GetCallstackSize() )
-               return 0;
+	if( stackLevel >= GetCallstackSize() )
+		return 0;
 
-       asCScriptFunction *func;
-       asDWORD *sf;
-       if( stackLevel == -1 )
-       {
-               func = currentFunction;
-               sf = stackFramePointer;
-       }
-       else
-       {
-               size_t *s = callStack.AddressOf() + stackLevel*CALLSTACK_FRAME_SIZE;
-               func = (asCScriptFunction*)s[1];
-               sf = (asDWORD*)s[0];
-       }
+	asCScriptFunction *func;
+	asDWORD *sf;
+	if( stackLevel == 0 )
+	{
+		func = currentFunction;
+		sf = regs.stackFramePointer;
+	}
+	else
+	{
+		size_t *s = callStack.AddressOf() + (GetCallstackSize()-stackLevel-1)*CALLSTACK_FRAME_SIZE;
+		func = (asCScriptFunction*)s[1];
+		sf = (asDWORD*)s[0];
+	}
 
-       if( func == 0 )
-               return 0;
+	if( func == 0 )
+		return 0;
 
-       if( func->objectType == 0 )
-               return 0; // not in a method
+	if( func->objectType == 0 )
+		return 0; // not in a method
 
-       void *thisPointer = (void*)*(size_t*)(sf);
-       if( thisPointer == 0 )
-       {
-               return 0;
-       }
+	void *thisPointer = (void*)*(size_t*)(sf);
+	if( thisPointer == 0 )
+	{
+		return 0;
+	}
 
-       // NOTE: this returns the pointer to the 'this' while the GetVarPointer functions return
-       // a pointer to a pointer. I can't imagine someone would want to change the 'this'
-       return thisPointer;
+	// NOTE: this returns the pointer to the 'this' while the GetVarPointer functions return
+	// a pointer to a pointer. I can't imagine someone would want to change the 'this'
+	return thisPointer;
 }
 
 END_AS_NAMESPACE

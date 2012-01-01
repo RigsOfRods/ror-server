@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2009 Andreas Jonsson
+   Copyright (c) 2003-2011 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied
    warranty. In no event will the authors be held liable for any
@@ -44,20 +44,19 @@
 #ifdef AS_USE_NAMESPACE
  #define BEGIN_AS_NAMESPACE namespace AngelScript {
  #define END_AS_NAMESPACE }
+ #define AS_NAMESPACE_QUALIFIER AngelScript::
 #else
  #define BEGIN_AS_NAMESPACE
  #define END_AS_NAMESPACE
+ #define AS_NAMESPACE_QUALIFIER
 #endif
 
 BEGIN_AS_NAMESPACE
 
 // AngelScript version
 
-#define ANGELSCRIPT_VERSION        21602
-#define ANGELSCRIPT_VERSION_MAJOR  2
-#define ANGELSCRIPT_VERSION_MINOR  16
-#define ANGELSCRIPT_VERSION_BUILD  2
-#define ANGELSCRIPT_VERSION_STRING "2.16.2"
+#define ANGELSCRIPT_VERSION        22201
+#define ANGELSCRIPT_VERSION_STRING "2.22.1"
 
 // Data types
 
@@ -66,31 +65,34 @@ class asIScriptModule;
 class asIScriptContext;
 class asIScriptGeneric;
 class asIScriptObject;
-class asIScriptArray;
 class asIObjectType;
 class asIScriptFunction;
 class asIBinaryStream;
-
-#ifdef AS_DEPRECATED
-typedef asIScriptObject asIScriptStruct;
-#endif
+class asIJITCompiler;
 
 // Enumerations and constants
 
 // Engine properties
 enum asEEngineProp
 {
-	asEP_ALLOW_UNSAFE_REFERENCES      = 1,
-	asEP_OPTIMIZE_BYTECODE            = 2,
-	asEP_COPY_SCRIPT_SECTIONS         = 3,
-	asEP_MAX_STACK_SIZE               = 4,
-	asEP_USE_CHARACTER_LITERALS       = 5,
-	asEP_ALLOW_MULTILINE_STRINGS      = 6,
-	asEP_ALLOW_IMPLICIT_HANDLE_TYPES  = 7,
-	asEP_BUILD_WITHOUT_LINE_CUES      = 8,
-	asEP_INIT_GLOBAL_VARS_AFTER_BUILD = 9,
-	asEP_REQUIRE_ENUM_SCOPE           = 10,
-	asEP_SCRIPT_SCANNER               = 11
+	asEP_ALLOW_UNSAFE_REFERENCES       = 1,
+	asEP_OPTIMIZE_BYTECODE             = 2,
+	asEP_COPY_SCRIPT_SECTIONS          = 3,
+	asEP_MAX_STACK_SIZE                = 4,
+	asEP_USE_CHARACTER_LITERALS        = 5,
+	asEP_ALLOW_MULTILINE_STRINGS       = 6,
+	asEP_ALLOW_IMPLICIT_HANDLE_TYPES   = 7,
+	asEP_BUILD_WITHOUT_LINE_CUES       = 8,
+	asEP_INIT_GLOBAL_VARS_AFTER_BUILD  = 9,
+	asEP_REQUIRE_ENUM_SCOPE            = 10,
+	asEP_SCRIPT_SCANNER                = 11,
+	asEP_INCLUDE_JIT_INSTRUCTIONS      = 12,
+	asEP_STRING_ENCODING               = 13,
+	asEP_PROPERTY_ACCESSOR_MODE        = 14,
+	asEP_EXPAND_DEF_ARRAY_TO_TMPL      = 15,
+	asEP_AUTO_GARBAGE_COLLECT          = 16,
+	asEP_DISALLOW_GLOBAL_VARS          = 17,
+	asEP_ALWAYS_IMPL_DEFAULT_CONSTRUCT = 18
 };
 
 // Calling conventions
@@ -107,28 +109,42 @@ enum asECallConvTypes
 // Object type flags
 enum asEObjTypeFlags
 {
-	asOBJ_REF                   = 0x01,
-	asOBJ_VALUE                 = 0x02,
-	asOBJ_GC                    = 0x04,
-	asOBJ_POD                   = 0x08,
-	asOBJ_NOHANDLE              = 0x10,
-	asOBJ_SCOPED                = 0x20,
-	asOBJ_TEMPLATE              = 0x40,
-	asOBJ_APP_CLASS             = 0x100,
-	asOBJ_APP_CLASS_CONSTRUCTOR = 0x200,
-	asOBJ_APP_CLASS_DESTRUCTOR  = 0x400,
-	asOBJ_APP_CLASS_ASSIGNMENT  = 0x800,
-	asOBJ_APP_CLASS_C           = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_CONSTRUCTOR),
-	asOBJ_APP_CLASS_CD          = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_CONSTRUCTOR + asOBJ_APP_CLASS_DESTRUCTOR),
-	asOBJ_APP_CLASS_CA          = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_CONSTRUCTOR + asOBJ_APP_CLASS_ASSIGNMENT),
-	asOBJ_APP_CLASS_CDA         = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_CONSTRUCTOR + asOBJ_APP_CLASS_DESTRUCTOR + asOBJ_APP_CLASS_ASSIGNMENT),
-	asOBJ_APP_CLASS_D           = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_DESTRUCTOR),
-	asOBJ_APP_CLASS_A           = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_ASSIGNMENT),
-	asOBJ_APP_CLASS_DA          = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_DESTRUCTOR + asOBJ_APP_CLASS_ASSIGNMENT),
-	asOBJ_APP_PRIMITIVE         = 0x1000,
-	asOBJ_APP_FLOAT             = 0x2000,
-	asOBJ_MASK_VALID_FLAGS      = 0x3F7F,
-	asOBJ_SCRIPT_OBJECT         = 0x10000
+	asOBJ_REF                        = 0x01,
+	asOBJ_VALUE                      = 0x02,
+	asOBJ_GC                         = 0x04,
+	asOBJ_POD                        = 0x08,
+	asOBJ_NOHANDLE                   = 0x10,
+	asOBJ_SCOPED                     = 0x20,
+	asOBJ_TEMPLATE                   = 0x40,
+	asOBJ_ASHANDLE                   = 0x80,
+	asOBJ_APP_CLASS                  = 0x100,
+	asOBJ_APP_CLASS_CONSTRUCTOR      = 0x200,
+	asOBJ_APP_CLASS_DESTRUCTOR       = 0x400,
+	asOBJ_APP_CLASS_ASSIGNMENT       = 0x800,
+	asOBJ_APP_CLASS_COPY_CONSTRUCTOR = 0x1000,
+	asOBJ_APP_CLASS_C                = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_CONSTRUCTOR),
+	asOBJ_APP_CLASS_CD               = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_CONSTRUCTOR + asOBJ_APP_CLASS_DESTRUCTOR),
+	asOBJ_APP_CLASS_CA               = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_CONSTRUCTOR + asOBJ_APP_CLASS_ASSIGNMENT),
+	asOBJ_APP_CLASS_CK               = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_CONSTRUCTOR + asOBJ_APP_CLASS_COPY_CONSTRUCTOR),
+	asOBJ_APP_CLASS_CDA              = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_CONSTRUCTOR + asOBJ_APP_CLASS_DESTRUCTOR + asOBJ_APP_CLASS_ASSIGNMENT),
+	asOBJ_APP_CLASS_CDK              = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_CONSTRUCTOR + asOBJ_APP_CLASS_DESTRUCTOR + asOBJ_APP_CLASS_COPY_CONSTRUCTOR),
+	asOBJ_APP_CLASS_CAK              = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_CONSTRUCTOR + asOBJ_APP_CLASS_ASSIGNMENT + asOBJ_APP_CLASS_COPY_CONSTRUCTOR),
+	asOBJ_APP_CLASS_CDAK             = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_CONSTRUCTOR + asOBJ_APP_CLASS_DESTRUCTOR + asOBJ_APP_CLASS_ASSIGNMENT + asOBJ_APP_CLASS_COPY_CONSTRUCTOR),
+	asOBJ_APP_CLASS_D                = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_DESTRUCTOR),
+	asOBJ_APP_CLASS_DA               = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_DESTRUCTOR + asOBJ_APP_CLASS_ASSIGNMENT),
+	asOBJ_APP_CLASS_DK               = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_DESTRUCTOR + asOBJ_APP_CLASS_COPY_CONSTRUCTOR),
+	asOBJ_APP_CLASS_DAK              = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_DESTRUCTOR + asOBJ_APP_CLASS_ASSIGNMENT + asOBJ_APP_CLASS_COPY_CONSTRUCTOR),
+	asOBJ_APP_CLASS_A                = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_ASSIGNMENT),
+	asOBJ_APP_CLASS_AK               = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_ASSIGNMENT + asOBJ_APP_CLASS_COPY_CONSTRUCTOR),
+	asOBJ_APP_CLASS_K                = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_COPY_CONSTRUCTOR),
+	asOBJ_APP_PRIMITIVE              = 0x2000,
+	asOBJ_APP_FLOAT                  = 0x4000,
+	asOBJ_APP_CLASS_ALLINTS          = 0x8000,
+	asOBJ_APP_CLASS_ALLFLOATS        = 0x10000,
+	asOBJ_MASK_VALID_FLAGS           = 0x1FFFF,
+	asOBJ_SCRIPT_OBJECT              = 0x80000,
+	asOBJ_SHARED                     = 0x100000,
+	asOBJ_NOINHERIT                  = 0x200000
 };
 
 // Behaviours
@@ -140,53 +156,16 @@ enum asEBehaviours
 
 	// Reference object memory management
 	asBEHAVE_FACTORY,
+	asBEHAVE_LIST_FACTORY,
 	asBEHAVE_ADDREF,
 	asBEHAVE_RELEASE,
 
 	// Object operators
 	asBEHAVE_VALUE_CAST,
 	asBEHAVE_IMPLICIT_VALUE_CAST,
-	asBEHAVE_INDEX,
-	asBEHAVE_NEGATE,
-
-	// Assignment operators
-	asBEHAVE_FIRST_ASSIGN,
-	 asBEHAVE_ASSIGNMENT = asBEHAVE_FIRST_ASSIGN,
-	 asBEHAVE_ADD_ASSIGN,
-	 asBEHAVE_SUB_ASSIGN,
-	 asBEHAVE_MUL_ASSIGN,
-	 asBEHAVE_DIV_ASSIGN,
-	 asBEHAVE_MOD_ASSIGN,
-	 asBEHAVE_OR_ASSIGN,
-	 asBEHAVE_AND_ASSIGN,
-	 asBEHAVE_XOR_ASSIGN,
-	 asBEHAVE_SLL_ASSIGN,
-	 asBEHAVE_SRL_ASSIGN,
-	 asBEHAVE_SRA_ASSIGN,
-	asBEHAVE_LAST_ASSIGN = asBEHAVE_SRA_ASSIGN,
-
-	// Global operators
-	asBEHAVE_FIRST_DUAL,
-	 asBEHAVE_ADD = asBEHAVE_FIRST_DUAL,
-	 asBEHAVE_SUBTRACT,
-	 asBEHAVE_MULTIPLY,
-	 asBEHAVE_DIVIDE,
-	 asBEHAVE_MODULO,
-	 asBEHAVE_EQUAL,
-	 asBEHAVE_NOTEQUAL,
-	 asBEHAVE_LESSTHAN,
-	 asBEHAVE_GREATERTHAN,
-	 asBEHAVE_LEQUAL,
-	 asBEHAVE_GEQUAL,
-	 asBEHAVE_BIT_OR,
-	 asBEHAVE_BIT_AND,
-	 asBEHAVE_BIT_XOR,
-	 asBEHAVE_BIT_SLL,
-	 asBEHAVE_BIT_SRL,
-	 asBEHAVE_BIT_SRA,
-	asBEHAVE_LAST_DUAL = asBEHAVE_BIT_SRA,
 	asBEHAVE_REF_CAST,
 	asBEHAVE_IMPLICIT_REF_CAST,
+	asBEHAVE_TEMPLATE_CALLBACK,
 
 	// Garbage collection behaviours
 	asBEHAVE_FIRST_GC,
@@ -195,7 +174,9 @@ enum asEBehaviours
 	 asBEHAVE_GETGCFLAG,
 	 asBEHAVE_ENUMREFS,
 	 asBEHAVE_RELEASEREFS,
-	asBEHAVE_LAST_GC = asBEHAVE_RELEASEREFS
+	asBEHAVE_LAST_GC = asBEHAVE_RELEASEREFS,
+
+	asBEHAVE_MAX
 };
 
 // Return codes
@@ -226,37 +207,29 @@ enum asERetCodes
 	asCONFIG_GROUP_IS_IN_USE               = -22,
 	asILLEGAL_BEHAVIOUR_FOR_TYPE           = -23,
 	asWRONG_CALLING_CONV                   = -24,
-	asMODULE_IS_IN_USE                     = -25,
-	asBUILD_IN_PROGRESS                    = -26,
-	asINIT_GLOBAL_VARS_FAILED              = -27
+	asBUILD_IN_PROGRESS                    = -25,
+	asINIT_GLOBAL_VARS_FAILED              = -26
 };
 
 // Context states
 enum asEContextState
 {
-    asEXECUTION_FINISHED      = 0,
-    asEXECUTION_SUSPENDED     = 1,
-    asEXECUTION_ABORTED       = 2,
-    asEXECUTION_EXCEPTION     = 3,
-    asEXECUTION_PREPARED      = 4,
-    asEXECUTION_UNINITIALIZED = 5,
-    asEXECUTION_ACTIVE        = 6,
-    asEXECUTION_ERROR         = 7
-};
-
-// ExecuteString flags
-enum asEExecStrFlags
-{
-	asEXECSTRING_ONLY_PREPARE   = 1,
-	asEXECSTRING_USE_MY_CONTEXT = 2
+	asEXECUTION_FINISHED      = 0,
+	asEXECUTION_SUSPENDED     = 1,
+	asEXECUTION_ABORTED       = 2,
+	asEXECUTION_EXCEPTION     = 3,
+	asEXECUTION_PREPARED      = 4,
+	asEXECUTION_UNINITIALIZED = 5,
+	asEXECUTION_ACTIVE        = 6,
+	asEXECUTION_ERROR         = 7
 };
 
 // Message types
 enum asEMsgType
 {
-    asMSGTYPE_ERROR       = 0,
-    asMSGTYPE_WARNING     = 1,
-    asMSGTYPE_INFORMATION = 2
+	asMSGTYPE_ERROR       = 0,
+	asMSGTYPE_WARNING     = 1,
+	asMSGTYPE_INFORMATION = 2
 };
 
 // Garbage collector flags
@@ -304,11 +277,8 @@ enum asETypeIdFlags
 	asTYPEID_HANDLETOCONST  = 0x20000000,
 	asTYPEID_MASK_OBJECT    = 0x1C000000,
 	asTYPEID_APPOBJECT      = 0x04000000,
-#ifdef AS_DEPRECATED
-	asTYPEID_SCRIPTSTRUCT   = 0x0C000000,
-#endif
 	asTYPEID_SCRIPTOBJECT   = 0x08000000,
-	asTYPEID_SCRIPTARRAY    = 0x10000000,
+	asTYPEID_TEMPLATE       = 0x10000000,
 	asTYPEID_MASK_SEQNBR    = 0x03FFFFFF
 };
 
@@ -327,6 +297,24 @@ enum asEGMFlags
 	asGM_ONLY_IF_EXISTS       = 0,
 	asGM_CREATE_IF_NOT_EXISTS = 1,
 	asGM_ALWAYS_CREATE        = 2
+};
+
+// Compile flags
+enum asECompileFlags
+{
+	asCOMP_ADD_TO_MODULE = 1
+};
+
+// Function types
+enum asEFuncType
+{
+	asFUNC_DUMMY     =-1,
+	asFUNC_SYSTEM    = 0,
+	asFUNC_SCRIPT    = 1,
+	asFUNC_INTERFACE = 2,
+	asFUNC_VIRTUAL   = 3,
+	asFUNC_FUNCDEF   = 4,
+	asFUNC_IMPORTED  = 5
 };
 
 //
@@ -359,12 +347,22 @@ typedef void (*asFUNCTION_t)();
 typedef void (*asGENFUNC_t)(asIScriptGeneric *);
 typedef void *(*asALLOCFUNC_t)(size_t);
 typedef void (*asFREEFUNC_t)(void *);
+typedef void (*asCLEANENGINEFUNC_t)(asIScriptEngine *);
+typedef void (*asCLEANMODULEFUNC_t)(asIScriptModule *);
+typedef void (*asCLEANCONTEXTFUNC_t)(asIScriptContext *);
+typedef void (*asCLEANFUNCTIONFUNC_t)(asIScriptFunction *);
+typedef void (*asCLEANOBJECTTYPEFUNC_t)(asIObjectType *);
+
+// This macro does basically the same thing as offsetof defined in stddef.h, but
+// GNUC should not complain about the usage as I'm not using 0 as the base pointer.
+#define asOFFSET(s,m) ((size_t)(&reinterpret_cast<s*>(100000)->m)-100000)
 
 #define asFUNCTION(f) asFunctionPtr(f)
-#if defined(_MSC_VER) && _MSC_VER <= 1200
+#if (defined(_MSC_VER) && _MSC_VER <= 1200) || (defined(__BORLANDC__) && __BORLANDC__ < 0x590)
 // MSVC 6 has a bug that prevents it from properly compiling using the correct asFUNCTIONPR with operator >
-// so we need to use ordinary C style cast instead of static_cast. The drawback is that the compiler can't 
+// so we need to use ordinary C style cast instead of static_cast. The drawback is that the compiler can't
 // check that the cast is really valid.
+// BCC v5.8 (C++Builder 2006) and earlier have a similar bug which forces us to fall back to a C-style cast.
 #define asFUNCTIONPR(f,p,r) asFunctionPtr((void (*)())((r (*)p)(f)))
 #else
 #define asFUNCTIONPR(f,p,r) asFunctionPtr((void (*)())(static_cast<r (*)p>(f)))
@@ -389,8 +387,27 @@ struct asSFuncPtr
 	asBYTE flag; // 1 = generic, 2 = global func, 3 = method
 };
 
+#if defined(__BORLANDC__)
+// A bug in BCC (QC #85374) makes it impossible to distinguish const/non-const method overloads
+// with static_cast<>. The workaround is to use an _implicit_cast instead.
+
+ #if  __BORLANDC__ < 0x590
+ // BCC v5.8 (C++Builder 2006) and earlier have an even more annoying bug which causes
+ // the "pretty" workaround below (with _implicit_cast<>) to fail. For these compilers
+ // we need to use a traditional C-style cast.
+  #define AS_METHOD_AMBIGUITY_CAST(t) (t)
+ #else
+template <typename T>
+  T _implicit_cast (T val)
+{ return val; }
+  #define AS_METHOD_AMBIGUITY_CAST(t) AS_NAMESPACE_QUALIFIER _implicit_cast<t >
+ #endif
+#else
+ #define AS_METHOD_AMBIGUITY_CAST(t) static_cast<t >
+#endif
+
 #define asMETHOD(c,m) asSMethodPtr<sizeof(void (c::*)())>::Convert((void (c::*)())(&c::m))
-#define asMETHODPR(c,m,p,r) asSMethodPtr<sizeof(void (c::*)())>::Convert(static_cast<r (c::*)p>(&c::m))
+#define asMETHODPR(c,m,p,r) asSMethodPtr<sizeof(void (c::*)())>::Convert(AS_METHOD_AMBIGUITY_CAST(r (c::*)p)(&c::m))
 
 #else // Class methods are disabled
 
@@ -424,12 +441,18 @@ struct asSMessageInfo
 // ANGELSCRIPT_DLL_MANUAL_IMPORT is defined when manually loading the dll
 // Don't define anything when linking statically to the lib
 
-#ifdef WIN32
-  #ifdef ANGELSCRIPT_EXPORT
+#if defined(WIN32) || defined(_WIN32) || defined(__CYGWIN__)
+  #if defined(ANGELSCRIPT_EXPORT)
     #define AS_API __declspec(dllexport)
-  #elif defined ANGELSCRIPT_DLL_LIBRARY_IMPORT
+  #elif defined(ANGELSCRIPT_DLL_LIBRARY_IMPORT)
     #define AS_API __declspec(dllimport)
   #else // statically linked library
+    #define AS_API
+  #endif
+#elif defined(__GNUC__) 
+  #if defined(ANGELSCRIPT_EXPORT)
+    #define AS_API __attribute__((visibility ("default")))
+  #else
     #define AS_API
   #endif
 #else
@@ -462,76 +485,96 @@ class asIScriptEngine
 {
 public:
 	// Memory management
-	virtual int AddRef() = 0;
-	virtual int Release() = 0;
+	virtual int AddRef() const = 0;
+	virtual int Release() const = 0;
 
 	// Engine properties
 	virtual int     SetEngineProperty(asEEngineProp property, asPWORD value) = 0;
-	virtual asPWORD GetEngineProperty(asEEngineProp property) = 0;
+	virtual asPWORD GetEngineProperty(asEEngineProp property) const = 0;
 
 	// Compiler messages
 	virtual int SetMessageCallback(const asSFuncPtr &callback, void *obj, asDWORD callConv) = 0;
 	virtual int ClearMessageCallback() = 0;
 	virtual int WriteMessage(const char *section, int row, int col, asEMsgType type, const char *message) = 0;
 
+	// JIT Compiler
+	virtual int SetJITCompiler(asIJITCompiler *compiler) = 0;
+	virtual asIJITCompiler *GetJITCompiler() const = 0;
+
 	// Global functions
-	virtual int RegisterGlobalFunction(const char *declaration, const asSFuncPtr &funcPointer, asDWORD callConv) = 0;
-	virtual int GetGlobalFunctionCount() = 0;
-	virtual int GetGlobalFunctionIdByIndex(asUINT index) = 0;
+	virtual int                RegisterGlobalFunction(const char *declaration, const asSFuncPtr &funcPointer, asDWORD callConv) = 0;
+	virtual asUINT             GetGlobalFunctionCount() const = 0;
+	virtual int                GetGlobalFunctionIdByIndex(asUINT index) const = 0;
+	virtual asIScriptFunction *GetGlobalFunctionByIndex(asUINT index) const = 0;
+	virtual asIScriptFunction *GetGlobalFunctionByDecl(const char *declaration) const = 0;
 
 	// Global properties
-	virtual int RegisterGlobalProperty(const char *declaration, void *pointer) = 0;
-	virtual int GetGlobalPropertyCount() = 0;
-	virtual int GetGlobalPropertyByIndex(asUINT index, const char **name, int *typeId = 0, bool *isConst = 0, const char **configGroup = 0, void **pointer = 0) = 0;
+	virtual int    RegisterGlobalProperty(const char *declaration, void *pointer) = 0;
+	virtual asUINT GetGlobalPropertyCount() const = 0;
+	virtual int    GetGlobalPropertyByIndex(asUINT index, const char **name, int *typeId = 0, bool *isConst = 0, const char **configGroup = 0, void **pointer = 0) const = 0;
 
 	// Object types
 	virtual int            RegisterObjectType(const char *obj, int byteSize, asDWORD flags) = 0;
 	virtual int            RegisterObjectProperty(const char *obj, const char *declaration, int byteOffset) = 0;
 	virtual int            RegisterObjectMethod(const char *obj, const char *declaration, const asSFuncPtr &funcPointer, asDWORD callConv) = 0;
 	virtual int            RegisterObjectBehaviour(const char *obj, asEBehaviours behaviour, const char *declaration, const asSFuncPtr &funcPointer, asDWORD callConv) = 0;
-	virtual int            RegisterGlobalBehaviour(asEBehaviours behaviour, const char *declaration, const asSFuncPtr &funcPointer, asDWORD callConv) = 0;
 	virtual int            RegisterInterface(const char *name) = 0;
 	virtual int            RegisterInterfaceMethod(const char *intf, const char *declaration) = 0;
-	virtual int            GetObjectTypeCount() = 0;
-	virtual asIObjectType *GetObjectTypeByIndex(asUINT index) = 0;
-	virtual int            GetGlobalBehaviourCount() = 0;
-	virtual int            GetGlobalBehaviourByIndex(asUINT index, asEBehaviours *outBehaviour) = 0;
+	virtual asUINT         GetObjectTypeCount() const = 0;
+	virtual asIObjectType *GetObjectTypeByIndex(asUINT index) const = 0;
 
 	// String factory
 	virtual int RegisterStringFactory(const char *datatype, const asSFuncPtr &factoryFunc, asDWORD callConv) = 0;
-	virtual int GetStringFactoryReturnTypeId() = 0;
+	virtual int GetStringFactoryReturnTypeId() const = 0;
+
+	// Default array type
+	virtual int RegisterDefaultArrayType(const char *type) = 0;
+	virtual int GetDefaultArrayTypeId() const = 0;
 
 	// Enums
 	virtual int         RegisterEnum(const char *type) = 0;
 	virtual int         RegisterEnumValue(const char *type, const char *name, int value) = 0;
-	virtual int         GetEnumCount() = 0;
-	virtual const char *GetEnumByIndex(asUINT index, int *enumTypeId, const char **configGroup = 0) = 0;
-	virtual int         GetEnumValueCount(int enumTypeId) = 0;
-	virtual const char *GetEnumValueByIndex(int enumTypeId, asUINT index, int *outValue) = 0;
+	virtual asUINT      GetEnumCount() const = 0;
+	virtual const char *GetEnumByIndex(asUINT index, int *enumTypeId, const char **configGroup = 0) const = 0;
+	virtual int         GetEnumValueCount(int enumTypeId) const = 0;
+	virtual const char *GetEnumValueByIndex(int enumTypeId, asUINT index, int *outValue) const = 0;
+
+	// Funcdefs
+	virtual int                RegisterFuncdef(const char *decl) = 0;
+	virtual asUINT             GetFuncdefCount() const = 0;
+	virtual asIScriptFunction *GetFuncdefByIndex(asUINT index, const char **configGroup = 0) const = 0;
 
 	// Typedefs
 	virtual int         RegisterTypedef(const char *type, const char *decl) = 0;
-	virtual int         GetTypedefCount() = 0;
-	virtual const char *GetTypedefByIndex(asUINT index, int *typeId, const char **configGroup = 0) = 0;
+	virtual asUINT      GetTypedefCount() const = 0;
+	virtual const char *GetTypedefByIndex(asUINT index, int *typeId, const char **configGroup = 0) const = 0;
 
 	// Configuration groups
 	virtual int BeginConfigGroup(const char *groupName) = 0;
 	virtual int EndConfigGroup() = 0;
 	virtual int RemoveConfigGroup(const char *groupName) = 0;
+	virtual asDWORD SetDefaultAccessMask(asDWORD defaultMask) = 0;
+#ifdef AS_DEPRECATED
+	// deprecated since 2011-10-04
 	virtual int SetConfigGroupModuleAccess(const char *groupName, const char *module, bool hasAccess) = 0;
+#endif
 
 	// Script modules
 	virtual asIScriptModule *GetModule(const char *module, asEGMFlags flag = asGM_ONLY_IF_EXISTS) = 0;
 	virtual int              DiscardModule(const char *module) = 0;
 
 	// Script functions
-	virtual asIScriptFunction *GetFunctionDescriptorById(int funcId) = 0;
+	virtual asIScriptFunction *GetFunctionById(int funcId) const = 0;
+#ifdef AS_DEPRECATED
+	// deprecated since 2011-10-03
+	virtual asIScriptFunction *GetFunctionDescriptorById(int funcId) const = 0;
+#endif
 
 	// Type identification
-	virtual asIObjectType *GetObjectTypeById(int typeId) = 0;
-	virtual int            GetTypeIdByDecl(const char *decl) = 0;
-	virtual const char    *GetTypeDeclaration(int typeId) = 0;
-	virtual int            GetSizeOfPrimitiveType(int typeId) = 0;
+	virtual asIObjectType *GetObjectTypeById(int typeId) const = 0;
+	virtual int            GetTypeIdByDecl(const char *decl) const = 0;
+	virtual const char    *GetTypeDeclaration(int typeId) const = 0;
+	virtual int            GetSizeOfPrimitiveType(int typeId) const = 0;
 
 	// Script execution
 	virtual asIScriptContext *CreateContext() = 0;
@@ -539,53 +582,28 @@ public:
 	virtual void             *CreateScriptObjectCopy(void *obj, int typeId) = 0;
 	virtual void              CopyScriptObject(void *dstObj, void *srcObj, int typeId) = 0;
 	virtual void              ReleaseScriptObject(void *obj, int typeId) = 0;
+	virtual void              ReleaseScriptObject(void *obj, const asIObjectType *type) = 0;
 	virtual void              AddRefScriptObject(void *obj, int typeId) = 0;
-	virtual bool              IsHandleCompatibleWithObject(void *obj, int objTypeId, int handleTypeId) = 0;
-	virtual int               CompareScriptObjects(bool &result, int behaviour, void *leftObj, void *rightObj, int typeId) = 0;
+	virtual void              AddRefScriptObject(void *obj, const asIObjectType *type) = 0;
+	virtual bool              IsHandleCompatibleWithObject(void *obj, int objTypeId, int handleTypeId) const = 0;
 
 	// String interpretation
-	virtual asETokenClass ParseToken(const char *string, size_t stringLength = 0, int *tokenLength = 0) = 0;
-	virtual int           ExecuteString(const char *module, const char *script, asIScriptContext **ctx = 0, asDWORD flags = 0) = 0;
+	virtual asETokenClass ParseToken(const char *string, size_t stringLength = 0, int *tokenLength = 0) const = 0;
 
 	// Garbage collection
 	virtual int  GarbageCollect(asDWORD flags = asGC_FULL_CYCLE) = 0;
-	virtual void GetGCStatistics(asUINT *currentSize, asUINT *totalDestroyed = 0, asUINT *totalDetected = 0) = 0;
+	virtual void GetGCStatistics(asUINT *currentSize, asUINT *totalDestroyed = 0, asUINT *totalDetected = 0, asUINT *newObjects = 0, asUINT *totalNewDestroyed = 0) const = 0;
 	virtual void NotifyGarbageCollectorOfNewObject(void *obj, int typeId) = 0;
 	virtual void GCEnumCallback(void *reference) = 0;
 
 	// User data
 	virtual void *SetUserData(void *data) = 0;
-	virtual void *GetUserData() = 0;
-
-#ifdef AS_DEPRECATED
-	virtual int                AddScriptSection(const char *module, const char *name, const char *code, size_t codeLength = 0, int lineOffset = 0) = 0;
-	virtual int                Build(const char *module) = 0;
-    virtual int                Discard(const char *module) = 0;
-	virtual int                ResetModule(const char *module) = 0;
-	virtual int                GetFunctionCount(const char *module) = 0;
-	virtual int                GetFunctionIDByIndex(const char *module, int index) = 0;
-	virtual int                GetFunctionIDByName(const char *module, const char *name) = 0;
-	virtual int                GetFunctionIDByDecl(const char *module, const char *decl) = 0;
-	virtual asIScriptFunction *GetFunctionDescriptorByIndex(const char *module, int index) = 0;
-	virtual int                GetGlobalVarCount(const char *module) = 0;
-	virtual int                GetGlobalVarIndexByName(const char *module, const char *name) = 0;
-	virtual int                GetGlobalVarIndexByDecl(const char *module, const char *decl) = 0;
-	virtual const char        *GetGlobalVarDeclaration(const char *module, int index, int *length = 0) = 0;
-	virtual const char        *GetGlobalVarName(const char *module, int index, int *length = 0) = 0;
-	virtual void              *GetAddressOfGlobalVar(const char *module, int index) = 0;
-	virtual int                GetTypeIdByDecl(const char *module, const char *decl) = 0;
-	virtual int                GetImportedFunctionCount(const char *module) = 0;
-	virtual int                GetImportedFunctionIndexByDecl(const char *module, const char *decl) = 0;
-	virtual const char        *GetImportedFunctionDeclaration(const char *module, int importIndex, int *length = 0) = 0;
-	virtual const char        *GetImportedFunctionSourceModule(const char *module, int importIndex, int *length = 0) = 0;
-	virtual int                BindImportedFunction(const char *module, int importIndex, int funcId) = 0;
-	virtual int                UnbindImportedFunction(const char *module, int importIndex) = 0;
-	virtual int                BindAllImportedFunctions(const char *module) = 0;
-	virtual int                UnbindAllImportedFunctions(const char *module) = 0;
-	virtual int                GetObjectsInGarbageCollectorCount() = 0;
-	virtual int                SaveByteCode(const char *module, asIBinaryStream *out) = 0;
-	virtual int                LoadByteCode(const char *module, asIBinaryStream *in) = 0;
-#endif
+	virtual void *GetUserData() const = 0;
+	virtual void  SetEngineUserDataCleanupCallback(asCLEANENGINEFUNC_t callback) = 0;
+	virtual void  SetModuleUserDataCleanupCallback(asCLEANMODULEFUNC_t callback) = 0;
+	virtual void  SetContextUserDataCleanupCallback(asCLEANCONTEXTFUNC_t callback) = 0;
+	virtual void  SetFunctionUserDataCleanupCallback(asCLEANFUNCTIONFUNC_t callback) = 0;
+	virtual void  SetObjectTypeUserDataCleanupCallback(asCLEANOBJECTTYPEFUNC_t callback) = 0;
 
 protected:
 	virtual ~asIScriptEngine() {}
@@ -594,60 +612,74 @@ protected:
 class asIScriptModule
 {
 public:
-	virtual asIScriptEngine *GetEngine() = 0;
+	virtual asIScriptEngine *GetEngine() const = 0;
 	virtual void             SetName(const char *name) = 0;
-	virtual const char      *GetName() = 0;
+	virtual const char      *GetName() const = 0;
 
 	// Compilation
-    virtual int  AddScriptSection(const char *name, const char *code, size_t codeLength = 0, int lineOffset = 0) = 0;
-	virtual int  Build() = 0;
+	virtual int     AddScriptSection(const char *name, const char *code, size_t codeLength = 0, int lineOffset = 0) = 0;
+	virtual int     Build() = 0;
+	virtual int     CompileFunction(const char *sectionName, const char *code, int lineOffset, asDWORD compileFlags, asIScriptFunction **outFunc) = 0;
+	virtual int     CompileGlobalVar(const char *sectionName, const char *code, int lineOffset) = 0;
+	virtual asDWORD SetAccessMask(asDWORD accessMask) = 0;
 
 	// Functions
-	virtual int                GetFunctionCount() = 0;
-	virtual int                GetFunctionIdByIndex(int index) = 0;
-	virtual int                GetFunctionIdByName(const char *name) = 0;
-	virtual int                GetFunctionIdByDecl(const char *decl) = 0;
-	virtual asIScriptFunction *GetFunctionDescriptorByIndex(int index) = 0;
-	virtual asIScriptFunction *GetFunctionDescriptorById(int funcId) = 0;
+	virtual asUINT             GetFunctionCount() const = 0;
+	virtual int                GetFunctionIdByIndex(asUINT index) const = 0;
+	virtual int                GetFunctionIdByName(const char *name) const = 0;
+	virtual int                GetFunctionIdByDecl(const char *decl) const = 0;
+	virtual asIScriptFunction *GetFunctionByIndex(asUINT index) const = 0;
+	virtual asIScriptFunction *GetFunctionByDecl(const char *decl) const = 0;
+	virtual asIScriptFunction *GetFunctionByName(const char *name) const = 0;
+#ifdef AS_DEPRECATED
+	// deprecated since 2011-10-03
+	virtual asIScriptFunction *GetFunctionDescriptorByIndex(asUINT index) const = 0;
+	virtual asIScriptFunction *GetFunctionDescriptorById(int funcId) const = 0;
+#endif
+	virtual int                RemoveFunction(int funcId) = 0;
 
 	// Global variables
-	virtual int         ResetGlobalVars() = 0;
-	virtual int         GetGlobalVarCount() = 0;
-	virtual int         GetGlobalVarIndexByName(const char *name) = 0;
-	virtual int         GetGlobalVarIndexByDecl(const char *decl) = 0;
-	virtual const char *GetGlobalVarDeclaration(int index) = 0;
-	virtual const char *GetGlobalVarName(int index) = 0;
-	virtual int         GetGlobalVarTypeId(int index, bool *isConst = 0) = 0;
-	virtual void       *GetAddressOfGlobalVar(int index) = 0;
+	virtual int         ResetGlobalVars(asIScriptContext *ctx = 0) = 0;
+	virtual asUINT      GetGlobalVarCount() const = 0;
+	virtual int         GetGlobalVarIndexByName(const char *name) const = 0;
+	virtual int         GetGlobalVarIndexByDecl(const char *decl) const = 0;
+	virtual const char *GetGlobalVarDeclaration(asUINT index) const = 0;
+	virtual int         GetGlobalVar(asUINT index, const char **name, int *typeId = 0, bool *isConst = 0) const = 0;
+	virtual void       *GetAddressOfGlobalVar(asUINT index) = 0;
+	virtual int         RemoveGlobalVar(asUINT index) = 0;
 
 	// Type identification
-	virtual int            GetObjectTypeCount() = 0;
-	virtual asIObjectType *GetObjectTypeByIndex(asUINT index) = 0;
-	virtual int            GetTypeIdByDecl(const char *decl) = 0;
+	virtual asUINT         GetObjectTypeCount() const = 0;
+	virtual asIObjectType *GetObjectTypeByIndex(asUINT index) const = 0;
+	virtual int            GetTypeIdByDecl(const char *decl) const = 0;
 
 	// Enums
-	virtual int         GetEnumCount() = 0;
-	virtual const char *GetEnumByIndex(asUINT index, int *enumTypeId) = 0;
-	virtual int         GetEnumValueCount(int enumTypeId) = 0;
-	virtual const char *GetEnumValueByIndex(int enumTypeId, asUINT index, int *outValue) = 0;
+	virtual asUINT      GetEnumCount() const = 0;
+	virtual const char *GetEnumByIndex(asUINT index, int *enumTypeId) const = 0;
+	virtual int         GetEnumValueCount(int enumTypeId) const = 0;
+	virtual const char *GetEnumValueByIndex(int enumTypeId, asUINT index, int *outValue) const = 0;
 
 	// Typedefs
-	virtual int         GetTypedefCount() = 0;
-	virtual const char *GetTypedefByIndex(asUINT index, int *typeId) = 0;
+	virtual asUINT      GetTypedefCount() const = 0;
+	virtual const char *GetTypedefByIndex(asUINT index, int *typeId) const = 0;
 
 	// Dynamic binding between modules
-	virtual int         GetImportedFunctionCount() = 0;
-	virtual int         GetImportedFunctionIndexByDecl(const char *decl) = 0;
-	virtual const char *GetImportedFunctionDeclaration(int importIndex) = 0;
-	virtual const char *GetImportedFunctionSourceModule(int importIndex) = 0;
-	virtual int         BindImportedFunction(int importIndex, int funcId) = 0;
-	virtual int         UnbindImportedFunction(int importIndex) = 0;
+	virtual asUINT      GetImportedFunctionCount() const = 0;
+	virtual int         GetImportedFunctionIndexByDecl(const char *decl) const = 0;
+	virtual const char *GetImportedFunctionDeclaration(asUINT importIndex) const = 0;
+	virtual const char *GetImportedFunctionSourceModule(asUINT importIndex) const = 0;
+	virtual int         BindImportedFunction(asUINT importIndex, int funcId) = 0;
+	virtual int         UnbindImportedFunction(asUINT importIndex) = 0;
 	virtual int         BindAllImportedFunctions() = 0;
 	virtual int         UnbindAllImportedFunctions() = 0;
 
 	// Bytecode saving and loading
-	virtual int SaveByteCode(asIBinaryStream *out) = 0;
+	virtual int SaveByteCode(asIBinaryStream *out) const = 0;
 	virtual int LoadByteCode(asIBinaryStream *in) = 0;
+
+	// User data
+	virtual void *SetUserData(void *data) = 0;
+	virtual void *GetUserData() const = 0;
 
 protected:
 	virtual ~asIScriptModule() {}
@@ -657,20 +689,21 @@ class asIScriptContext
 {
 public:
 	// Memory management
-	virtual int AddRef() = 0;
-	virtual int Release() = 0;
+	virtual int AddRef() const = 0;
+	virtual int Release() const = 0;
 
 	// Miscellaneous
-	virtual asIScriptEngine *GetEngine() = 0;
+	virtual asIScriptEngine *GetEngine() const = 0;
 
 	// Execution
+	virtual int             Prepare(asIScriptFunction *func) = 0;
 	virtual int             Prepare(int funcId) = 0;
 	virtual int             Unprepare() = 0;
 	virtual int             SetObject(void *obj) = 0;
 	virtual int             Execute() = 0;
 	virtual int             Abort() = 0;
 	virtual int             Suspend() = 0;
-	virtual asEContextState GetState() = 0;
+	virtual asEContextState GetState() const = 0;
 
 	// Arguments
 	virtual int   SetArgByte(asUINT arg, asBYTE value) = 0;
@@ -681,7 +714,7 @@ public:
 	virtual int   SetArgDouble(asUINT arg, double value) = 0;
 	virtual int   SetArgAddress(asUINT arg, void *addr) = 0;
 	virtual int   SetArgObject(asUINT arg, void *obj) = 0;
-	virtual void *GetArgPointer(asUINT arg) = 0;
+	virtual void *GetAddressOfArg(asUINT arg) = 0;
 
 	// Return value
 	virtual asBYTE  GetReturnByte() = 0;
@@ -696,36 +729,30 @@ public:
 
 	// Exception handling
 	virtual int         SetException(const char *string) = 0;
-	virtual int         GetExceptionLineNumber(int *column = 0) = 0;
+	virtual int         GetExceptionLineNumber(int *column = 0, const char **sectionName = 0) = 0;
 	virtual int         GetExceptionFunction() = 0;
 	virtual const char *GetExceptionString() = 0;
 	virtual int         SetExceptionCallback(asSFuncPtr callback, void *obj, int callConv) = 0;
 	virtual void        ClearExceptionCallback() = 0;
 
 	// Debugging
-	virtual int         SetLineCallback(asSFuncPtr callback, void *obj, int callConv) = 0;
-	virtual void        ClearLineCallback() = 0;
-	virtual int         GetCurrentLineNumber(int *column = 0) = 0;
-	virtual int         GetCurrentFunction() = 0;
-	virtual int         GetCallstackSize() = 0;
-	virtual int         GetCallstackFunction(int index) = 0;
-	virtual int         GetCallstackLineNumber(int index, int *column = 0) = 0;
-	virtual int         GetVarCount(int stackLevel = -1) = 0;
-	virtual const char *GetVarName(int varIndex, int stackLevel = -1) = 0;
-	virtual const char *GetVarDeclaration(int varIndex, int stackLevel = -1) = 0;
-	virtual int         GetVarTypeId(int varIndex, int stackLevel = -1) = 0;
-	virtual void       *GetAddressOfVar(int varIndex, int stackLevel = -1) = 0;
-	virtual int         GetThisTypeId(int stackLevel = -1) = 0;
-	virtual void       *GetThisPointer(int stackLevel = -1) = 0;
+	virtual int                SetLineCallback(asSFuncPtr callback, void *obj, int callConv) = 0;
+	virtual void               ClearLineCallback() = 0;
+	virtual asUINT             GetCallstackSize() = 0;
+	virtual asIScriptFunction *GetFunction(asUINT stackLevel = 0) = 0;
+	virtual int                GetLineNumber(asUINT stackLevel = 0, int *column = 0, const char **sectionName = 0) = 0;
+	virtual int                GetVarCount(asUINT stackLevel = 0) = 0;
+	virtual const char        *GetVarName(asUINT varIndex, asUINT stackLevel = 0) = 0;
+	virtual const char        *GetVarDeclaration(asUINT varIndex, asUINT stackLevel = 0) = 0;
+	virtual int                GetVarTypeId(asUINT varIndex, asUINT stackLevel = 0) = 0;
+	virtual void              *GetAddressOfVar(asUINT varIndex, asUINT stackLevel = 0) = 0;
+	virtual bool               IsVarInScope(asUINT varIndex, asUINT stackLevel = 0) = 0;
+	virtual int                GetThisTypeId(asUINT stackLevel = 0) = 0;
+	virtual void              *GetThisPointer(asUINT stackLevel = 0) = 0;
 
 	// User data
 	virtual void *SetUserData(void *data) = 0;
-	virtual void *GetUserData() = 0;
-
-#ifdef AS_DEPRECATED
-	virtual void *GetReturnPointer() = 0;
-	virtual void *GetVarPointer(int varIndex, int stackLevel = -1) = 0;
-#endif
+	virtual void *GetUserData() const = 0;
 
 protected:
 	virtual ~asIScriptContext() {}
@@ -735,16 +762,22 @@ class asIScriptGeneric
 {
 public:
 	// Miscellaneous
-	virtual asIScriptEngine *GetEngine() = 0;
-	virtual int              GetFunctionId() = 0;
+	virtual asIScriptEngine   *GetEngine() const = 0;
+	virtual int                GetFunctionId() const = 0;
+	virtual asIScriptFunction *GetFunction() const = 0;
+#ifdef AS_DEPRECATED
+	// deprecated since 2011-10-03
+	virtual asIScriptFunction *GetFunctionDescriptor() const = 0;
+#endif
+	virtual void              *GetFunctionUserData() const = 0;
 
 	// Object
 	virtual void   *GetObject() = 0;
-	virtual int     GetObjectTypeId() = 0;
+	virtual int     GetObjectTypeId() const = 0;
 
 	// Arguments
-	virtual int     GetArgCount() = 0;
-	virtual int     GetArgTypeId(asUINT arg) = 0;
+	virtual int     GetArgCount() const = 0;
+	virtual int     GetArgTypeId(asUINT arg) const = 0;
 	virtual asBYTE  GetArgByte(asUINT arg) = 0;
 	virtual asWORD  GetArgWord(asUINT arg) = 0;
 	virtual asDWORD GetArgDWord(asUINT arg) = 0;
@@ -756,7 +789,7 @@ public:
 	virtual void   *GetAddressOfArg(asUINT arg) = 0;
 
 	// Return value
-	virtual int     GetReturnTypeId() = 0;
+	virtual int     GetReturnTypeId() const = 0;
 	virtual int     SetReturnByte(asBYTE val) = 0;
 	virtual int     SetReturnWord(asWORD val) = 0;
 	virtual int     SetReturnDWord(asDWORD val) = 0;
@@ -767,11 +800,6 @@ public:
 	virtual int     SetReturnObject(void *obj) = 0;
 	virtual void   *GetAddressOfReturnLocation() = 0;
 
-#ifdef AS_DEPRECATED
-	virtual void   *GetReturnPointer() = 0;
-	virtual void   *GetArgPointer(asUINT arg) = 0;
-#endif
-
 protected:
 	virtual ~asIScriptGeneric() {}
 };
@@ -780,51 +808,24 @@ class asIScriptObject
 {
 public:
 	// Memory management
-	virtual int AddRef() = 0;
-	virtual int Release() = 0;
+	virtual int AddRef() const = 0;
+	virtual int Release() const = 0;
 
 	// Type info
 	virtual int            GetTypeId() const = 0;
 	virtual asIObjectType *GetObjectType() const = 0;
 
 	// Class properties
-	virtual int         GetPropertyCount() const = 0;
+	virtual asUINT      GetPropertyCount() const = 0;
 	virtual int         GetPropertyTypeId(asUINT prop) const = 0;
 	virtual const char *GetPropertyName(asUINT prop) const = 0;
-	virtual void       *GetPropertyPointer(asUINT prop) = 0;
+	virtual void       *GetAddressOfProperty(asUINT prop) = 0;
 
 	virtual asIScriptEngine *GetEngine() const = 0;
 	virtual int              CopyFrom(asIScriptObject *other) = 0;
 
-#ifdef AS_DEPRECATED
-	virtual int            GetStructTypeId() const = 0;
-#endif
-
 protected:
 	virtual ~asIScriptObject() {}
-};
-
-class asIScriptArray
-{
-public:
-	virtual asIScriptEngine *GetEngine() const = 0;
-
-	// Memory management
-	virtual int AddRef() = 0;
-	virtual int Release() = 0;
-
-	// Array type
-	virtual int GetArrayTypeId() = 0;
-
-	// Elements
-	virtual int    GetElementTypeId() = 0;
-	virtual asUINT GetElementCount() = 0;
-	virtual void * GetElementPointer(asUINT index) = 0;
-	virtual void   Resize(asUINT size) = 0;
-	virtual int    CopyFrom(asIScriptArray *other) = 0;
-
-protected:
-	virtual ~asIScriptArray() {}
 };
 
 class asIObjectType
@@ -833,42 +834,57 @@ public:
 	virtual asIScriptEngine *GetEngine() const = 0;
 	virtual const char      *GetConfigGroup() const = 0;
 
+	// Memory management
+	virtual int AddRef() const = 0;
+	virtual int Release() const = 0;
+
 	// Type info
 	virtual const char      *GetName() const = 0;
 	virtual asIObjectType   *GetBaseType() const = 0;
+	virtual bool             DerivesFrom(const asIObjectType *objType) const = 0;
 	virtual asDWORD          GetFlags() const = 0;
 	virtual asUINT           GetSize() const = 0;
+	virtual int              GetTypeId() const = 0;
+	virtual int              GetSubTypeId() const = 0;
+	virtual asIObjectType   *GetSubType() const = 0;
 
 	// Interfaces
-	virtual int              GetInterfaceCount() const = 0;
+	virtual asUINT           GetInterfaceCount() const = 0;
 	virtual asIObjectType   *GetInterface(asUINT index) const = 0;
+	virtual bool             Implements(const asIObjectType *objType) const = 0;
 
 	// Factories
-	virtual int                GetFactoryCount() const = 0;
-	virtual int                GetFactoryIdByIndex(int index) const = 0;
+	virtual asUINT             GetFactoryCount() const = 0;
+	virtual int                GetFactoryIdByIndex(asUINT index) const = 0;
 	virtual int                GetFactoryIdByDecl(const char *decl) const = 0;
+	virtual asIScriptFunction *GetFactoryByIndex(asUINT index) const = 0;
+	virtual asIScriptFunction *GetFactoryByDecl(const char *decl) const = 0;
 
 	// Methods
-	virtual int                GetMethodCount() const = 0;
-	virtual int                GetMethodIdByIndex(int index) const = 0;
-	virtual int                GetMethodIdByName(const char *name) const = 0;
-	virtual int                GetMethodIdByDecl(const char *decl) const = 0;
-	virtual asIScriptFunction *GetMethodDescriptorByIndex(int index) const = 0;
+	virtual asUINT             GetMethodCount() const = 0;
+	virtual int                GetMethodIdByIndex(asUINT index, bool getVirtual = true) const = 0;
+	virtual int                GetMethodIdByName(const char *name, bool getVirtual = true) const = 0;
+	virtual int                GetMethodIdByDecl(const char *decl, bool getVirtual = true) const = 0;
+	virtual asIScriptFunction *GetMethodByIndex(asUINT index, bool getVirtual = true) const = 0;
+	virtual asIScriptFunction *GetMethodByName(const char *name, bool getVirtual = true) const = 0;
+	virtual asIScriptFunction *GetMethodByDecl(const char *decl, bool getVirtual = true) const = 0;
+#ifdef AS_DEPRECATED
+	// deprecated since 2011-10-03
+	virtual asIScriptFunction *GetMethodDescriptorByIndex(asUINT index, bool getVirtual = true) const = 0;
+#endif
 
 	// Properties
-	virtual int         GetPropertyCount() const = 0;
-	virtual int         GetPropertyTypeId(asUINT prop) const = 0;
-	virtual const char *GetPropertyName(asUINT prop) const = 0;
-	virtual int         GetPropertyOffset(asUINT prop) const = 0;
+	virtual asUINT      GetPropertyCount() const = 0;
+	virtual int         GetProperty(asUINT index, const char **name, int *typeId = 0, bool *isPrivate = 0, int *offset = 0, bool *isReference = 0) const = 0;
+	virtual const char *GetPropertyDeclaration(asUINT index) const = 0;
 
 	// Behaviours
-	virtual int GetBehaviourCount() const = 0;
-	virtual int GetBehaviourByIndex(asUINT index, asEBehaviours *outBehaviour) const = 0;
+	virtual asUINT GetBehaviourCount() const = 0;
+	virtual int    GetBehaviourByIndex(asUINT index, asEBehaviours *outBehaviour) const = 0;
 
-#ifdef AS_DEPRECATED
-	virtual asIObjectType   *GetSubType() const = 0;
-	virtual bool             IsInterface() const = 0;
-#endif
+	// User data
+	virtual void *SetUserData(void *data) = 0;
+	virtual void *GetUserData() const = 0;
 
 protected:
 	virtual ~asIObjectType() {}
@@ -878,6 +894,13 @@ class asIScriptFunction
 {
 public:
 	virtual asIScriptEngine *GetEngine() const = 0;
+
+	// Memory management
+	virtual int              AddRef() const = 0;
+	virtual int              Release() const = 0;
+
+	virtual int              GetId() const = 0;
+	virtual asEFuncType      GetFuncType() const = 0;
 	virtual const char      *GetModuleName() const = 0;
 	virtual const char      *GetScriptSectionName() const = 0;
 	virtual const char      *GetConfigGroup() const = 0;
@@ -885,12 +908,25 @@ public:
 	virtual const char      *GetObjectName() const = 0;
 	virtual const char      *GetName() const = 0;
 	virtual const char      *GetDeclaration(bool includeObjectName = true) const = 0;
-	virtual bool             IsClassMethod() const = 0;
-	virtual bool             IsInterfaceMethod() const = 0;
+	virtual bool             IsReadOnly() const = 0;
+	virtual bool             IsPrivate() const = 0;
 
-	virtual int              GetParamCount() const = 0;
-	virtual int              GetParamTypeId(int index, asDWORD *flags = 0) const = 0;
+	virtual asUINT           GetParamCount() const = 0;
+	virtual int              GetParamTypeId(asUINT index, asDWORD *flags = 0) const = 0;
 	virtual int              GetReturnTypeId() const = 0;
+
+	// Debug information
+	virtual asUINT           GetVarCount() const = 0;
+	virtual int              GetVar(asUINT index, const char **name, int *typeId = 0) const = 0;
+	virtual const char *     GetVarDecl(asUINT index) const = 0;
+	virtual int              FindNextLineWithCode(int line) const = 0;
+
+	// For JIT compilation
+	virtual asDWORD         *GetByteCode(asUINT *length = 0) = 0;
+
+	// User data
+	virtual void            *SetUserData(void *userData) = 0;
+	virtual void            *GetUserData() const = 0;
 
 protected:
 	virtual ~asIScriptFunction() {};
@@ -910,7 +946,7 @@ public:
 // Function pointers
 
 // Use our own memset() and memcpy() implementations for better portability
-inline void asMemClear(void *_p, int size)
+inline void asMemClear(void *_p, size_t size)
 {
 	char *p = (char *)_p;
 	const char *e = p + size;
@@ -918,7 +954,7 @@ inline void asMemClear(void *_p, int size)
 		*p = 0;
 }
 
-inline void asMemCopy(void *_d, const void *_s, int size)
+inline void asMemCopy(void *_d, const void *_s, size_t size)
 {
 	char *d = (char *)_d;
 	const char *s = (const char *)_s;
@@ -976,7 +1012,9 @@ struct asSMethodPtr
 		// as it would mean that the size of the method pointer cannot be determined.
 
 		int ERROR_UnsupportedMethodPtr[N-100];
-		return 0;
+
+		asSFuncPtr p;
+		return p;
 	}
 };
 
@@ -1026,26 +1064,8 @@ struct asSMethodPtr<SINGLE_PTR_SIZE+2*sizeof(int)>
 	template <class M>
 	static asSFuncPtr Convert(M Mthd)
 	{
-		// This is where a class with virtual inheritance falls, or
-		// on 64bit platforms with 8byte data alignments.
-
-		// Method pointers for virtual inheritance is not supported,
-		// as it requires the location of the vbase table, which is 
-		// only available to the C++ compiler, but not in the method
-		// pointer. 
-
-		// You can get around this by forward declaring the class and
-		// storing the sizeof its method pointer in a constant. Example:
-
-		// class ClassWithVirtualInheritance;
-		// const int ClassWithVirtualInheritance_workaround = sizeof(void ClassWithVirtualInheritance::*());
-
-		// This will force the compiler to use the unknown type
-		// for the class, which falls under the next case
-
-		// TODO: We need to try to identify if this is really a method pointer
-		//       with virtual inheritance, or just a method pointer for multiple 
-		//       inheritance with pad bytes to produce a 16byte structure.
+		// On 32bit platforms with is where a class with virtual inheritance falls.
+		// On 64bit platforms we can also fall here if 8byte data alignments is used.
 
 		asSFuncPtr p;
 		asMemClear(&p, sizeof(p));
@@ -1054,6 +1074,32 @@ struct asSMethodPtr<SINGLE_PTR_SIZE+2*sizeof(int)>
 
 		// Mark this as a class method
 		p.flag = 3;
+
+		// Microsoft has a terrible optimization on class methods with virtual inheritance.
+		// They are hardcoding an important offset, which is not coming in the method pointer.
+#ifdef _MSC_VER
+		if( sizeof(void*) == 4 )
+		{
+			// Method pointers for virtual inheritance is not supported,
+			// as it requires the location of the vbase table, which is 
+			// only available to the C++ compiler, but not in the method
+			// pointer. 
+
+			// You can get around this by forward declaring the class and
+			// storing the sizeof its method pointer in a constant. Example:
+
+			// class ClassWithVirtualInheritance;
+			// const int ClassWithVirtualInheritance_workaround = sizeof(void ClassWithVirtualInheritance::*());
+
+			// This will force the compiler to use the unknown type
+			// for the class, which falls under the next case
+
+
+			// Copy the virtual table index to the 4th dword so that AngelScript
+			// can properly detect and deny the use of methods with virtual inheritance.
+			*(((asDWORD*)&p)+3) = *(((asDWORD*)&p)+2);
+		}
+#endif
 
 		return p;
 	}
@@ -1101,6 +1147,587 @@ struct asSMethodPtr<SINGLE_PTR_SIZE+4*sizeof(int)>
 #endif
 
 #endif // AS_NO_CLASS_METHODS
+
+//----------------------------------------------------------------
+// JIT compiler
+
+struct asSVMRegisters
+{
+	asDWORD          *programPointer;     // points to current bytecode instruction
+	asDWORD          *stackFramePointer;  // function stack frame
+	asDWORD          *stackPointer;       // top of stack (grows downward)
+	asQWORD           valueRegister;      // temp register for primitives
+	void             *objectRegister;     // temp register for objects and handles
+	asIObjectType    *objectType;         // type of object held in object register
+	bool              doProcessSuspend;   // whether or not the JIT should break out when it encounters a suspend instruction
+	asIScriptContext *ctx;                // the active context
+};
+
+typedef void (*asJITFunction)(asSVMRegisters *registers, asPWORD jitArg);
+
+class asIJITCompiler
+{
+public:
+	virtual int  CompileFunction(asIScriptFunction *function, asJITFunction *output) = 0;
+    virtual void ReleaseJITFunction(asJITFunction func) = 0;
+public:
+    virtual ~asIJITCompiler() {}
+};
+
+// Byte code instructions
+enum asEBCInstr
+{
+	asBC_POP			= 0,
+	asBC_PUSH			= 1,
+	asBC_PshC4			= 2,
+	asBC_PshV4			= 3,
+	asBC_PSF			= 4,
+	asBC_SWAP4			= 5,
+	asBC_NOT			= 6,
+	asBC_PshG4			= 7,
+	asBC_LdGRdR4		= 8,
+	asBC_CALL			= 9,
+	asBC_RET			= 10,
+	asBC_JMP			= 11,
+	asBC_JZ				= 12,
+	asBC_JNZ			= 13,
+	asBC_JS				= 14,
+	asBC_JNS			= 15,
+	asBC_JP				= 16,
+	asBC_JNP			= 17,
+	asBC_TZ				= 18,
+	asBC_TNZ			= 19,
+	asBC_TS				= 20,
+	asBC_TNS			= 21,
+	asBC_TP				= 22,
+	asBC_TNP			= 23,
+	asBC_NEGi			= 24,
+	asBC_NEGf			= 25,
+	asBC_NEGd			= 26,
+	asBC_INCi16			= 27,
+	asBC_INCi8			= 28,
+	asBC_DECi16			= 29,
+	asBC_DECi8			= 30,
+	asBC_INCi			= 31,
+	asBC_DECi			= 32,
+	asBC_INCf			= 33,
+	asBC_DECf			= 34,
+	asBC_INCd			= 35,
+	asBC_DECd			= 36,
+	asBC_IncVi			= 37,
+	asBC_DecVi			= 38,
+	asBC_BNOT			= 39,
+	asBC_BAND			= 40,
+	asBC_BOR			= 41,
+	asBC_BXOR			= 42,
+	asBC_BSLL			= 43,
+	asBC_BSRL			= 44,
+	asBC_BSRA			= 45,
+	asBC_COPY			= 46,
+	asBC_PshC8			= 47,
+	asBC_RDS8			= 48,
+	asBC_SWAP8			= 49,
+	asBC_CMPd			= 50,
+	asBC_CMPu			= 51,
+	asBC_CMPf			= 52,
+	asBC_CMPi			= 53,
+	asBC_CMPIi			= 54,
+	asBC_CMPIf			= 55,
+	asBC_CMPIu			= 56,
+	asBC_JMPP			= 57,
+	asBC_PopRPtr		= 58,
+	asBC_PshRPtr		= 59,
+	asBC_STR			= 60,
+	asBC_CALLSYS		= 61,
+	asBC_CALLBND		= 62,
+	asBC_SUSPEND		= 63,
+	asBC_ALLOC			= 64,
+	asBC_FREE			= 65,
+	asBC_LOADOBJ		= 66,
+	asBC_STOREOBJ		= 67,
+	asBC_GETOBJ			= 68,
+	asBC_REFCPY			= 69,
+	asBC_CHKREF			= 70,
+	asBC_GETOBJREF		= 71,
+	asBC_GETREF			= 72,
+	asBC_SWAP48			= 73,
+	asBC_SWAP84			= 74,
+	asBC_OBJTYPE		= 75,
+	asBC_TYPEID			= 76,
+	asBC_SetV4			= 77,
+	asBC_SetV8			= 78,
+	asBC_ADDSi			= 79,
+	asBC_CpyVtoV4		= 80,
+	asBC_CpyVtoV8		= 81,
+	asBC_CpyVtoR4		= 82,
+	asBC_CpyVtoR8		= 83,
+	asBC_CpyVtoG4		= 84,
+	asBC_CpyRtoV4		= 85,
+	asBC_CpyRtoV8		= 86,
+	asBC_CpyGtoV4		= 87,
+	asBC_WRTV1			= 88,
+	asBC_WRTV2			= 89,
+	asBC_WRTV4			= 90,
+	asBC_WRTV8			= 91,
+	asBC_RDR1			= 92,
+	asBC_RDR2			= 93,
+	asBC_RDR4			= 94,
+	asBC_RDR8			= 95,
+	asBC_LDG			= 96,
+	asBC_LDV			= 97,
+	asBC_PGA			= 98,
+	asBC_RDS4			= 99,
+	asBC_VAR			= 100,
+	asBC_iTOf			= 101,
+	asBC_fTOi			= 102,
+	asBC_uTOf			= 103,
+	asBC_fTOu			= 104,
+	asBC_sbTOi			= 105,
+	asBC_swTOi			= 106,
+	asBC_ubTOi			= 107,
+	asBC_uwTOi			= 108,
+	asBC_dTOi			= 109,
+	asBC_dTOu			= 110,
+	asBC_dTOf			= 111,
+	asBC_iTOd			= 112,
+	asBC_uTOd			= 113,
+	asBC_fTOd			= 114,
+	asBC_ADDi			= 115,
+	asBC_SUBi			= 116,
+	asBC_MULi			= 117,
+	asBC_DIVi			= 118,
+	asBC_MODi			= 119,
+	asBC_ADDf			= 120,
+	asBC_SUBf			= 121,
+	asBC_MULf			= 122,
+	asBC_DIVf			= 123,
+	asBC_MODf			= 124,
+	asBC_ADDd			= 125,
+	asBC_SUBd			= 126,
+	asBC_MULd			= 127,
+	asBC_DIVd			= 128,
+	asBC_MODd			= 129,
+	asBC_ADDIi			= 130,
+	asBC_SUBIi			= 131,
+	asBC_MULIi			= 132,
+	asBC_ADDIf			= 133,
+	asBC_SUBIf			= 134,
+	asBC_MULIf			= 135,
+	asBC_SetG4			= 136,
+	asBC_ChkRefS		= 137,
+	asBC_ChkNullV		= 138,
+	asBC_CALLINTF		= 139,
+	asBC_iTOb			= 140,
+	asBC_iTOw			= 141,
+	asBC_SetV1			= 142,
+	asBC_SetV2			= 143,
+	asBC_Cast			= 144,
+	asBC_i64TOi			= 145,
+	asBC_uTOi64			= 146,
+	asBC_iTOi64			= 147,
+	asBC_fTOi64			= 148,
+	asBC_dTOi64			= 149,
+	asBC_fTOu64			= 150,
+	asBC_dTOu64			= 151,
+	asBC_i64TOf			= 152,
+	asBC_u64TOf			= 153,
+	asBC_i64TOd			= 154,
+	asBC_u64TOd			= 155,
+	asBC_NEGi64			= 156,
+	asBC_INCi64			= 157,
+	asBC_DECi64			= 158,
+	asBC_BNOT64			= 159,
+	asBC_ADDi64			= 160,
+	asBC_SUBi64			= 161,
+	asBC_MULi64			= 162,
+	asBC_DIVi64			= 163,
+	asBC_MODi64			= 164,
+	asBC_BAND64			= 165,
+	asBC_BOR64			= 166,
+	asBC_BXOR64			= 167,
+	asBC_BSLL64			= 168,
+	asBC_BSRL64			= 169,
+	asBC_BSRA64			= 170,
+	asBC_CMPi64			= 171,
+	asBC_CMPu64			= 172,
+	asBC_ChkNullS		= 173,
+	asBC_ClrHi			= 174,
+	asBC_JitEntry		= 175,
+	asBC_CallPtr        = 176,
+	asBC_FuncPtr        = 177,
+	asBC_LoadThisR      = 178,
+	asBC_PshV8          = 179,
+	asBC_DIVu			= 180,
+	asBC_MODu			= 181,
+	asBC_DIVu64			= 182,
+	asBC_MODu64			= 183,
+	asBC_LoadRObjR      = 184,
+	asBC_LoadVObjR      = 185,
+
+	asBC_MAXBYTECODE	= 186,
+
+	// Temporary tokens. Can't be output to the final program
+	asBC_VarDecl        = 251,
+	asBC_Block          = 252,
+	asBC_ObjInfo		= 253,
+	asBC_LINE			= 254,
+	asBC_LABEL			= 255
+};
+
+// Instruction types
+enum asEBCType
+{
+	asBCTYPE_INFO         = 0,
+	asBCTYPE_NO_ARG       = 1,
+	asBCTYPE_W_ARG        = 2,
+	asBCTYPE_wW_ARG       = 3,
+	asBCTYPE_DW_ARG       = 4,
+	asBCTYPE_rW_DW_ARG    = 5,
+	asBCTYPE_QW_ARG       = 6,
+	asBCTYPE_DW_DW_ARG    = 7,
+	asBCTYPE_wW_rW_rW_ARG = 8,
+	asBCTYPE_wW_QW_ARG    = 9,
+	asBCTYPE_wW_rW_ARG    = 10,
+	asBCTYPE_rW_ARG       = 11,
+	asBCTYPE_wW_DW_ARG    = 12,
+	asBCTYPE_wW_rW_DW_ARG = 13,
+	asBCTYPE_rW_rW_ARG    = 14,
+	asBCTYPE_wW_W_ARG     = 15,
+	asBCTYPE_QW_DW_ARG    = 16,
+	asBCTYPE_rW_QW_ARG    = 17,
+	asBCTYPE_W_DW_ARG     = 18,
+	asBCTYPE_rW_W_DW_ARG  = 19
+};
+
+// Instruction type sizes
+const int asBCTypeSize[20] =
+{
+	0, // asBCTYPE_INFO
+	1, // asBCTYPE_NO_ARG
+	1, // asBCTYPE_W_ARG
+	1, // asBCTYPE_wW_ARG
+	2, // asBCTYPE_DW_ARG
+	2, // asBCTYPE_rW_DW_ARG
+	3, // asBCTYPE_QW_ARG
+	3, // asBCTYPE_DW_DW_ARG
+	2, // asBCTYPE_wW_rW_rW_ARG
+	3, // asBCTYPE_wW_QW_ARG
+	2, // asBCTYPE_wW_rW_ARG
+	1, // asBCTYPE_rW_ARG
+	2, // asBCTYPE_wW_DW_ARG
+	3, // asBCTYPE_wW_rW_DW_ARG
+	2, // asBCTYPE_rW_rW_ARG
+	2, // asBCTYPE_wW_W_ARG
+	4, // asBCTYPE_QW_DW_ARG
+	3, // asBCTYPE_rW_QW_ARG
+	2, // asBCTYPE_W_DW_ARG
+	3  // asBCTYPE_rW_W_DW_ARG
+};
+
+// Instruction info
+struct asSBCInfo
+{
+	asEBCInstr  bc;
+	asEBCType   type;
+	int         stackInc;
+	const char *name;
+};
+
+#ifndef AS_64BIT_PTR
+	#define asBCTYPE_PTR_ARG    asBCTYPE_DW_ARG
+	#define asBCTYPE_PTR_DW_ARG asBCTYPE_DW_DW_ARG
+	#define asBCTYPE_wW_PTR_ARG asBCTYPE_wW_DW_ARG
+	#define asBCTYPE_rW_PTR_ARG asBCTYPE_rW_DW_ARG
+	#ifndef AS_PTR_SIZE
+		#define AS_PTR_SIZE 1
+	#endif
+#else
+	#define asBCTYPE_PTR_ARG    asBCTYPE_QW_ARG
+	#define asBCTYPE_PTR_DW_ARG asBCTYPE_QW_DW_ARG
+	#define asBCTYPE_wW_PTR_ARG asBCTYPE_wW_QW_ARG
+	#define asBCTYPE_rW_PTR_ARG asBCTYPE_rW_QW_ARG
+	#ifndef AS_PTR_SIZE
+		#define AS_PTR_SIZE 2
+	#endif
+#endif
+
+#define asBCINFO(b,t,s) {asBC_##b, asBCTYPE_##t, s, #b}
+#define asBCINFO_DUMMY(b) {asEBCInstr(b), asBCTYPE_INFO, 0, "BC_" #b}
+
+const asSBCInfo asBCInfo[256] =
+{
+	asBCINFO(POP,		W_ARG,			0xFFFF),
+	asBCINFO(PUSH,		W_ARG,			0xFFFF),
+	asBCINFO(PshC4,		DW_ARG,			1),
+	asBCINFO(PshV4,		rW_ARG,			1),
+	asBCINFO(PSF,		rW_ARG,			AS_PTR_SIZE),
+	asBCINFO(SWAP4,		NO_ARG,			0),
+	asBCINFO(NOT,		rW_ARG,			0),
+	asBCINFO(PshG4,		PTR_ARG,		1),
+	asBCINFO(LdGRdR4,	wW_PTR_ARG,		0),
+	asBCINFO(CALL,		DW_ARG,			0xFFFF),
+	asBCINFO(RET,		W_ARG,			0xFFFF),
+	asBCINFO(JMP,		DW_ARG,			0),
+	asBCINFO(JZ,		DW_ARG,			0),
+	asBCINFO(JNZ,		DW_ARG,			0),
+	asBCINFO(JS,		DW_ARG,			0),
+	asBCINFO(JNS,		DW_ARG,			0),
+	asBCINFO(JP,		DW_ARG,			0),
+	asBCINFO(JNP,		DW_ARG,			0),
+	asBCINFO(TZ,		NO_ARG,			0),
+	asBCINFO(TNZ,		NO_ARG,			0),
+	asBCINFO(TS,		NO_ARG,			0),
+	asBCINFO(TNS,		NO_ARG,			0),
+	asBCINFO(TP,		NO_ARG,			0),
+	asBCINFO(TNP,		NO_ARG,			0),
+	asBCINFO(NEGi,		rW_ARG,			0),
+	asBCINFO(NEGf,		rW_ARG,			0),
+	asBCINFO(NEGd,		rW_ARG,			0),
+	asBCINFO(INCi16,	NO_ARG,			0),
+	asBCINFO(INCi8,		NO_ARG,			0),
+	asBCINFO(DECi16,	NO_ARG,			0),
+	asBCINFO(DECi8,		NO_ARG,			0),
+	asBCINFO(INCi,		NO_ARG,			0),
+	asBCINFO(DECi,		NO_ARG,			0),
+	asBCINFO(INCf,		NO_ARG,			0),
+	asBCINFO(DECf,		NO_ARG,			0),
+	asBCINFO(INCd,		NO_ARG,			0),
+	asBCINFO(DECd,		NO_ARG,			0),
+	asBCINFO(IncVi,		rW_ARG,			0),
+	asBCINFO(DecVi,		rW_ARG,			0),
+	asBCINFO(BNOT,		rW_ARG,			0),
+	asBCINFO(BAND,		wW_rW_rW_ARG,	0),
+	asBCINFO(BOR,		wW_rW_rW_ARG,	0),
+	asBCINFO(BXOR,		wW_rW_rW_ARG,	0),
+	asBCINFO(BSLL,		wW_rW_rW_ARG,	0),
+	asBCINFO(BSRL,		wW_rW_rW_ARG,	0),
+	asBCINFO(BSRA,		wW_rW_rW_ARG,	0),
+	asBCINFO(COPY,		W_DW_ARG,		-AS_PTR_SIZE),
+	asBCINFO(PshC8,		QW_ARG,			2),
+	asBCINFO(RDS8,		NO_ARG,			2-AS_PTR_SIZE),
+	asBCINFO(SWAP8,		NO_ARG,			0),
+	asBCINFO(CMPd,		rW_rW_ARG,		0),
+	asBCINFO(CMPu,		rW_rW_ARG,		0),
+	asBCINFO(CMPf,		rW_rW_ARG,		0),
+	asBCINFO(CMPi,		rW_rW_ARG,		0),
+	asBCINFO(CMPIi,		rW_DW_ARG,		0),
+	asBCINFO(CMPIf,		rW_DW_ARG,		0),
+	asBCINFO(CMPIu,		rW_DW_ARG,		0),
+	asBCINFO(JMPP,		rW_ARG,			0),
+	asBCINFO(PopRPtr,	NO_ARG,			-AS_PTR_SIZE),
+	asBCINFO(PshRPtr,	NO_ARG,			AS_PTR_SIZE),
+	asBCINFO(STR,		W_ARG,			1+AS_PTR_SIZE),
+	asBCINFO(CALLSYS,	DW_ARG,			0xFFFF),
+	asBCINFO(CALLBND,	DW_ARG,			0xFFFF),
+	asBCINFO(SUSPEND,	NO_ARG,			0),
+	asBCINFO(ALLOC,		PTR_DW_ARG,		0xFFFF),
+	asBCINFO(FREE,		wW_PTR_ARG,		0),
+	asBCINFO(LOADOBJ,	rW_ARG,			0),
+	asBCINFO(STOREOBJ,	wW_ARG,			0),
+	asBCINFO(GETOBJ,	W_ARG,			0),
+	asBCINFO(REFCPY,	PTR_ARG,		-AS_PTR_SIZE),
+	asBCINFO(CHKREF,	NO_ARG,			0),
+	asBCINFO(GETOBJREF,	W_ARG,			0),
+	asBCINFO(GETREF,	W_ARG,			0),
+	asBCINFO(SWAP48,	NO_ARG,			0),
+	asBCINFO(SWAP84,	NO_ARG,			0),
+	asBCINFO(OBJTYPE,	PTR_ARG,		AS_PTR_SIZE),
+	asBCINFO(TYPEID,	DW_ARG,			1),
+	asBCINFO(SetV4,		wW_DW_ARG,		0),
+	asBCINFO(SetV8,		wW_QW_ARG,		0),
+	asBCINFO(ADDSi,		W_DW_ARG,		0),
+	asBCINFO(CpyVtoV4,	wW_rW_ARG,		0),
+	asBCINFO(CpyVtoV8,	wW_rW_ARG,		0),
+	asBCINFO(CpyVtoR4,	rW_ARG,			0),
+	asBCINFO(CpyVtoR8,	rW_ARG,			0),
+	asBCINFO(CpyVtoG4,	rW_PTR_ARG,		0),
+	asBCINFO(CpyRtoV4,	wW_ARG,			0),
+	asBCINFO(CpyRtoV8,	wW_ARG,			0),
+	asBCINFO(CpyGtoV4,	wW_PTR_ARG,		0),
+	asBCINFO(WRTV1,		rW_ARG,			0),
+	asBCINFO(WRTV2,		rW_ARG,			0),
+	asBCINFO(WRTV4,		rW_ARG,			0),
+	asBCINFO(WRTV8,		rW_ARG,			0),
+	asBCINFO(RDR1,		wW_ARG,			0),
+	asBCINFO(RDR2,		wW_ARG,			0),
+	asBCINFO(RDR4,		wW_ARG,			0),
+	asBCINFO(RDR8,		wW_ARG,			0),
+	asBCINFO(LDG,		PTR_ARG,		0),
+	asBCINFO(LDV,		rW_ARG,			0),
+	asBCINFO(PGA,		PTR_ARG,		AS_PTR_SIZE),
+	asBCINFO(RDS4,		NO_ARG,			1-AS_PTR_SIZE),
+	asBCINFO(VAR,		rW_ARG,			AS_PTR_SIZE),
+	asBCINFO(iTOf,		rW_ARG,			0),
+	asBCINFO(fTOi,		rW_ARG,			0),
+	asBCINFO(uTOf,		rW_ARG,			0),
+	asBCINFO(fTOu,		rW_ARG,			0),
+	asBCINFO(sbTOi,		rW_ARG,			0),
+	asBCINFO(swTOi,		rW_ARG,			0),
+	asBCINFO(ubTOi,		rW_ARG,			0),
+	asBCINFO(uwTOi,		rW_ARG,			0),
+	asBCINFO(dTOi,		wW_rW_ARG,		0),
+	asBCINFO(dTOu,		wW_rW_ARG,		0),
+	asBCINFO(dTOf,		wW_rW_ARG,		0),
+	asBCINFO(iTOd,		wW_rW_ARG,		0),
+	asBCINFO(uTOd,		wW_rW_ARG,		0),
+	asBCINFO(fTOd,		wW_rW_ARG,		0),
+	asBCINFO(ADDi,		wW_rW_rW_ARG,	0),
+	asBCINFO(SUBi,		wW_rW_rW_ARG,	0),
+	asBCINFO(MULi,		wW_rW_rW_ARG,	0),
+	asBCINFO(DIVi,		wW_rW_rW_ARG,	0),
+	asBCINFO(MODi,		wW_rW_rW_ARG,	0),
+	asBCINFO(ADDf,		wW_rW_rW_ARG,	0),
+	asBCINFO(SUBf,		wW_rW_rW_ARG,	0),
+	asBCINFO(MULf,		wW_rW_rW_ARG,	0),
+	asBCINFO(DIVf,		wW_rW_rW_ARG,	0),
+	asBCINFO(MODf,		wW_rW_rW_ARG,	0),
+	asBCINFO(ADDd,		wW_rW_rW_ARG,	0),
+	asBCINFO(SUBd,		wW_rW_rW_ARG,	0),
+	asBCINFO(MULd,		wW_rW_rW_ARG,	0),
+	asBCINFO(DIVd,		wW_rW_rW_ARG,	0),
+	asBCINFO(MODd,		wW_rW_rW_ARG,	0),
+	asBCINFO(ADDIi,		wW_rW_DW_ARG,	0),
+	asBCINFO(SUBIi,		wW_rW_DW_ARG,	0),
+	asBCINFO(MULIi,		wW_rW_DW_ARG,	0),
+	asBCINFO(ADDIf,		wW_rW_DW_ARG,	0),
+	asBCINFO(SUBIf,		wW_rW_DW_ARG,	0),
+	asBCINFO(MULIf,		wW_rW_DW_ARG,	0),
+	asBCINFO(SetG4,		PTR_DW_ARG,		0),
+	asBCINFO(ChkRefS,	NO_ARG,			0),
+	asBCINFO(ChkNullV,	rW_ARG,			0),
+	asBCINFO(CALLINTF,	DW_ARG,			0xFFFF),
+	asBCINFO(iTOb,		rW_ARG,			0),
+	asBCINFO(iTOw,		rW_ARG,			0),
+	asBCINFO(SetV1,		wW_DW_ARG,		0),
+	asBCINFO(SetV2,		wW_DW_ARG,		0),
+	asBCINFO(Cast,		DW_ARG,			-AS_PTR_SIZE),
+	asBCINFO(i64TOi,	wW_rW_ARG,		0),
+	asBCINFO(uTOi64,	wW_rW_ARG,		0),
+	asBCINFO(iTOi64,	wW_rW_ARG,		0),
+	asBCINFO(fTOi64,	wW_rW_ARG,		0),
+	asBCINFO(dTOi64,	rW_ARG,			0),
+	asBCINFO(fTOu64,	wW_rW_ARG,		0),
+	asBCINFO(dTOu64,	rW_ARG,			0),
+	asBCINFO(i64TOf,	wW_rW_ARG,		0),
+	asBCINFO(u64TOf,	wW_rW_ARG,		0),
+	asBCINFO(i64TOd,	rW_ARG,			0),
+	asBCINFO(u64TOd,	rW_ARG,			0),
+	asBCINFO(NEGi64,	rW_ARG,			0),
+	asBCINFO(INCi64,	NO_ARG,			0),
+	asBCINFO(DECi64,	NO_ARG,			0),
+	asBCINFO(BNOT64,	rW_ARG,			0),
+	asBCINFO(ADDi64,	wW_rW_rW_ARG,	0),
+	asBCINFO(SUBi64,	wW_rW_rW_ARG,	0),
+	asBCINFO(MULi64,	wW_rW_rW_ARG,	0),
+	asBCINFO(DIVi64,	wW_rW_rW_ARG,	0),
+	asBCINFO(MODi64,	wW_rW_rW_ARG,	0),
+	asBCINFO(BAND64,	wW_rW_rW_ARG,	0),
+	asBCINFO(BOR64,		wW_rW_rW_ARG,	0),
+	asBCINFO(BXOR64,	wW_rW_rW_ARG,	0),
+	asBCINFO(BSLL64,	wW_rW_rW_ARG,	0),
+	asBCINFO(BSRL64,	wW_rW_rW_ARG,	0),
+	asBCINFO(BSRA64,	wW_rW_rW_ARG,	0),
+	asBCINFO(CMPi64,	rW_rW_ARG,		0),
+	asBCINFO(CMPu64,	rW_rW_ARG,		0),
+	asBCINFO(ChkNullS,	W_ARG,			0),
+	asBCINFO(ClrHi,		NO_ARG,			0),
+	asBCINFO(JitEntry,	PTR_ARG,		0),
+	asBCINFO(CallPtr,   rW_ARG,         0xFFFF),
+	asBCINFO(FuncPtr,   PTR_ARG,        AS_PTR_SIZE),
+	asBCINFO(LoadThisR, W_DW_ARG,       0),
+	asBCINFO(PshV8,		rW_ARG,			2),
+	asBCINFO(DIVu,		wW_rW_rW_ARG,	0),
+	asBCINFO(MODu,		wW_rW_rW_ARG,	0),
+	asBCINFO(DIVu64,	wW_rW_rW_ARG,	0),
+	asBCINFO(MODu64,	wW_rW_rW_ARG,	0),
+	asBCINFO(LoadRObjR, rW_W_DW_ARG,    0),
+	asBCINFO(LoadVObjR, rW_W_DW_ARG,    0),
+
+	asBCINFO_DUMMY(186),
+	asBCINFO_DUMMY(187),
+	asBCINFO_DUMMY(188),
+	asBCINFO_DUMMY(189),
+	asBCINFO_DUMMY(190),
+	asBCINFO_DUMMY(191),
+	asBCINFO_DUMMY(192),
+	asBCINFO_DUMMY(193),
+	asBCINFO_DUMMY(194),
+	asBCINFO_DUMMY(195),
+	asBCINFO_DUMMY(196),
+	asBCINFO_DUMMY(197),
+	asBCINFO_DUMMY(198),
+	asBCINFO_DUMMY(199),
+	asBCINFO_DUMMY(200),
+	asBCINFO_DUMMY(201),
+	asBCINFO_DUMMY(202),
+	asBCINFO_DUMMY(203),
+	asBCINFO_DUMMY(204),
+	asBCINFO_DUMMY(205),
+	asBCINFO_DUMMY(206),
+	asBCINFO_DUMMY(207),
+	asBCINFO_DUMMY(208),
+	asBCINFO_DUMMY(209),
+	asBCINFO_DUMMY(210),
+	asBCINFO_DUMMY(211),
+	asBCINFO_DUMMY(212),
+	asBCINFO_DUMMY(213),
+	asBCINFO_DUMMY(214),
+	asBCINFO_DUMMY(215),
+	asBCINFO_DUMMY(216),
+	asBCINFO_DUMMY(217),
+	asBCINFO_DUMMY(218),
+	asBCINFO_DUMMY(219),
+	asBCINFO_DUMMY(220),
+	asBCINFO_DUMMY(221),
+	asBCINFO_DUMMY(222),
+	asBCINFO_DUMMY(223),
+	asBCINFO_DUMMY(224),
+	asBCINFO_DUMMY(225),
+	asBCINFO_DUMMY(226),
+	asBCINFO_DUMMY(227),
+	asBCINFO_DUMMY(228),
+	asBCINFO_DUMMY(229),
+	asBCINFO_DUMMY(230),
+	asBCINFO_DUMMY(231),
+	asBCINFO_DUMMY(232),
+	asBCINFO_DUMMY(233),
+	asBCINFO_DUMMY(234),
+	asBCINFO_DUMMY(235),
+	asBCINFO_DUMMY(236),
+	asBCINFO_DUMMY(237),
+	asBCINFO_DUMMY(238),
+	asBCINFO_DUMMY(239),
+	asBCINFO_DUMMY(240),
+	asBCINFO_DUMMY(241),
+	asBCINFO_DUMMY(242),
+	asBCINFO_DUMMY(243),
+	asBCINFO_DUMMY(244),
+	asBCINFO_DUMMY(245),
+	asBCINFO_DUMMY(246),
+	asBCINFO_DUMMY(247),
+	asBCINFO_DUMMY(248),
+	asBCINFO_DUMMY(249),
+	asBCINFO_DUMMY(250),
+
+	asBCINFO(VarDecl,   W_ARG,          0),
+	asBCINFO(Block,     INFO,           0),
+	asBCINFO(ObjInfo,	rW_DW_ARG,		0),
+	asBCINFO(LINE,		INFO,			0),
+	asBCINFO(LABEL,		INFO,			0)
+};
+
+// Macros to access bytecode instruction arguments
+#define asBC_DWORDARG(x)  (asDWORD(*(x+1)))
+#define asBC_INTARG(x)    (int(*(x+1)))
+#define asBC_QWORDARG(x)  (*(asQWORD*)(x+1))
+#define asBC_FLOATARG(x)  (*(float*)(x+1))
+#define asBC_PTRARG(x)    (*(asPTRWORD*)(x+1))
+#define asBC_WORDARG0(x)  (*(((asWORD*)x)+1))
+#define asBC_WORDARG1(x)  (*(((asWORD*)x)+2))
+#define asBC_SWORDARG0(x) (*(((short*)x)+1))
+#define asBC_SWORDARG1(x) (*(((short*)x)+2))
+#define asBC_SWORDARG2(x) (*(((short*)x)+3))
+
 
 END_AS_NAMESPACE
 

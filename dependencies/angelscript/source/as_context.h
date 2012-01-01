@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2009 Andreas Jonsson
+   Copyright (c) 2003-2011 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied
    warranty. In no event will the authors be held liable for any
@@ -50,25 +50,21 @@ BEGIN_AS_NAMESPACE
 
 class asCScriptFunction;
 class asCScriptEngine;
-class asCModule;
-
-// TODO: The context should be renamed to something that better describes it, e.g. asIVirtualMachine, asIExecuter, asIProcessor, asIScriptThread, or something like that
-
-// TODO: asIScriptContext should have a method int ExecuteString(const char *string, asIScriptModule *module = 0);
-//       That method should replace the ExecuteString in the engine interface.
 
 class asCContext : public asIScriptContext
 {
 public:
 	// From asIScriptContext
-	int  AddRef();
-	int  Release();
+	int  AddRef() const;
+	int  Release() const;
 
-	asIScriptEngine *GetEngine();
+	asIScriptEngine *GetEngine() const;
 
-	asEContextState GetState();
+	asEContextState GetState() const;
 
-	int  Prepare(int functionID);
+	int  Prepare(asIScriptFunction *func);
+	// TODO: interface: deprecate this
+	int  Prepare(int functionId);
 	int  Unprepare();
 
 	int SetArgByte(asUINT arg, asBYTE value);
@@ -79,7 +75,7 @@ public:
 	int SetArgDouble(asUINT arg, double value);
 	int SetArgAddress(asUINT arg, void *addr);
 	int SetArgObject(asUINT arg, void *obj);
-	void *GetArgPointer(asUINT arg);
+	void *GetAddressOfArg(asUINT arg);
 
 	int SetObject(void *obj);
 
@@ -91,20 +87,14 @@ public:
 	double  GetReturnDouble();
 	void   *GetReturnAddress();
 	void   *GetReturnObject();
-#ifdef AS_DEPRECATED
-	void   *GetReturnPointer();
-#endif
 	void   *GetAddressOfReturnValue();
 
 	int  Execute();
 	int  Abort();
 	int  Suspend();
 
-	int  GetCurrentLineNumber(int *column);
-	int  GetCurrentFunction();
-
 	int  SetException(const char *descr);
-	int  GetExceptionLineNumber(int *column);
+	int  GetExceptionLineNumber(int *column, const char **sectionName);
 	int  GetExceptionFunction();
 	const char *GetExceptionString();
 
@@ -113,31 +103,25 @@ public:
 	int  SetExceptionCallback(asSFuncPtr callback, void *obj, int callConv);
 	void ClearExceptionCallback();
 
-	int GetCallstackSize();
-	int GetCallstackFunction(int index);
-	int GetCallstackLineNumber(int index, int *column);
-
-	int         GetVarCount(int stackLevel);
-	const char *GetVarName(int varIndex, int stackLevel);
-	const char *GetVarDeclaration(int varIndex, int stackLevel);
-	int         GetVarTypeId(int varIndex, int stackLevel);
-#ifdef AS_DEPRECATED
-	void       *GetVarPointer(int varIndex, int stackLevel);
-#endif
-	void       *GetAddressOfVar(int varIndex, int stackLevel);
-	int         GetThisTypeId(int stackLevel);
-    void       *GetThisPointer(int stackLevel);
+	asUINT             GetCallstackSize();
+	asIScriptFunction *GetFunction(asUINT stackLevel);
+	int                GetLineNumber(asUINT stackLevel, int *column, const char **sectionName);
+	int                GetVarCount(asUINT stackLevel);
+	const char        *GetVarName(asUINT varIndex, asUINT stackLevel);
+	const char        *GetVarDeclaration(asUINT varIndex, asUINT stackLevel);
+	int                GetVarTypeId(asUINT varIndex, asUINT stackLevel);
+	void              *GetAddressOfVar(asUINT varIndex, asUINT stackLevel);
+	bool               IsVarInScope(asUINT varIndex, asUINT stackLevel);
+	int                GetThisTypeId(asUINT stackLevel);
+    void              *GetThisPointer(asUINT stackLevel);
 
 	void *SetUserData(void *data);
-	void *GetUserData();
+	void *GetUserData() const;
 
 public:
 	// Internal public functions
 	asCContext(asCScriptEngine *engine, bool holdRef);
 	virtual ~asCContext();
-
-	int  PrepareSpecial(int functionID, asCModule *mod);
-	int  SetExecuteStringFunction(asCScriptFunction *func);
 
 //protected:
 	friend class asCScriptEngine;
@@ -153,39 +137,32 @@ public:
 	void CleanStack();
 	void CleanStackFrame();
 	void CleanReturnObject();
+	void DetermineLiveObjects(asCArray<int> &liveObjects, asUINT stackLevel);
 
 	void PushCallState();
 	void PopCallState();
-	void CallScriptFunction(asCModule *mod, asCScriptFunction *func);
-	void CallInterfaceMethod(asCModule *mod, asCScriptFunction *func);
+	void CallScriptFunction(asCScriptFunction *func);
+	void CallInterfaceMethod(asCScriptFunction *func);
 
 	void SetInternalException(const char *descr);
 
 	// Must be protected for multiple accesses
-	asCAtomic refCount;
+	mutable asCAtomic refCount;
 
 	bool holdEngineRef;
 	asCScriptEngine *engine;
-	asCModule *module;
 
 	asEContextState status;
 	bool doSuspend;
 	bool doAbort;
 	bool externalSuspendRequest;
 	bool isCallingSystemFunction;
-	bool doProcessSuspend;
-
-	asDWORD *byteCode;
 
 	asCScriptFunction *currentFunction;
-	asDWORD *stackFramePointer;
 	bool isStackMemoryNotAllocated;
-
-	asQWORD register1;
 
 	asCArray<size_t> callStack;
 	asCArray<asDWORD *> stackBlocks;
-	asDWORD *stackPointer;
 	int stackBlockSize;
 	int stackIndex;
 
@@ -197,12 +174,6 @@ public:
 
 	int returnValueSize;
 	int argumentsSize;
-
-	void          *objectRegister;
-	asCObjectType *objectType;
-
-	// String function
-	asCScriptFunction *stringFunction;
 
 	asCScriptFunction *initialFunction;
 
@@ -216,6 +187,9 @@ public:
 	void *exceptionCallbackObj;
 
 	void *userData;
+
+	// Registers available to JIT compiler functions
+	asSVMRegisters regs;
 };
 
 END_AS_NAMESPACE

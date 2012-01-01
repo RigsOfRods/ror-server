@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2009 Andreas Jonsson
+   Copyright (c) 2003-2011 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -50,19 +50,32 @@
 
 BEGIN_AS_NAMESPACE
 
+struct sExplicitSignature
+{
+	sExplicitSignature(int argCount = 0) : argTypes(argCount), argModifiers(argCount), argNames(argCount), defaultArgs(argCount) {}
+
+	asCDataType returnType;
+	asCArray<asCDataType> argTypes;
+	asCArray<asETypeModifiers> argModifiers;
+	asCArray<asCString> argNames;
+	asCArray<asCString *> defaultArgs;
+};
+
 struct sFunctionDescription
 {
 	asCScriptCode *script;
 	asCScriptNode *node;
 	asCString name;
 	asCObjectType *objType;
+	sExplicitSignature *explicitSignature;
 	int funcId;
 };
 
 struct sGlobalVariableDescription
 {
 	asCScriptCode *script;
-	asCScriptNode *node;
+	asCScriptNode *idNode;
+	asCScriptNode *nextNode;
 	asCString name;
 	asCGlobalProperty *property;
 	asCDataType datatype;
@@ -75,11 +88,23 @@ struct sGlobalVariableDescription
 
 struct sClassDeclaration
 {
+	sClassDeclaration() {script = 0; node = 0; validState = 0; objType = 0; isExistingShared = false; isFinal = false;}
+
 	asCScriptCode *script;
 	asCScriptNode *node;
 	asCString name;
 	int validState;
 	asCObjectType *objType;
+	bool isExistingShared;
+	bool isFinal;
+};
+
+struct sFuncDef
+{
+	asCScriptCode *script;
+	asCScriptNode *node;
+	asCString name;
+	int idx;
 };
 
 class asCCompiler;
@@ -101,49 +126,58 @@ public:
 	int AddCode(const char *name, const char *code, int codeLength, int lineOffset, int sectionIdx, bool makeCopy);
 	int Build();
 
-	int BuildString(const char *string, asCContext *ctx);
+	int CompileFunction(const char *sectionName, const char *code, int lineOffset, asDWORD compileFlags, asCScriptFunction **outFunc);
+	int CompileGlobalVar(const char *sectionName, const char *code, int lineOffset);
 
 	void WriteInfo(const char *scriptname, const char *msg, int r, int c, bool preMessage);
 	void WriteError(const char *scriptname, const char *msg, int r, int c);
 	void WriteWarning(const char *scriptname, const char *msg, int r, int c);
 
 	int CheckNameConflict(const char *name, asCScriptNode *node, asCScriptCode *code);
-	int CheckNameConflictMember(asCDataType &dt, const char *name, asCScriptNode *node, asCScriptCode *code);
+	int CheckNameConflictMember(asCObjectType *type, const char *name, asCScriptNode *node, asCScriptCode *code, bool isProperty);
 
 protected:
 	friend class asCCompiler;
 	friend class asCModule;
 	friend class asCParser;
 
-	const asCString &GetConstantString(int strID);
-
 	asCObjectProperty *GetObjectProperty(asCDataType &obj, const char *prop);
-	asCGlobalProperty *GetGlobalProperty(const char *prop, bool *isCompiled, bool *isPureConstant, asQWORD *constantValue);
+	asCGlobalProperty *GetGlobalProperty(const char *prop, bool *isCompiled, bool *isPureConstant, asQWORD *constantValue, bool *isAppProp);
 
-	asCScriptFunction *GetFunctionDescription(int funcID);
+	asCScriptFunction *GetFunctionDescription(int funcId);
 	void GetFunctionDescriptions(const char *name, asCArray<int> &funcs);
 	void GetObjectMethodDescriptions(const char *name, asCObjectType *objectType, asCArray<int> &methods, bool objIsConst, const asCString &scope = "");
 
 	int RegisterScriptFunction(int funcID, asCScriptNode *node, asCScriptCode *file, asCObjectType *object = 0, bool isInterface = false, bool isGlobalFunction = false);
+	int RegisterScriptFunctionWithSignature(int funcID, asCScriptNode *node, asCScriptCode *file, asCString &name, sExplicitSignature *signature, asCObjectType *object = 0, bool isInterface = false, bool isGlobalFunction = false, bool isPrivate = false, bool isConst = false, bool isFinal = false, bool isOverride = false, bool treatAsProperty = false);
+	int RegisterVirtualProperty(asCScriptNode *node, asCScriptCode *file, asCObjectType *object = 0, bool isInterface = false, bool isGlobalFunction = false);
 	int RegisterImportedFunction(int funcID, asCScriptNode *node, asCScriptCode *file);
 	int RegisterGlobalVar(asCScriptNode *node, asCScriptCode *file);
 	int RegisterClass(asCScriptNode *node, asCScriptCode *file);
 	int RegisterInterface(asCScriptNode *node, asCScriptCode *file);
 	int RegisterEnum(asCScriptNode *node, asCScriptCode *file);
 	int RegisterTypedef(asCScriptNode *node, asCScriptCode *file);
+	int RegisterFuncDef(asCScriptNode *node, asCScriptCode *file);
+	void CompleteFuncDef(sFuncDef *funcDef);
 	void CompileClasses();
 
-	bool DoesMethodExist(asCObjectType *objType, int methodId);
+	void GetParsedFunctionDetails(asCScriptNode *node, asCScriptCode *file, asCObjectType *objType, asCString &name, asCDataType &returnType, asCArray<asCDataType> &parameterTypes, asCArray<asETypeModifiers> &inOutFlags, asCArray<asCString *> &defaultArgs, bool &isConstMethod, bool &isConstructor, bool &isDestructor, bool &isPrivate, bool &isOverride, bool &isFinal);
+	int  ValidateDefaultArgs(asCScriptCode *script, asCScriptNode *node, asCScriptFunction *func);
+
+	bool DoesMethodExist(asCObjectType *objType, int methodId, asUINT *methodIndex = 0);
 
 	void AddDefaultConstructor(asCObjectType *objType, asCScriptCode *file);
-	asCObjectProperty *AddPropertyToClass(sClassDeclaration *c, const asCString &name, const asCDataType &type, asCScriptCode *file = 0, asCScriptNode *node = 0);
+	asCObjectProperty *AddPropertyToClass(sClassDeclaration *c, const asCString &name, const asCDataType &type, bool isPrivate, asCScriptCode *file = 0, asCScriptNode *node = 0);
 	
 	int CreateVirtualFunction(asCScriptFunction *func, int idx);
 
-	asCObjectType *GetObjectType(const char *type);
+	asCObjectType     *GetObjectType(const char *type);
+	asCScriptFunction *GetFuncDef(const char *type);
 
 	int GetEnumValueFromObjectType(asCObjectType *objType, const char *name, asCDataType &outDt, asDWORD &outValue);
 	int GetEnumValue(const char *name, asCDataType &outDt, asDWORD &outValue);
+
+	asCString GetCleanExpressionString(asCScriptNode *n, asCScriptCode *file);
 
 	void ParseScripts();
 	void CompileFunctions();
@@ -166,6 +200,7 @@ protected:
 	asCArray<sClassDeclaration *>          classDeclarations;
 	asCArray<sClassDeclaration *>          interfaceDeclarations;
 	asCArray<sClassDeclaration *>          namedTypeDeclarations;
+	asCArray<sFuncDef *>                   funcDefs;
 
 	asCScriptEngine *engine;
 	asCModule *module;

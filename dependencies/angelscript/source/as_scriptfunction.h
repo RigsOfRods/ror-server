@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2009 Andreas Jonsson
+   Copyright (c) 2003-2011 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -44,39 +44,67 @@
 #include "as_string.h"
 #include "as_array.h"
 #include "as_datatype.h"
+#include "as_atomic.h"
 
 BEGIN_AS_NAMESPACE
 
 class asCScriptEngine;
 class asCModule;
+class asCConfigGroup;
+class asCGlobalProperty;
 
 struct asSScriptVariable
 {
-	asCString name;
+	asCString   name;
 	asCDataType type;
-	int stackOffset;
+	int         stackOffset;
+	asUINT      declaredAtProgramPos;
 };
 
-const int asFUNC_SYSTEM    = 0;
-const int asFUNC_SCRIPT    = 1;
-const int asFUNC_INTERFACE = 2;
-const int asFUNC_IMPORTED  = 3;
-const int asFUNC_VIRTUAL   = 4;
+enum asEObjVarInfoOption
+{
+	asOBJ_UNINIT,
+	asOBJ_INIT,
+	asBLOCK_BEGIN,
+	asBLOCK_END
+};
+
+struct asSObjectVariableInfo
+{
+	asUINT programPos;
+	int    variableOffset;
+	asUINT option;
+};
 
 struct asSSystemFunctionInterface;
 
-// TODO: Need a method for obtaining the function type, so that the application can differenciate between the types
-//       This should replace the IsClassMethod and IsInterfaceMethod
+// TODO: GetModuleName should be removed. A function won't belong to a specific module anymore
+//       as the function can be removed from the module, but still remain alive. For example
+//       for dynamically generated functions held by a function pointer.
 
-// TODO: Need a method for obtaining the read-only flag for class methods
+// TODO: Might be interesting to allow enumeration of accessed global variables, and 
+//       also functions/methods that are being called. This could be used to build a 
+//       code database with call graphs, etc.
 
-// TODO: GetModuleName should be exchanged for GetModule and should return asIScriptModule pointer
+// TODO: optimize: The GC should only be notified of the script function when the last module
+//                 removes it from the scope. Must make sure it is only added to the GC once
+//                 in case the function is added to another module after the GC already knows 
+//                 about the function.
+
+void RegisterScriptFunction(asCScriptEngine *engine);
 
 class asCScriptFunction : public asIScriptFunction
 {
 public:
 	// From asIScriptFunction
 	asIScriptEngine     *GetEngine() const;
+
+	// Memory management
+	int AddRef() const;
+	int Release() const;
+
+	int                  GetId() const;
+	asEFuncType          GetFuncType() const;
 	const char          *GetModuleName() const;
 	asIObjectType       *GetObjectType() const;
 	const char          *GetObjectName() const;
@@ -84,16 +112,33 @@ public:
 	const char          *GetDeclaration(bool includeObjectName = true) const;
 	const char          *GetScriptSectionName() const;
 	const char          *GetConfigGroup() const;
+	bool                 IsReadOnly() const;
+	bool                 IsPrivate() const;
+	// TODO: interface: Add IsFinal() and IsOverride() as public methods
+	// TODO: access: Get/Set access mask for function
 
-	bool                 IsClassMethod() const;
-	bool                 IsInterfaceMethod() const;
-
-	int                  GetParamCount() const;
-	int                  GetParamTypeId(int index, asDWORD *flags = 0) const;
+	asUINT               GetParamCount() const;
+	int                  GetParamTypeId(asUINT index, asDWORD *flags = 0) const;
 	int                  GetReturnTypeId() const;
 
+	// Debug information
+	asUINT               GetVarCount() const;
+	int                  GetVar(asUINT index, const char **name, int *typeId = 0) const;
+	const char *         GetVarDecl(asUINT index) const;
+	int                  FindNextLineWithCode(int line) const;
+
+	// For JIT compilation
+	asDWORD             *GetByteCode(asUINT *length = 0);
+
+	// User data
+	void                *SetUserData(void *userData);
+	void                *GetUserData() const;
+
 public:
-	asCScriptFunction(asCScriptEngine *engine, asCModule *mod);
+	//-----------------------------------
+	// Internal methods
+
+	asCScriptFunction(asCScriptEngine *engine, asCModule *mod, asEFuncType funcType);
 	~asCScriptFunction();
 
 	void      AddVariable(asCString &name, asCDataType &type, int stackOffset);
@@ -104,41 +149,78 @@ public:
 	int       GetLineNumber(int programPosition);
 	void      ComputeSignatureId();
 	bool      IsSignatureEqual(const asCScriptFunction *func) const;
+	bool      IsSignatureExceptNameEqual(const asCScriptFunction *func) const;
+
+	bool      DoesReturnOnStack() const;
+
+	void      JITCompile();
 
 	void      AddReferences();
 	void      ReleaseReferences();
 
+	bool      IsShared() const;
+	bool      IsFinal() const;
+	bool      IsOverride() const;
+
+	asCGlobalProperty *GetPropertyByGlobalVarPtr(void *gvarPtr);
+
+	// GC methods
+	int  GetRefCount();
+	void SetFlag();
+	bool GetFlag();
+	void EnumReferences(asIScriptEngine *engine);
+	void ReleaseAllHandles(asIScriptEngine *engine);
+
+public:
+	//-----------------------------------
+	// Properties
+
+	mutable asCAtomic            refCount;
+	mutable bool                 gcFlag;
 	asCScriptEngine             *engine;
 	asCModule                   *module;
 
+	void                        *userData;
+
 	// Function signature
-	asCString                        name;
-	asCDataType                      returnType;
-	asCArray<asCDataType>            parameterTypes;
-	asCArray<asETypeModifiers>       inOutFlags;
-	bool                             isReadOnly;
-	asCObjectType                   *objectType;
-	int                              signatureId;
+	asCString                    name;
+	asCDataType                  returnType;
+	asCArray<asCDataType>        parameterTypes;
+	asCArray<asETypeModifiers>   inOutFlags;
+	asCArray<asCString *>        defaultArgs;
+	bool                         isReadOnly;
+	bool                         isPrivate;
+	bool                         isFinal;
+	bool                         isOverride;
+	asCObjectType               *objectType;
+	int                          signatureId;
 
 	int                          id;
 
-	int                          funcType;
+	asEFuncType                  funcType;
+	asDWORD                      accessMask;
+	bool                         isShared;
 
 	// Used by asFUNC_SCRIPT
-	asCArray<asDWORD>            byteCode;
-	asCArray<asCObjectType*>     objVariableTypes;
-	asCArray<int>	             objVariablePos;
-	int                          stackNeeded;
-	asCArray<int>                lineNumbers;      // debug info
-	asCArray<asSScriptVariable*> variables;        // debug info
-	int                          scriptSectionIdx; // debug info
-	bool                         dontCleanUpOnException;   // Stub functions don't own the object and parameters
+	asCArray<asDWORD>               byteCode;
+	asCArray<asCObjectType*>        objVariableTypes;
+	asCArray<int>	                objVariablePos;
+	asCArray<bool>                  objVariableIsOnHeap;
+	asCArray<asSObjectVariableInfo> objVariableInfo;
+	int                             stackNeeded;
+	asCArray<int>                   lineNumbers;      // debug info
+	asCArray<asSScriptVariable*>    variables;        // debug info
+	int                             scriptSectionIdx; // debug info
+	bool                            dontCleanUpOnException;   // Stub functions don't own the object and parameters
 
 	// Used by asFUNC_VIRTUAL
 	int                          vfTableIdx;
 
 	// Used by asFUNC_SYSTEM
 	asSSystemFunctionInterface  *sysFuncIntf;
+
+    // JIT compiled code of this function
+    asJITFunction                jitFunction;
 };
 
 END_AS_NAMESPACE

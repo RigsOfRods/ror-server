@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2009 Andreas Jonsson
+   Copyright (c) 2003-2011 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -110,8 +110,8 @@ enum eTokenType
 	ttBitNot,              // ~
 	ttBitXor,              // ^
 	ttBitShiftLeft,        // <<
-	ttBitShiftRight,       // >>
-	ttBitShiftRightArith,  // >>>
+	ttBitShiftRight,       // >>     // TODO: In Java this is the arithmetical shift
+	ttBitShiftRightArith,  // >>>    // TODO: In Java this is the logical shift
 
 	// Compare operators
 	ttEqual,               // ==
@@ -130,6 +130,7 @@ enum eTokenType
 	ttFor,				   // for
 	ttWhile,               // while
 	ttBool,                // bool
+	ttFuncDef,             // funcdef
 	ttImport,              // import
 	ttInt,                 // int
 	ttInt8,                // int8
@@ -166,7 +167,8 @@ enum eTokenType
 	ttClass,               // class
 	ttTypedef,             // typedef
 	ttEnum,                // enum
-	ttCast                 // cast
+	ttCast,                // cast
+	ttPrivate              // private
 };
 
 struct sTokenWord
@@ -178,29 +180,40 @@ struct sTokenWord
 sTokenWord const tokenWords[] =
 {
 	{"+"         , ttPlus},
-	{"-"         , ttMinus},
-	{"*"         , ttStar},
-	{"/"         , ttSlash},
-	{"%"         , ttPercent},
-	{"="         , ttAssignment},
-	{"."         , ttDot},
 	{"+="        , ttAddAssign},
+	{"++"        , ttInc},
+	{"-"         , ttMinus},
 	{"-="        , ttSubAssign},
+	{"--"        , ttDec},
+	{"*"         , ttStar},
 	{"*="        , ttMulAssign},
+	{"/"         , ttSlash},
 	{"/="        , ttDivAssign},
+	{"%"         , ttPercent},
 	{"%="        , ttModAssign},
-	{"|="        , ttOrAssign},
-	{"&="        , ttAndAssign},
-	{"^="        , ttXorAssign},
-	{"<<="       , ttShiftLeftAssign},
-	{">>="       , ttShiftRightLAssign},
-	{">>>="      , ttShiftRightAAssign},
+	{"="         , ttAssignment},
+	{"=="        , ttEqual},
+	{"."         , ttDot},
 	{"|"         , ttBitOr},
-	{"~"         , ttBitNot},
+	{"|="        , ttOrAssign},
+	{"||"        , ttOr},
+	{"&"         , ttAmp},
+	{"&="        , ttAndAssign},
+	{"&&"        , ttAnd},
 	{"^"         , ttBitXor},
+	{"^="        , ttXorAssign},
+	{"^^"        , ttXor},
+	{"<"         , ttLessThan},
+	{"<="        , ttLessThanOrEqual},
 	{"<<"        , ttBitShiftLeft},
+	{"<<="       , ttShiftLeftAssign},
+	{">"         , ttGreaterThan},
+	{">="        , ttGreaterThanOrEqual},
 	{">>"        , ttBitShiftRight},
+	{">>="       , ttShiftRightLAssign},
 	{">>>"       , ttBitShiftRightArith},
+	{">>>="      , ttShiftRightAAssign},
+	{"~"         , ttBitNot},
 	{";"         , ttEndStatement},
 	{","         , ttListSeparator},
 	{"{"         , ttStartStatementBlock},
@@ -212,26 +225,19 @@ sTokenWord const tokenWords[] =
 	{"?"         , ttQuestion},
 	{":"         , ttColon},
 	{"::"        , ttScope},
-	{"=="        , ttEqual},
-	{"!="        , ttNotEqual},
-	{"<"         , ttLessThan},
-	{">"         , ttGreaterThan},
-	{"<="        , ttLessThanOrEqual},
-	{">="        , ttGreaterThanOrEqual},
-	{"++"        , ttInc},
-	{"--"        , ttDec},
-	{"&"         , ttAmp},
 	{"!"         , ttNot},
-	{"||"        , ttOr},
-	{"&&"        , ttAnd},
-	{"^^"        , ttXor},
+	{"!="        , ttNotEqual},
+	{"!is"       , ttNotIs},
 	{"@"         , ttHandle},
 	{"and"       , ttAnd},
 	{"bool"      , ttBool},
 	{"break"     , ttBreak},
+	{"case"      , ttCase}, 
 	{"cast"      , ttCast},
+	{"class"     , ttClass},
 	{"const"     , ttConst},
 	{"continue"  , ttContinue},
+	{"default"   , ttDefault},
 	{"do"        , ttDo},
 #ifdef  AS_USE_DOUBLE_AS_FLOAT
 	{"double"    , ttFloat},
@@ -239,13 +245,15 @@ sTokenWord const tokenWords[] =
 	{"double"    , ttDouble},
 #endif
 	{"else"      , ttElse},
+	{"enum"      , ttEnum},
 	{"false"     , ttFalse},
 	{"float"     , ttFloat},
 	{"for"       , ttFor},
+	{"funcdef"   , ttFuncDef},
 	{"if"        , ttIf},
+	{"import"    , ttImport},
 	{"in"        , ttIn},
 	{"inout"     , ttInOut},
-	{"import"    , ttImport},
 	{"int"       , ttInt},
 	{"int8"      , ttInt8},
 	{"int16"     , ttInt16},
@@ -253,27 +261,23 @@ sTokenWord const tokenWords[] =
 	{"int64"     , ttInt64},
 	{"interface" , ttInterface},
 	{"is"        , ttIs},
-	{"!is"       , ttNotIs},
 	{"not"       , ttNot},
 	{"null"      , ttNull},
 	{"or"        , ttOr},
 	{"out"       , ttOut},
+	{"private"   , ttPrivate},
 	{"return"    , ttReturn},
+	{"switch"    , ttSwitch},
 	{"true"      , ttTrue},
-	{"void"      , ttVoid},
-	{"while"     , ttWhile},
+	{"typedef"   , ttTypedef},
 	{"uint"      , ttUInt},
 	{"uint8"     , ttUInt8},
 	{"uint16"    , ttUInt16},
 	{"uint32"    , ttUInt},
 	{"uint64"    , ttUInt64},
-	{"switch"    , ttSwitch},
-	{"class"     , ttClass},
-	{"case"      , ttCase}, 
-	{"default"   , ttDefault},
+	{"void"      , ttVoid},
+	{"while"     , ttWhile},
 	{"xor"       , ttXor},
-	{"typedef"   , ttTypedef},
-	{"enum"      , ttEnum},
 };
 
 const unsigned int numTokenWords = sizeof(tokenWords)/sizeof(sTokenWord);
@@ -281,9 +285,16 @@ const unsigned int numTokenWords = sizeof(tokenWords)/sizeof(sTokenWord);
 const char * const whiteSpace = " \t\r\n";
 
 // Some keywords that are not considered tokens by the parser
-const char * const THIS_TOKEN = "this";
-const char * const FROM_TOKEN = "from";
-const char * const SUPER_TOKEN = "super";
+// These only have meaning in specific situations. Outside these
+// situations they are treated as normal identifiers.
+const char * const THIS_TOKEN     = "this";
+const char * const FROM_TOKEN     = "from";
+const char * const SUPER_TOKEN    = "super";
+const char * const SHARED_TOKEN   = "shared";
+const char * const FINAL_TOKEN    = "final";
+const char * const OVERRIDE_TOKEN = "override";
+const char * const GET_TOKEN      = "get";
+const char * const SET_TOKEN      = "set";
 
 END_AS_NAMESPACE
 

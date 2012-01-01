@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2009 Andreas Jonsson
+   Copyright (c) 2003-2011 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -49,9 +49,7 @@
 
 BEGIN_AS_NAMESPACE
 
-const int asFUNC_INIT   = 0xFFFF;
-const int asFUNC_STRING = 0xFFFE;
-
+// TODO: import: Remove this when the imported functions are removed
 const int FUNC_IMPORTED = 0x40000000;
 
 class asCScriptEngine;
@@ -62,8 +60,9 @@ class asCConfigGroup;
 
 struct sBindInfo
 {
-	asDWORD importFrom;
-	int importedFunction;
+	asCScriptFunction *importedFunctionSignature;
+	asCString		   importFromModule;
+	int                boundFunctionId;
 };
 
 struct sObjectTypePair
@@ -72,29 +71,21 @@ struct sObjectTypePair
 	asCObjectType *b;
 };
 
-// TODO: addref/release for the module. The Module should have addref/release methods so that 
-//       the application can keep its own references. If DiscardModule is called on the module from
-//       the engine the module is not discarded immediately if the application holds it's own reference.
-//       Only when the application releases its references is the module discarded. Discard will however
-//       remove the reference from the engine's list of valid modules, so GetModule won't return it any
-//       more.
+// TODO: import: Remove function imports. When I have implemented function 
+//               pointers the function imports should be deprecated.
 
-// TODO: global: The module represents the current scope. Global variables may be added/removed
-//               from the scope through DeclareGlobalVar, UndeclareGlobalVar. Undeclaring a global variable
-//               doesn't destroy it, it just means the variable is no longer visible from the module, e.g. for
-//               new function compilations. Only when no more functions are accessing the global variables is
-//               the variable removed.
+// TODO: Need a separate interface for compiling scripts. The asIScriptCompiler
+//       will have a target module, and will allow the compilation of an entire
+//       script or just individual functions within the scope of the module
+// 
+//       With this separation it will be possible to compile the library without
+//       the compiler, thus giving a much smaller binary executable.
 
-// TODO: dynamic functions: It must be possible to compile new functions dynamically within the 
-//                          scope of a module. The new functions can be added to the scope of the module, or it can be 
-//                          left outside, thus only accessible through the function id that is returned. This can be used
-//                          by scripts to dynamically compile new functions. It will also be possible to undeclare functions,
-//                          in which case the function is removed from the scope of the module. When no one else is accessing
-//                          the function anymore, will it be removed. In order to keep track of references between functions
-//                          I need to implement reference counting, which also needs a GC for resolving cyclic references.
-
-// TODO: Remove function imports. When I have implemented function 
-//       pointers the function imports should be deprecated.
+// TODO: There should be an special compile option that will let the application
+//       recompile an already compiled script. The compiler should check if no
+//       destructive changes have been made (changing function signatures, etc)
+//       then it should simply replace the bytecode within the functions without
+//       changing the values of existing global properties, etc.
 
 class asCModule : public asIScriptModule
 {
@@ -102,65 +93,80 @@ class asCModule : public asIScriptModule
 // Public interface
 //--------------------------------------------
 public:
-	virtual asIScriptEngine *GetEngine();
+	virtual asIScriptEngine *GetEngine() const;
 	virtual void             SetName(const char *name);
-	virtual const char      *GetName();
+	virtual const char      *GetName() const;
 
 	// Compilation
-	virtual int  AddScriptSection(const char *name, const char *code, size_t codeLength, int lineOffset);
-	virtual int  Build();
+	virtual int     AddScriptSection(const char *name, const char *code, size_t codeLength, int lineOffset);
+	virtual int     Build();
+	virtual int     CompileFunction(const char *sectionName, const char *code, int lineOffset, asDWORD reserved, asIScriptFunction **outFunc);
+	virtual int     CompileGlobalVar(const char *sectionName, const char *code, int lineOffset);
+	virtual asDWORD SetAccessMask(asDWORD accessMask);
 
 	// Script functions
-	virtual int                GetFunctionCount();
-	virtual int                GetFunctionIdByIndex(int index);
-	virtual int                GetFunctionIdByName(const char *name);
-	virtual int                GetFunctionIdByDecl(const char *decl);
-	virtual asIScriptFunction *GetFunctionDescriptorByIndex(int index);
-	virtual asIScriptFunction *GetFunctionDescriptorById(int funcId);
+	virtual asUINT             GetFunctionCount() const;
+	virtual int                GetFunctionIdByIndex(asUINT index) const;
+	virtual int                GetFunctionIdByName(const char *name) const;
+	virtual int                GetFunctionIdByDecl(const char *decl) const;
+	virtual asIScriptFunction *GetFunctionByIndex(asUINT index) const;
+	virtual asIScriptFunction *GetFunctionByDecl(const char *decl) const;
+	virtual asIScriptFunction *GetFunctionByName(const char *name) const;
+#ifdef AS_DEPRECATED
+	// deprecated since 2011-10-03
+	virtual asIScriptFunction *GetFunctionDescriptorByIndex(asUINT index) const;
+	virtual asIScriptFunction *GetFunctionDescriptorById(int funcId) const;
+#endif
+	virtual int                RemoveFunction(int funcId);
 
 	// Script global variables
-	virtual int         ResetGlobalVars();
-	virtual int         GetGlobalVarCount();
-	virtual int         GetGlobalVarIndexByName(const char *name);
-	virtual int         GetGlobalVarIndexByDecl(const char *decl);
-	virtual const char *GetGlobalVarDeclaration(int index);
-	virtual const char *GetGlobalVarName(int index);
-	virtual int         GetGlobalVarTypeId(int index, bool *isConst);
-	virtual void       *GetAddressOfGlobalVar(int index);
+	virtual int         ResetGlobalVars(asIScriptContext *ctx);
+	virtual asUINT      GetGlobalVarCount() const;
+	virtual int         GetGlobalVarIndexByName(const char *name) const;
+	virtual int         GetGlobalVarIndexByDecl(const char *decl) const;
+	virtual const char *GetGlobalVarDeclaration(asUINT index) const;
+	virtual int         GetGlobalVar(asUINT index, const char **name, int *typeId, bool *isConst) const;
+	virtual void       *GetAddressOfGlobalVar(asUINT index);
+	virtual int         RemoveGlobalVar(asUINT index);
 
 	// Type identification
-	virtual int            GetObjectTypeCount();
-	virtual asIObjectType *GetObjectTypeByIndex(asUINT index);
-	virtual int            GetTypeIdByDecl(const char *decl);
+	virtual asUINT         GetObjectTypeCount() const;
+	virtual asIObjectType *GetObjectTypeByIndex(asUINT index) const;
+	// TODO: interface: Should have GetObjectTypeByName
+	virtual int            GetTypeIdByDecl(const char *decl) const;
 
 	// Enums
-	virtual int         GetEnumCount();
-	virtual const char *GetEnumByIndex(asUINT index, int *enumTypeId);
-	virtual int         GetEnumValueCount(int enumTypeId);
-	virtual const char *GetEnumValueByIndex(int enumTypeId, asUINT index, int *outValue);
+	virtual asUINT      GetEnumCount() const;
+	virtual const char *GetEnumByIndex(asUINT index, int *enumTypeId) const;
+	virtual int         GetEnumValueCount(int enumTypeId) const;
+	virtual const char *GetEnumValueByIndex(int enumTypeId, asUINT index, int *outValue) const;
 
 	// Typedefs
-	virtual int         GetTypedefCount();
-	virtual const char *GetTypedefByIndex(asUINT index, int *typeId);
+	virtual asUINT      GetTypedefCount() const;
+	virtual const char *GetTypedefByIndex(asUINT index, int *typeId) const;
 
 	// Dynamic binding between modules
-	virtual int         GetImportedFunctionCount();
-	virtual int         GetImportedFunctionIndexByDecl(const char *decl);
-	virtual const char *GetImportedFunctionDeclaration(int importIndex);
-	virtual const char *GetImportedFunctionSourceModule(int importIndex);
-	virtual int         BindImportedFunction(int index, int sourceID);
-	virtual int         UnbindImportedFunction(int importIndex);
+	virtual asUINT      GetImportedFunctionCount() const;
+	virtual int         GetImportedFunctionIndexByDecl(const char *decl) const;
+	virtual const char *GetImportedFunctionDeclaration(asUINT importIndex) const;
+	virtual const char *GetImportedFunctionSourceModule(asUINT importIndex) const;
+	virtual int         BindImportedFunction(asUINT index, int sourceID);
+	virtual int         UnbindImportedFunction(asUINT importIndex);
 	virtual int         BindAllImportedFunctions();
 	virtual int         UnbindAllImportedFunctions();
 
 	// Bytecode Saving/Loading
-	virtual int SaveByteCode(asIBinaryStream *out);
+	virtual int SaveByteCode(asIBinaryStream *out) const;
 	virtual int LoadByteCode(asIBinaryStream *in);
+
+	// User data
+	virtual void *SetUserData(void *data);
+	virtual void *GetUserData() const;
 
 //-----------------------------------------------
 // Internal
 //-----------------------------------------------
-	asCModule(const char *name, int id, asCScriptEngine *engine);
+	asCModule(const char *name, asCScriptEngine *engine);
 	~asCModule();
 
 //protected:
@@ -170,79 +176,48 @@ public:
 	friend class asCContext;
 	friend class asCRestore;
 
-	void Discard();
 	void InternalReset();
 
-	int  AddContextRef();
-	int  ReleaseContextRef();
-	asCAtomic contextCount;
-
-	int  AddModuleRef();
-	int  ReleaseModuleRef();
-	asCAtomic moduleCount;
-
-	int CallInit();
+	int  CallInit(asIScriptContext *ctx);
 	void CallExit();
-	bool isGlobalVarInitialized;
 
-	bool IsUsed();
+	void JITCompile();
 
-	int  AddConstantString(const char *str, size_t length);
-	const asCString &GetConstantString(int id);
-
-	int  GetNextFunctionId();
-	int  AddScriptFunction(int sectionIdx, int id, const char *name, const asCDataType &returnType, asCDataType *params, asETypeModifiers *inOutFlags, int paramCount, bool isInterface, asCObjectType *objType = 0, bool isConstMethod = false, bool isGlobalFunction = false);
+	int  AddScriptFunction(int sectionIdx, int id, const char *name, const asCDataType &returnType, asCDataType *params, asETypeModifiers *inOutFlags, asCString **defaultArgs, int paramCount, bool isInterface, asCObjectType *objType = 0, bool isConstMethod = false, bool isGlobalFunction = false, bool isPrivate = false, bool isFinal = false, bool isOverride = false);
 	int  AddScriptFunction(asCScriptFunction *func);
-	int  AddImportedFunction(int id, const char *name, const asCDataType &returnType, asCDataType *params, asETypeModifiers *inOutFlags, int paramCount, int moduleNameStringID);
-
-	bool CanDeleteAllReferences(asCArray<asCModule*> &modules);
+	int  AddImportedFunction(int id, const char *name, const asCDataType &returnType, asCDataType *params, asETypeModifiers *inOutFlags, int paramCount, const asCString &moduleName);
+	int  AddFuncDef(const char *name);
 
 	int  GetNextImportedFunctionId();
 
-	void ResolveInterfaceIds();
+	void ResolveInterfaceIds(asCArray<void*> *substitutions = 0);
 	bool AreInterfacesEqual(asCObjectType *a, asCObjectType *b, asCArray<sObjectTypePair> &equals);
 	bool AreTypesEqual(const asCDataType &a, const asCDataType &b, asCArray<sObjectTypePair> &equals);
 
-	asCScriptFunction *GetImportedFunction(int funcId);
-	asCScriptFunction *GetScriptFunction(int funcId);
-	asCScriptFunction *GetSpecialFunction(int funcId);
+	asCScriptFunction *GetImportedFunction(int funcId) const;
 
 	asCObjectType *GetObjectType(const char *type);
-	asCConfigGroup *GetConfigGroupByGlobalVarId(int gvarId);
-
-	int  GetScriptSectionIndex(const char *name);
-	bool CanDelete();
 
 	asCGlobalProperty *AllocateGlobalProperty(const char *name, const asCDataType &dt);
-	int GetGlobalVarIndex(int propIdx);
+
 
 	asCString name;
 
 	asCScriptEngine *engine;
 	asCBuilder      *builder;
-	bool             isBuildWithoutErrors;
+	void            *userData;
+	asDWORD          accessMask;
 
-	int  moduleId;
-	bool isDiscarded;
-
-	asCScriptFunction             *initFunction;
-	asCArray<asCString *>          scriptSections;
 	// This array holds all functions, class members, factories, etc that were compiled with the module
 	asCArray<asCScriptFunction *>  scriptFunctions;
 	// This array holds global functions declared in the module
 	asCArray<asCScriptFunction *>  globalFunctions;
 	// This array holds imported functions in the module
-	asCArray<asCScriptFunction *>  importedFunctions;
-	asCArray<sBindInfo>            bindInformations;
+	asCArray<sBindInfo *>          bindInformations;
 
 	// This array holds the global variables declared in the script
 	asCArray<asCGlobalProperty *>  scriptGlobals;
-
-	// This array holds pointers to all global variables that the functions in the module access.
-	// The byte code holds an index into this table to refer to a global variable.
-	asCArray<void*>                globalVarPointers;
-
-	asCArray<asCString*>           stringConstants;
+	bool                           isGlobalVarInitialized;
 
 	// This array holds class and interface types
 	asCArray<asCObjectType*>       classTypes;
@@ -250,6 +225,8 @@ public:
 	asCArray<asCObjectType*>       enumTypes;
 	// This array holds typedefs
 	asCArray<asCObjectType*>       typeDefs;
+	// This array holds the funcdefs declared in the module
+	asCArray<asCScriptFunction*>   funcDefs;
 };
 
 END_AS_NAMESPACE

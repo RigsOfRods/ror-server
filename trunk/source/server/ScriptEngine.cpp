@@ -112,14 +112,14 @@ int ScriptEngine::loadScript(std::string scriptname)
 	r = builder.StartNewModule(engine, "script");
 	if( r < 0 )
 	{
-		Logger::log(LOG_ERROR,"ScriptEngine: Unkown error while starting a new script module.");
+		Logger::log(LOG_ERROR,"ScriptEngine: Unknown error while starting a new script module.");
 		return 1;
 	}
 
 	r = builder.AddSectionFromFile(scriptname.c_str());
 	if( r < 0 )
 	{
-		Logger::log(LOG_ERROR,"ScriptEngine: Unkown error while adding a new section from file.");
+		Logger::log(LOG_ERROR,"ScriptEngine: Unknown error while adding a new section from file.");
 		return 1;
 	}
 
@@ -139,7 +139,7 @@ int ScriptEngine::loadScript(std::string scriptname)
 			Logger::log(LOG_ERROR,"ScriptEngine: It was not possible to initialize at least one of the global variables.");
 
 		else
-			Logger::log(LOG_ERROR,"ScriptEngine: Unkown error while building the script.");
+			Logger::log(LOG_ERROR,"ScriptEngine: Unknown error while building the script.");
 
 		return 1;
 	}
@@ -307,7 +307,7 @@ void ScriptEngine::init()
 			Logger::log(LOG_ERROR,"ScriptEngine: 	The arguments are not supported, e.g. asCALL_GENERIC.");
 			return;
 		}
-		Logger::log(LOG_ERROR,"ScriptEngine: Unkown error while setting up message callback");
+		Logger::log(LOG_ERROR,"ScriptEngine: Unknown error while setting up message callback");
 		return;
 	}
 

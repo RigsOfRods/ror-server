@@ -1,6 +1,7 @@
 // copied from the angelscript library and edited for use in Rigs of Rods Multiplayer Server
 // 01 Jan 2012
 
+#ifdef WITH_ANGELSCRIPT
 #include "ScriptFileSafe.h"
 #include <new>
 #include <assert.h>
@@ -644,3 +645,4 @@ int ScriptFileSafe::WriteDouble(double d)
 
 
 END_AS_NAMESPACE
+#endif // WITH_ANGELSCRIPT

@@ -77,8 +77,13 @@ static CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_WEBSERVER,      ((char *)"-webserver"), SO_NONE },
 	{ OPT_WEBSERVER_PORT, ((char *)"-webserverport"), SO_REQ_SEP },
 	{ OPT_VERSION,        ((char *)"-version"), SO_NONE },
+	{ OPT_HELP,           ((char *)"-?"), SO_NONE },	
+	{ OPT_HELP,           ((char *)"-h"), SO_NONE },
 	{ OPT_HELP,           ((char *)"-help"), SO_NONE },
 	{ OPT_HELP,           ((char *)"--help"), SO_NONE },
+	{ OPT_HELP,           ((char *)"/\?"), SO_NONE },	
+	{ OPT_HELP,           ((char *)"/help"), SO_NONE },
+	{ OPT_HELP,           ((char *)"/h"), SO_NONE },	
 	{ OPT_FOREGROUND,     ((char *)"-fg"), SO_NONE },
 	{ OPT_CONFIGFILE,     ((char *)"-c"), SO_REQ_SEP },
 	{ OPT_CONFIGFILE,     ((char *)"-config"), SO_REQ_SEP },
@@ -91,7 +96,6 @@ static CSimpleOpt::SOption cmdline_options[] = {
 	{ OPT_WEBSITE,        ((char *)"-website"), SO_REQ_SEP },
 	{ OPT_IRC,            ((char *)"-irc"), SO_REQ_SEP },
 	{ OPT_VOIP,           ((char *)"-voip"), SO_REQ_SEP },
-	{ OPT_HELP,           ((char *)"/help"), SO_NONE },
 	SO_END_OF_OPTIONS
 };
 #endif //NOCMDLINE

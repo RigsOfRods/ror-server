@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2009 Andreas Jonsson
+   Copyright (c) 2003-2011 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -48,8 +48,8 @@ BEGIN_AS_NAMESPACE
 
 class asCObjectType;
 
+// TODO: Add const overload for GetAddressOfProperty
 
-// TODO: GetPropertyPointer should be GetAddressOfProperty
 
 class asCScriptObject : public asIScriptObject
 {
@@ -60,25 +60,20 @@ public:
 	asIScriptEngine *GetEngine() const;
 
 	// Memory management
-	int AddRef();
-	int Release();
+	int AddRef() const;
+	int Release() const;
 
 	// Type info
 	int            GetTypeId() const;
 	asIObjectType *GetObjectType() const;
 
 	// Class properties
-	int         GetPropertyCount() const;
+	asUINT      GetPropertyCount() const;
 	int         GetPropertyTypeId(asUINT prop) const;
 	const char *GetPropertyName(asUINT prop) const;
-	void       *GetPropertyPointer(asUINT prop);
+	void       *GetAddressOfProperty(asUINT prop);
 
 	int         CopyFrom(asIScriptObject *other);
-
-#ifdef AS_DEPRECATED
-	// deprecated since 2009-02-25, 2.16.0
-	int GetStructTypeId() const;
-#endif
 
 //====================================
 // Internal
@@ -100,15 +95,15 @@ public:
 	void *AllocateObject(asCObjectType *objType, asCScriptEngine *engine);
 	void FreeObject(void *ptr, asCObjectType *objType, asCScriptEngine *engine);
 	void CopyObject(void *src, void *dst, asCObjectType *objType, asCScriptEngine *engine);
-	void CopyHandle(asDWORD *src, asDWORD *dst, asCObjectType *objType, asCScriptEngine *engine);
+	void CopyHandle(asPWORD *src, asPWORD *dst, asCObjectType *objType, asCScriptEngine *engine);
 
 	void CallDestructor();
 
 	asCObjectType *objType;
 
 protected:
-	asCAtomic refCount;
-	bool gcFlag;
+	mutable asCAtomic refCount;
+	mutable bool gcFlag;
 	bool isDestructCalled;
 };
 
@@ -120,7 +115,7 @@ void ScriptObject_Assignment_Generic(asIScriptGeneric *gen);
 
 void RegisterScriptObject(asCScriptEngine *engine);
 
-asIScriptObject *ScriptObjectFactory(asCObjectType *objType, asCScriptEngine *engine);
+asIScriptObject *ScriptObjectFactory(const asCObjectType *objType, asCScriptEngine *engine);
 
 END_AS_NAMESPACE
 

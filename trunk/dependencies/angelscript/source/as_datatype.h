@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2009 Andreas Jonsson
+   Copyright (c) 2003-2011 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -48,6 +48,7 @@ BEGIN_AS_NAMESPACE
 struct asSTypeBehaviour;
 class asCScriptEngine;
 class asCObjectType;
+class asCScriptFunction;
 
 class asCDataType
 {
@@ -56,12 +57,14 @@ public:
 	asCDataType(const asCDataType &);
 	~asCDataType();
 
+	bool IsValid() const;
+
 	asCString Format() const;
 
 	static asCDataType CreatePrimitive(eTokenType tt, bool isConst);
 	static asCDataType CreateObject(asCObjectType *ot, bool isConst);
 	static asCDataType CreateObjectHandle(asCObjectType *ot, bool isConst);
-	static asCDataType CreateDefaultArray(asCScriptEngine *engine);
+	static asCDataType CreateFuncDef(asCScriptFunction *ot);
 	static asCDataType CreateNullHandle();
 
 	int MakeHandle(bool b, bool acceptHandleForScope = false);
@@ -100,16 +103,18 @@ public:
 	bool operator ==(const asCDataType &) const;
 	bool operator !=(const asCDataType &) const;
 
-	asCDataType    GetSubType()    const;
-	eTokenType     GetTokenType()  const {return tokenType;}
-	asCObjectType *GetObjectType() const {return objectType;}
+	asCDataType        GetSubType()    const;
+	eTokenType         GetTokenType()  const {return tokenType;}
+	asCObjectType     *GetObjectType() const {return objectType;}
+	asCScriptFunction *GetFuncDef()    const {return funcDef;}
 
 	int  GetSizeOnStackDWords()  const;
 	int  GetSizeInMemoryBytes()  const;
 	int  GetSizeInMemoryDWords() const;
 
-	void SetTokenType(eTokenType tt)                  {tokenType        = tt;}
-	void SetObjectType(asCObjectType *obj)            {objectType       = obj;}
+	void SetTokenType(eTokenType tt)         {tokenType = tt;}
+	void SetObjectType(asCObjectType *obj)   {objectType = obj;}
+	void SetFuncDef(asCScriptFunction *func) { asASSERT(funcDef); funcDef = func; }
 
 	asCDataType &operator =(const asCDataType &);
 
@@ -121,6 +126,7 @@ protected:
 
 	// Behaviour type
 	asCObjectType *objectType;
+	asCScriptFunction *funcDef;
 
 	// Top level
 	bool isReference:1;

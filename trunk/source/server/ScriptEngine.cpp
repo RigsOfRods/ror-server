@@ -9,6 +9,11 @@
 #include "scriptstdstring/scriptstdstring.h" // angelscript addon
 #include "scriptmath/scriptmath.h" // angelscript addon
 #include "scriptmath3d/scriptmath3d.h" // angelscript addon
+#include "scriptarray/scriptarray.h" // angelscript addon
+#include "scriptdictionary/scriptdictionary.h" // angelscript addon
+#include "scriptany/scriptany.h" // angelscript addon
+#include "scriptbuilder/scriptbuilder.h" // angelscript addon
+#include "ScriptFileSafe.h" // (edited) angelscript addon
 
 #include "utils.h"
 
@@ -67,51 +72,81 @@ ScriptEngine::~ScriptEngine()
 	}
 }
 
+int RoRServerScriptBuilderIncludeCallback(const char *include, const char *from, CScriptBuilder *builder, void *userParam)
+{
+	// Resource directory needs to be set in the config
+	if(Config::getResourceDir().empty() || Config::getResourceDir()=="/")
+		return -1;
+		
+	std::string myFilename = std::string(include);
+
+	// Remove the possible .as extension
+	if(myFilename.length()>3 && myFilename.substr(myFilename.length()-3, 3)==".as")
+		myFilename = myFilename.substr(0, myFilename.length()-3);
+	
+	// Replace all forbidden characters in the filename	
+	std::string allowedChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-";
+	for (std::string::iterator it = myFilename.begin() ; it < myFilename.end() ; ++it){
+		if( allowedChars.find(*it) == std::string::npos )
+			*it = '_';
+	}
+	myFilename = Config::getResourceDir() + "scripts/includes/" + myFilename + ".as";
+
+	// Include the script section
+	int r = builder->AddSectionFromFile(myFilename.c_str());
+	if( r < 0 )
+		return r;
+	
+	return 1;
+
+}
+
 int ScriptEngine::loadScript(std::string scriptname)
 {
 	if(scriptname.empty()) return 0;
-	// Load the entire script file into the buffer
-	int result=0;
-	string script;
-	result = loadScriptFile(scriptname.c_str(), script);
-	if( result )
+	
+	int r;
+	CScriptBuilder builder;
+	builder.SetIncludeCallback(RoRServerScriptBuilderIncludeCallback, NULL);
+
+	r = builder.StartNewModule(engine, "script");
+	if( r < 0 )
 	{
-		Logger::log(LOG_ERROR,"ScriptEngine: Unkown error while loading script file: %s", scriptname.c_str());
+		Logger::log(LOG_ERROR,"ScriptEngine: Unkown error while starting a new script module.");
 		return 1;
 	}
 
-	// Add the script to the module as a section. If desired, multiple script
-	// sections can be added to the same module. They will then be compiled
-	// together as if it was one large script.
-	asIScriptModule *mod = engine->GetModule("script", asGM_ALWAYS_CREATE);
-	result = mod->AddScriptSection(scriptname.c_str(), script.c_str(), script.length());
-	if( result < 0 )
+	r = builder.AddSectionFromFile(scriptname.c_str());
+	if( r < 0 )
 	{
-		Logger::log(LOG_ERROR,"ScriptEngine: Unkown error while adding script section");
+		Logger::log(LOG_ERROR,"ScriptEngine: Unkown error while adding a new section from file.");
 		return 1;
 	}
 
-	// Build the module
-	result = mod->Build();
-	if( result < 0 )
+	r = builder.BuildModule();
+	if( r < 0 )
 	{
-		if(result == asINVALID_CONFIGURATION)
-		{
+		if(r == asINVALID_CONFIGURATION)
 			Logger::log(LOG_ERROR,"ScriptEngine: The engine configuration is invalid.");
-			return 1;
-		} else if(result == asERROR)
-		{
+
+		else if(r == asERROR)
 			Logger::log(LOG_ERROR,"ScriptEngine: The script failed to build.");
-			return 1;
-		} else if(result == asBUILD_IN_PROGRESS)
-		{
+
+		else if(r == asBUILD_IN_PROGRESS)
 			Logger::log(LOG_ERROR,"ScriptEngine: Another thread is currently building.");
-			return 1;
-		}
-		Logger::log(LOG_ERROR,"ScriptEngine: Unkown error while building the script.");
+
+		else if(r == asINIT_GLOBAL_VARS_FAILED)
+			Logger::log(LOG_ERROR,"ScriptEngine: It was not possible to initialize at least one of the global variables.");
+
+		else
+			Logger::log(LOG_ERROR,"ScriptEngine: Unkown error while building the script.");
+
 		return 1;
 	}
 
+	// Get the newly created module
+	asIScriptModule *mod = builder.GetModule();
+	
 	// Find the function that is to be called.
 	int funcId = mod->GetFunctionIdByDecl("void main()");
 	if( funcId < 0 )
@@ -150,11 +185,11 @@ int ScriptEngine::loadScript(std::string scriptname)
 
 	context->Prepare(funcId);
 	Logger::log(LOG_INFO,"ScriptEngine: Executing main()");
-	result = context->Execute();
-	if( result != asEXECUTION_FINISHED )
+	r = context->Execute();
+	if( r != asEXECUTION_FINISHED )
 	{
 		// The execution didn't complete as expected. Determine what happened.
-		if( result == asEXECUTION_EXCEPTION )
+		if( r == asEXECUTION_EXCEPTION )
 		{
 			// An exception occurred, let the script writer know what happened so it can be corrected.
 			Logger::log(LOG_ERROR,"ScriptEngine: An exception '%s' occurred. Please correct the code in file '%s' and try again.", context->GetExceptionString(), scriptname.c_str());
@@ -168,7 +203,7 @@ void ScriptEngine::ExceptionCallback(asIScriptContext *ctx, void *param)
 {
 	asIScriptEngine *engine = ctx->GetEngine();
 	int funcID = ctx->GetExceptionFunction();
-	const asIScriptFunction *function = engine->GetFunctionDescriptorById(funcID);
+	const asIScriptFunction *function = engine->GetFunctionById(funcID);
 	Logger::log(LOG_INFO,"--- exception ---");
 	Logger::log(LOG_INFO,"desc: %s", (ctx->GetExceptionString()));
 	Logger::log(LOG_INFO,"func: %s", (function->GetDeclaration()));
@@ -182,11 +217,10 @@ void ScriptEngine::ExceptionCallback(asIScriptContext *ctx, void *param)
 
 	// Show the call stack with the variables
 	Logger::log(LOG_INFO,"--- call stack ---");
-	for( int n = 0; n < ctx->GetCallstackSize(); n++ )
+	for( unsigned int n = 0; n < ctx->GetCallstackSize(); n++ )
 	{
-		funcID = ctx->GetCallstackFunction(n);
-		const asIScriptFunction *func = engine->GetFunctionDescriptorById(funcID);
-		line = ctx->GetCallstackLineNumber(n,&col);
+		const asIScriptFunction *func = ctx->GetFunction(n);
+		line = ctx->GetLineNumber(n,&col);
 		Logger::log(LOG_INFO,"%s:%s : %d,%d", func->GetModuleName(), func->GetDeclaration(), line, col);
 
 		PrintVariables(ctx, n);
@@ -197,14 +231,14 @@ void ScriptEngine::LineCallback(asIScriptContext *ctx, void *param)
 {
 	char tmp[1024]="";
 	asIScriptEngine *engine = ctx->GetEngine();
-	int funcID = ctx->GetCurrentFunction();
 	int col;
-	int line = ctx->GetCurrentLineNumber(&col);
+	const char* sectionName;
+	int line = ctx->GetLineNumber(0, &col, &sectionName);
 	int indent = ctx->GetCallstackSize();
 	for( int n = 0; n < indent; n++ )
 		sprintf(tmp+n," ");
-	const asIScriptFunction *function = engine->GetFunctionDescriptorById(funcID);
-	sprintf(tmp+indent,"%s:%s:%d,%d", function->GetModuleName(),
+	const asIScriptFunction *function = engine->GetFunctionById(0);
+	sprintf(tmp+indent,"%s:%s:%s:%d,%d", function->GetModuleName(), sectionName,
 	                    function->GetDeclaration(),
 	                    line, col);
 
@@ -282,10 +316,13 @@ void ScriptEngine::init()
 	// The SDK do however provide a standard add-on for registering a string type, so it's not
 	// necessary to register your own string type if you don't want to.
 	RegisterStdString(engine);
+	RegisterScriptArray(engine, true); // true = allow arrays to be registered as type[] (e.g. int[]). Needed for backwards compatibillity.
+	RegisterStdStringUtils(engine); // depends on string and array
+	RegisterScriptMath3D(engine); // depends on string
 	RegisterScriptMath(engine);
-
-	// important, string first!
-	RegisterScriptMath3D(engine);
+	RegisterScriptDictionary(engine);
+	RegisterScriptFile(engine);
+	RegisterScriptAny(engine);
 
 	Logger::log(LOG_INFO,"ScriptEngine: Registration of libs done, now custom things");
 
@@ -349,6 +386,7 @@ int ScriptEngine::loadScriptFile(const char *fileName, string &script)
 
 void ScriptEngine::executeString(std::string command)
 {
+#if 0
 	// TOFIX: add proper error output
 	if(!engine) return;
 	if(!context) context = engine->CreateContext();
@@ -358,6 +396,7 @@ void ScriptEngine::executeString(std::string command)
 	{
 		Logger::log(LOG_ERROR,"error while executing string");
 	}
+#endif // 0
 }
 
 int ScriptEngine::framestep(float dt)

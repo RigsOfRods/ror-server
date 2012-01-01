@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2009 Andreas Jonsson
+   Copyright (c) 2003-2011 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -51,18 +51,13 @@ BEGIN_AS_NAMESPACE
 
 // TODO: memory: Need to minimize used memory here, because not all types use all properties of the class
 
-// TODO: Need GetTypeId that should return the type id for this object type.
 // TODO: The type id should have flags for diferenciating between value types and reference types. It should also have a flag for differenciating interface types.
 
-// TODO: Need GetModule that should return asIScriptModule where this type is declared. Interfaces that use any type that 
-//       is specific to the module will also return the module name. Otherwise the module name will not be returned.
-
 // Additional flag to the class object type
-const asDWORD asOBJ_IMPLICIT_HANDLE  = 0x40000;
+const asDWORD asOBJ_IMPLICIT_HANDLE  = 0x00400000;
 const asDWORD asOBJ_TYPEDEF          = 0x40000000;
 const asDWORD asOBJ_ENUM             = 0x10000000;
 const asDWORD asOBJ_TEMPLATE_SUBTYPE = 0x20000000;
-
 
 
 
@@ -80,14 +75,35 @@ const asDWORD asOBJ_TEMPLATE_SUBTYPE = 0x20000000;
 
 struct asSTypeBehaviour
 {
-	asSTypeBehaviour() {factory = 0; construct = 0; destruct = 0; copy = 0; addref = 0; release = 0; gcGetRefCount = 0; gcSetFlag = 0; gcGetFlag = 0; gcEnumReferences = 0; gcReleaseAllReferences = 0;}
+	asSTypeBehaviour() 
+	{
+		factory = 0;
+		listFactory = 0;
+		copyfactory = 0;
+		construct = 0; 
+		copyconstruct = 0;
+		destruct = 0; 
+		copy = 0; 
+		addref = 0; 
+		release = 0; 
+		gcGetRefCount = 0; 
+		gcSetFlag = 0; 
+		gcGetFlag = 0; 
+		gcEnumReferences = 0; 
+		gcReleaseAllReferences = 0;
+		templateCallback = 0;
+	}
 
 	int factory;
+	int listFactory; // Used for initialization lists only
+	int copyfactory;
 	int construct;
+	int copyconstruct;
 	int destruct;
 	int copy;
 	int addref;
 	int release;
+	int templateCallback;
 	
 	// GC behaviours
 	int gcGetRefCount;
@@ -109,6 +125,8 @@ struct asSEnumValue
 
 class asCScriptEngine;
 
+void RegisterObjectTypeGCBehaviours(asCScriptEngine *engine);
+
 class asCObjectType : public asIObjectType
 {
 public:
@@ -116,44 +134,61 @@ public:
 // From asIObjectType
 //=====================================
 	asIScriptEngine *GetEngine() const;
+	const char      *GetConfigGroup() const;
+
+	// Memory management
+	int AddRef() const;
+	int Release() const;
 
 	// Type info
 	const char      *GetName() const;
 	asIObjectType   *GetBaseType() const;
+	bool             DerivesFrom(const asIObjectType *objType) const;
 	asDWORD          GetFlags() const;
 	asUINT           GetSize() const;
-	const char      *GetConfigGroup() const;
-
-	// Behaviours
-	int GetBehaviourCount() const;
-	int GetBehaviourByIndex(asUINT index, asEBehaviours *outBehaviour) const;
+	int              GetTypeId() const;
+	int              GetSubTypeId() const;
+	asIObjectType   *GetSubType() const;
+	// TODO: access: Get/Set access mask for type
 
 	// Interfaces
-	int              GetInterfaceCount() const;
+	asUINT           GetInterfaceCount() const;
 	asIObjectType   *GetInterface(asUINT index) const;
+	bool             Implements(const asIObjectType *objType) const;
 
 	// Factories
-	int                GetFactoryCount() const;
-	int                GetFactoryIdByIndex(int index) const;
+	asUINT             GetFactoryCount() const;
+	int                GetFactoryIdByIndex(asUINT index) const;
 	int                GetFactoryIdByDecl(const char *decl) const;
+	asIScriptFunction *GetFactoryByIndex(asUINT index) const;
+	asIScriptFunction *GetFactoryByDecl(const char *decl) const;
 
 	// Methods
-	int                GetMethodCount() const;
-	int                GetMethodIdByIndex(int index) const;
-	int                GetMethodIdByName(const char *name) const;
-	int                GetMethodIdByDecl(const char *decl) const;
-	asIScriptFunction *GetMethodDescriptorByIndex(int index) const;
+	asUINT             GetMethodCount() const;
+	int                GetMethodIdByIndex(asUINT index, bool getVirtual) const;
+	int                GetMethodIdByName(const char *name, bool getVirtual) const;
+	int                GetMethodIdByDecl(const char *decl, bool getVirtual) const;
+	asIScriptFunction *GetMethodByIndex(asUINT index, bool getVirtual) const;
+	asIScriptFunction *GetMethodByName(const char *name, bool getVirtual) const;
+	asIScriptFunction *GetMethodByDecl(const char *decl, bool getVirtual) const;
+#ifdef AS_DEPRECATED
+	// deprecated since 2011-10-03
+	asIScriptFunction *GetMethodDescriptorByIndex(asUINT index, bool getVirtual) const;
+#endif
 
 	// Properties
-	int         GetPropertyCount() const;
-	int         GetPropertyTypeId(asUINT prop) const;
-	const char *GetPropertyName(asUINT prop) const;
-	int         GetPropertyOffset(asUINT prop) const;
+	// TODO: access: Allow getting and setting property access mask
+	asUINT      GetPropertyCount() const;
+	int         GetProperty(asUINT index, const char **name, int *typeId, bool *isPrivate, int *offset, bool *isReference) const;
+	const char *GetPropertyDeclaration(asUINT index) const;
 
-#ifdef AS_DEPRECATED
-	// deprecated since 2009-02-26, 2.16.0
-	asIObjectType   *GetSubType() const;
-#endif
+	// Behaviours
+	asUINT GetBehaviourCount() const;
+	int    GetBehaviourByIndex(asUINT index, asEBehaviours *outBehaviour) const;
+
+	// User data
+	void *SetUserData(void *data);
+	void *GetUserData() const;
 
 //===========================================
 // Internal
@@ -163,13 +198,18 @@ public:
 	asCObjectType(asCScriptEngine *engine);
 	~asCObjectType();
 
-	void AddRef();
-	void Release();
 	int  GetRefCount();
+	void SetGCFlag();
+	bool GetGCFlag();
+	void EnumReferences(asIScriptEngine *);
+	void ReleaseAllHandles(asIScriptEngine *);
 
-	bool Implements(const asCObjectType *objType) const;
-	bool DerivesFrom(const asCObjectType *objType) const;
+	void ReleaseAllFunctions();
+
 	bool IsInterface() const;
+	bool IsShared() const;
+
+	asCObjectProperty *AddPropertyToClass(const asCString &name, const asCDataType &dt, bool isPrivate);
 
 	asCString   name;
 	int         size;
@@ -181,6 +221,7 @@ public:
 	asCArray<asCScriptFunction*> virtualFunctionTable;
 
 	asDWORD flags;
+	asDWORD accessMask;
 
 	asSTypeBehaviour beh;
 
@@ -190,9 +231,11 @@ public:
 	bool           acceptRefSubType;
 
 	asCScriptEngine *engine;
+	void            *userData;
 
 protected:
-	asCAtomic refCount;
+	mutable asCAtomic refCount;
+	mutable bool      gcFlag;
 };
 
 END_AS_NAMESPACE

@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2008 Andreas Jonsson
+   Copyright (c) 2003-2011 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -28,24 +28,23 @@
    andreas@angelcode.com
 */
 
+#include "as_config.h"
+
 #include <stdarg.h>		// va_list, va_start(), etc
 #include <stdlib.h>     // strtod(), strtol()
 #include <string.h> // some compilers declare memcpy() here
-
-#include "as_config.h"
 
 #if !defined(AS_NO_MEMORY_H)
 #include <memory.h>
 #endif
 
 #include "as_string.h"
+#include "as_string_util.h"
 
 asCString::asCString()
 {
 	length = 0;
 	local[0] = 0;
-
-//	Assign("", 0);
 }
 
 // Copy constructor
@@ -113,8 +112,16 @@ void asCString::SetLength(size_t len)
 
 void asCString::Allocate(size_t len, bool keepData)
 {
-	if( len > 11 )
+	// If we stored the capacity of the dynamically allocated buffer it would be possible
+	// to save some memory allocations if a string decreases in size then increases again,
+	// but this would require extra bytes in the string object itself, or a decrease of 
+	// the static buffer, which in turn would mean extra memory is needed. I've tested each
+	// of these options, and it turned out that the current choice is what best balanced
+	// the number of allocations against the size of the allocations.
+
+	if( len > 11 && len > length )
 	{
+		// Allocate a new dynamic buffer if the new one is larger than the old
 		char *buf = asNEWARRAY(char,len+1);
 
 		if( keepData )
@@ -130,16 +137,15 @@ void asCString::Allocate(size_t len, bool keepData)
 
 		dynamic = buf;
 	}
-	else
+	else if( len <= 11 && length > 11 )
 	{
-		if( length > 11 )
+		// Free the dynamic buffer, since it is no longer needed
+		char *buf = dynamic;
+		if( keepData )
 		{
-			if( keepData )
-			{
-				memcpy(&local, dynamic, len);
-			}
-			asDELETEARRAY(dynamic);
+			memcpy(&local, buf, len);
 		}
+		asDELETEARRAY(buf);
 	}
 
 	length = (int)len;
@@ -277,43 +283,17 @@ asCString asCString::SubString(size_t start, size_t length) const
 
 int asCString::Compare(const char *str) const
 {
-	return Compare(str, strlen(str));
+	return asCompareStrings(AddressOf(), length, str, strlen(str));
 }
 
 int asCString::Compare(const asCString &str) const
 {
-	return Compare(str.AddressOf(), str.GetLength());
+	return asCompareStrings(AddressOf(), length, str.AddressOf(), str.GetLength());
 }
 
 int asCString::Compare(const char *str, size_t len) const
 {
-	if( length == 0 ) 
-	{
-		if( str == 0 || len == 0 ) return 0; // Equal
-
-		return 1; // The other string is larger than this
-	}
-
-	if( str == 0 )
-	{
-		if( length == 0 ) 
-			return 0; // Equal
-
-		return -1; // The other string is smaller than this
-	}
-
-	if( len < length )
-	{
-		int result = memcmp(AddressOf(), str, len);
-		if( result == 0 ) return -1; // The other string is smaller than this
-
-		return result;
-	}
-
-	int result = memcmp(AddressOf(), str, length);
-	if( result == 0 && length < len ) return 1; // The other string is larger than this
-
-	return result;
+	return asCompareStrings(AddressOf(), length, str, len);
 }
 
 size_t asCString::RecalculateLength()
@@ -385,3 +365,39 @@ asCString operator +(const asCString &a, const char *b)
 	return res;
 }
 
+// wrapper class
+
+asCStringPointer::asCStringPointer()
+	: string(0), length(0), cstring(0)
+{
+}
+
+asCStringPointer::asCStringPointer(const char *str, size_t len)
+	: string(str), length(len), cstring(0)
+{
+}
+
+asCStringPointer::asCStringPointer(asCString *cstr)
+	: string(0), length(0), cstring(cstr)
+{
+}
+
+const char *asCStringPointer::AddressOf() const
+{
+	return string ? string : cstring->AddressOf();
+}
+
+size_t asCStringPointer::GetLength() const
+{
+	return string ? length : cstring->GetLength();
+}
+
+bool asCStringPointer::operator==(const asCStringPointer& other) const
+{
+	return asCompareStrings(AddressOf(), GetLength(), other.AddressOf(), other.GetLength()) == 0;
+}
+
+bool asCStringPointer::operator<(const asCStringPointer& other) const
+{
+	return asCompareStrings(AddressOf(), GetLength(), other.AddressOf(), other.GetLength()) < 0;
+}

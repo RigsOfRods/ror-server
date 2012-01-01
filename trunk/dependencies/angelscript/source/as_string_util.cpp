@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2009 Andreas Jonsson
+   Copyright (c) 2003-2011 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -29,13 +29,13 @@
 
 */
 
+#include "as_config.h"
+
 #include <stdarg.h>     // va_list, va_start(), etc
 #include <stdlib.h>     // strtod(), strtol()
 #include <stdio.h>      // _vsnprintf()
 #include <string.h>     // some compilers declare memcpy() here
 #include <locale.h>     // setlocale()
-
-#include "as_config.h"
 
 #if !defined(AS_NO_MEMORY_H)
 #include <memory.h>
@@ -44,19 +44,58 @@
 #include "as_string.h"
 #include "as_string_util.h"
 
+BEGIN_AS_NAMESPACE
+
+int asCompareStrings(const char *str1, size_t len1, const char *str2, size_t len2)
+{
+	if( len1 == 0 ) 
+	{
+		if( str2 == 0 || len2 == 0 ) return 0; // Equal
+
+		return 1; // The other string is larger than this
+	}
+
+	if( str2 == 0 )
+	{
+		if( len1 == 0 ) 
+			return 0; // Equal
+
+		return -1; // The other string is smaller than this
+	}
+
+	if( len2 < len1 )
+	{
+		int result = memcmp(str1, str2, len2);
+		if( result == 0 ) return -1; // The other string is smaller than this
+
+		return result;
+	}
+
+	int result = memcmp(str1, str2, len1);
+	if( result == 0 && len1 < len2 ) return 1; // The other string is larger than this
+
+	return result;
+}
 
 double asStringScanDouble(const char *string, size_t *numScanned)
 {
 	char *end;
 
+    // WinCE doesn't have setlocale. Some quick testing on my current platform
+    // still manages to parse the numbers such as "3.14" even if the decimal for the
+    // locale is ",".
+#if !defined(_WIN32_WCE) && !defined(ANDROID)
 	// Set the locale to C so that we are guaranteed to parse the float value correctly
-	asCString orig = setlocale(LC_NUMERIC, 0);
+	char *orig = setlocale(LC_NUMERIC, 0);
 	setlocale(LC_NUMERIC, "C");
+#endif
 
 	double res = strtod(string, &end);
 
+#if !defined(_WIN32_WCE) && !defined(ANDROID)
 	// Restore the locale
-	setlocale(LC_NUMERIC, orig.AddressOf());
+	setlocale(LC_NUMERIC, orig);
+#endif
 
 	if( numScanned )
 		*numScanned = end - string;
@@ -116,31 +155,31 @@ int asStringEncodeUTF8(unsigned int value, char *outEncodedBuffer)
 
 	if( value <= 0x7F )
 	{
-		buf[0] = value;
+		buf[0] = static_cast<unsigned char>(value);
 		return 1;
 	}
 	else if( value >= 0x80 && value <= 0x7FF )
 	{
 		// Encode it with 2 characters
-		buf[0] = 0xC0 + (value >> 6);
+		buf[0] = static_cast<unsigned char>(0xC0 + (value >> 6));
 		length = 2;
 	}
-	else if( value >= 0x800 && value <= 0xD7FF || value >= 0xE000 && value <= 0xFFFF )
+	else if( (value >= 0x800 && value <= 0xD7FF) || (value >= 0xE000 && value <= 0xFFFF) )
 	{
 		// Note: Values 0xD800 to 0xDFFF are not valid unicode characters
-		buf[0] = 0xE0 + (value >> 12);
+		buf[0] = static_cast<unsigned char>(0xE0 + (value >> 12));
 		length = 3;
 	}
 	else if( value >= 0x10000 && value <= 0x10FFFF )
 	{
-		buf[0] = 0xF0 + (value >> 18);
+		buf[0] = static_cast<unsigned char>(0xF0 + (value >> 18));
 		length = 4;
 	}
 
 	int n = length-1;
 	for( ; n > 0; n-- )
 	{
-		buf[n] = 0x80 + (value & 0x3F);
+		buf[n] = static_cast<unsigned char>(0x80 + (value & 0x3F));
 		value >>= 6;
 	}
 
@@ -209,3 +248,48 @@ int asStringDecodeUTF8(const char *encodedBuffer, unsigned int *outLength)
 	// The byte sequence isn't a valid UTF-8 byte sequence.
 	return -1;
 }
+
+//
+// The function will encode the unicode code point into the outEncodedBuffer, and then
+// return the length of the encoded value. If the input value is not a valid unicode code 
+// point, then the function will return -1.
+//
+// This function is taken from the AngelCode ToolBox.
+//
+int asStringEncodeUTF16(unsigned int value, char *outEncodedBuffer)
+{
+	if( value < 0x10000 )
+	{
+#ifndef AS_BIG_ENDIAN
+		outEncodedBuffer[0] = (value & 0xFF);
+		outEncodedBuffer[1] = ((value >> 8) & 0xFF);
+#else
+		outEncodedBuffer[1] = (value & 0xFF);
+		outEncodedBuffer[0] = ((value >> 8) & 0xFF);
+#endif
+		return 2;
+	}
+	else
+	{
+		value -= 0x10000;
+		int surrogate1 = ((value >> 10) & 0x3FF) + 0xD800;
+		int surrogate2 = (value & 0x3FF) + 0xDC00;
+
+#ifndef AS_BIG_ENDIAN
+		outEncodedBuffer[0] = (surrogate1 & 0xFF);
+		outEncodedBuffer[1] = ((surrogate1 >> 8) & 0xFF);
+		outEncodedBuffer[2] = (surrogate2 & 0xFF);
+		outEncodedBuffer[3] = ((surrogate2 >> 8) & 0xFF);
+#else
+		outEncodedBuffer[1] = (surrogate1 & 0xFF);
+		outEncodedBuffer[0] = ((surrogate1 >> 8) & 0xFF);
+		outEncodedBuffer[3] = (surrogate2 & 0xFF);
+		outEncodedBuffer[2] = ((surrogate2 >> 8) & 0xFF);
+#endif
+
+		return 4;
+	}
+}
+
+
+END_AS_NAMESPACE

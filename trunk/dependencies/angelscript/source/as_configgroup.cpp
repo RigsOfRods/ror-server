@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2009 Andreas Jonsson
+   Copyright (c) 2003-2010 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -46,7 +46,10 @@ BEGIN_AS_NAMESPACE
 asCConfigGroup::asCConfigGroup()
 {
 	refCount = 0;
+#ifdef AS_DEPRECATED
+	// Deprecated since 2011-10-04
 	defaultAccess = true;
+#endif
 }
 
 asCConfigGroup::~asCConfigGroup()
@@ -88,7 +91,7 @@ void asCConfigGroup::RefConfigGroup(asCConfigGroup *group)
 	group->AddRef();
 }
 
-bool asCConfigGroup::HasLiveObjects(asCScriptEngine * /*engine*/)
+bool asCConfigGroup::HasLiveObjects()
 {
 	for( asUINT n = 0; n < objTypes.GetLength(); n++ )
 		if( objTypes[n]->GetRefCount() != 0 )
@@ -97,7 +100,7 @@ bool asCConfigGroup::HasLiveObjects(asCScriptEngine * /*engine*/)
 	return false;
 }
 
-void asCConfigGroup::RemoveConfiguration(asCScriptEngine *engine)
+void asCConfigGroup::RemoveConfiguration(asCScriptEngine *engine, bool notUsed)
 {
 	asASSERT( refCount == 0 );
 
@@ -109,91 +112,66 @@ void asCConfigGroup::RemoveConfiguration(asCScriptEngine *engine)
 		int index = engine->registeredGlobalProps.IndexOf(globalProps[n]);
 		if( index >= 0 )
 		{
-			asDELETE(engine->registeredGlobalProps[index],asCGlobalProperty);
+			globalProps[n]->Release();
+
+			// TODO: global: Should compact the registeredGlobalProps array
 			engine->registeredGlobalProps[index] = 0;
 		}
 	}
-
-	// Remove global behaviours
-	for( n = 0; n < globalBehaviours.GetLength(); n++ )
-	{
-		int id = engine->globalBehaviours.operators[globalBehaviours[n]+1];
-		engine->globalBehaviours.operators[globalBehaviours[n]] = 0;
-		engine->globalBehaviours.operators[globalBehaviours[n]+1] = 0;
-	
-		// Remove the system function as well
-		engine->DeleteScriptFunction(id);
-	}
+	globalProps.SetLength(0);
 
 	// Remove global functions
 	for( n = 0; n < scriptFunctions.GetLength(); n++ )
 	{
-		engine->DeleteScriptFunction(scriptFunctions[n]->id);
+		scriptFunctions[n]->Release();
+		engine->registeredGlobalFuncs.RemoveValue(scriptFunctions[n]);
+		if( engine->stringFactory == scriptFunctions[n] )
+			engine->stringFactory = 0;
 	}
+	scriptFunctions.SetLength(0);
 
 	// Remove behaviours and members of object types
 	for( n = 0; n < objTypes.GetLength(); n++ )
 	{
-		asUINT m;
 		asCObjectType *obj = objTypes[n];
 
-		// Don't remove behaviours for interface types as they are built-in
-		if( !(obj->flags & asOBJ_SCRIPT_OBJECT) )
-		{
-			for( m = 0; m < obj->beh.factories.GetLength(); m++ )
-			{
-				engine->DeleteScriptFunction(obj->beh.factories[m]);
-			}
-
-			for( m = 0; m < obj->beh.constructors.GetLength(); m++ )
-			{
-				engine->DeleteScriptFunction(obj->beh.constructors[m]);
-			}
-
-			for( m = 1; m < obj->beh.operators.GetLength(); m += 2 )
-			{
-				engine->DeleteScriptFunction(obj->beh.operators[m]);
-			}
-
-			engine->DeleteScriptFunction(obj->beh.addref);
-			engine->DeleteScriptFunction(obj->beh.release);
-			engine->DeleteScriptFunction(obj->beh.addref);
-			engine->DeleteScriptFunction(obj->beh.gcGetRefCount);
-			engine->DeleteScriptFunction(obj->beh.gcSetFlag);
-			engine->DeleteScriptFunction(obj->beh.gcGetFlag);
-			engine->DeleteScriptFunction(obj->beh.gcEnumReferences);
-			engine->DeleteScriptFunction(obj->beh.gcReleaseAllReferences);
-		}
-
-		for( m = 0; m < obj->methods.GetLength(); m++ )
-		{
-			engine->DeleteScriptFunction(obj->methods[m]);
-		}
+		obj->ReleaseAllFunctions();
 	}
 
-
-	// Remove object types
-	for( n = 0; n < objTypes.GetLength(); n++ )
+	// Remove function definitions
+	for( n = 0; n < funcDefs.GetLength(); n++ )
 	{
-		asCObjectType *t = objTypes[n];
-		int idx = engine->objectTypes.IndexOf(t);
-		if( idx >= 0 )
+		engine->registeredFuncDefs.RemoveValue(funcDefs[n]);
+		funcDefs[n]->Release();
+	}
+	funcDefs.SetLength(0);
+
+	// Remove object types (skip this if it is possible other groups are still using the types)
+	if( !notUsed )
+	{
+		for( n = 0; n < objTypes.GetLength(); n++ )
 		{
+			asCObjectType *t = objTypes[n];
+			int idx = engine->objectTypes.IndexOf(t);
+			if( idx >= 0 )
+			{
 #ifdef AS_DEBUG
-			ValidateNoUsage(engine, t);
+				ValidateNoUsage(engine, t);
 #endif
 
-			engine->objectTypes.RemoveIndex(idx);
+				engine->objectTypes.RemoveIndex(idx);
 
-			if( t->flags & asOBJ_TYPEDEF )
-				engine->registeredTypeDefs.RemoveValue(t);
-			else if( t->flags & asOBJ_ENUM )
-				engine->registeredEnums.RemoveValue(t);
-			else
-				engine->registeredObjTypes.RemoveValue(t);
+				if( t->flags & asOBJ_TYPEDEF )
+					engine->registeredTypeDefs.RemoveValue(t);
+				else if( t->flags & asOBJ_ENUM )
+					engine->registeredEnums.RemoveValue(t);
+				else
+					engine->registeredObjTypes.RemoveValue(t);
 
-			asDELETE(t, asCObjectType);
+				asDELETE(t, asCObjectType);
+			}
 		}
+		objTypes.SetLength(0);
 	}
 
 	// Release other config groups
@@ -210,7 +188,11 @@ void asCConfigGroup::ValidateNoUsage(asCScriptEngine *engine, asCObjectType *typ
 		asCScriptFunction *func = engine->scriptFunctions[n];
 		if( func == 0 ) continue;
 
-		asASSERT(func->returnType.GetObjectType() != type);
+		// Ignore factory, list factory, and members
+		if( func->name == "_beh_2_" || func->name == "_beh_3_" || func->objectType == type )
+			continue;
+
+		asASSERT( func->returnType.GetObjectType() != type );
 
 		for( asUINT p = 0; p < func->parameterTypes.GetLength(); p++ )
 		{
@@ -228,6 +210,8 @@ void asCConfigGroup::ValidateNoUsage(asCScriptEngine *engine, asCObjectType *typ
 }
 #endif
 
+#ifdef AS_DEPRECATED
+// deprecated since 2011-10-04
 int asCConfigGroup::SetModuleAccess(const char *module, bool hasAccess)
 {
 	if( module == asALL_MODULES )
@@ -261,5 +245,6 @@ bool asCConfigGroup::HasModuleAccess(const char *module)
 	
 	return defaultAccess;
 }
+#endif
 
 END_AS_NAMESPACE

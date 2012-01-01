@@ -58,8 +58,8 @@ IF(WIN32)
 ELSEIF(UNIX)
 	# install the files required for the runtime
 	INSTALL(
-			DIRECTORY ${rorserver_SOURCE_DIR}/bin/webserver
-			DESTINATION share/rorserver
+			DIRECTORY ${rorserver_SOURCE_DIR}/bin/resources/
+			DESTINATION share/rorserver/
 			FILES_MATCHING PATTERN "*"
 			PATTERN ".svn" EXCLUDE
 			PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ

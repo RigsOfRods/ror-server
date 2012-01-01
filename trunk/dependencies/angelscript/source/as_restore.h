@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2009 Andreas Jonsson
+   Copyright (c) 2003-2011 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -36,6 +36,9 @@
 // asCRestore was originally written by Dennis Bollyn, dennis@gyrbo.be
 
 
+// TODO: This should be split in two, so that an application that doesn't compile any 
+//       code but only loads precompiled code can link with only the bytecode loader
+
 #ifndef AS_RESTORE_H
 #define AS_RESTORE_H
 
@@ -54,9 +57,13 @@ public:
 	int Restore();
 
 protected:
-	asCModule *module;
+	asCModule       *module;
 	asIBinaryStream *stream;
 	asCScriptEngine *engine;
+	bool             error;
+
+	void WriteData(const void *data, asUINT size);
+	void ReadData(void *data, asUINT size);
 
 	void WriteString(asCString *str);
 	void WriteFunction(asCScriptFunction *func);
@@ -65,42 +72,78 @@ protected:
 	void WriteObjectProperty(asCObjectProperty *prop);
 	void WriteDataType(const asCDataType *dt);
 	void WriteObjectType(asCObjectType *ot);
-	void WriteObjectTypeDeclaration(asCObjectType *ot, bool writeProperties);
-	void WriteGlobalVarPointers();
+	void WriteObjectTypeDeclaration(asCObjectType *ot, int phase);
+	void WriteByteCode(asDWORD *bc, int length);
+	void WriteEncodedUInt(asUINT i);
 
 	void ReadString(asCString *str);
-	asCScriptFunction *ReadFunction(bool addToModule = true, bool addToEngine = true);
+	asCScriptFunction *ReadFunction(bool addToModule = true, bool addToEngine = true, bool addToGC = true);
 	void ReadFunctionSignature(asCScriptFunction *func);
 	void ReadGlobalProperty();
-	void ReadObjectProperty(asCObjectProperty *prop);
+	void ReadObjectProperty(asCObjectType *ot);
 	void ReadDataType(asCDataType *dt);
 	asCObjectType *ReadObjectType();
-	void ReadObjectTypeDeclaration(asCObjectType *ot, bool readProperties);
-	void ReadGlobalVarPointers();
-
-	void WriteByteCode(asDWORD *bc, int length);
+	void ReadObjectTypeDeclaration(asCObjectType *ot, int phase);
 	void ReadByteCode(asDWORD *bc, int length);
+	asUINT ReadEncodedUInt();
 
+	// Helper functions for storing variable data
 	int FindObjectTypeIdx(asCObjectType*);
 	asCObjectType *FindObjectType(int idx);
-
-	void WriteUsedTypeIds();
-	void ReadUsedTypeIds();
-	void TranslateFunction(asCScriptFunction *func);
-
 	int FindTypeIdIdx(int typeId);
 	int FindTypeId(int idx);
-
 	int FindFunctionIndex(asCScriptFunction *func);
 	asCScriptFunction *FindFunction(int idx);
-	void WriteUsedFunctions();
-	void ReadUsedFunctions();
+	int FindGlobalPropPtrIndex(void *);
+	int FindStringConstantIndex(int id);
+	int FindObjectPropIndex(short offset, int typeId);
+	short FindObjectPropOffset(asWORD index);
 
+	// Intermediate data used for storing that which isn't constant, function id's, pointers, etc
+	void WriteUsedTypeIds();
+	void WriteUsedFunctions();
+	void WriteUsedGlobalProps();
+	void WriteUsedStringConstants();
+	void WriteUsedObjectProps();
+
+	void ReadUsedTypeIds();
+	void ReadUsedFunctions();
+	void ReadUsedGlobalProps();
+	void ReadUsedStringConstants();
+	void ReadUsedObjectProps();
+
+	// After loading, each function needs to be translated to update pointers, function ids, etc
+	void TranslateFunction(asCScriptFunction *func);
+
+	// Temporary storage for persisting variable data	
 	asCArray<int>                usedTypeIds;
 	asCArray<asCObjectType*>     usedTypes;
 	asCArray<asCScriptFunction*> usedFunctions;
+	asCArray<void*>              usedGlobalProperties;
+	asCArray<int>                usedStringConstants;
+	asCMap<int, int>             stringIdToIndexMap;
 
 	asCArray<asCScriptFunction*> savedFunctions;
+	asCArray<asCDataType>        savedDataTypes;
+	asCArray<asCString>          savedStrings;
+	asCMap<asCStringPointer, int> stringToIdMap;
+
+	struct SObjProp
+	{
+		asCObjectType *objType;
+		int            offset;
+	};
+	asCArray<SObjProp>           usedObjectProperties;
+
+	struct SObjChangeSize
+	{
+		asCObjectType *objType;
+		asUINT         oldSize;
+	};
+	asCArray<SObjChangeSize>     oldObjectSizes;
+
+	asCMap<void*,bool>              existingShared;
+	asCMap<asCScriptFunction*,bool> dontTranslate;
 };
 
 END_AS_NAMESPACE

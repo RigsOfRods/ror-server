@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2009 Andreas Jonsson
+   Copyright (c) 2003-2011 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied
    warranty. In no event will the authors be held liable for any
@@ -150,6 +150,9 @@
 // GNU C based compilers
 //  __GNUC__   is defined
 
+// Embarcadero C++Builder
+//  __BORLANDC__ is defined
+
 
 
 //
@@ -187,8 +190,17 @@
 // AS_XENON
 // Use assembler code for the Xenon (XBOX360) CPU family
 
+// AS_ARM
+// Use assembler code for the ARM CPU family
+
+// AS_X64_GCC
+// Use GCC assembler code for the X64 AMD/Intel CPU family
+
+// AS_X64_MSVC
+// Use MSVC assembler code for the X64 AMD/Intel CPU family
+
 // AS_64BIT_PTR
-// Define this to make the engine store all pointers in 64bit words.
+// Define this to make the engine store all pointers in 64bit words. 
 
 // AS_BIG_ENDIAN
 // Define this for CPUs that use big endian memory layout, e.g. PPC
@@ -206,7 +218,7 @@
 // AS_WIN     - Microsoft Windows
 // AS_LINUX   - Linux
 // AS_MAC     - Apple Macintosh
-// AS_BSD     - FreeBSD
+// AS_BSD     - BSD based OS (FreeBSD, DragonFly, OpenBSD, etc)
 // AS_XBOX    - Microsoft XBox
 // AS_XBOX360 - Microsoft XBox 360
 // AS_PSP     - Sony Playstation Portable
@@ -215,6 +227,10 @@
 // AS_DC      - Sega Dreamcast
 // AS_GC      - Nintendo GameCube
 // AS_WII     - Nintendo Wii
+// AS_IPHONE  - Apple IPhone
+// AS_ANDROID - Android
+// AS_HAIKU   - Haiku
+// AS_ILLUMOS - Illumos like (OpenSolaris, OpenIndiana, NCP, etc)
 
 
 
@@ -243,9 +259,13 @@
 // find the virtual base object. x is the method pointer received by the register
 // function;
 
-// COMPLEX_MASK
-// This constant shows what attributes determines if an object is returned in memory
+// COMPLEX_RETURN_MASK
+// This constant shows what attributes determine if an object is returned in memory
 // or in the registers as normal structures
+
+// COMPLEX_MASK
+// This constant shows what attributes determine if an object is implicitly passed 
+// by reference or not, even if the argument is declared by value
 
 // THISCALL_RETURN_SIMPLE_IN_MEMORY
 // CDECL_RETURN_SIMPLE_IN_MEMORY
@@ -253,9 +273,19 @@
 // When these constants are defined then the corresponding calling convention always
 // return classes/structs in memory regardless of size or complexity.
 
+// THISCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE
+// STDCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE
+// CDECL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE
+// Specifies the minimum size in dwords a class/struct needs to be to be passed in memory
+
+
 // CALLEE_POPS_HIDDEN_RETURN_POINTER
 // This constant should be defined if the callee pops the hidden return pointer,
 // used when returning an object in memory.
+
+// THISCALL_CALLEE_POPS_HIDDEN_RETURN_POINTER
+// This constant should be defined if the callee pops the hidden return pointer
+// for thiscall functions; used when returning an object in memory.
 
 // THISCALL_PASS_OBJECT_POINTER_ON_THE_STACK
 // With this constant defined AngelScript will pass the object pointer on the stack
@@ -267,7 +297,23 @@
 // Some compilers always pass certain objects by reference. GNUC for example does
 // this if the the class has a defined destructor.
 
+// AS_LARGE_OBJS_PASSED_BY_REF
+// If this is defined large objects are passed by reference, whether they are complex or not
 
+// AS_LARGE_OBJ_MIN_SIZE
+// This is the size of objects determined as large ones
+
+// AS_CALLEE_DESTROY_OBJ_BY_VAL
+// When an object is passed by value the called function is the one responsible
+// for calling the destructor before returning.
+
+// HAS_128_BIT_PRIMITIVES
+// 64bit processors often support 128bit primitives. These may require special
+// treatment when passed in function arguments or returned by functions.
+
+// SPLIT_OBJS_BY_MEMBER_TYPES
+// On some platforms objects with primitive members are split over different
+// register types when passed by value to functions. 
 
 
 
@@ -277,13 +323,67 @@
 // Detect compiler
 //------------------------------------------------
 
+
 #define VALUE_OF_BOOLEAN_TRUE  1
+#define STDCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE 0
+#define CDECL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE 0
+#define THISCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE 0
+#define THISCALL_CALLEE_POPS_HIDDEN_RETURN_POINTER
+
+
+// Embarcadero C++Builder
+#if defined(__BORLANDC__)
+ #ifndef _Windows
+  #error "Configuration doesn't yet support BCC for Linux or Mac OS."
+ #endif
+ #if defined(_M_X64)
+  #error "Configuration doesn't yet support BCC for AMD64."
+ #endif
+
+	#define MULTI_BASE_OFFSET(x) (*((asDWORD*)(&x)+1))
+	#define HAVE_VIRTUAL_BASE_OFFSET
+	#define VIRTUAL_BASE_OFFSET(x) (*((asDWORD*)(&x)+2))
+	#define THISCALL_RETURN_SIMPLE_IN_MEMORY
+	#define CDECL_RETURN_SIMPLE_IN_MEMORY
+	#define STDCALL_RETURN_SIMPLE_IN_MEMORY
+	#undef STDCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE
+	#undef CDECL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE
+	#undef THISCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE
+	#define STDCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE 2
+	#define CDECL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE 2
+	#define THISCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE 2
+
+	#define THISCALL_PASS_OBJECT_POINTER_ON_THE_STACK
+	#define COMPLEX_MASK (asOBJ_APP_CLASS_CONSTRUCTOR | asOBJ_APP_CLASS_DESTRUCTOR)
+	#define COMPLEX_RETURN_MASK (asOBJ_APP_CLASS_CONSTRUCTOR | asOBJ_APP_CLASS_DESTRUCTOR)
+	#define STDCALL __stdcall
+	#define AS_SIZEOF_BOOL 1
+	#define AS_WINDOWS_THREADS
+	#undef THISCALL_CALLEE_POPS_HIDDEN_RETURN_POINTER
+
+	#define AS_WIN
+	#define AS_X86
+	#define ASM_INTEL
+
+	#define I64(x) x##ll
+
+	#define asVSNPRINTF(a, b, c, d) _vsnprintf(a, b, c, d)
+
+	#define fmodf(a,b) fmod(a,b)
+
+	#define UNREACHABLE_RETURN
+#endif
 
 // Microsoft Visual C++
 #if defined(_MSC_VER) && !defined(__MWERKS__)
-	#define MULTI_BASE_OFFSET(x) (*((asDWORD*)(&x)+1))
+	#ifdef _M_X64
+		#define MULTI_BASE_OFFSET(x) (*((asDWORD*)(&x)+2))
+		#define VIRTUAL_BASE_OFFSET(x) (*((asDWORD*)(&x)+4))
+	#else
+		#define MULTI_BASE_OFFSET(x) (*((asDWORD*)(&x)+1))
+		#define VIRTUAL_BASE_OFFSET(x) (*((asDWORD*)(&x)+3))
+	#endif
 	#define HAVE_VIRTUAL_BASE_OFFSET
-	#define VIRTUAL_BASE_OFFSET(x) (*((asDWORD*)(&x)+3))
 	#define THISCALL_RETURN_SIMPLE_IN_MEMORY
 	#define THISCALL_PASS_OBJECT_POINTER_IN_ECX
 	#if _MSC_VER < 1500 // MSVC++ 9 (aka MSVC++ .NET 2008)
@@ -292,14 +392,13 @@
 		#define asVSNPRINTF(a, b, c, d) vsnprintf_s(a, b, _TRUNCATE, c, d)
 	#endif
 	#define THISCALL_CALLEE_POPS_ARGUMENTS
-	#define COMPLEX_MASK (asOBJ_APP_CLASS_CONSTRUCTOR | asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_ASSIGNMENT)
 	#define STDCALL __stdcall
 	#define AS_SIZEOF_BOOL 1
 	#define AS_WINDOWS_THREADS
 
 	#define ASM_INTEL  // Intel style for inline assembly on microsoft compilers
 
-	#if defined(WIN32)
+	#if defined(WIN32) || defined(_WIN32) || defined(_WIN64)
 		#define AS_WIN
 	#endif
 
@@ -309,16 +408,42 @@
 		#define AS_XENON
 		#define AS_BIG_ENDIAN
 	#else
-		// Support native calling conventions on x86, but not 64bit yet
 		#if defined(_XBOX) || (defined(_M_IX86) && !defined(__LP64__))
 			#define AS_X86
+		#elif defined(_M_X64)
+			#define AS_X64_MSVC
+			#define AS_CALLEE_DESTROY_OBJ_BY_VAL
+			#define AS_LARGE_OBJS_PASSED_BY_REF
+			#define AS_LARGE_OBJ_MIN_SIZE 3
+			#define COMPLEX_OBJS_PASSED_BY_REF
+			#define COMPLEX_RETURN_MASK (asOBJ_APP_CLASS_CONSTRUCTOR | asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_ASSIGNMENT | asOBJ_APP_CLASS_COPY_CONSTRUCTOR)
+			#define COMPLEX_MASK (asOBJ_APP_CLASS_COPY_CONSTRUCTOR)
 		#endif
 	#endif
 
-	#if _MSC_VER <= 1200 // MSVC++ 6
+	#if _MSC_VER <= 1300 // MSVC++ 7.0 and lower
 		#define I64(x) x##l
-	#else
+	#else // MSVC++ 7.1 and higher
 		#define I64(x) x##ll
+	#endif
+
+	#ifdef _ARM_
+		#define AS_ALIGN
+		#define AS_ARM
+		#define AS_CALLEE_DESTROY_OBJ_BY_VAL
+		#define CDECL_RETURN_SIMPLE_IN_MEMORY
+		#define STDCALL_RETURN_SIMPLE_IN_MEMORY
+		#define COMPLEX_OBJS_PASSED_BY_REF
+		#define COMPLEX_MASK asOBJ_APP_CLASS_ASSIGNMENT
+		#define COMPLEX_RETURN_MASK asOBJ_APP_CLASS_ASSIGNMENT
+	#endif
+
+	#ifndef COMPLEX_MASK
+		#define COMPLEX_MASK (asOBJ_APP_CLASS_CONSTRUCTOR | asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_ASSIGNMENT)
+	#endif
+
+	#ifndef COMPLEX_RETURN_MASK
+		#define COMPLEX_RETURN_MASK (asOBJ_APP_CLASS_CONSTRUCTOR | asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_ASSIGNMENT)
 	#endif
 
 	#define UNREACHABLE_RETURN
@@ -334,6 +459,7 @@
 	#define asVSNPRINTF(a, b, c, d) _vsnprintf(a, b, c, d)
 	#define THISCALL_CALLEE_POPS_ARGUMENTS
 	#define COMPLEX_MASK (asOBJ_APP_CLASS_CONSTRUCTOR | asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_ASSIGNMENT)
+	#define COMPLEX_RETURN_MASK (asOBJ_APP_CLASS_CONSTRUCTOR | asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_ASSIGNMENT)
 	#define AS_SIZEOF_BOOL 1
 	#define AS_WINDOWS_THREADS
 	#define STDCALL __stdcall
@@ -344,9 +470,9 @@
 		#define ASM_INTEL  // Intel style for inline assembly
 	#endif
 
-	#if _MSC_VER <= 1200 // MSVC++ 6
+	#if _MSC_VER <= 1300 // MSVC++ 7.0 and lower
 		#define I64(x) x##l
-	#else
+	#else // MSVC++ 7.1 and higher
 		#define I64(x) x##ll
 	#endif
 
@@ -361,6 +487,7 @@
 	#define COMPLEX_OBJS_PASSED_BY_REF
 	#define ASM_AT_N_T  // AT&T style inline assembly
 	#define COMPLEX_MASK (asOBJ_APP_CLASS_DESTRUCTOR)
+	#define COMPLEX_RETURN_MASK (asOBJ_APP_CLASS_DESTRUCTOR)
 	#define AS_SIZEOF_BOOL 1
 	#define asVSNPRINTF(a, b, c, d) vsnprintf(a, b, c, d)
 
@@ -379,15 +506,21 @@
 	// Support native calling conventions on x86, but not 64bit yet
 	#if defined(i386) && !defined(__LP64__)
 		#define AS_X86
+	// PS3
+	#elif (defined(__PPC__) || defined(__ppc__)) && defined(__PPU__)
+		// Support native calling conventions on PS3
+		#define AS_PS3
+		#define AS_PPC_64
 	#endif
+
 
 	#define I64(x) x##ll
 
 	#define UNREACHABLE_RETURN
 #endif
 
-// GNU C (and MinGW on Windows)
-#if (defined(__GNUC__) && !defined(__SNC__)) || defined(EPPC) // JWC -- use this instead for Wii
+// GNU C (and MinGW or Cygwin on Windows)
+#if (defined(__GNUC__) && !defined(__SNC__)) || defined(EPPC) || defined(__CYGWIN__) // JWC -- use this instead for Wii
 	#define GNU_STYLE_VIRTUAL_METHOD
 #if !defined( __amd64__ )
 	#define MULTI_BASE_OFFSET(x) (*((asDWORD*)(&x)+1))
@@ -398,15 +531,23 @@
 	#define CALLEE_POPS_HIDDEN_RETURN_POINTER
 	#define COMPLEX_OBJS_PASSED_BY_REF
 	#define COMPLEX_MASK (asOBJ_APP_CLASS_DESTRUCTOR)
+	#define COMPLEX_RETURN_MASK (asOBJ_APP_CLASS_DESTRUCTOR)
 	#define AS_NO_MEMORY_H
 	#define AS_SIZEOF_BOOL 1
 	#define STDCALL __attribute__((stdcall))
 	#define ASM_AT_N_T
 
-	// MacOSX
+	// MacOSX and IPhone
 	#ifdef __APPLE__
+
+		// Is this a Mac or an IPhone?
+		#ifdef TARGET_OS_IPHONE
+			#define AS_IPHONE
+		#else
+			#define AS_MAC
+		#endif
+
 		// The sizeof bool is different depending on the target CPU
-		#define AS_MAC
 		#undef AS_SIZEOF_BOOL
 		#if defined(__ppc__)
 			#define AS_SIZEOF_BOOL 4
@@ -416,59 +557,147 @@
 		#else
 			#define AS_SIZEOF_BOOL 1
 		#endif
+
 		#if defined(i386) && !defined(__LP64__)
 			// Support native calling conventions on Mac OS X + Intel 32bit CPU
 			#define AS_X86
+			#undef COMPLEX_MASK
+			#define COMPLEX_MASK (asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_COPY_CONSTRUCTOR)
+			#undef COMPLEX_RETURN_MASK
+			#define COMPLEX_RETURN_MASK (asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_COPY_CONSTRUCTOR)
+		#elif defined(__LP64__) && !defined(__ppc__) && !defined(__PPC__)
+			// http://developer.apple.com/library/mac/#documentation/DeveloperTools/Conceptual/LowLevelABI/140-x86-64_Function_Calling_Conventions/x86_64.html#//apple_ref/doc/uid/TP40005035-SW1
+			#define AS_NO_THREADS
+			#define AS_X64_GCC
+			#define HAS_128_BIT_PRIMITIVES
+			#define SPLIT_OBJS_BY_MEMBER_TYPES
+			#undef COMPLEX_MASK
+			#define COMPLEX_MASK (asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_COPY_CONSTRUCTOR)
+			#undef COMPLEX_RETURN_MASK
+			#define COMPLEX_RETURN_MASK (asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_COPY_CONSTRUCTOR)
+			#define AS_LARGE_OBJS_PASSED_BY_REF
+			#define AS_LARGE_OBJ_MIN_SIZE 5
+			// STDCALL is not available on 64bit Mac
+			#undef STDCALL
+			#define STDCALL
 		#elif (defined(__ppc__) || defined(__PPC__)) && !defined(__LP64__)
 			// Support native calling conventions on Mac OS X + PPC 32bit CPU
 			#define AS_PPC
 			#define THISCALL_RETURN_SIMPLE_IN_MEMORY
 			#define CDECL_RETURN_SIMPLE_IN_MEMORY
 			#define STDCALL_RETURN_SIMPLE_IN_MEMORY
+			#undef COMPLEX_MASK
+			#define COMPLEX_MASK (asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_COPY_CONSTRUCTOR)
+			#undef COMPLEX_RETURN_MASK
+			#define COMPLEX_RETURN_MASK (asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_COPY_CONSTRUCTOR)
 		#elif (defined(__ppc__) || defined(__PPC__)) && defined(__LP64__)
 			#define AS_PPC_64
+		#elif (defined(_ARM_) || defined(__arm__))
+			// The IPhone use an ARM processor
+			#define AS_ARM
+			#define AS_IPHONE
+			#define AS_ALIGN
+			#define AS_CALLEE_DESTROY_OBJ_BY_VAL
+			#define CDECL_RETURN_SIMPLE_IN_MEMORY
+			#define STDCALL_RETURN_SIMPLE_IN_MEMORY
+			#define THISCALL_RETURN_SIMPLE_IN_MEMORY
+
+			#undef GNU_STYLE_VIRTUAL_METHOD
+
+			#undef THISCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE
+			#undef CDECL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE
+			#undef STDCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE
+
+			#define THISCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE 2
+			#define CDECL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE 2
+			#define STDCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE 2
+			#define COMPLEX_OBJS_PASSED_BY_REF
+			#undef COMPLEX_MASK
+			#define COMPLEX_MASK asOBJ_APP_CLASS_DESTRUCTOR
+			#undef COMPLEX_RETURN_MASK
+			#define COMPLEX_RETURN_MASK asOBJ_APP_CLASS_DESTRUCTOR
 		#else
-			// No support for native calling conventions yet
+			// Unknown CPU type
 			#define AS_MAX_PORTABILITY
 		#endif
 		#define AS_POSIX_THREADS
-		
+ 
 	// Windows
-	#elif defined(WIN32)
+	#elif defined(WIN32) || defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 		// On Windows the simple classes are returned in the EAX:EDX registers
 		//#define THISCALL_RETURN_SIMPLE_IN_MEMORY
 		//#define CDECL_RETURN_SIMPLE_IN_MEMORY
 		//#define STDCALL_RETURN_SIMPLE_IN_MEMORY
 
+		#undef COMPLEX_MASK
+		#define COMPLEX_MASK (asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_COPY_CONSTRUCTOR)
+		#undef COMPLEX_RETURN_MASK
+		#define COMPLEX_RETURN_MASK (asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_COPY_CONSTRUCTOR)
+
 		#if defined(i386) && !defined(__LP64__)
 			// Support native calling conventions on Intel 32bit CPU
 			#define AS_X86
+		#elif defined(__x86_64__)
+			#define AS_X64_MINGW
+			#define AS_CALLEE_DESTROY_OBJ_BY_VAL
+			#define AS_LARGE_OBJS_PASSED_BY_REF
+			#define AS_LARGE_OBJ_MIN_SIZE 3
+			#define COMPLEX_OBJS_PASSED_BY_REF
 		#else
-			// No support for native calling conventions yet
 			#define AS_MAX_PORTABILITY
-			// STDCALL is not available on 64bit Linux
-			#undef STDCALL
-			#define STDCALL
 		#endif
-        #define AS_WIN
-        #define AS_WINDOWS_THREADS
+		#define AS_WIN
+		#define AS_WINDOWS_THREADS
 
 	// Linux
 	#elif defined(__linux__)
-		#define THISCALL_RETURN_SIMPLE_IN_MEMORY
-		#define CDECL_RETURN_SIMPLE_IN_MEMORY
-		#define STDCALL_RETURN_SIMPLE_IN_MEMORY
 		#if defined(i386) && !defined(__LP64__)
+			#define THISCALL_RETURN_SIMPLE_IN_MEMORY
+			#define CDECL_RETURN_SIMPLE_IN_MEMORY
+			#define STDCALL_RETURN_SIMPLE_IN_MEMORY
+
+			#undef COMPLEX_MASK
+			#define COMPLEX_MASK (asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_COPY_CONSTRUCTOR)
+			#undef COMPLEX_RETURN_MASK
+			#define COMPLEX_RETURN_MASK (asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_COPY_CONSTRUCTOR)
+
 			// Support native calling conventions on Intel 32bit CPU
 			#define AS_X86
-		#else
+		#elif defined(__LP64__)
 			#define AS_X64_GCC
+			#define HAS_128_BIT_PRIMITIVES
+			#define SPLIT_OBJS_BY_MEMBER_TYPES
+			#undef COMPLEX_MASK
+			#define COMPLEX_MASK (asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_COPY_CONSTRUCTOR)
+			#undef COMPLEX_RETURN_MASK
+			#define COMPLEX_RETURN_MASK (asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_COPY_CONSTRUCTOR)
+			#define AS_LARGE_OBJS_PASSED_BY_REF
+			#define AS_LARGE_OBJ_MIN_SIZE 5
 			// STDCALL is not available on 64bit Linux
 			#undef STDCALL
 			#define STDCALL
+		#elif defined(__ARMEL__) || defined(__arm__)
+			#define AS_ARM
+			#define AS_ALIGN
+			#define AS_NO_ATOMIC
+			#define AS_CALLEE_DESTROY_OBJ_BY_VAL
+
+			#define CDECL_RETURN_SIMPLE_IN_MEMORY
+			#define STDCALL_RETURN_SIMPLE_IN_MEMORY
+			#define THISCALL_RETURN_SIMPLE_IN_MEMORY
+
+			#undef THISCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE
+			#undef CDECL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE
+			#undef STDCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE
+
+			#define THISCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE 2
+			#define CDECL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE 2
+			#define STDCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE 2
+		#else
+			#define AS_MAX_PORTABILITY
 		#endif
-       	#define AS_LINUX
-       	#define AS_POSIX_THREADS
+		#define AS_LINUX
+		#define AS_POSIX_THREADS
 
 		#if !( ( (__GNUC__ == 4) && (__GNUC_MINOR__ >= 1) || __GNUC__ > 4) )
 			// Only with GCC 4.1 was the atomic instructions available
@@ -476,10 +705,26 @@
 		#endif
 
 	// Free BSD
-	#elif __FreeBSD__
+	#elif defined(__FreeBSD__) || defined(__DragonFly__) || defined(__OpenBSD__)
 		#define AS_BSD
 		#if defined(i386) && !defined(__LP64__)
+			#undef COMPLEX_MASK
+			#define COMPLEX_MASK (asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_COPY_CONSTRUCTOR)
+			#undef COMPLEX_RETURN_MASK
+			#define COMPLEX_RETURN_MASK (asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_COPY_CONSTRUCTOR)
 			#define AS_X86
+		#elif defined(__LP64__)
+			#define AS_X64_GCC
+			#define HAS_128_BIT_PRIMITIVES
+			#define SPLIT_OBJS_BY_MEMBER_TYPES
+			#undef COMPLEX_MASK
+			#define COMPLEX_MASK (asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_COPY_CONSTRUCTOR)
+			#undef COMPLEX_RETURN_MASK
+			#define COMPLEX_RETURN_MASK (asOBJ_APP_CLASS_DESTRUCTOR | asOBJ_APP_CLASS_COPY_CONSTRUCTOR)
+			#define AS_LARGE_OBJS_PASSED_BY_REF
+			#define AS_LARGE_OBJ_MIN_SIZE 5
+			#undef STDCALL
+			#define STDCALL
 		#else
 			#define AS_MAX_PORTABILITY
 		#endif
@@ -503,6 +748,7 @@
 		// Support native calling conventions on PS3
 		#define AS_PS3
 		#define AS_PPC_64
+		#define SPLIT_OBJS_BY_MEMBER_TYPES
 		#define THISCALL_RETURN_SIMPLE_IN_MEMORY
 		#define CDECL_RETURN_SIMPLE_IN_MEMORY
 		#define STDCALL_RETURN_SIMPLE_IN_MEMORY
@@ -525,6 +771,76 @@
 		#undef STDCALL
 		#define STDCALL
 
+	// Android
+	#elif defined(ANDROID)
+		#define AS_ANDROID
+		#define AS_NO_ATOMIC
+
+		#define CDECL_RETURN_SIMPLE_IN_MEMORY
+		#define STDCALL_RETURN_SIMPLE_IN_MEMORY
+		#define THISCALL_RETURN_SIMPLE_IN_MEMORY
+
+		#undef THISCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE
+		#undef CDECL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE
+		#undef STDCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE
+
+		#define THISCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE 2
+		#define CDECL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE 2
+		#define STDCALL_RETURN_SIMPLE_IN_MEMORY_MIN_SIZE 2
+
+		#if (defined(_ARM_) || defined(__arm__))
+			#define AS_ARM
+			#define AS_CALLEE_DESTROY_OBJ_BY_VAL
+			#define AS_ALIGN
+		#endif
+
+	// Haiku OS
+	#elif __HAIKU__
+		#define AS_HAIKU
+		// Only x86-32 is currently supported by Haiku, but they do plan to support
+		// x86-64 and PowerPC in the future, so should go ahead and check the platform
+		// for future compatibility
+		#if defined(i386) && !defined(__LP64__)
+			#define AS_X86
+			#define THISCALL_RETURN_SIMPLE_IN_MEMORY
+			#define CDECL_RETURN_SIMPLE_IN_MEMORY
+			#define STDCALL_RETURN_SIMPLE_IN_MEMORY
+		#else
+			#define AS_MAX_PORTABILITY
+		#endif
+
+		#define AS_POSIX_THREADS
+		#if !( ( (__GNUC__ == 4) && (__GNUC_MINOR__ >= 1) || __GNUC__ > 4) )
+			// Only with GCC 4.1 was the atomic instructions available
+			#define AS_NO_ATOMIC
+		#endif
+
+	// Illumos
+	#elif defined(__sun)
+		#if defined(__i386__) && !defined(__LP64__)
+			#define THISCALL_RETURN_SIMPLE_IN_MEMORY
+			#define CDECL_RETURN_SIMPLE_IN_MEMORY
+			#define STDCALL_RETURN_SIMPLE_IN_MEMORY
+
+			// Support native calling conventions on Intel 32bit CPU
+			#define AS_X86
+		#elif defined(__LP64__)
+			#define AS_X64_GCC
+			#define HAS_128_BIT_PRIMITIVES
+			#define SPLIT_OBJS_BY_MEMBER_TYPES
+			// STDCALL is not available on 64bit Linux
+			#undef STDCALL
+			#define STDCALL
+		#else
+			#define AS_MAX_PORTABILITY
+		#endif
+		#define AS_ILLUMOS
+		#define AS_POSIX_THREADS
+
+		#if !( ( (__GNUC__ == 4) && (__GNUC_MINOR__ >= 1) || __GNUC__ > 4) )
+			// Only with GCC 4.1 was the atomic instructions available
+			#define AS_NO_ATOMIC
+		#endif
 	#endif
 
 	#define I64(x) x##ll
@@ -549,7 +865,7 @@
 #endif
 
 // PowerPC, e.g. Mac, GameCube, PS3, XBox 360, Wii
-#if defined(__PPC__) || defined(__ppc__) || defined(EPPC)
+#if defined(__PPC__) || defined(__ppc__) || defined(_PPC_) || defined(EPPC)
 	#define AS_BIG_ENDIAN
 
 	// Gamecube
@@ -560,7 +876,6 @@
 	// XBox 360
 	#if (_XBOX_VER >= 200 )
 		#define AS_ALIGN
-		#define AS_USE_DOUBLE_AS_FLOAT
 	#endif
 	// PS3
 	#if defined(__PPU__)
@@ -579,7 +894,7 @@
 #endif
 
 // Is the target a 64bit system?
-#if defined(__LP64__) || defined(__amd64__) || defined(_M_X64)
+#if defined(__LP64__) || defined(__amd64__) || defined(__x86_64__) || defined(_M_X64)
 	#ifndef AS_64BIT_PTR
 		#define AS_64BIT_PTR
 	#endif
@@ -587,7 +902,7 @@
 
 // If there are no current support for native calling
 // conventions, then compile with AS_MAX_PORTABILITY
-#if (!defined(AS_X86) && !defined(AS_SH4) && !defined(AS_MIPS) && !defined(AS_PPC) && !defined(AS_PPC_64) && !defined(AS_XENON) && !defined(AS_X64_GCC))
+#if (!defined(AS_X86) && !defined(AS_SH4) && !defined(AS_MIPS) && !defined(AS_PPC) && !defined(AS_PPC_64) && !defined(AS_XENON) && !defined(AS_X64_GCC) && !defined(AS_X64_MSVC) && !defined(AS_ARM) && !defined(AS_X64_MINGW))
 	#ifndef AS_MAX_PORTABILITY
 		#define AS_MAX_PORTABILITY
 	#endif
@@ -601,10 +916,25 @@
 #endif
 
 
-
 // The assert macro
-#include <assert.h>
-#define asASSERT(x) assert(x)
+#if defined(ANDROID)
+	#if defined(AS_DEBUG)
+		#include <android/log.h>
+		#include <stdlib.h>
+		#define asASSERT(x) \
+			do { \
+			    if (!(x)) { \
+			        __android_log_print(ANDROID_LOG_ERROR, "AngelScript", "Assert failed at %s:%d - %s", __FILE__, __LINE__, #x); \
+			        exit(1); \
+			    } \
+			} while (0)
+	#else
+		#define asASSERT(x)
+	#endif
+#else
+	#include <assert.h>
+	#define asASSERT(x) assert(x)
+#endif
 
 
 
@@ -626,11 +956,13 @@
 #define	BCARG_QW(b) ((asQWORD*)&(b)[1])
 
 #ifdef AS_64BIT_PTR
-	#define PTR_SIZE     2
+	#define AS_PTR_SIZE  2
 	#define asPTRWORD    asQWORD
+	#define asBC_RDSPTR  asBC_RDS8
 #else
-	#define PTR_SIZE     1
+	#define AS_PTR_SIZE  1
 	#define asPTRWORD    asDWORD
+	#define asBC_RDSPTR  asBC_RDS4
 #endif
 #define ARG_PTR(b)   ((asPTRWORD*)&b)
 #define BCARG_PTR(b) ((asPTRWORD*)&(b)[1])
@@ -638,7 +970,6 @@
 // This macro is used to avoid warnings about unused variables.
 // Usually where the variables are only used in debug mode.
 #define UNUSED_VAR(x) (x)=(x)
-
 
 #include "../include/angelscript.h"
 #include "as_memory.h"

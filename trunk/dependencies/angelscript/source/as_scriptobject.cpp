@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2009 Andreas Jonsson
+   Copyright (c) 2003-2011 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -30,20 +30,22 @@
 
 
 #include <new>
-
 #include "as_config.h"
-
 #include "as_scriptengine.h"
-
-#include "as_scriptstruct.h"
-#include "as_arrayobject.h"
+#include "as_scriptobject.h"
 
 BEGIN_AS_NAMESPACE
 
 // This helper function will call the default factory, that is a script function
-asIScriptObject *ScriptObjectFactory(asCObjectType *objType, asCScriptEngine *engine)
+asIScriptObject *ScriptObjectFactory(const asCObjectType *objType, asCScriptEngine *engine)
 {
 	asIScriptContext *ctx;
+
+	// TODO: optimize: There should be a pool for the context so it doesn't 
+	//                 have to be allocated just for creating the script object
+
+	// TODO: It must be possible for the application to debug the creation of the object too
+
 	int r = engine->CreateContext(&ctx, true);
 	if( r < 0 )
 		return 0;
@@ -58,7 +60,6 @@ asIScriptObject *ScriptObjectFactory(asCObjectType *objType, asCScriptEngine *en
 	r = ctx->Execute();
 	if( r != asEXECUTION_FINISHED )
 	{
-		// TODO: Verify that the memory for the structure have been released already
 		ctx->Release();
 		return 0;
 	}
@@ -125,32 +126,33 @@ void RegisterScriptObject(asCScriptEngine *engine)
 {
 	// Register the default script class behaviours
 	int r;
-	engine->scriptTypeBehaviours.flags = asOBJ_SCRIPT_OBJECT;
+	engine->scriptTypeBehaviours.engine = engine;
+	engine->scriptTypeBehaviours.flags = asOBJ_SCRIPT_OBJECT | asOBJ_REF | asOBJ_GC;
 	engine->scriptTypeBehaviours.name = "_builtin_object_";
 #ifndef AS_MAX_PORTABILITY
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_CONSTRUCT, "void f(int&in)", asFUNCTION(ScriptObject_Construct), asCALL_CDECL_OBJLAST); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_ADDREF, "void f()", asMETHOD(asCScriptObject,AddRef), asCALL_THISCALL); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_RELEASE, "void f()", asMETHOD(asCScriptObject,Release), asCALL_THISCALL); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_ASSIGNMENT, "int &f(int &in)", asFUNCTION(ScriptObject_Assignment), asCALL_CDECL_OBJLAST); asASSERT( r >= 0 );
+	r = engine->RegisterBehaviourToObjectType(&engine->scriptTypeBehaviours, asBEHAVE_CONSTRUCT, "void f(int&in)", asFUNCTION(ScriptObject_Construct), asCALL_CDECL_OBJLAST); asASSERT( r >= 0 );
+	r = engine->RegisterBehaviourToObjectType(&engine->scriptTypeBehaviours, asBEHAVE_ADDREF, "void f()", asMETHOD(asCScriptObject,AddRef), asCALL_THISCALL); asASSERT( r >= 0 );
+	r = engine->RegisterBehaviourToObjectType(&engine->scriptTypeBehaviours, asBEHAVE_RELEASE, "void f()", asMETHOD(asCScriptObject,Release), asCALL_THISCALL); asASSERT( r >= 0 );
+	r = engine->RegisterMethodToObjectType(&engine->scriptTypeBehaviours, "int &opAssign(int &in)", asFUNCTION(ScriptObject_Assignment), asCALL_CDECL_OBJLAST); asASSERT( r >= 0 );
 
 	// Register GC behaviours
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_GETREFCOUNT, "int f()", asMETHOD(asCScriptObject,GetRefCount), asCALL_THISCALL); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_SETGCFLAG, "void f()", asMETHOD(asCScriptObject,SetFlag), asCALL_THISCALL); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_GETGCFLAG, "bool f()", asMETHOD(asCScriptObject,GetFlag), asCALL_THISCALL); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_ENUMREFS, "void f(int&in)", asMETHOD(asCScriptObject,EnumReferences), asCALL_THISCALL); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_RELEASEREFS, "void f(int&in)", asMETHOD(asCScriptObject,ReleaseAllHandles), asCALL_THISCALL); asASSERT( r >= 0 );
+	r = engine->RegisterBehaviourToObjectType(&engine->scriptTypeBehaviours, asBEHAVE_GETREFCOUNT, "int f()", asMETHOD(asCScriptObject,GetRefCount), asCALL_THISCALL); asASSERT( r >= 0 );
+	r = engine->RegisterBehaviourToObjectType(&engine->scriptTypeBehaviours, asBEHAVE_SETGCFLAG, "void f()", asMETHOD(asCScriptObject,SetFlag), asCALL_THISCALL); asASSERT( r >= 0 );
+	r = engine->RegisterBehaviourToObjectType(&engine->scriptTypeBehaviours, asBEHAVE_GETGCFLAG, "bool f()", asMETHOD(asCScriptObject,GetFlag), asCALL_THISCALL); asASSERT( r >= 0 );
+	r = engine->RegisterBehaviourToObjectType(&engine->scriptTypeBehaviours, asBEHAVE_ENUMREFS, "void f(int&in)", asMETHOD(asCScriptObject,EnumReferences), asCALL_THISCALL); asASSERT( r >= 0 );
+	r = engine->RegisterBehaviourToObjectType(&engine->scriptTypeBehaviours, asBEHAVE_RELEASEREFS, "void f(int&in)", asMETHOD(asCScriptObject,ReleaseAllHandles), asCALL_THISCALL); asASSERT( r >= 0 );
 #else
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_CONSTRUCT, "void f(int&in)", asFUNCTION(ScriptObject_Construct_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_ADDREF, "void f()", asFUNCTION(ScriptObject_AddRef_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_RELEASE, "void f()", asFUNCTION(ScriptObject_Release_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_ASSIGNMENT, "int &f(int &in)", asFUNCTION(ScriptObject_Assignment_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterBehaviourToObjectType(&engine->scriptTypeBehaviours, asBEHAVE_CONSTRUCT, "void f(int&in)", asFUNCTION(ScriptObject_Construct_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterBehaviourToObjectType(&engine->scriptTypeBehaviours, asBEHAVE_ADDREF, "void f()", asFUNCTION(ScriptObject_AddRef_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterBehaviourToObjectType(&engine->scriptTypeBehaviours, asBEHAVE_RELEASE, "void f()", asFUNCTION(ScriptObject_Release_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterMethodToObjectType(&engine->scriptTypeBehaviours, "int &opAssign(int &in)", asFUNCTION(ScriptObject_Assignment_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
 
 	// Register GC behaviours
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_GETREFCOUNT, "int f()", asFUNCTION(ScriptObject_GetRefCount_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_SETGCFLAG, "void f()", asFUNCTION(ScriptObject_SetFlag_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_GETGCFLAG, "bool f()", asFUNCTION(ScriptObject_GetFlag_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_ENUMREFS, "void f(int&in)", asFUNCTION(ScriptObject_EnumReferences_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
-	r = engine->RegisterSpecialObjectBehaviour(&engine->scriptTypeBehaviours, asBEHAVE_RELEASEREFS, "void f(int&in)", asFUNCTION(ScriptObject_ReleaseAllHandles_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterBehaviourToObjectType(&engine->scriptTypeBehaviours, asBEHAVE_GETREFCOUNT, "int f()", asFUNCTION(ScriptObject_GetRefCount_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterBehaviourToObjectType(&engine->scriptTypeBehaviours, asBEHAVE_SETGCFLAG, "void f()", asFUNCTION(ScriptObject_SetFlag_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterBehaviourToObjectType(&engine->scriptTypeBehaviours, asBEHAVE_GETGCFLAG, "bool f()", asFUNCTION(ScriptObject_GetFlag_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterBehaviourToObjectType(&engine->scriptTypeBehaviours, asBEHAVE_ENUMREFS, "void f(int&in)", asFUNCTION(ScriptObject_EnumReferences_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
+	r = engine->RegisterBehaviourToObjectType(&engine->scriptTypeBehaviours, asBEHAVE_RELEASEREFS, "void f(int&in)", asFUNCTION(ScriptObject_ReleaseAllHandles_Generic), asCALL_GENERIC); asASSERT( r >= 0 );
 #endif
 }
 
@@ -236,14 +238,14 @@ asIScriptEngine *asCScriptObject::GetEngine() const
 	return objType->engine;
 }
 
-int asCScriptObject::AddRef()
+int asCScriptObject::AddRef() const
 {
 	// Increase counter and clear flag set by GC
 	gcFlag = false;
 	return refCount.atomicInc();
 }
 
-int asCScriptObject::Release()
+int asCScriptObject::Release() const
 {
 	// Clear the flag set by the GC
 	gcFlag = false;
@@ -251,14 +253,16 @@ int asCScriptObject::Release()
 	// Call the script destructor behaviour if the reference counter is 1.
 	if( refCount.get() == 1 && !isDestructCalled )
 	{
-		CallDestructor();
+		// This cast is OK since we are the last reference
+		const_cast<asCScriptObject*>(this)->CallDestructor();
 	}
 
 	// Now do the actual releasing
 	int r = refCount.atomicDec();
 	if( r == 0 )
 	{
-		Destruct();
+		// This cast is OK since we are the last reference
+		const_cast<asCScriptObject*>(this)->Destruct();
 		return 0;
 	}
 
@@ -328,24 +332,16 @@ bool asCScriptObject::GetFlag()
 	return gcFlag;
 }
 
-#ifdef AS_DEPRECATED
-// deprecated 2009-02-25, 2.16.0
-int asCScriptObject::GetStructTypeId()
-{
-	return GetTypeId();
-}
-#endif
-
-// TODO: Should probably be moved to asIObjectType (or replicated in the asIObjectType)
+// interface
 int asCScriptObject::GetTypeId() const
 {
 	asCDataType dt = asCDataType::CreateObject(objType, false);
 	return objType->engine->GetTypeIdFromDataType(dt);
 }
 
-int asCScriptObject::GetPropertyCount() const
+asUINT asCScriptObject::GetPropertyCount() const
 {
-	return (int)objType->properties.GetLength();
+	return objType->properties.GetLength();
 }
 
 int asCScriptObject::GetPropertyTypeId(asUINT prop) const
@@ -364,7 +360,7 @@ const char *asCScriptObject::GetPropertyName(asUINT prop) const
 	return objType->properties[prop]->name.AddressOf();
 }
 
-void *asCScriptObject::GetPropertyPointer(asUINT prop)
+void *asCScriptObject::GetAddressOfProperty(asUINT prop)
 {
 	if( prop >= objType->properties.GetLength() )
 		return 0;
@@ -443,7 +439,7 @@ asCScriptObject &asCScriptObject::operator=(const asCScriptObject &other)
 				if( !prop->type.IsObjectHandle() )
 					CopyObject(*src, *dst, prop->type.GetObjectType(), engine);
 				else
-					CopyHandle((asDWORD*)src, (asDWORD*)dst, prop->type.GetObjectType(), engine);
+					CopyHandle((asPWORD*)src, (asPWORD*)dst, prop->type.GetObjectType(), engine);
 			}
 			else
 			{
@@ -479,7 +475,9 @@ void *asCScriptObject::AllocateObject(asCObjectType *objType, asCScriptEngine *e
 	}
 	else if( objType->flags & asOBJ_TEMPLATE )
 	{
-		ptr = ArrayObjectFactory(objType);
+		// Templates store the original factory that takes the object
+		// type as a hidden parameter in the construct behaviour
+		ptr = engine->CallGlobalFunctionRetPtr(objType->beh.construct, objType);
 	}
 	else if( objType->flags & asOBJ_REF )
 	{
@@ -513,6 +511,8 @@ void asCScriptObject::FreeObject(void *ptr, asCObjectType *objType, asCScriptEng
 
 void asCScriptObject::CopyObject(void *src, void *dst, asCObjectType *objType, asCScriptEngine *engine)
 {
+	// TODO: If the object doesn't have the copy behaviour, and it is not a 
+	//       POD object then the copy must not be performed
 	int funcIndex = objType->beh.copy;
 
 	if( funcIndex )
@@ -521,7 +521,7 @@ void asCScriptObject::CopyObject(void *src, void *dst, asCObjectType *objType, a
 		memcpy(dst, src, objType->size);
 }
 
-void asCScriptObject::CopyHandle(asDWORD *src, asDWORD *dst, asCObjectType *objType, asCScriptEngine *engine)
+void asCScriptObject::CopyHandle(asPWORD *src, asPWORD *dst, asCObjectType *objType, asCScriptEngine *engine)
 {
 	if( *dst )
 		engine->CallObjectMethod(*(void**)dst, objType->beh.release);

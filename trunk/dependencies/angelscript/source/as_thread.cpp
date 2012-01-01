@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2008 Andreas Jonsson
+   Copyright (c) 2003-2011 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -94,7 +94,7 @@ asCThreadManager::~asCThreadManager()
 	ENTERCRITICALSECTION(criticalSection);
 
 	// Delete all thread local datas
-	asSMapNode<asDWORD,asCThreadLocalData*> *cursor = 0;
+	asSMapNode<asPWORD,asCThreadLocalData*> *cursor = 0;
 	if( tldMap.MoveFirst(&cursor) )
 	{
 		do
@@ -121,14 +121,14 @@ int asCThreadManager::CleanupLocalData()
 #ifndef AS_NO_THREADS
 	int r = 0;
 #if defined AS_POSIX_THREADS
-	asDWORD id = (asDWORD)pthread_self();
+	asPWORD id = (asPWORD)pthread_self();
 #elif defined AS_WINDOWS_THREADS
-	asDWORD id = GetCurrentThreadId();
+	asPWORD id = (asPWORD)GetCurrentThreadId();
 #endif
 
 	ENTERCRITICALSECTION(criticalSection);
 
-	asSMapNode<asDWORD,asCThreadLocalData*> *cursor = 0;
+	asSMapNode<asPWORD,asCThreadLocalData*> *cursor = 0;
 	if( tldMap.MoveTo(&cursor, id) )
 	{
 		asCThreadLocalData *tld = tldMap.GetValue(cursor);
@@ -163,13 +163,13 @@ int asCThreadManager::CleanupLocalData()
 }
 
 #ifndef AS_NO_THREADS
-asCThreadLocalData *asCThreadManager::GetLocalData(asDWORD threadId)
+asCThreadLocalData *asCThreadManager::GetLocalData(asPWORD threadId)
 {
 	asCThreadLocalData *tld = 0;
 
 	ENTERCRITICALSECTION(criticalSection);
 
-	asSMapNode<asDWORD,asCThreadLocalData*> *cursor = 0;
+	asSMapNode<asPWORD,asCThreadLocalData*> *cursor = 0;
 	if( tldMap.MoveTo(&cursor, threadId) )
 		tld = tldMap.GetValue(cursor);
 
@@ -178,7 +178,7 @@ asCThreadLocalData *asCThreadManager::GetLocalData(asDWORD threadId)
 	return tld;
 }
 
-void asCThreadManager::SetLocalData(asDWORD threadId, asCThreadLocalData *tld)
+void asCThreadManager::SetLocalData(asPWORD threadId, asCThreadLocalData *tld)
 {
 	ENTERCRITICALSECTION(criticalSection);
 
@@ -192,9 +192,9 @@ asCThreadLocalData *asCThreadManager::GetLocalData()
 {
 #ifndef AS_NO_THREADS
 #if defined AS_POSIX_THREADS
-	asDWORD id = (asDWORD)pthread_self();
+	asPWORD id = (asPWORD)pthread_self();
 #elif defined AS_WINDOWS_THREADS
-	asDWORD id = GetCurrentThreadId();
+	asPWORD id = (asPWORD)GetCurrentThreadId();
 #endif
 		
 	asCThreadLocalData *tld = GetLocalData(id);
@@ -260,6 +260,17 @@ void asCThreadCriticalSection::Leave()
 	pthread_mutex_unlock(&criticalSection);
 #elif defined AS_WINDOWS_THREADS
 	LeaveCriticalSection(&criticalSection);
+#endif
+}
+
+bool asCThreadCriticalSection::TryEnter()
+{
+#if defined AS_POSIX_THREADS
+	return !pthread_mutex_trylock(&criticalSection);
+#elif defined AS_WINDOWS_THREADS
+	return TryEnterCriticalSection(&criticalSection) ? true : false;
+#else
+	return true;
 #endif
 }
 #endif

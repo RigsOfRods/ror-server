@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2009 Andreas Jonsson
+   Copyright (c) 2003-2011 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied
    warranty. In no event will the authors be held liable for any
@@ -88,6 +88,22 @@ asDWORD asCAtomic::atomicDec()
 	return v;
 }
 
+#elif defined(AS_XENON) /// XBox360
+
+END_AS_NAMESPACE
+#include <xtl.h>
+BEGIN_AS_NAMESPACE
+
+asDWORD asCAtomic::atomicInc()
+{
+	return InterlockedIncrement((LONG*)&value);
+}
+
+asDWORD asCAtomic::atomicDec()
+{
+	return InterlockedDecrement((LONG*)&value);
+}
+
 #elif defined(AS_WIN)
 
 END_AS_NAMESPACE
@@ -102,10 +118,11 @@ asDWORD asCAtomic::atomicInc()
 
 asDWORD asCAtomic::atomicDec()
 {
+	asASSERT(value > 0);
 	return InterlockedDecrement((LONG*)&value);
 }
 
-#elif defined(AS_LINUX) || defined(AS_BSD)
+#elif defined(AS_LINUX) || defined(AS_BSD) || defined(AS_ILLUMOS)
 
 //
 // atomic_inc_and_test() and atomic_dec_and_test() from asm/atomic.h is not meant 

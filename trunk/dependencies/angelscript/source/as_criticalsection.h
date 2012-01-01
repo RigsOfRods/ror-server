@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2008 Andreas Jonsson
+   Copyright (c) 2003-2011 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -48,16 +48,20 @@ BEGIN_AS_NAMESPACE
 #define DECLARECRITICALSECTION(x) 
 #define ENTERCRITICALSECTION(x) 
 #define LEAVECRITICALSECTION(x) 
+#define TRYENTERCRITICALSECTION(x) true
 
 #else
 
-#define DECLARECRITICALSECTION(x) asCThreadCriticalSection x
-#define ENTERCRITICALSECTION(x)   x.Enter()
-#define LEAVECRITICALSECTION(x)   x.Leave()
+#define DECLARECRITICALSECTION(x)  asCThreadCriticalSection x
+#define ENTERCRITICALSECTION(x)    x.Enter()
+#define LEAVECRITICALSECTION(x)    x.Leave()
+#define TRYENTERCRITICALSECTION(x) x.TryEnter()
 
 #ifdef AS_POSIX_THREADS
 
+END_AS_NAMESPACE
 #include <pthread.h>
+BEGIN_AS_NAMESPACE
 
 class asCThreadCriticalSection
 {
@@ -67,6 +71,7 @@ public:
 
 	void Enter();
 	void Leave();
+	bool TryEnter();
 
 protected:
 	pthread_mutex_t criticalSection;
@@ -74,11 +79,21 @@ protected:
 
 #elif defined(AS_WINDOWS_THREADS)
 
+END_AS_NAMESPACE
+#ifdef AS_XBOX360
+#include <xtl.h>
+#else
 #define WIN32_LEAN_AND_MEAN
+#ifndef _WIN32_WINNT
+  #define _WIN32_WINNT 0x0400 // We need this to get the declaration for TryEnterCriticalSection
+#endif
 #include <windows.h>
+#endif
+BEGIN_AS_NAMESPACE
 
 // Undefine macros that cause problems in our code
 #undef GetObject
+#undef RegisterClass
 
 class asCThreadCriticalSection
 {
@@ -88,6 +103,7 @@ public:
 
 	void Enter();
 	void Leave();
+	bool TryEnter();
 
 protected:
 	CRITICAL_SECTION criticalSection;

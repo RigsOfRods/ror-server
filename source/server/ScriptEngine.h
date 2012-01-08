@@ -190,7 +190,7 @@ public:
 	
 	std::string get_version();
 	std::string get_asVersion();
-	std::string get_rornetVersion();
+	std::string get_protocolVersion();
 
 	void setCallback(const std::string& type, const std::string& func, void* obj, int refTypeId);
 	void deleteCallback(const std::string& type, const std::string& func, void* obj, int refTypeId);

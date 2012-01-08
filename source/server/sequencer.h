@@ -67,6 +67,18 @@ enum serverSayType {
 	FROM_RULES,
 };
 
+enum broadcastType {
+// order: least restrictive to most restrictive!
+	BROADCAST_AUTO = -1,  // Do not edit the publishmode (for scripts only)
+	BROADCAST_ALL,        // broadcast to all clients including sender
+	BROADCAST_NORMAL,     // broadcast to all clients except sender
+	BROADCAST_AUTHED,     // broadcast to authed users (bots)
+	BROADCAST_BLOCK,      // no broadcast
+};
+
+// constant for functions that receive an uid for sending something
+static const int TO_ALL = -1;
+
 typedef struct stream_traffic_t
 {
 	// normal bandwidth
@@ -169,7 +181,7 @@ public:
     static void killerthreadstart();
     
     //! queue client for disconenct
-    static void disconnect(int pos, const char* error, bool isError=true);
+    static void disconnect(int pos, const char* error, bool isError=true, bool doScriptCallback=true);
 
 	static void queueMessage(int pos, int type, unsigned int streamid, char* data, unsigned int len);
     static void enableFlow(int id);
@@ -200,7 +212,7 @@ public:
 
 	static bool kick(int to_kick_uid, int modUID, const char *msg=0);
 	static bool ban(int to_ban_uid, int modUID, const char *msg=0);
-	static void ban(int to_ban_uid, const char *msg=0);
+	static void scriptBan(int to_ban_uid, const char *msg=0);
 	static bool unban(int buid);
 	static bool isbanned(const char *ip);
 	static void streamDebug();

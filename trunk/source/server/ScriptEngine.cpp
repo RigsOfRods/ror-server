@@ -359,7 +359,7 @@ void ScriptEngine::init()
 	result = engine->RegisterObjectMethod("ServerScriptClass", "void throwException(const string &in)", asMETHOD(ServerScript,throwException), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string get_version()", asMETHOD(ServerScript,get_version), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string get_asVersion()", asMETHOD(ServerScript,get_asVersion), asCALL_THISCALL); assert_net(result>=0);
-	result = engine->RegisterObjectMethod("ServerScriptClass", "string get_rornetVersion()", asMETHOD(ServerScript,get_rornetVersion), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "string get_protocolVersion()", asMETHOD(ServerScript,get_protocolVersion), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "uint get_maxClients()", asMETHOD(ServerScript,get_maxClients), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string get_serverName()", asMETHOD(ServerScript,get_serverName), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string get_IPAddr()", asMETHOD(ServerScript,get_IPAddr), asCALL_THISCALL); assert_net(result>=0);
@@ -1025,7 +1025,7 @@ std::string ServerScript::get_asVersion()
 	return std::string(ANGELSCRIPT_VERSION_STRING);
 }
 
-std::string ServerScript::get_rornetVersion()
+std::string ServerScript::get_protocolVersion()
 {
 	return std::string(RORNET_VERSION);
 }

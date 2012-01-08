@@ -158,7 +158,7 @@ typedef struct
 } header_t;
 
 /*
- * structure that is send from the cleint to server and vice versa, to broadcast a new stream
+ * structure that is send from the client to server and vice versa, to broadcast a new stream
  */
 typedef struct
 {

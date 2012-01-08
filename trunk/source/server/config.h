@@ -66,7 +66,7 @@ public:
 	static void setWebserverPort( unsigned int port );
 	static void setForeground(bool value);
 	static void loadConfigFile(const std::string& filename);
-	static void setResourceDir(const std::string& dir);
+	static void setResourceDir(std::string dir);
 	static void setAuthFile(const std::string& file);
 	static void setMOTDFile(const std::string& file);
 	static void setRulesFile(const std::string& rulesFile);
@@ -78,10 +78,10 @@ public:
 	//!@}
 
 	static std::string getPublicIP();
+	static Config instance;
 	
 private:
 	Config();
-	static Config instance;
 	
 	unsigned int max_clients;
 	std::string server_name;

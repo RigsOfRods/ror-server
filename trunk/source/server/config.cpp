@@ -537,7 +537,9 @@ void Config::setPrintStats(bool value)
 void Config::setForeground(bool value) {
 	instance.foreground = value;
 }
-void Config::setResourceDir(const std::string& dir) {
+void Config::setResourceDir(std::string dir) {
+	if(dir.length()>0 && dir.substr(dir.length()-1)!="/")
+		dir += "/";
 	instance.resourcedir = dir;
 }
 void Config::setAuthFile(const std::string& file) {

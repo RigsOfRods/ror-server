@@ -1,4 +1,4 @@
 http://www.angelcode.com/angelscript/
 version: AngelScript 2.22.1 (Dec 28th, 2011)
 With the following changes:
- - Added addon from 2.22.0: scriptMath3D
+ - Added addon 'scriptMath3D' from 2.22.0 to the 'add_on' folder.

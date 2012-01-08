@@ -6,6 +6,7 @@
 #include "ScriptEngine.h"
 #include "sequencer.h"
 #include "config.h"
+#include "messaging.h"
 #include "scriptstdstring/scriptstdstring.h" // angelscript addon
 #include "scriptmath/scriptmath.h" // angelscript addon
 #include "scriptmath3d/scriptmath3d.h" // angelscript addon
@@ -50,11 +51,7 @@ void *s_sethreadstart(void* se)
 ScriptEngine::ScriptEngine(Sequencer *seq) : seq(seq), 
 	engine(0),
 	context(0),
-	frameStepFunctionPtr(0),
-	playerDeletedFunctionPtr(0),
-	playerAddedFunctionPtr(0),
-	playerChatFunctionPtr(0),
-	gameCmdFunctionPtr(0),
+	frameStepThreadRunning(false),
 	exit(false)
 {
 	init();
@@ -64,12 +61,29 @@ ScriptEngine::~ScriptEngine()
 {
 	// Clean up
 	exit=true;
+	deleteAllCallbacks();
 	if(engine) engine->Release();
 	if(context) context->Release();
-	if(frameStepFunctionPtr>=0)
+	if(frameStepThreadRunning)
 	{
 		pthread_join(timer_thread, NULL);
 	}
+}
+
+void ScriptEngine::deleteAllCallbacks()
+{
+	if(!engine) return;
+	
+	for(std::map <std::string , callbackList >::iterator typeit = callbacks.begin(); typeit != callbacks.end(); ++typeit )
+	{
+		for (callbackList::iterator it = typeit->second.begin(); it != typeit->second.end(); ++it)
+		{
+			if(it->obj)
+				it->obj->Release();
+		}
+		typeit->second.clear();
+	}
+	callbacks.clear();
 }
 
 int RoRServerScriptBuilderIncludeCallback(const char *include, const char *from, CScriptBuilder *builder, void *userParam)
@@ -146,10 +160,33 @@ int ScriptEngine::loadScript(std::string scriptname)
 
 	// Get the newly created module
 	asIScriptModule *mod = builder.GetModule();
+
+	// get some other optional functions
+	asIScriptFunction* func;
+
+	func = mod->GetFunctionByDecl("void frameStep(float)");
+	if(func) addCallback("frameStep", func, NULL);
+	
+	func = mod->GetFunctionByDecl("void playerDeleted(int, int)");
+	if(func) addCallback("playerDeleted", func, NULL);
+	
+	func = mod->GetFunctionByDecl("void playerAdded(int)");
+	if(func) addCallback("playerAdded", func, NULL);
+	
+	func = mod->GetFunctionByDecl("int playerChat(int, string msg)");
+	if(func) addCallback("playerChat", func, NULL);
+	
+	func = mod->GetFunctionByDecl("void gameCmd(int, string)");
+	if(func) addCallback("gameCmd", func, NULL);
+
+	// Create and configure our context
+	context = engine->CreateContext();
+	//context->SetLineCallback(asMETHOD(ScriptEngine,LineCallback), this, asCALL_THISCALL);
+	context->SetExceptionCallback(asMETHOD(ScriptEngine,ExceptionCallback), this, asCALL_THISCALL);
 	
 	// Find the function that is to be called.
-	int funcId = mod->GetFunctionIdByDecl("void main()");
-	if( funcId < 0 )
+	func = mod->GetFunctionByDecl("void main()");
+	if(!func)
 	{
 		// The function couldn't be found. Instruct the script writer to include the
 		// expected function in the script.
@@ -157,33 +194,8 @@ int ScriptEngine::loadScript(std::string scriptname)
 		return 1;
 	}
 
-	// get some other optional functions
-	frameStepFunctionPtr = mod->GetFunctionIdByDecl("void frameStep(float)");
-	if(frameStepFunctionPtr<0) Logger::log(LOG_WARN, "Script Function not used: frameStep");
-
-	playerDeletedFunctionPtr = mod->GetFunctionIdByDecl("void playerDeleted(int, int)");
-	if(playerDeletedFunctionPtr<0) Logger::log(LOG_WARN, "Script Function not used: playerDeleted");
-
-	playerAddedFunctionPtr = mod->GetFunctionIdByDecl("void playerAdded(int)");
-	if(playerAddedFunctionPtr<0) Logger::log(LOG_WARN, "Script Function not used: playerAdded");
-
-	playerChatFunctionPtr = mod->GetFunctionIdByDecl("int playerChat(int, string msg)");
-	if(playerChatFunctionPtr<0) Logger::log(LOG_WARN, "Script Function not used: playerChat");
-
-	gameCmdFunctionPtr = mod->GetFunctionIdByDecl("void gameCmd(int, string)");
-	if(gameCmdFunctionPtr<0) Logger::log(LOG_WARN, "Script Function not used: gameCmd");
-	
-	//eventCallbackFunctionPtr = mod->GetFunctionIdByDecl("void eventCallback(int event, int value)");
-
-	// Create our context, prepare it, and then execute
-	context = engine->CreateContext();
-
-	//context->SetLineCallback(asMETHOD(ScriptEngine,LineCallback), this, asCALL_THISCALL);
-
-	// this does not work :(
-	//context->SetExceptionCallback(asMETHOD(ScriptEngine,ExceptionCallback), this, asCALL_THISCALL);
-
-	context->Prepare(funcId);
+	// prepare and execute the main function
+	context->Prepare(func);
 	Logger::log(LOG_INFO,"ScriptEngine: Executing main()");
 	r = context->Execute();
 	if( r != asEXECUTION_FINISHED )
@@ -204,16 +216,13 @@ void ScriptEngine::ExceptionCallback(asIScriptContext *ctx, void *param)
 	asIScriptEngine *engine = ctx->GetEngine();
 	int funcID = ctx->GetExceptionFunction();
 	const asIScriptFunction *function = engine->GetFunctionById(funcID);
-	Logger::log(LOG_INFO,"--- exception ---");
-	Logger::log(LOG_INFO,"desc: %s", (ctx->GetExceptionString()));
-	Logger::log(LOG_INFO,"func: %s", (function->GetDeclaration()));
-	Logger::log(LOG_INFO,"modl: %s", (function->GetModuleName()));
-	Logger::log(LOG_INFO,"sect: %s", (function->GetScriptSectionName()));
+	Logger::log(LOG_INFO,"--- script exception ---");
+	Logger::log(LOG_INFO," desc: %s", (ctx->GetExceptionString()));
+	Logger::log(LOG_INFO," func: %s", (function->GetDeclaration()));
+	Logger::log(LOG_INFO," modl: %s", (function->GetModuleName()));
+	Logger::log(LOG_INFO," sect: %s", (function->GetScriptSectionName()));
 	int col, line = ctx->GetExceptionLineNumber(&col);
-	Logger::log(LOG_INFO,"line %d, %d", line, col);
-
-	// Print the variables in the current function
-	PrintVariables(ctx, -1);
+	Logger::log(LOG_INFO," line: %d, %d", line, col);
 
 	// Show the call stack with the variables
 	Logger::log(LOG_INFO,"--- call stack ---");
@@ -221,10 +230,12 @@ void ScriptEngine::ExceptionCallback(asIScriptContext *ctx, void *param)
 	{
 		const asIScriptFunction *func = ctx->GetFunction(n);
 		line = ctx->GetLineNumber(n,&col);
-		Logger::log(LOG_INFO,"%s:%s : %d,%d", func->GetModuleName(), func->GetDeclaration(), line, col);
-
+		Logger::log(LOG_INFO, "- %d -", n);
+		Logger::log(LOG_INFO, "%s: %s : %d,%d", func->GetModuleName(), func->GetDeclaration(), line, col);
 		PrintVariables(ctx, n);
 	}
+
+	Logger::log(LOG_INFO, "--- end of script exception message ---");
 }
 
 void ScriptEngine::LineCallback(asIScriptContext *ctx, void *param)
@@ -282,12 +293,11 @@ void ScriptEngine::PrintVariables(asIScriptContext *ctx, int stackLevel)
 	}
 };
 
-// wrappers for functions that are not directly usable
-
 // continue with initializing everything
 void ScriptEngine::init()
 {
 	int result;
+
 	// Create the script engine
 	engine = asCreateScriptEngine(ANGELSCRIPT_VERSION);
 
@@ -326,7 +336,7 @@ void ScriptEngine::init()
 
 	Logger::log(LOG_INFO,"ScriptEngine: Registration of libs done, now custom things");
 
-	// Register everything
+	// Register ServerScript class
 	result = engine->RegisterObjectType("ServerScriptClass", sizeof(ServerScript), asOBJ_REF); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "void log(const string &in)", asMETHOD(ServerScript,log), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "void say(const string &in, int uid, int type)", asMETHOD(ServerScript,say), asCALL_THISCALL); assert_net(result>=0);
@@ -337,22 +347,69 @@ void ScriptEngine::init()
 	result = engine->RegisterObjectMethod("ServerScriptClass", "int getNumClients()", asMETHOD(ServerScript,getNumClients), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserName(int uid)", asMETHOD(ServerScript,getUserName), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserAuth(int uid)", asMETHOD(ServerScript,getUserAuth), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "int getUserAuthRaw(int uid)", asMETHOD(ServerScript,getUserAuthRaw), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "int getUserColourNum(int uid)", asMETHOD(ServerScript,getUserColourNum), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserToken(int uid)", asMETHOD(ServerScript,getUserToken), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserVersion(int uid)", asMETHOD(ServerScript,getUserVersion), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getServerTerrain()", asMETHOD(ServerScript,getServerTerrain), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "int getTime()", asMETHOD(ServerScript,getTime), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "int getStartTime()", asMETHOD(ServerScript,getStartTime), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "void setCallback(const string &in, const string &in, ?&in)", asMETHOD(ServerScript,setCallback), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "void deleteCallback(const string &in, const string &in, ?&in)", asMETHOD(ServerScript,deleteCallback), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "void throwException(const string &in)", asMETHOD(ServerScript,throwException), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "string get_version()", asMETHOD(ServerScript,get_version), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "string get_asVersion()", asMETHOD(ServerScript,get_asVersion), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "string get_rornetVersion()", asMETHOD(ServerScript,get_rornetVersion), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "uint get_maxClients()", asMETHOD(ServerScript,get_maxClients), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "string get_serverName()", asMETHOD(ServerScript,get_serverName), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "string get_IPAddr()", asMETHOD(ServerScript,get_IPAddr), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "uint get_listenPort()", asMETHOD(ServerScript,get_listenPort), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "int get_serverMode()", asMETHOD(ServerScript,get_serverMode), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "string get_owner()", asMETHOD(ServerScript,get_owner), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "string get_website()", asMETHOD(ServerScript,get_website), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "string get_ircServ()", asMETHOD(ServerScript,get_ircServ), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "string get_voipServ()", asMETHOD(ServerScript,get_voipServ), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectBehaviour("ServerScriptClass", asBEHAVE_ADDREF, "void f()",asMETHOD(ServerScript,addRef), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectBehaviour("ServerScriptClass", asBEHAVE_RELEASE, "void f()",asMETHOD(ServerScript,releaseRef), asCALL_THISCALL); assert_net(result>=0);
-
 	ServerScript *serverscript = new ServerScript(this, seq);
 	result = engine->RegisterGlobalProperty("ServerScriptClass server", serverscript); assert_net(result>=0);
-
+	
+	// Register ServerType enum for the server.serverMode attribute
+	result = engine->RegisterEnum("ServerType"); assert_net(result>=0);
+	result = engine->RegisterEnumValue("ServerType", "SERVER_LAN",  SERVER_LAN ); assert_net(result>=0);
+	result = engine->RegisterEnumValue("ServerType", "SERVER_INET", SERVER_INET); assert_net(result>=0);
+	result = engine->RegisterEnumValue("ServerType", "SERVER_AUTO", SERVER_AUTO); assert_net(result>=0);
+	
+	// Register publish mode enum for the playerChat callback
+	result = engine->RegisterEnum("broadcastType"); assert_net(result>=0);
+	result = engine->RegisterEnumValue("broadcastType", "BROADCAST_AUTO",   BROADCAST_AUTO); assert_net(result>=0);
+	result = engine->RegisterEnumValue("broadcastType", "BROADCAST_BLOCK",  BROADCAST_BLOCK); assert_net(result>=0);
+	result = engine->RegisterEnumValue("broadcastType", "BROADCAST_NORMAL", BROADCAST_NORMAL); assert_net(result>=0);
+	result = engine->RegisterEnumValue("broadcastType", "BROADCAST_AUTHED", BROADCAST_AUTHED); assert_net(result>=0);
+	result = engine->RegisterEnumValue("broadcastType", "BROADCAST_ALL",    BROADCAST_ALL); assert_net(result>=0);
+	
+	// Register authorizations
+	result = engine->RegisterEnum("authType"); assert_net(result>=0);
+	result = engine->RegisterEnumValue("authType", "AUTH_NONE",   AUTH_NONE); assert_net(result>=0);
+	result = engine->RegisterEnumValue("authType", "AUTH_ADMIN",  AUTH_ADMIN); assert_net(result>=0);
+	result = engine->RegisterEnumValue("authType", "AUTH_RANKED", AUTH_RANKED); assert_net(result>=0);
+	result = engine->RegisterEnumValue("authType", "AUTH_MOD",    AUTH_MOD); assert_net(result>=0);
+	result = engine->RegisterEnumValue("authType", "AUTH_BOT",    AUTH_BOT); assert_net(result>=0);
+	result = engine->RegisterEnumValue("authType", "AUTH_BANNED", AUTH_BANNED); assert_net(result>=0);
+	result = engine->RegisterEnumValue("authType", "AUTH_ALL",    0x11111111); assert_net(result>=0);
+	
+	// Register serverSayType
+	result = engine->RegisterEnum("serverSayType"); assert_net(result>=0);
+	result = engine->RegisterEnumValue("serverSayType", "FROM_SERVER", FROM_SERVER); assert_net(result>=0);
+	result = engine->RegisterEnumValue("serverSayType", "FROM_HOST",   FROM_HOST); assert_net(result>=0);
+	result = engine->RegisterEnumValue("serverSayType", "FROM_MOTD",   FROM_MOTD); assert_net(result>=0);
+	result = engine->RegisterEnumValue("serverSayType", "FROM_RULES",  FROM_RULES); assert_net(result>=0);
+	
+	// register constants
+	result = engine->RegisterGlobalProperty("const int TO_ALL", (void*)&TO_ALL); assert_net(result>=0);
+	
+	
 	Logger::log(LOG_INFO,"ScriptEngine: Registration done");
-
-	if(frameStepFunctionPtr>=0)
-	{
-		Logger::log(LOG_DEBUG,"ScriptEngine: starting timer thread");
-		pthread_create(&timer_thread, NULL, s_sethreadstart, this);
-	}
-
 }
 
 void ScriptEngine::msgCallback(const asSMessageInfo *msg)
@@ -366,6 +423,7 @@ void ScriptEngine::msgCallback(const asSMessageInfo *msg)
 	Logger::log(LOG_INFO,"ScriptEngine: %s (%d, %d): %s = %s", msg->section, msg->row, msg->col, type, msg->message);
 }
 
+// unused method
 int ScriptEngine::loadScriptFile(const char *fileName, string &script)
 {
 	FILE *f = fopen(fileName, "rb");
@@ -384,92 +442,202 @@ int ScriptEngine::loadScriptFile(const char *fileName, string &script)
 	return 0;
 }
 
-void ScriptEngine::executeString(std::string command)
+// unused method
+int ScriptEngine::executeString(std::string command)
 {
+	// This method would work if you include the scriptHelper add-on
 #if 0
-	// TOFIX: add proper error output
-	if(!engine) return;
+	if(!engine) return 0;
 	if(!context) context = engine->CreateContext();
-
-	int result = engine->ExecuteString("terrainScript", command.c_str(), &context);
+	asIScriptModule* mod = engine->GetModule("script", asGM_CREATE_IF_NOT_EXISTS);
+	int result = ExecuteString(engine, command.c_str(), mod, context);
 	if(result<0)
 	{
-		Logger::log(LOG_ERROR,"error while executing string");
+		Logger::log(LOG_ERROR, "ScriptEngine: Error while executing string: '" + command + "'.");
 	}
+	return result;
 #endif // 0
+	return 0;
 }
 
 int ScriptEngine::framestep(float dt)
 {
-	if(frameStepFunctionPtr<0) return 1;
 	if(!engine) return 0;
+	MutexLocker scoped_lock(context_mutex);
 	if(!context) context = engine->CreateContext();
-	context->Prepare(frameStepFunctionPtr);
-
-	// Set the function arguments
-	context->SetArgFloat(0, dt);
-
-	//LogManager::getSingleton().logMessage("SE| Executing framestep()");
-	int r = context->Execute();
-	if( r == asEXECUTION_FINISHED )
+	int r;
+	
+	// Copy the callback list, because the callback list itself may get changed while executing the script
+	callbackList queue(callbacks["frameStep"]);
+	
+	// loop over all callbacks
+	for (unsigned int i=0; i<queue.size(); ++i)
 	{
-	  // The return value is only valid if the execution finished successfully
-	  //asDWORD ret = context->GetReturnDWord();
-	  context->GetReturnDWord();
+		// prepare the call
+		r = context->Prepare(queue[i].func);
+		if(r<0) continue;
+
+		// Set the object if present (if we don't set it, then we call a global function)
+		if(queue[i].obj!=NULL)
+		{
+			context->SetObject(queue[i].obj);
+			if(r<0) continue;
+		}
+
+		// Set the arguments
+		context->SetArgFloat(0, dt);
+		
+		// Execute it
+		r = context->Execute();
 	}
 	return 0;
 }
 
 void ScriptEngine::playerDeleted(int uid, int crash)
 {
-	if(!engine || playerDeletedFunctionPtr<0) return;
+	if(!engine) return;
+	MutexLocker scoped_lock(context_mutex);
 	if(!context) context = engine->CreateContext();
-	context->Prepare(playerDeletedFunctionPtr);
+	int r;
+	
+	// Copy the callback list, because the callback list itself may get changed while executing the script
+	callbackList queue(callbacks["playerDeleted"]);
+	
+	// loop over all callbacks
+	for (unsigned int i=0; i<queue.size(); ++i)
+	{
+		// prepare the call
+		r = context->Prepare(queue[i].func);
+		if(r<0) continue;
 
-	context->SetArgDWord(0, uid);
-	context->SetArgDWord(1, crash);
-	context->Execute();
+		// Set the object if present (if we don't set it, then we call a global function)
+		if(queue[i].obj!=NULL)
+		{
+			context->SetObject(queue[i].obj);
+			if(r<0) continue;
+		}
+
+		// Set the arguments
+		context->SetArgDWord(0, uid);
+		context->SetArgDWord(1, crash);
+		
+		// Execute it
+		r = context->Execute();
+	}
+	return;
 }
 
 void ScriptEngine::playerAdded(int uid)
 {
-	if(!engine || playerAddedFunctionPtr<0) return;
+	if(!engine) return;
+	MutexLocker scoped_lock(context_mutex);
 	if(!context) context = engine->CreateContext();
-	context->Prepare(playerAddedFunctionPtr);
+	int r;
+	
+	// Copy the callback list, because the callback list itself may get changed while executing the script
+	callbackList queue(callbacks["playerAdded"]);
+	
+	// loop over all callbacks
+	for (unsigned int i=0; i<queue.size(); ++i)
+	{
+		// prepare the call
+		r = context->Prepare(queue[i].func);
+		if(r<0) continue;
 
-	context->SetArgDWord(0, uid);
-	context->Execute();
+		// Set the object if present (if we don't set it, then we call a global function)
+		if(queue[i].obj!=NULL)
+		{
+			context->SetObject(queue[i].obj);
+			if(r<0) continue;
+		}
+
+		// Set the arguments
+		context->SetArgDWord(0, uid);
+		
+		// Execute it
+		r = context->Execute();
+	}
+	return;
 }
 
 int ScriptEngine::playerChat(int uid, UTFString msg)
 {
-	if(!engine || playerChatFunctionPtr<0) return -1;
+	if(!engine) return 0;
+	MutexLocker scoped_lock(context_mutex);
 	if(!context) context = engine->CreateContext();
-	context->Prepare(playerChatFunctionPtr);
-
+	int r;
 	std::string msgstr = UTF8toString(msg);
+	int ret = BROADCAST_AUTO;
 
-	context->SetArgDWord(0, uid);
-	context->SetArgObject(1, (void *)&msgstr);
-	int r = context->Execute();
-	if( r == asEXECUTION_FINISHED )
+	// Copy the callback list, because the callback list itself may get changed while executing the script
+	callbackList queue(callbacks["playerChat"]);
+	
+	// loop over all callbacks
+	for (unsigned int i=0; i<queue.size(); ++i)
 	{
-	  // The return value is only valid if the execution finished successfully
-	  asDWORD ret = context->GetReturnDWord();
-	  return ret;
+		// prepare the call
+		r = context->Prepare(queue[i].func);
+		if(r<0) continue;
+
+		// Set the object if present (if we don't set it, then we call a global function)
+		if(queue[i].obj!=NULL)
+		{
+			context->SetObject(queue[i].obj);
+			if(r<0) continue;
+		}
+
+		// Set the arguments
+		context->SetArgDWord(0, uid);
+		context->SetArgObject(1, (void *)&msgstr);
+		
+		// Execute it
+		r = context->Execute();
+		if(r==asEXECUTION_FINISHED)
+		{			
+			int newRet = context->GetReturnDWord();
+
+			// Only use the new result if it's more restrictive than what we already had
+			if(newRet>ret)
+				ret = newRet;
+		}
 	}
-	return -1;
+
+	return ret;
 }
 
 void ScriptEngine::gameCmd(int uid, const std::string& cmd)
 {
-	if(!engine || gameCmdFunctionPtr<0) return;
+	if(!engine) return;
+	MutexLocker scoped_lock(context_mutex);
 	if(!context) context = engine->CreateContext();
-	context->Prepare(gameCmdFunctionPtr);
+	int r;
 
-	context->SetArgDWord(0, uid);
-	context->SetArgObject(1, (void *)&cmd);
-	context->Execute();
+	// Copy the callback list, because the callback list itself may get changed while executing the script
+	callbackList queue(callbacks["gameCmd"]);
+	
+	// loop over all callbacks
+	for (unsigned int i=0; i<queue.size(); ++i)
+	{
+		// prepare the call
+		r = context->Prepare(queue[i].func);
+		if(r<0) continue;
+
+		// Set the object if present (if we don't set it, then we call a global function)
+		if(queue[i].obj!=NULL)
+		{
+			context->SetObject(queue[i].obj);
+			if(r<0) continue;
+		}
+
+		// Set the arguments
+		context->SetArgDWord(0, uid);
+		context->SetArgObject(1, (void *)&cmd);
+		
+		// Execute it
+		r = context->Execute();
+	}
+
+	return;
 }
 
 void ScriptEngine::timerLoop()
@@ -487,6 +655,201 @@ void ScriptEngine::timerLoop()
 	}
 }
 
+void ScriptEngine::setException(const std::string& message)
+{	
+	if(!engine || !context)
+	{
+		// There's not much we can do, except for logging the message
+		Logger::log(LOG_INFO, "--- script exception ---");
+		Logger::log(LOG_INFO, " desc: %s", (message.c_str()));
+		Logger::log(LOG_INFO, "--- end of script exception message ---");
+	}
+	else
+		context->SetException(message.c_str());
+}
+
+void ScriptEngine::addCallbackScript(const std::string& type, const std::string& _func, asIScriptObject* obj)
+{
+	if(!engine) return;
+
+	// get the function declaration and check the type at the same time
+	std::string funcDecl = "";
+	if(type=="frameStep")
+		funcDecl = "void "+_func+"(float)";
+	else if(type=="playerChat")
+		funcDecl = "int "+_func+"(int, const string &in)";
+	else if(type=="gameCmd")
+		funcDecl = "void "+_func+"(int, const string &in)";
+	else if(type=="playerAdded")
+		funcDecl = "void "+_func+"(int)";
+	else if(type=="playerDeleted")
+		funcDecl = "void "+_func+"(int, int)";
+	else
+	{
+		setException("Type "+type+" does not exist! Possible type strings: 'frameStep', 'playerChat', 'gameCmd', 'playerAdded', 'playerDeleted'.");
+		return;
+	}
+	
+	asIScriptFunction* func;
+	if(obj)
+	{
+		// search for a method in the class
+		asIObjectType* objType = obj->GetObjectType();
+		func = objType->GetMethodByDecl(funcDecl.c_str());
+		if(!func)
+		{
+			// give a nice error message that says that the method was not found.
+			func = objType->GetMethodByName(_func.c_str());
+			if(func)
+				setException("Method '"+std::string(func->GetDeclaration(false))+"' was found in '"+objType->GetName()+"' but the correct declaration is: '"+funcDecl+"'.");
+			else
+				setException("Method '"+funcDecl+"' was not found in '"+objType->GetName()+"'.");
+			return;
+		}
+	}
+	else
+	{
+		// search for a global function
+		asIScriptModule* mod  = engine->GetModule("script");
+		func = mod->GetFunctionByDecl(funcDecl.c_str());
+		if(!func)
+		{
+			// give a nice error message that says that the function was not found.
+			func = mod->GetFunctionByName(_func.c_str());
+			if(func)
+				setException("Function '"+std::string(func->GetDeclaration(false))+"' was found, but the correct declaration is: '"+funcDecl+"'.");
+			else
+				setException("Function '"+funcDecl+"' was not found.");
+			return;
+		}
+	}
+	
+	if(callbackExists(type, func, obj))
+		Logger::log(LOG_INFO, "ScriptEngine: error: Function '"+std::string(func->GetDeclaration(false))+"' is already a callback for '"+type+"'.");
+	else
+		addCallback(type, func, obj);
+}
+
+void ScriptEngine::addCallback(const std::string& type, asIScriptFunction* func, asIScriptObject* obj)
+{
+	if(!engine) return;
+	
+	if(obj)
+	{
+		// We're about to store a reference to the object, so let's tell the script engine about that
+		// This avoids the object from going out of scope while we're still trying to access it.
+		// BUT: it prevents local objects from being destroyed automatically....
+		engine->AddRefScriptObject(obj, obj->GetTypeId());
+	}
+
+	// Add the function to the list
+	callback_t tmp;
+	tmp.obj  = obj;
+	tmp.func = func;
+	callbacks[type].push_back(tmp);
+
+	// Do we need to start the frameStep thread?
+	if(type=="frameStep" && !frameStepThreadRunning)
+	{
+		frameStepThreadRunning = true;
+		Logger::log(LOG_DEBUG,"ScriptEngine: starting timer thread");
+		pthread_create(&timer_thread, NULL, s_sethreadstart, this);
+	}
+
+	// finished :)
+	Logger::log(LOG_INFO, "ScriptEngine: success: Added a '"+type+"' callback for: "+std::string(func->GetDeclaration(true)));
+}
+
+void ScriptEngine::deleteCallbackScript(const std::string& type, const std::string& _func, asIScriptObject* obj)
+{
+	if(!engine) return;
+
+	// get the function declaration and check the type at the same time
+	std::string funcDecl = "";
+	if(type=="frameStep")
+		funcDecl = "void "+_func+"(float)";
+	else if(type=="playerChat")
+		funcDecl = "int "+_func+"(int, const string &in)";
+	else if(type=="gameCmd")
+		funcDecl = "void "+_func+"(int, const string &in)";
+	else if(type=="playerAdded")
+		funcDecl = "void "+_func+"(int)";
+	else if(type=="playerDeleted")
+		funcDecl = "void "+_func+"(int, int)";
+	else
+	{
+		setException("Type "+type+" does not exist! Possible type strings: 'frameStep', 'playerChat', 'gameCmd', 'playerAdded', 'playerDeleted'.");
+		Logger::log(LOG_INFO, "ScriptEngine: error: Failed to remove callback: "+_func);
+		return;
+	}
+
+	asIScriptFunction* func;
+	if(obj)
+	{
+		// search for a method in the class
+		asIObjectType* objType = obj->GetObjectType();
+		func = objType->GetMethodByDecl(funcDecl.c_str());
+		if(!func)
+		{
+			// give a nice error message that says that the method was not found.
+			func = objType->GetMethodByName(_func.c_str());
+			if(func)
+				setException("Method '"+std::string(func->GetDeclaration(false))+"' was found in '"+objType->GetName()+"' but the correct declaration is: '"+funcDecl+"'.");
+			else
+				setException("Method '"+funcDecl+"' was not found in '"+objType->GetName()+"'.");
+			Logger::log(LOG_INFO, "ScriptEngine: error: Failed to remove callback: "+funcDecl);
+			return;
+		}
+	}
+	else
+	{
+		// search for a global function
+		asIScriptModule* mod  = engine->GetModule("script");
+		func = mod->GetFunctionByDecl(funcDecl.c_str());
+		if(!func)
+		{
+			// give a nice error message that says that the function was not found.
+			func = mod->GetFunctionByName(_func.c_str());
+			if(func)
+				setException("Function '"+std::string(func->GetDeclaration(false))+"' was found, but the correct declaration is: '"+funcDecl+"'.");
+			else
+				setException("Function '"+funcDecl+"' was not found.");
+			Logger::log(LOG_INFO, "ScriptEngine: error: Failed to remove callback: "+funcDecl);
+			return;
+		}
+	}
+	deleteCallback(type, func, obj);
+}
+
+void ScriptEngine::deleteCallback(const std::string& type, asIScriptFunction* func, asIScriptObject* obj)
+{
+	if(!engine) return;
+
+	for (callbackList::iterator it = callbacks[type].begin(); it != callbacks[type].end(); ++it)
+	{
+		if(it->obj==obj && it->func==func)
+		{
+			callbacks[type].erase(it);
+			Logger::log(LOG_INFO, "ScriptEngine: success: removed a '"+type+"' callback: "+std::string(func->GetDeclaration(true)));
+			if(obj)
+				engine->ReleaseScriptObject(obj, obj->GetTypeId());
+			return;
+		}
+	}
+	Logger::log(LOG_INFO, "ScriptEngine: error: failed to remove callback: "+std::string(func->GetDeclaration(true)));
+}
+
+bool ScriptEngine::callbackExists(const std::string& type, asIScriptFunction* func, asIScriptObject* obj)
+{
+	if(!engine) return false;
+
+	for (callbackList::iterator it = callbacks[type].begin(); it != callbacks[type].end(); ++it)
+	{
+		if(it->obj==obj && it->func==func)
+			return true;
+	}
+	return false;
+}
 
 /* class that implements the interface for the scripts */
 ServerScript::ServerScript(ScriptEngine *se, Sequencer *seq) : mse(se), seq(seq)
@@ -509,12 +872,12 @@ void ServerScript::say(std::string &msg, int uid, int type)
 
 void ServerScript::kick(int kuid, std::string &msg)
 {
-	seq->disconnect(kuid, msg.c_str(), false);
+	seq->disconnect(kuid, msg.c_str(), false, false);
 }
 
 void ServerScript::ban(int buid, std::string &msg)
 {
-	seq->ban(buid, msg.c_str());
+	seq->scriptBan(buid, msg.c_str());
 }
 
 bool ServerScript::unban(int buid)
@@ -544,11 +907,32 @@ std::string ServerScript::getUserAuth(int uid)
 	return "none";
 }
 
+int ServerScript::getUserAuthRaw(int uid)
+{
+	client_t *c = seq->getClient(uid);
+	if(!c) return AUTH_NONE;
+	return c->user.authstatus;
+}
+
 int ServerScript::getUserColourNum(int uid)
 {
 	client_t *c = seq->getClient(uid);
 	if(!c) return 0;
 	return c->user.colournum;
+}
+
+std::string ServerScript::getUserToken(int uid)
+{
+	client_t *c = seq->getClient(uid);
+	if(!c) return 0;
+	return std::string(c->user.usertoken, 40);
+}
+
+std::string ServerScript::getUserVersion(int uid)
+{
+	client_t *c = seq->getClient(uid);
+	if(!c) return 0;
+	return std::string(c->user.clientversion, 25);
 }
 
 std::string ServerScript::getServerTerrain()
@@ -565,5 +949,96 @@ int ServerScript::getNumClients()
 {
 	return seq->getNumClients();
 }
+
+int ServerScript::getStartTime()
+{
+	return seq->getStartTime();
+}
+
+int ServerScript::getTime()
+{
+	return Messaging::getTime();
+}
+
+void ServerScript::deleteCallback(const std::string& type, const std::string& func, void* obj, int refTypeId)
+{
+	if(refTypeId & asTYPEID_SCRIPTOBJECT && (refTypeId & asTYPEID_OBJHANDLE))
+	{
+		mse->deleteCallbackScript(type, func, *(asIScriptObject**)obj);
+	}
+	else if(refTypeId==asTYPEID_VOID)
+	{
+		mse->deleteCallbackScript(type, func, NULL);
+	}
+	else if(refTypeId & asTYPEID_SCRIPTOBJECT)
+	{
+		// We received an object instead of a handle of the object.
+		// We cannot allow this because this will crash if the deleteCallback is called from inside a constructor of a global variable.
+		mse->setException("server.deleteCallback should be called with a handle of the object! (that is: put an @ sign in front of the object)");
+		
+		// uncomment to enable anyway:
+		//mse->deleteCallbackScript(type, func, (asIScriptObject*)obj);
+	}
+	else
+	{
+		mse->setException("The object for the callback has to be a script-class or null!");
+	}
+}
+
+void ServerScript::setCallback(const std::string& type, const std::string& func, void* obj, int refTypeId)
+{
+	if(refTypeId & asTYPEID_SCRIPTOBJECT && (refTypeId & asTYPEID_OBJHANDLE))
+	{
+		mse->addCallbackScript(type, func, *(asIScriptObject**)obj);
+	}
+	else if(refTypeId==asTYPEID_VOID)
+	{
+		mse->addCallbackScript(type, func, NULL);
+	}
+	else if(refTypeId & asTYPEID_SCRIPTOBJECT)
+	{
+		// We received an object instead of a handle of the object.
+		// We cannot allow this because this will crash if the setCallback is called from inside a constructor of a global variable.
+		mse->setException("server.setCallback should be called with a handle of the object! (that is: put an @ sign in front of the object)");
+		
+		// uncomment to enable anyway:
+		//mse->addCallbackScript(type, func, (asIScriptObject*)obj);
+	}
+	else
+	{
+		mse->setException("The object for the callback has to be a script-class or null!");
+	}
+}
+
+void ServerScript::throwException(const std::string& message)
+{
+	mse->setException(message);
+}
+
+std::string ServerScript::get_version()
+{
+	return std::string(VERSION);
+}
+
+std::string ServerScript::get_asVersion()
+{
+	return std::string(ANGELSCRIPT_VERSION_STRING);
+}
+
+std::string ServerScript::get_rornetVersion()
+{
+	return std::string(RORNET_VERSION);
+}
+
+unsigned int ServerScript::get_maxClients() { return Config::getMaxClients(); }
+std::string  ServerScript::get_serverName() { return Config::getServerName(); }
+std::string  ServerScript::get_IPAddr()     { return Config::getIPAddr();     }
+unsigned int ServerScript::get_listenPort() { return Config::getListenPort(); }
+int          ServerScript::get_serverMode() { return Config::getServerMode(); }
+std::string  ServerScript::get_owner()      { return Config::getOwner();      }
+std::string  ServerScript::get_website()    { return Config::getWebsite();    }
+std::string  ServerScript::get_ircServ()    { return Config::getIRC();        }
+std::string  ServerScript::get_voipServ()   { return Config::getVoIP();       }
+
 
 #endif //WITH_ANGELSCRIPT

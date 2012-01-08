@@ -452,7 +452,7 @@ void Sequencer::killerthreadstart()
 	}
 }
 
-void Sequencer::disconnect(int uid, const char* errormsg, bool isError)
+void Sequencer::disconnect(int uid, const char* errormsg, bool isError, bool doScriptCallback)
 {
     STACKLOG;
     Sequencer* instance = Instance();
@@ -468,7 +468,7 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError)
 	}
 
 #ifdef WITH_ANGELSCRIPT
-	if(instance->script)
+	if(instance->script && doScriptCallback)
 		instance->script->playerDeleted(instance->clients[pos]->user.uniqueid, isError?1:0);
 #endif //WITH_ANGELSCRIPT
 
@@ -625,7 +625,7 @@ int Sequencer::sendGameCommand(int uid, std::string cmd)
 	const char *data = cmd.c_str();
 	int size = cmd.size();
 	
-	if(uid==-1)
+	if(uid==TO_ALL)
 	{
 		for (int i = 0; i < (int)instance->clients.size(); i++)
 		{
@@ -643,7 +643,7 @@ int Sequencer::sendGameCommand(int uid, std::string cmd)
 }
 
 // this does not lock the clients_mutex, make sure it is locked before hand
-// note: uid=-1 = broadcast your message to all players
+// note: uid==-1==TO_ALL = broadcast your message to all players
 void Sequencer::serverSay(std::string msg, int uid, int type)
 {
     STACKLOG;
@@ -666,7 +666,7 @@ void Sequencer::serverSay(std::string msg, int uid, int type)
 	{
 		if (instance->clients[i]->status == USED &&
 				instance->clients[i]->flow &&
-				(uid==-1 || ((int)instance->clients[i]->user.uniqueid) == uid))
+				(uid==TO_ALL || ((int)instance->clients[i]->user.uniqueid) == uid))
 		{
 
 			UTFString s = tryConvertUTF(msg.c_str());
@@ -704,7 +704,7 @@ bool Sequencer::kick(int kuid, int modUID, const char *msg)
 	
 	char kickmsg2[1024] = "";
 	sprintf(kickmsg2, "player %s was %s", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), kickmsg);
-	serverSay(kickmsg2, -1, FROM_SERVER);
+	serverSay(kickmsg2, TO_ALL, FROM_SERVER);
 	
 	Logger::log(LOG_VERBOSE, "player '%s' kicked by '%s'", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), UTF8BuffertoString(instance->clients[posMod]->user.username).c_str());
 	disconnect(instance->clients[pos]->user.uniqueid, kickmsg);
@@ -744,7 +744,7 @@ bool Sequencer::ban(int buid, int modUID, const char *msg)
 	return kick(buid, modUID, tmp);
 }
 
-void Sequencer::ban(int buid, const char *msg)
+void Sequencer::scriptBan(int buid, const char *msg)
 {
 	STACKLOG;
 	Sequencer* instance = Instance();
@@ -860,11 +860,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 	}
 
 
-	int publishMode=0;
-	// publishMode = 0 no broadcast
-	// publishMode = 1 broadcast to all clients except sender
-	// publishMode = 2 broadcast to authed users (bots)
-	// publishMode = 3 broadcast to all clients including sender
+	int publishMode=BROADCAST_BLOCK;
 
 	if(type==MSG2_STREAM_DATA)
 	{
@@ -874,7 +870,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			instance->clients[pos]->initialized=true;
 		}
 
-		publishMode = 1;
+		publishMode = BROADCAST_NORMAL;
 	}
 	else if (type==MSG2_STREAM_REGISTER)
 	{
@@ -889,9 +885,9 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			// broadcast a general message that this user was auto-kicked
 			char sayMsg[128] = "";
 			sprintf(sayMsg, "%s was auto-kicked for having too many vehicles (limit: %d)", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), Config::getMaxVehicles());
-			serverSay(sayMsg, -1, FROM_SERVER);
+			serverSay(sayMsg, TO_ALL, FROM_SERVER);
 			disconnect(instance->clients[pos]->user.uniqueid, "You have too many vehicles. Please rejoin.", false);
-			publishMode = 0; // drop
+			publishMode = BROADCAST_BLOCK; // drop
 		}
 		else
 		{
@@ -930,7 +926,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoingLastMinute=0;
 			instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoingRate=0;
 
-			publishMode = 1;
+			publishMode = BROADCAST_NORMAL;
 		}
 	}
 	else if (type==MSG2_STREAM_REGISTER_RESULT)
@@ -943,7 +939,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			instance->clients[origin_pos]->broadcaster->queueMessage(type, uid, 0, sizeof(stream_register_t), (char *)reg);
 			Logger::log(LOG_VERBOSE, "stream registration result for stream %03d:%03d from user %03d: %d", reg->origin_sourceid, reg->origin_streamid, uid, reg->status);
 		}
-		publishMode=0;
+		publishMode=BROADCAST_BLOCK;
 	}
 	else if (type==MSG2_USER_LEAVE)
 	{
@@ -961,16 +957,16 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 		UTFString str = tryConvertUTF(data);
 		
 		Logger::log(LOG_INFO, UTFString("CHAT| ") + tryConvertUTF(instance->clients[pos]->user.username) + ": " + str);
-		publishMode=3;
+		publishMode=BROADCAST_ALL;
 
 		// no broadcast of server commands!
-		if(str[0] == '!') publishMode=0;
+		if(str[0] == '!') publishMode=BROADCAST_BLOCK;
 
 #ifdef WITH_ANGELSCRIPT
 		if(instance->script)
 		{
 			int scriptpub = instance->script->playerChat(instance->clients[pos]->user.uniqueid, str);
-			if(scriptpub>0) publishMode = scriptpub;
+			if(scriptpub!=BROADCAST_AUTO) publishMode = scriptpub;
 		}
 #endif //WITH_ANGELSCRIPT
 		if(str == UTFString("!help"))
@@ -1207,7 +1203,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 			char *chatmsg = data + sizeof(int);
 			int chatlen = len - sizeof(int);
 			instance->clients[destpos]->broadcaster->queueMessage(uid, MSG2_UTF_PRIVCHAT, 1, chatlen, chatmsg);
-			publishMode=0;
+			publishMode=BROADCAST_BLOCK;
 		}
 	}
 
@@ -1217,7 +1213,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 #ifdef WITH_ANGELSCRIPT
 		if(instance->script) instance->script->gameCmd(instance->clients[pos]->user.uniqueid, std::string(data));
 #endif //WITH_ANGELSCRIPT
-		publishMode=0;
+		publishMode=BROADCAST_BLOCK;
 	}
 #if 0
 	// replaced with stream_data
@@ -1236,7 +1232,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 		printf("RH> %s\n", hexc.c_str());
 		*/
 
-		publishMode=1;
+		publishMode=BROADCAST_NORMAL;
 	}
 #endif //0
 #if 0
@@ -1254,17 +1250,17 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				instance->clients[i]->broadcaster->queueMessage(
 						instance->clients[pos]->user.uniqueid, type, len, data);
 		}
-		publishMode=0;
+		publishMode=BROADCAST_BLOCK;
 	}
 #endif //0
-	if(publishMode>0)
+	if(publishMode<BROADCAST_BLOCK)
 	{
 		instance->clients[pos]->streams_traffic[streamid].bandwidthIncoming += len;
 
 		
-		if(publishMode == 1 || publishMode == 3)
+		if(publishMode == BROADCAST_NORMAL || publishMode == BROADCAST_ALL)
 		{
-			bool toAll = (publishMode == 3);
+			bool toAll = (publishMode == BROADCAST_ALL);
 			// just push to all the present clients
 			for (unsigned int i = 0; i < instance->clients.size(); i++)
 			{
@@ -1276,7 +1272,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 					instance->clients[i]->broadcaster->queueMessage(type, instance->clients[pos]->user.uniqueid, streamid, len, data);
 				}
 			}
-		} else if(publishMode == 2)
+		} else if(publishMode == BROADCAST_AUTHED)
 		{
 			// push to all bots and authed users above auth level 1
 			for (unsigned int i = 0; i < instance->clients.size(); i++)

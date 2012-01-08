@@ -50,7 +50,7 @@ private:
 	std::deque<queue_entry_t> msg_queue;
 	
 	bool running;
-	void (*disconnect)(int, const char*, bool);
+	void (*disconnect)(int, const char*, bool, bool);
 	int (*sendmessage)(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len, const char* content);
 	void (*dropmessage)(int);
 
@@ -76,7 +76,7 @@ public:
 	 * @param[in] sendmessage callback for send a message
 	 */
 	void reset(int uid, SWInetSocket *socky,
-			void (*disconnect)(int uid, const char*, bool),
+			void (*disconnect)(int uid, const char*, bool, bool),
 			int (*sendmessage)(SWInetSocket *socket, int type,
 				int source, unsigned int streamid, unsigned int len, const char* content),
 			void (*dropmessage)(int) );

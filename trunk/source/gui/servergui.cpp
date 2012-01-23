@@ -563,7 +563,10 @@ void MyDialog::OnContextMenu(wxContextMenuEvent& event)
 			msg.sprintf("Are you sure that you wish to kick and ban user '%s'?",username);
 			int answer = wxMessageBox(msg, _("Confirmation required"), wxYES_NO | wxCANCEL, dialogInstance);
 			if (answer == wxYES)
-				Sequencer::ban(uid, "Banned by host.");
+			{
+				// TODO: TO BE FIXED
+				Sequencer::ban(uid, 0, "Banned by host.");
+			}
 		}
 		else if( rc == ctxtmenu_pm )
 		{

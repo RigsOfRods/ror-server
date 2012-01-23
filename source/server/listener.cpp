@@ -105,7 +105,7 @@ void Listener::threadstart()
 		int source;
 		unsigned int len;
 		unsigned int streamid;
-		char buffer[256];
+		char buffer[4096];
 
 		try
 		{

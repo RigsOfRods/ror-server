@@ -744,7 +744,7 @@ bool Sequencer::ban(int buid, int modUID, const char *msg)
 	return kick(buid, modUID, tmp);
 }
 
-void Sequencer::scriptBan(int buid, const char *msg)
+void Sequencer::silentBan(int buid, const char *msg)
 {
 	STACKLOG;
 	Sequencer* instance = Instance();

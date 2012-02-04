@@ -564,8 +564,7 @@ void MyDialog::OnContextMenu(wxContextMenuEvent& event)
 			int answer = wxMessageBox(msg, _("Confirmation required"), wxYES_NO | wxCANCEL, dialogInstance);
 			if (answer == wxYES)
 			{
-				// TODO: TO BE FIXED
-				Sequencer::ban(uid, 0, "Banned by host.");
+				Sequencer::silentBan(uid, "Banned by host.");
 			}
 		}
 		else if( rc == ctxtmenu_pm )

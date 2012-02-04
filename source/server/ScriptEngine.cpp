@@ -877,7 +877,7 @@ void ServerScript::kick(int kuid, std::string &msg)
 
 void ServerScript::ban(int buid, std::string &msg)
 {
-	seq->scriptBan(buid, msg.c_str());
+	seq->silentBan(buid, msg.c_str());
 }
 
 bool ServerScript::unban(int buid)

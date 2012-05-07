@@ -1202,7 +1202,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 		{
 			char *chatmsg = data + sizeof(int);
 			int chatlen = len - sizeof(int);
-			instance->clients[destpos]->broadcaster->queueMessage(uid, MSG2_UTF_PRIVCHAT, 1, chatlen, chatmsg);
+			instance->clients[destpos]->broadcaster->queueMessage(MSG2_UTF_PRIVCHAT, uid, streamid, chatlen, chatmsg);
 			publishMode=BROADCAST_BLOCK;
 		}
 	}

@@ -35,6 +35,7 @@ public:
 
     void playerDeleted(int uid, int crash);
     void playerAdded(int uid);
+	int streamAdded(int uid, stream_register_t* reg);
     int playerChat(int uid, UTFString msg);
     void gameCmd(int uid, const std::string& cmd);
     int framestep(float dt);

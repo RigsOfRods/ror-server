@@ -41,6 +41,14 @@ _CRTIMP void __cdecl _wassert(_In_z_ const wchar_t * _Message, _In_z_ const wcha
 #endif
 
 
+// Stream_register_t wrapper
+std::string stream_register_get_name(stream_register_t* reg)
+{
+	return std::string(reg->name);
+};
+void stream_register_addRef(stream_register_t*) {};
+void stream_register_releaseRef(stream_register_t*) {};
+
 void *s_sethreadstart(void* se)
 {
     STACKLOG;
@@ -172,6 +180,9 @@ int ScriptEngine::loadScript(std::string scriptname)
 	
 	func = mod->GetFunctionByDecl("void playerAdded(int)");
 	if(func) addCallback("playerAdded", func, NULL);
+	
+	func = mod->GetFunctionByDecl("int streamAdded(int, stream_register_t@)");
+	if(func) addCallback("streamAdded", func, NULL);
 	
 	func = mod->GetFunctionByDecl("int playerChat(int, string msg)");
 	if(func) addCallback("playerChat", func, NULL);
@@ -374,6 +385,17 @@ void ScriptEngine::init()
 	ServerScript *serverscript = new ServerScript(this, seq);
 	result = engine->RegisterGlobalProperty("ServerScriptClass server", serverscript); assert_net(result>=0);
 	
+	// Register stream_register_t class
+	result = engine->RegisterObjectType("stream_register_t", sizeof(stream_register_t), asOBJ_REF); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("stream_register_t", "string getName()", asFUNCTION(stream_register_get_name), asCALL_CDECL_OBJFIRST); assert_net(result>=0); // (No property accessor on purpose)
+	result = engine-> RegisterObjectProperty("stream_register_t", "int type", offsetof(stream_register_t, type)); assert_net(result>=0);
+	result = engine-> RegisterObjectProperty("stream_register_t", "int status", offsetof(stream_register_t, status)); assert_net(result>=0);
+	result = engine-> RegisterObjectProperty("stream_register_t", "int origin_sourceid", offsetof(stream_register_t, origin_sourceid)); assert_net(result>=0);
+	result = engine-> RegisterObjectProperty("stream_register_t", "int origin_streamid", offsetof(stream_register_t, origin_streamid)); assert_net(result>=0);
+	result = engine->RegisterObjectBehaviour("stream_register_t", asBEHAVE_ADDREF, "void f()",  asFUNCTION(stream_register_addRef),     asCALL_CDECL_OBJFIRST); assert_net(result>=0);
+	result = engine->RegisterObjectBehaviour("stream_register_t", asBEHAVE_RELEASE, "void f()", asFUNCTION(stream_register_releaseRef), asCALL_CDECL_OBJFIRST); assert_net(result>=0);
+
+	
 	// Register ServerType enum for the server.serverMode attribute
 	result = engine->RegisterEnum("ServerType"); assert_net(result>=0);
 	result = engine->RegisterEnumValue("ServerType", "SERVER_LAN",  SERVER_LAN ); assert_net(result>=0);
@@ -396,7 +418,7 @@ void ScriptEngine::init()
 	result = engine->RegisterEnumValue("authType", "AUTH_MOD",    AUTH_MOD); assert_net(result>=0);
 	result = engine->RegisterEnumValue("authType", "AUTH_BOT",    AUTH_BOT); assert_net(result>=0);
 	result = engine->RegisterEnumValue("authType", "AUTH_BANNED", AUTH_BANNED); assert_net(result>=0);
-	result = engine->RegisterEnumValue("authType", "AUTH_ALL",    0x11111111); assert_net(result>=0);
+	result = engine->RegisterEnumValue("authType", "AUTH_ALL",    0xFFFFFFFF); assert_net(result>=0);
 	
 	// Register serverSayType
 	result = engine->RegisterEnum("serverSayType"); assert_net(result>=0);
@@ -564,6 +586,50 @@ void ScriptEngine::playerAdded(int uid)
 	return;
 }
 
+int ScriptEngine::streamAdded(int uid, stream_register_t* reg)
+{
+	if(!engine) return 0;
+	MutexLocker scoped_lock(context_mutex);
+	if(!context) context = engine->CreateContext();
+	int r;
+	int ret = BROADCAST_AUTO;
+
+	// Copy the callback list, because the callback list itself may get changed while executing the script
+	callbackList queue(callbacks["streamAdded"]);
+	
+	// loop over all callbacks
+	for (unsigned int i=0; i<queue.size(); ++i)
+	{
+		// prepare the call
+		r = context->Prepare(queue[i].func);
+		if(r<0) continue;
+
+		// Set the object if present (if we don't set it, then we call a global function)
+		if(queue[i].obj!=NULL)
+		{
+			context->SetObject(queue[i].obj);
+			if(r<0) continue;
+		}
+
+		// Set the arguments
+		context->SetArgDWord(0, uid);
+		context->SetArgObject(1, (void *)reg);
+		
+		// Execute it
+		r = context->Execute();
+		if(r==asEXECUTION_FINISHED)
+		{			
+			int newRet = context->GetReturnDWord();
+
+			// Only use the new result if it's more restrictive than what we already had
+			if(newRet>ret)
+				ret = newRet;
+		}
+	}
+
+	return ret;
+}
+
 int ScriptEngine::playerChat(int uid, UTFString msg)
 {
 	if(!engine) return 0;
@@ -688,9 +754,11 @@ void ScriptEngine::addCallbackScript(const std::string& type, const std::string&
 		funcDecl = "void "+_func+"(int)";
 	else if(type=="playerDeleted")
 		funcDecl = "void "+_func+"(int, int)";
+	else if(type=="streamAdded")
+		funcDecl = "int "+_func+"(int, stream_register_t@)";
 	else
 	{
-		setException("Type "+type+" does not exist! Possible type strings: 'frameStep', 'playerChat', 'gameCmd', 'playerAdded', 'playerDeleted'.");
+		setException("Type "+type+" does not exist! Possible type strings: 'frameStep', 'playerChat', 'gameCmd', 'playerAdded', 'playerDeleted', 'streamAdded'.");
 		return;
 	}
 	
@@ -780,9 +848,11 @@ void ScriptEngine::deleteCallbackScript(const std::string& type, const std::stri
 		funcDecl = "void "+_func+"(int)";
 	else if(type=="playerDeleted")
 		funcDecl = "void "+_func+"(int, int)";
+	else if(type=="streamAdded")
+		funcDecl = "int "+_func+"(int, stream_register_t@)";
 	else
 	{
-		setException("Type "+type+" does not exist! Possible type strings: 'frameStep', 'playerChat', 'gameCmd', 'playerAdded', 'playerDeleted'.");
+		setException("Type "+type+" does not exist! Possible type strings: 'frameStep', 'playerChat', 'gameCmd', 'playerAdded', 'playerDeleted', 'streamAdded'.");
 		Logger::log(LOG_INFO, "ScriptEngine: error: Failed to remove callback: "+_func);
 		return;
 	}

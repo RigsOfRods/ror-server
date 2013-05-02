@@ -904,42 +904,74 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 		}
 		else
 		{
-			if( (instance->clients[pos]->streams.size() >= Config::getMaxVehicles()+NON_VEHICLE_STREAMS-3) && (instance->clients[pos]->streams.size() >= NON_VEHICLE_STREAMS) )
-			{
-				// we start warning the user as soon as he has only 3 vehicles left before he will get kicked (that's why we do minus three in the 'if' statement above).
-				char sayMsg[128] = "";
-				
-				// special case if the user has exactly 1 vehicle
-				if(instance->clients[pos]->streams.size() == NON_VEHICLE_STREAMS)
-					sprintf(sayMsg, "You now have 1 vehicle. The vehicle limit on this server is set on %d.", Config::getMaxVehicles());
-				else
-					sprintf(sayMsg, "You now have %d vehicles. The vehicle limit on this server is set on %d.", (instance->clients[pos]->streams.size()-1), Config::getMaxVehicles());
-				
-				serverSay(sayMsg, instance->clients[pos]->user.uniqueid, FROM_SERVER);
-			}
-
-			stream_register_t *reg = (stream_register_t *)data;
-			Logger::log(LOG_VERBOSE, " * new stream registered: %d:%d, type: %d, name: '%s', status: %d", instance->clients[pos]->user.uniqueid, streamid, reg->type, reg->name, reg->status);
-			for(int i=0;i<128;i++) if(reg->name[i] == ' ') reg->name[i] = 0; // convert spaces to zero's
-			reg->name[127] = 0;
-			instance->clients[pos]->streams[streamid] = *reg;
-
-			// send an event if user is rankend and if we are a official server
-			if(instance->authresolver && (instance->clients[pos]->user.authstatus & AUTH_RANKED))
-				instance->authresolver->sendUserEvent(instance->clients[pos]->user.usertoken, std::string("newvehicle"), std::string(reg->name), std::string());
-
-			instance->streamDebug();
-
-			// reset some stats
-			// streams_traffic limited through streams map
-			instance->clients[pos]->streams_traffic[streamid].bandwidthIncoming=0;
-			instance->clients[pos]->streams_traffic[streamid].bandwidthIncomingLastMinute=0;
-			instance->clients[pos]->streams_traffic[streamid].bandwidthIncomingRate=0;
-			instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoing=0;
-			instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoingLastMinute=0;
-			instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoingRate=0;
-
 			publishMode = BROADCAST_NORMAL;
+			stream_register_t *reg = (stream_register_t *)data;
+
+#ifdef WITH_ANGELSCRIPT
+			// Do a script callback
+			if(instance->script)
+			{
+				int scriptpub = instance->script->streamAdded(instance->clients[pos]->user.uniqueid, reg);
+				
+				// We only support blocking and normal at the moment. Other modes are not supported.
+				switch(scriptpub)
+				{
+					case BROADCAST_AUTO:
+						break;
+					
+					case BROADCAST_BLOCK:
+						publishMode = BROADCAST_BLOCK;
+						break;
+						
+					case BROADCAST_NORMAL:
+						publishMode = BROADCAST_NORMAL;
+						break;
+					
+					default:
+						Logger::log(LOG_ERROR, "Stream broadcasting mode not supported.");
+						break;
+				}
+			}
+#endif //WITH_ANGELSCRIPT
+
+			if(publishMode!=BROADCAST_BLOCK)
+			{
+				// Add the stream
+				Logger::log(LOG_VERBOSE, " * new stream registered: %d:%d, type: %d, name: '%s', status: %d", instance->clients[pos]->user.uniqueid, streamid, reg->type, reg->name, reg->status);
+				for(int i=0;i<128;i++) if(reg->name[i] == ' ') reg->name[i] = 0; // convert spaces to zero's
+				reg->name[127] = 0;
+				instance->clients[pos]->streams[streamid] = *reg;
+
+				// send an event if user is rankend and if we are a official server
+				if(instance->authresolver && (instance->clients[pos]->user.authstatus & AUTH_RANKED))
+					instance->authresolver->sendUserEvent(instance->clients[pos]->user.usertoken, std::string("newvehicle"), std::string(reg->name), std::string());
+
+				// Notify the user about the vehicle limit
+				if( (instance->clients[pos]->streams.size() >= Config::getMaxVehicles()+NON_VEHICLE_STREAMS-3) && (instance->clients[pos]->streams.size() >= NON_VEHICLE_STREAMS) )
+				{
+					// we start warning the user as soon as he has only 3 vehicles left before he will get kicked (that's why we do minus three in the 'if' statement above).
+					char sayMsg[128] = "";
+					
+					// special case if the user has exactly 1 vehicle
+					if(instance->clients[pos]->streams.size() == NON_VEHICLE_STREAMS)
+						sprintf(sayMsg, "You now have 1 vehicle. The vehicle limit on this server is set on %d.", Config::getMaxVehicles());
+					else
+						sprintf(sayMsg, "You now have %d vehicles. The vehicle limit on this server is set on %d.", (instance->clients[pos]->streams.size()-1), Config::getMaxVehicles());
+					
+					serverSay(sayMsg, instance->clients[pos]->user.uniqueid, FROM_SERVER);
+				}
+					
+				instance->streamDebug();
+
+				// reset some stats
+				// streams_traffic limited through streams map
+				instance->clients[pos]->streams_traffic[streamid].bandwidthIncoming=0;
+				instance->clients[pos]->streams_traffic[streamid].bandwidthIncomingLastMinute=0;
+				instance->clients[pos]->streams_traffic[streamid].bandwidthIncomingRate=0;
+				instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoing=0;
+				instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoingLastMinute=0;
+				instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoingRate=0;
+			}
 		}
 	}
 	else if (type==MSG2_STREAM_REGISTER_RESULT)

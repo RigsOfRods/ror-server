@@ -871,6 +871,19 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 		}
 
 		publishMode = BROADCAST_NORMAL;
+		
+		// Simple data validation (needed due to bug in RoR 0.38)
+		{
+			std::map<unsigned int, stream_register_t>::iterator it = instance->clients[pos]->streams.find(streamid);
+			if(it==instance->clients[pos]->streams.end())
+				publishMode = BROADCAST_BLOCK;
+			else if(it->second.type==0)
+			{
+				stream_register_trucks_t* reg = (stream_register_trucks_t*)&it->second;
+				if((unsigned int)reg->bufferSize+sizeof(oob_t)!=len)
+					publishMode = BROADCAST_BLOCK;
+			}
+		}
 	}
 	else if (type==MSG2_STREAM_REGISTER)
 	{

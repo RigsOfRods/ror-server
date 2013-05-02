@@ -256,8 +256,8 @@ if __name__ == "__main__":
 	
 	# Set the server information
 	serverinfo          = server_info_t()
-	serverinfo.host     = "178.239.60.187"
-	serverinfo.port     = 14007
+	serverinfo.host     = "127.0.0.1"
+	serverinfo.port     = 12000
 	
 	# Create the client
 	client = RoRClient()

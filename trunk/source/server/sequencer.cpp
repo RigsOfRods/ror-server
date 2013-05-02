@@ -1026,9 +1026,9 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 				} else
 				{
 					if(unban(buid))
-						serverSay(std::string("ban not removed: error"), uid);
-					else
 						serverSay(std::string("ban removed"), uid);
+					else
+						serverSay(std::string("ban not removed: error"), uid);
 				}
 			} else
 			{

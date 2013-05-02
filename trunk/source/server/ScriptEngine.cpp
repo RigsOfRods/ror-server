@@ -490,6 +490,10 @@ int ScriptEngine::framestep(float dt)
 		// Execute it
 		r = context->Execute();
 	}
+	
+	// Collect garbage
+	engine->GarbageCollect(asGC_ONE_STEP);
+
 	return 0;
 }
 

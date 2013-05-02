@@ -54,10 +54,10 @@ int UserAuth::readConfig(const char* authFile)
 	FILE *f = fopen(authFile, "r");
 	if (!f)
 	{
-		Logger::log(LOG_ERROR, "error opening admin configuration file '%s'", authFile);
+		Logger::log(LOG_WARN, "Couldn't open the local authorizations file ('%s'). No authorizations were loaded.", authFile);
 		return -1;
 	}
-	Logger::log(LOG_VERBOSE, "reading admin configuration file...");
+	Logger::log(LOG_VERBOSE, "Reading the local authorizations file...");
 	int linecounter=0;
 	while(!feof(f))
 	{

@@ -165,9 +165,14 @@ void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigne
 		msg.process_type = BC_QUEUE_DROP;
 	}
 	
-	msg_queue.push_back( msg );
-	//signal the thread that new data is waiting to be sent
-	queue_cv.signal();
+	if(msg.process_type==BC_QUEUE_DROP)
+		dropmessage(sizeof(header_t) + msg.datalen);
+	else
+	{
+		msg_queue.push_back( msg );
+		//signal the thread that new data is waiting to be sent
+		queue_cv.signal();
+	}
 
 }
 

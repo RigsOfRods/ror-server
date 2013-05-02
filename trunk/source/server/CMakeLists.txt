@@ -21,6 +21,10 @@ ENDIF(WIN32)
 	include_directories (${rorserver_SOURCE_DIR}/dependencies/jsoncpp/include/)
 endif(RORSERVER_WITH_WEBSERVER)
 
+if(RORSERVER_NO_STACKLOG)
+	add_definitions("-DNOSTACKLOG")
+endif(RORSERVER_NO_STACKLOG)
+
 # the final lib
 add_executable(rorserver ${server_src})
 

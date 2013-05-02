@@ -61,6 +61,7 @@ endif()
 option(RORSERVER_GUI "build server GUI, experimental" FALSE)
 option(RORSERVER_WITH_ANGELSCRIPT "adds scripting support" FALSE)
 option(RORSERVER_WITH_WEBSERVER "adds the webserver" FALSE)
+option(RORSERVER_NO_STACKLOG "disables stacklog" TRUE)
 
 
 IF(NOT WIN32)

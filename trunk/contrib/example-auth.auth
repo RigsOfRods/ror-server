@@ -1,12 +1,9 @@
 ; This files defines who is an admin, moderator etc on your server
 ; the syntax is as follows: <authorization> <token> <username (optional)>
-;  - where authorization is a number between 0-5:
-;		0: none, normal user (no special privileges)
+;  - where authorization is a number between 1 and 13:
 ;		1: administrator (red name, has access to all admin functions)
-;		2: ranked user (green name, no special privileges)
 ;		4: moderator (red name, has access to all admin functions)
 ;		8: bot, robot (blue name, no special privileges)
-;		16: banned, (doesn't work, and is quite pointless anyway)
 ;  - token is the user token of the user. It's the token that uniquely identifies the user, not the username.
 ;		This is not the normal token, but an encoded version of it.
 ;		You can get this token by starting your server, filling in your token

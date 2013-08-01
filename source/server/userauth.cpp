@@ -94,6 +94,11 @@ int UserAuth::readConfig(const char* authFile)
 			Logger::log(LOG_ERROR, "error parsing authorizations file: " + std::string(line));
 			continue;
 		}
+		
+		// Not every auth mode is allowed to be set using the configuration file
+		if(authmode & AUTH_RANKED) authmode &= ~AUTH_RANKED;
+		if(authmode & AUTH_BANNED) authmode &= ~AUTH_BANNED;
+		
 		Logger::log(LOG_DEBUG, "adding entry to local auth cache, size: %d", local_auth.size());
 		user_auth_pair_t p;
 		p.first = authmode;

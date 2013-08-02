@@ -224,7 +224,6 @@ int ScriptEngine::loadScript(std::string scriptname)
 
 void ScriptEngine::ExceptionCallback(asIScriptContext *ctx, void *param)
 {
-	asIScriptEngine *engine = ctx->GetEngine();
 	const asIScriptFunction *function = ctx->GetExceptionFunction();
 	Logger::log(LOG_INFO,"--- exception ---");
 	Logger::log(LOG_INFO,"desc: %s", ctx->GetExceptionString());

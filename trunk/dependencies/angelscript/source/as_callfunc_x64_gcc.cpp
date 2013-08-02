@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2011 Andreas Jonsson
+   Copyright (c) 2003-2013 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied
    warranty. In no event will the authors be held liable for any
@@ -57,103 +57,51 @@ typedef asQWORD ( *funcptr_t )( void );
 // Note to self: Always remember to inform the used registers on the clobber line, 
 // so that the gcc optimizer doesn't try to use them for other things
 
-#define PUSH_LONG( val )                         \
-	__asm__ __volatile__ (                       \
-		"movq   %0, %%rax\n"                     \
-		"pushq  %%rax"                           \
-		:                                        \
-		: "m" ( val )                            \
-		: "%rax"                                 \
-	)
-
-#define ASM_GET_REG( name, dest )                \
-	__asm__ __volatile__ (                       \
-		"movq %" name ", %0\n"                   \
-		:                                        \
-		: "m" ( dest )                           \
-		: name                                   \
-	)
-
-
-static asDWORD GetReturnedFloat()
+static asQWORD __attribute__((noinline)) X64_CallFunction(const asQWORD *args, int cnt, funcptr_t func, asQWORD &retQW2, bool returnFloat) 
 {
-	float   retval = 0.0f;
-	asDWORD ret    = 0;
+	// Need to flag the variable as volatile so the compiler doesn't optimize out the variable
+	volatile asQWORD retQW1 = 0;
+
+	// Reference: http://www.x86-64.org/documentation/abi.pdf
 
 	__asm__ __volatile__ (
-		"lea      %0, %%rax\n"
-		"movss    %%xmm0, (%%rax)"
-		: /* no output */
-		: "m" (retval)
-		: "%rax", "%xmm0"
-	);
 
-	// We need to avoid implicit conversions from float to unsigned - we need
-	// a bit-wise-correct-and-complete copy of the value 
-	memcpy( &ret, &retval, sizeof( ret ) );
+		"  movq %0, %%rcx \n" 	// rcx = cnt
+		"  movq %1, %%r10 \n"	// r10 = args
+		"  movq %2, %%r11 \n"	// r11 = func
 
-	return ( asDWORD )ret;
-}
-
-static asQWORD GetReturnedDouble()
-{
-	double  retval = 0.0f;
-	asQWORD ret    = 0;
-
-	__asm__ __volatile__ (
-		"lea     %0, %%rax\n"
-		"movlpd  %%xmm0, (%%rax)"
-		: /* no optput */
-		: "m" (retval)
-		: "%rax", "%xmm0"
-	);
-
-	// We need to avoid implicit conversions from double to unsigned long long - we need
-	// a bit-wise-correct-and-complete copy of the value 
-	memcpy( &ret, &retval, sizeof( ret ) );
-
-	return ret;
-}
-
-static void __attribute__((noinline)) GetReturnedXmm0Xmm1(asQWORD &a, asQWORD &b)
-{
-	__asm__ __volatile__ (
-		"lea     %0, %%rax\n"
-		"movq  %%xmm0, (%%rax)\n"
-		"lea     %1, %%rdx\n"
-		"movq  %%xmm1, (%%rdx)\n" 
-		: // no optput
-		: "m" (a), "m" (b)
-		: "%rax", "%rdx", "%xmm0", "%xmm1"
-	);
-}
-
-static asQWORD __attribute__((noinline)) X64_CallFunction( const asQWORD *args, int cnt, void *func ) 
-{
-	asQWORD retval;
-	asQWORD ( *call )() = (asQWORD (*)())func;
-	int     i           = 0;
-
-	// Backup the stack pointer and then align it to 16 bytes.
-	// The R15 register is guaranteed to maintain its value over function
-	// calls, so it is safe for us to keep the original stack pointer here.
-	__asm__ __volatile__ (
+	// Backup stack pointer in R15 that is guaranteed to maintain its value over function calls
 		"  movq %%rsp, %%r15 \n"
+
+	// Skip the first 128 bytes on the stack frame, called "red zone",  
+	// that might be used by the compiler to store temporary values
+		"  sub $128, %%rsp \n"
+
+	// Make sure the stack pointer will be aligned to 16 bytes when the function is called
+		"  movq %%rcx, %%rdx \n"
+		"  salq $3, %%rdx \n"
 		"  movq %%rsp, %%rax \n"
-		"  sub %0, %%rax \n"
+		"  sub %%rdx, %%rax \n"
 		"  and $15, %%rax \n"
 		"  sub %%rax, %%rsp \n"
-		: : "r" ((asQWORD)cnt*8) 
-		// Tell the compiler that we're using the RAX and R15.
-		// This will make sure these registers are backed up by the compiler.
-		: "%rax", "%r15", "%rsp");
 
-	// Push the stack parameters
-	for( i = MAX_CALL_INT_REGISTERS + MAX_CALL_SSE_REGISTERS; cnt-- > 0; i++ )
-		PUSH_LONG( args[i] );
+	// Push the stack parameters, i.e. the arguments that won't be loaded into registers
+		"  movq %%rcx, %%rsi \n"
+		"  testl %%esi, %%esi \n"
+		"  jle endstack \n"
+		"  subl $1, %%esi \n"
+		"  xorl %%edx, %%edx \n"
+		"  leaq	8(, %%rsi, 8), %%rcx \n"
+		"loopstack: \n"
+		"  movq 112(%%r10, %%rdx), %%rax \n"
+		"  pushq %%rax \n"
+		"  addq $8, %%rdx \n"
+		"  cmpq %%rcx, %%rdx \n"
+		"  jne loopstack \n"
+		"endstack: \n"
 
 	// Populate integer and floating point parameters
-	__asm__ __volatile__ (
+		"  movq %%r10, %%rax \n"
 		"  mov     (%%rax), %%rdi \n"
 		"  mov    8(%%rax), %%rsi \n"
 		"  mov   16(%%rax), %%rdx \n"
@@ -169,21 +117,32 @@ static asQWORD __attribute__((noinline)) X64_CallFunction( const asQWORD *args, 
 		"  movsd 40(%%rax), %%xmm5 \n"
 		"  movsd 48(%%rax), %%xmm6 \n"
 		"  movsd 56(%%rax), %%xmm7 \n"
-		: 
-		: "a" (args) // Pass args in rax
+
+	// Call the function
+		"  call	*%%r11 \n"
+
+	// Restore stack pointer
+		"  mov %%r15, %%rsp \n"
+
+	// Put return value in retQW1 and retQW2, using either RAX:RDX or XMM0:XMM1 depending on type of return value
+		"  movl %5, %%ecx \n"
+		"  testb %%cl, %%cl \n"
+		"  je intret \n"
+		"  lea %3, %%rax \n"
+		"  movq %%xmm0, (%%rax) \n"
+		"  lea %4, %%rdx \n"
+		"  movq %%xmm1, (%%rdx) \n"
+		"  jmp endcall \n"
+		"intret: \n"
+		"  movq %%rax, %3 \n"
+		"  movq %%rdx, %4 \n"
+		"endcall: \n"
+
+		: : "r" ((asQWORD)cnt), "r" (args), "r" (func), "m" (retQW1), "m" (retQW2), "m" (returnFloat)
 		: "%xmm0", "%xmm1", "%xmm2", "%xmm3", "%xmm4", "%xmm5", "%xmm6", "%xmm7", 
-		  "%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9", 
-		  // rsp and r15 is added too so the compiler doesn't try to use
-		  // them to store anything over this piece of assembly
-		  "%rsp", "%r15"); 
+		  "%rdi", "%rsi", "%rax", "%rdx", "%rcx", "%r8", "%r9", "%r10", "%r11", "%r15");
 		
-	// call the function with the arguments
-	retval = call();
-
-	// Restore the stack pointer
-	__asm__ __volatile__ ("  mov %%r15, %%rsp \n" : : : "%r15", "%rsp");
-
-	return retval;
+	return retQW1;
 }
 
 // returns true if the given parameter is a 'variable argument'
@@ -194,17 +153,17 @@ static inline bool IsVariableArgument( asCDataType type )
 
 asQWORD CallSystemFunctionNative(asCContext *context, asCScriptFunction *descr, void *obj, asDWORD *args, void *retPointer, asQWORD &retQW2)
 {
-	asCScriptEngine            *engine             = context->engine;
+	asCScriptEngine            *engine             = context->m_engine;
 	asSSystemFunctionInterface *sysFunc            = descr->sysFuncIntf;
 	int                         callConv           = sysFunc->callConv;
 	asQWORD                     retQW              = 0;
-	void                       *func               = ( void * )sysFunc->func;
 	asDWORD                    *stack_pointer      = args;
 	funcptr_t                  *vftable            = NULL;
 	int                         totalArgumentCount = 0;
 	int                         n                  = 0;
 	int                         param_post         = 0;
 	int                         argIndex           = 0;
+	funcptr_t                   func               = (funcptr_t)sysFunc->func;
 
 	if( sysFunc->hostReturnInMemory ) 
 	{
@@ -215,8 +174,8 @@ asQWORD CallSystemFunctionNative(asCContext *context, asCScriptFunction *descr, 
 	// Determine the real function pointer in case of virtual method
 	if ( obj && ( callConv == ICC_VIRTUAL_THISCALL || callConv == ICC_VIRTUAL_THISCALL_RETURNINMEM ) ) 
 	{
-		vftable = *( ( funcptr_t ** )obj );
-		func    = ( void * )vftable[( asQWORD )func >> 3];
+		vftable = *((funcptr_t**)obj);
+		func = vftable[FuncPtrToUInt(asFUNCTION_t(func)) >> 3];
 	}
 
 	// Determine the type of the arguments, and prepare the input array for the X64_CallFunction 
@@ -228,7 +187,7 @@ asQWORD CallSystemFunctionNative(asCContext *context, asCScriptFunction *descr, 
 		case ICC_CDECL_RETURNINMEM:
 		case ICC_STDCALL_RETURNINMEM: 
 		{
-			paramBuffer[0] = (size_t)retPointer;
+			paramBuffer[0] = (asPWORD)retPointer;
 			argsType[0] = x64INTARG;
 
 			argIndex = 1;
@@ -239,7 +198,7 @@ asQWORD CallSystemFunctionNative(asCContext *context, asCScriptFunction *descr, 
 		case ICC_VIRTUAL_THISCALL:
 		case ICC_CDECL_OBJFIRST: 
 		{
-			paramBuffer[0] = (size_t)obj;
+			paramBuffer[0] = (asPWORD)obj;
 			argsType[0] = x64INTARG;
 
 			argIndex = 1;
@@ -250,8 +209,8 @@ asQWORD CallSystemFunctionNative(asCContext *context, asCScriptFunction *descr, 
 		case ICC_VIRTUAL_THISCALL_RETURNINMEM:
 		case ICC_CDECL_OBJFIRST_RETURNINMEM: 
 		{
-			paramBuffer[0] = (size_t)retPointer;
-			paramBuffer[1] = (size_t)obj;
+			paramBuffer[0] = (asPWORD)retPointer;
+			paramBuffer[1] = (asPWORD)obj;
 			argsType[0] = x64INTARG;
 			argsType[1] = x64INTARG;
 
@@ -264,7 +223,7 @@ asQWORD CallSystemFunctionNative(asCContext *context, asCScriptFunction *descr, 
 			break;
 		case ICC_CDECL_OBJLAST_RETURNINMEM: 
 		{
-			paramBuffer[0] = (size_t)retPointer;
+			paramBuffer[0] = (asPWORD)retPointer;
 			argsType[0] = x64INTARG;
 
 			argIndex = 1;
@@ -277,21 +236,22 @@ asQWORD CallSystemFunctionNative(asCContext *context, asCScriptFunction *descr, 
 	int argumentCount = ( int )descr->parameterTypes.GetLength();
 	for( int a = 0; a < argumentCount; ++a ) 
 	{
-		if( descr->parameterTypes[a].IsFloatType() && !descr->parameterTypes[a].IsReference() ) 
+		const asCDataType &parmType = descr->parameterTypes[a];
+		if( parmType.IsFloatType() && !parmType.IsReference() ) 
 		{
 			argsType[argIndex] = x64FLOATARG;
 			memcpy(paramBuffer + argIndex, stack_pointer, sizeof(float));
 			argIndex++;
 			stack_pointer++;
 		}
-		else if( descr->parameterTypes[a].IsDoubleType() && !descr->parameterTypes[a].IsReference() ) 
+		else if( parmType.IsDoubleType() && !parmType.IsReference() ) 
 		{
 			argsType[argIndex] = x64FLOATARG;
 			memcpy(paramBuffer + argIndex, stack_pointer, sizeof(double));
 			argIndex++;
 			stack_pointer += 2;
 		}
-		else if( IsVariableArgument( descr->parameterTypes[a] ) ) 
+		else if( IsVariableArgument( parmType ) ) 
 		{
 			// The variable args are really two, one pointer and one type id
 			argsType[argIndex] = x64INTARG;
@@ -301,12 +261,12 @@ asQWORD CallSystemFunctionNative(asCContext *context, asCScriptFunction *descr, 
 			argIndex += 2;
 			stack_pointer += 3;
 		}
-		else if( descr->parameterTypes[a].IsPrimitive() ||
-		         descr->parameterTypes[a].IsReference() || 
-		         descr->parameterTypes[a].IsObjectHandle() )
+		else if( parmType.IsPrimitive() ||
+		         parmType.IsReference() || 
+		         parmType.IsObjectHandle() )
 		{
 			argsType[argIndex] = x64INTARG;
-			if( descr->parameterTypes[a].GetSizeOnStackDWords() == 1 )
+			if( parmType.GetSizeOnStackDWords() == 1 )
 			{
 				memcpy(paramBuffer + argIndex, stack_pointer, sizeof(asDWORD));
 				stack_pointer++;
@@ -321,47 +281,49 @@ asQWORD CallSystemFunctionNative(asCContext *context, asCScriptFunction *descr, 
 		else
 		{
 			// An object is being passed by value
-			if( (descr->parameterTypes[a].GetObjectType()->flags & COMPLEX_MASK) ||
-			    descr->parameterTypes[a].GetSizeInMemoryDWords() > 4 )
+			if( (parmType.GetObjectType()->flags & COMPLEX_MASK) ||
+			    parmType.GetSizeInMemoryDWords() > 4 )
 			{
 				// Copy the address of the object
 				argsType[argIndex] = x64INTARG;
 				memcpy(paramBuffer + argIndex, stack_pointer, sizeof(asQWORD));
 				argIndex++;
 			}
-			else if( descr->parameterTypes[a].GetObjectType()->flags & asOBJ_APP_CLASS_ALLINTS )
+			else if( (parmType.GetObjectType()->flags & asOBJ_APP_CLASS_ALLINTS) ||
+			         (parmType.GetObjectType()->flags & asOBJ_APP_PRIMITIVE) )
 			{
 				// Copy the value of the object
-				if( descr->parameterTypes[a].GetSizeInMemoryDWords() > 2 )
+				if( parmType.GetSizeInMemoryDWords() > 2 )
 				{
 					argsType[argIndex] = x64INTARG;
 					argsType[argIndex+1] = x64INTARG;
-					memcpy(paramBuffer + argIndex, *(asDWORD**)stack_pointer, descr->parameterTypes[a].GetSizeInMemoryBytes());
+					memcpy(paramBuffer + argIndex, *(asDWORD**)stack_pointer, parmType.GetSizeInMemoryBytes());
 					argIndex += 2;
 				}
 				else
 				{
 					argsType[argIndex] = x64INTARG;
-					memcpy(paramBuffer + argIndex, *(asDWORD**)stack_pointer, descr->parameterTypes[a].GetSizeInMemoryBytes());
+					memcpy(paramBuffer + argIndex, *(asDWORD**)stack_pointer, parmType.GetSizeInMemoryBytes());
 					argIndex++;
 				}
 				// Delete the original memory
 				engine->CallFree(*(void**)stack_pointer);
 			}
-			else if( descr->parameterTypes[a].GetObjectType()->flags & asOBJ_APP_CLASS_ALLFLOATS )
+			else if( (parmType.GetObjectType()->flags & asOBJ_APP_CLASS_ALLFLOATS) ||
+			         (parmType.GetObjectType()->flags & asOBJ_APP_FLOAT) )
 			{
 				// Copy the value of the object
-				if( descr->parameterTypes[a].GetSizeInMemoryDWords() > 2 )
+				if( parmType.GetSizeInMemoryDWords() > 2 )
 				{
 					argsType[argIndex] = x64FLOATARG;
 					argsType[argIndex+1] = x64FLOATARG;
-					memcpy(paramBuffer + argIndex, *(asDWORD**)stack_pointer, descr->parameterTypes[a].GetSizeInMemoryBytes());
+					memcpy(paramBuffer + argIndex, *(asDWORD**)stack_pointer, parmType.GetSizeInMemoryBytes());
 					argIndex += 2;
 				}
 				else
 				{
 					argsType[argIndex] = x64FLOATARG;
-					memcpy(paramBuffer + argIndex, *(asDWORD**)stack_pointer, descr->parameterTypes[a].GetSizeInMemoryBytes());
+					memcpy(paramBuffer + argIndex, *(asDWORD**)stack_pointer, parmType.GetSizeInMemoryBytes());
 					argIndex++;
 				}
 				// Delete the original memory
@@ -374,7 +336,7 @@ asQWORD CallSystemFunctionNative(asCContext *context, asCScriptFunction *descr, 
 	// For the CDECL_OBJ_LAST calling convention we need to add the object pointer as the last argument
 	if( param_post )
 	{
-		paramBuffer[argIndex] = (size_t)obj;
+		paramBuffer[argIndex] = (asPWORD)obj;
 		argsType[argIndex] = x64INTARG;
 		argIndex++;
 	}
@@ -435,21 +397,7 @@ asQWORD CallSystemFunctionNative(asCContext *context, asCScriptFunction *descr, 
 		}
 	}
 
-	context->isCallingSystemFunction = true;
-	retQW = X64_CallFunction( tempBuff, used_stack_args, (asDWORD*)func );
-	ASM_GET_REG( "%rdx", retQW2 );
-	context->isCallingSystemFunction = false;
-
-	// If the return is a float value we need to get the value from the FP register
-	if( sysFunc->hostReturnFloat )
-	{
-		if( sysFunc->hostReturnSize == 1 )
-			*(asDWORD*)&retQW = GetReturnedFloat();
-		else if( sysFunc->hostReturnSize == 2 )
-			retQW = GetReturnedDouble();
-		else
-			GetReturnedXmm0Xmm1(retQW, retQW2);
-	}
+	retQW = X64_CallFunction( tempBuff, used_stack_args, func, retQW2, sysFunc->hostReturnFloat );
 
 	return retQW;
 }

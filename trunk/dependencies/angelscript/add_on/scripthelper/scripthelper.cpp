@@ -14,7 +14,7 @@ int CompareRelation(asIScriptEngine *engine, void *lobj, void *robj, int typeId,
     //       then the method id and context should be cached between calls.
     
 	int retval = -1;
-	int funcId = 0;
+	asIScriptFunction *func = 0;
 
 	asIObjectType *ot = engine->GetObjectTypeById(typeId);
 	if( ot )
@@ -22,30 +22,32 @@ int CompareRelation(asIScriptEngine *engine, void *lobj, void *robj, int typeId,
 		// Check if the object type has a compatible opCmp method
 		for( asUINT n = 0; n < ot->GetMethodCount(); n++ )
 		{
-			asIScriptFunction *func = ot->GetMethodByIndex(n);
-			if( strcmp(func->GetName(), "opCmp") == 0 &&
-				func->GetReturnTypeId() == asTYPEID_INT32 &&
-				func->GetParamCount() == 1 )
+			asIScriptFunction *f = ot->GetMethodByIndex(n);
+			asDWORD flags;
+			if( strcmp(f->GetName(), "opCmp") == 0 &&
+				f->GetReturnTypeId(&flags) == asTYPEID_INT32 &&
+				flags == asTM_NONE &&
+				f->GetParamCount() == 1 )
 			{
-				asDWORD flags;
-				int paramTypeId = func->GetParamTypeId(0, &flags);
+				int paramTypeId = f->GetParamTypeId(0, &flags);
 				
 				// The parameter must be an input reference of the same type
-				if( flags != asTM_INREF || typeId != paramTypeId )
+				// If the reference is a inout reference, then it must also be read-only
+				if( !(flags & asTM_INREF) || typeId != paramTypeId || ((flags & asTM_OUTREF) && !(flags & asTM_CONST)) )
 					break;
 
 				// Found the method
-				funcId = ot->GetMethodIdByIndex(n);
+				func = f;
 				break;
 			}
 		}
 	}
 
-	if( funcId )
+	if( func )
 	{
 		// Call the method
 		asIScriptContext *ctx = engine->CreateContext();
-		ctx->Prepare(funcId);
+		ctx->Prepare(func);
 		ctx->SetObject(lobj);
 		ctx->SetArgAddress(0, robj);
 		int r = ctx->Execute();
@@ -65,10 +67,10 @@ int CompareRelation(asIScriptEngine *engine, void *lobj, void *robj, int typeId,
 int CompareEquality(asIScriptEngine *engine, void *lobj, void *robj, int typeId, bool &result)
 {
     // TODO: If a lot of script objects are going to be compared, e.g. when searching for an
-	//       entry in a set, then the method id and context should be cached between calls.
+	//       entry in a set, then the method and context should be cached between calls.
     
 	int retval = -1;
-	int funcId = 0;
+	asIScriptFunction *func = 0;
 
 	asIObjectType *ot = engine->GetObjectTypeById(typeId);
 	if( ot )
@@ -76,30 +78,32 @@ int CompareEquality(asIScriptEngine *engine, void *lobj, void *robj, int typeId,
 		// Check if the object type has a compatible opEquals method
 		for( asUINT n = 0; n < ot->GetMethodCount(); n++ )
 		{
-			asIScriptFunction *func = ot->GetMethodByIndex(n);
-			if( strcmp(func->GetName(), "opEquals") == 0 &&
-				func->GetReturnTypeId() == asTYPEID_BOOL &&
-				func->GetParamCount() == 1 )
+			asIScriptFunction *f = ot->GetMethodByIndex(n);
+			asDWORD flags;
+			if( strcmp(f->GetName(), "opEquals") == 0 &&
+				f->GetReturnTypeId(&flags) == asTYPEID_BOOL &&
+				flags == asTM_NONE &&
+				f->GetParamCount() == 1 )
 			{
-				asDWORD flags;
-				int paramTypeId = func->GetParamTypeId(0, &flags);
+				int paramTypeId = f->GetParamTypeId(0, &flags);
 				
 				// The parameter must be an input reference of the same type
-				if( flags != asTM_INREF || typeId != paramTypeId )
+				// If the reference is a inout reference, then it must also be read-only
+				if( !(flags & asTM_INREF) || typeId != paramTypeId || ((flags & asTM_OUTREF) && !(flags & asTM_CONST)) )
 					break;
 
 				// Found the method
-				funcId = ot->GetMethodIdByIndex(n);
+				func = f;
 				break;
 			}
 		}
 	}
 
-	if( funcId )
+	if( func )
 	{
 		// Call the method
 		asIScriptContext *ctx = engine->CreateContext();
-		ctx->Prepare(funcId);
+		ctx->Prepare(func);
 		ctx->SetObject(lobj);
 		ctx->SetArgAddress(0, robj);
 		int r = ctx->Execute();
@@ -142,7 +146,7 @@ int ExecuteString(asIScriptEngine *engine, const char *code, asIScriptModule *mo
 
 	// If no context was provided, request a new one from the engine
 	asIScriptContext *execCtx = ctx ? ctx : engine->CreateContext();
-	r = execCtx->Prepare(func->GetId());
+	r = execCtx->Prepare(func);
 	if( r < 0 )
 	{
 		func->Release();
@@ -165,13 +169,18 @@ int WriteConfigToFile(asIScriptEngine *engine, const char *filename)
 	int c, n;
 
 	FILE *f = 0;
-#if _MSC_VER >= 1400 // MSVC 8.0 / 2005
+#if _MSC_VER >= 1400 && !defined(__S3E__) 
+	// MSVC 8.0 / 2005 introduced new functions 
+	// Marmalade doesn't use these, even though it uses the MSVC compiler
 	fopen_s(&f, filename, "wt");
 #else
 	f = fopen(filename, "wt");
 #endif
 	if( f == 0 )
 		return -1;
+
+	asDWORD currAccessMask = 0;
+	string currNamespace = "";
 
 	// Make sure the default array type is expanded to the template form 
 	bool expandDefArrayToTempl = engine->GetEngineProperty(asEP_EXPAND_DEF_ARRAY_TO_TMPL) ? true : false;
@@ -183,7 +192,19 @@ int WriteConfigToFile(asIScriptEngine *engine, const char *filename)
 	for( n = 0; n < c; n++ )
 	{
 		int typeId;
-		const char *enumName = engine->GetEnumByIndex(n, &typeId);
+		asDWORD accessMask;
+		const char *nameSpace;
+		const char *enumName = engine->GetEnumByIndex(n, &typeId, &nameSpace, 0, &accessMask);
+		if( accessMask != currAccessMask )
+		{
+			fprintf(f, "access %X\n", (unsigned int)(accessMask));
+			currAccessMask = accessMask;
+		}
+		if( nameSpace != currNamespace )
+		{
+			fprintf(f, "namespace %s\n", nameSpace);
+			currNamespace = nameSpace;
+		}
 		fprintf(f, "enum %s\n", enumName);
 		for( int m = 0; m < engine->GetEnumValueCount(typeId); m++ )
 		{
@@ -201,6 +222,18 @@ int WriteConfigToFile(asIScriptEngine *engine, const char *filename)
 	for( n = 0; n < c; n++ )
 	{
 		asIObjectType *type = engine->GetObjectTypeByIndex(n);
+		asDWORD accessMask = type->GetAccessMask();
+		if( accessMask != currAccessMask )
+		{
+			fprintf(f, "access %X\n", (unsigned int)(accessMask));
+			currAccessMask = accessMask;
+		}
+		const char *nameSpace = type->GetNamespace();
+		if( nameSpace != currNamespace )
+		{
+			fprintf(f, "namespace %s\n", nameSpace);
+			currNamespace = nameSpace;
+		}
 		if( type->GetFlags() & asOBJ_SCRIPT_OBJECT )
 		{
 			// This should only be interfaces
@@ -221,7 +254,19 @@ int WriteConfigToFile(asIScriptEngine *engine, const char *filename)
 	for( n = 0; n < c; n++ )
 	{
 		int typeId;
-		const char *typeDef = engine->GetTypedefByIndex(n, &typeId);
+		asDWORD accessMask;
+		const char *nameSpace;
+		const char *typeDef = engine->GetTypedefByIndex(n, &typeId, &nameSpace, 0, &accessMask);
+		if( nameSpace != currNamespace )
+		{
+			fprintf(f, "namespace %s\n", nameSpace);
+			currNamespace = nameSpace;
+		}
+		if( accessMask != currAccessMask )
+		{
+			fprintf(f, "access %X\n", (unsigned int)(accessMask));
+			currAccessMask = accessMask;
+		}
 		fprintf(f, "typedef %s \"%s\"\n", typeDef, engine->GetTypeDeclaration(typeId));
 	}
 
@@ -229,6 +274,18 @@ int WriteConfigToFile(asIScriptEngine *engine, const char *filename)
 	for( n = 0; n < c; n++ )
 	{
 		asIScriptFunction *funcDef = engine->GetFuncdefByIndex(n);
+		asDWORD accessMask = funcDef->GetAccessMask();
+		const char *nameSpace = funcDef->GetNamespace();
+		if( nameSpace != currNamespace )
+		{
+			fprintf(f, "namespace %s\n", nameSpace);
+			currNamespace = nameSpace;
+		}
+		if( accessMask != currAccessMask )
+		{
+			fprintf(f, "access %X\n", (unsigned int)(accessMask));
+			currAccessMask = accessMask;
+		}
 		fprintf(f, "funcdef \"%s\"\n", funcDef->GetDeclaration());
 	}
 
@@ -239,12 +296,24 @@ int WriteConfigToFile(asIScriptEngine *engine, const char *filename)
 	for( n = 0; n < c; n++ )
 	{
 		asIObjectType *type = engine->GetObjectTypeByIndex(n);
+		const char *nameSpace = type->GetNamespace();
+		if( nameSpace != currNamespace )
+		{
+			fprintf(f, "namespace %s\n", nameSpace);
+			currNamespace = nameSpace;
+		}
 		string typeDecl = engine->GetTypeDeclaration(type->GetTypeId());
 		if( type->GetFlags() & asOBJ_SCRIPT_OBJECT )
 		{
 			for( asUINT m = 0; m < type->GetMethodCount(); m++ )
 			{
 				asIScriptFunction *func = type->GetMethodByIndex(m);
+				asDWORD accessMask = func->GetAccessMask();
+				if( accessMask != currAccessMask )
+				{
+					fprintf(f, "access %X\n", (unsigned int)(accessMask));
+					currAccessMask = accessMask;
+				}
 				fprintf(f, "intfmthd %s \"%s\"\n", typeDecl.c_str(), func->GetDeclaration(false));
 			}
 		}
@@ -253,22 +322,41 @@ int WriteConfigToFile(asIScriptEngine *engine, const char *filename)
 			asUINT m;
 			for( m = 0; m < type->GetFactoryCount(); m++ )
 			{
-				asIScriptFunction *func = engine->GetFunctionById(type->GetFactoryIdByIndex(m));
+				asIScriptFunction *func = type->GetFactoryByIndex(m);
+				asDWORD accessMask = func->GetAccessMask();
+				if( accessMask != currAccessMask )
+				{
+					fprintf(f, "access %X\n", (unsigned int)(accessMask));
+					currAccessMask = accessMask;
+				}
 				fprintf(f, "objbeh \"%s\" %d \"%s\"\n", typeDecl.c_str(), asBEHAVE_FACTORY, func->GetDeclaration(false));
 			}
 			for( m = 0; m < type->GetBehaviourCount(); m++ )
 			{
 				asEBehaviours beh;
-				asIScriptFunction *func = engine->GetFunctionById(type->GetBehaviourByIndex(m, &beh));
+				asIScriptFunction *func = type->GetBehaviourByIndex(m, &beh);
 				fprintf(f, "objbeh \"%s\" %d \"%s\"\n", typeDecl.c_str(), beh, func->GetDeclaration(false));
 			}
 			for( m = 0; m < type->GetMethodCount(); m++ )
 			{
 				asIScriptFunction *func = type->GetMethodByIndex(m);
+				asDWORD accessMask = func->GetAccessMask();
+				if( accessMask != currAccessMask )
+				{
+					fprintf(f, "access %X\n", (unsigned int)(accessMask));
+					currAccessMask = accessMask;
+				}
 				fprintf(f, "objmthd \"%s\" \"%s\"\n", typeDecl.c_str(), func->GetDeclaration(false));
 			}
 			for( m = 0; m < type->GetPropertyCount(); m++ )
 			{
+				asDWORD accessMask;
+				type->GetProperty(m, 0, 0, 0, 0, 0, &accessMask);
+				if( accessMask != currAccessMask )
+				{
+					fprintf(f, "access %X\n", (unsigned int)(accessMask));
+					currAccessMask = accessMask;
+				}
 				fprintf(f, "objprop \"%s\" \"%s\"\n", typeDecl.c_str(), type->GetPropertyDeclaration(m));
 			}
 		}
@@ -280,7 +368,19 @@ int WriteConfigToFile(asIScriptEngine *engine, const char *filename)
 	c = engine->GetGlobalFunctionCount();
 	for( n = 0; n < c; n++ )
 	{
-		asIScriptFunction *func = engine->GetFunctionById(engine->GetGlobalFunctionIdByIndex(n));
+		asIScriptFunction *func = engine->GetGlobalFunctionByIndex(n);
+		const char *nameSpace = func->GetNamespace();
+		if( nameSpace != currNamespace )
+		{
+			fprintf(f, "namespace %s\n", nameSpace);
+			currNamespace = nameSpace;
+		}
+		asDWORD accessMask = func->GetAccessMask();
+		if( accessMask != currAccessMask )
+		{
+			fprintf(f, "access %X\n", (unsigned int)(accessMask));
+			currAccessMask = accessMask;
+		}
 		fprintf(f, "func \"%s\"\n", func->GetDeclaration());
 	}
 
@@ -293,7 +393,19 @@ int WriteConfigToFile(asIScriptEngine *engine, const char *filename)
 		const char *name;
 		int typeId;
 		bool isConst;
-		engine->GetGlobalPropertyByIndex(n, &name, &typeId, &isConst); 
+		asDWORD accessMask;
+		const char *nameSpace;
+		engine->GetGlobalPropertyByIndex(n, &name, &nameSpace, &typeId, &isConst, 0, 0, &accessMask);
+		if( accessMask != currAccessMask )
+		{
+			fprintf(f, "access %X\n", (unsigned int)(accessMask));
+			currAccessMask = accessMask;
+		}
+		if( nameSpace != currNamespace )
+		{
+			fprintf(f, "namespace %s\n", nameSpace);
+			currNamespace = nameSpace;
+		}
 		fprintf(f, "prop \"%s%s %s\"\n", isConst ? "const " : "", engine->GetTypeDeclaration(typeId), name);
 	}
 
@@ -322,8 +434,7 @@ void PrintException(asIScriptContext *ctx, bool printStack)
 	if( ctx->GetState() != asEXECUTION_EXCEPTION ) return;
 
 	asIScriptEngine *engine = ctx->GetEngine();
-	int funcId = ctx->GetExceptionFunction();
-	const asIScriptFunction *function = engine->GetFunctionById(funcId);
+	const asIScriptFunction *function = ctx->GetExceptionFunction();
 	printf("func: %s\n", function->GetDeclaration());
 	printf("modl: %s\n", function->GetModuleName());
 	printf("sect: %s\n", function->GetScriptSectionName());
@@ -336,9 +447,25 @@ void PrintException(asIScriptContext *ctx, bool printStack)
 		for( asUINT n = 1; n < ctx->GetCallstackSize(); n++ )
 		{
 			function = ctx->GetFunction(n);
-			printf("%s (%d): %s\n", function->GetScriptSectionName(),
-			                        ctx->GetLineNumber(n),
-								    function->GetDeclaration());
+			if( function )
+			{
+				if( function->GetFuncType() == asFUNC_SCRIPT )
+				{
+					printf("%s (%d): %s\n", function->GetScriptSectionName(),
+											ctx->GetLineNumber(n),
+											function->GetDeclaration());
+				}
+				else
+				{
+					// The context is being reused by the application for a nested call
+					printf("{...application...}: %s\n", function->GetDeclaration());
+				}
+			}
+			else
+			{
+				// The context is being reused by the script engine for a nested call
+				printf("{...script engine...}\n");
+			}			
 		}
 	}
 }

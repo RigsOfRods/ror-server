@@ -225,28 +225,26 @@ int ScriptEngine::loadScript(std::string scriptname)
 void ScriptEngine::ExceptionCallback(asIScriptContext *ctx, void *param)
 {
 	asIScriptEngine *engine = ctx->GetEngine();
-	int funcID = ctx->GetExceptionFunction();
-	const asIScriptFunction *function = engine->GetFunctionById(funcID);
-	Logger::log(LOG_INFO,"--- script exception ---");
-	Logger::log(LOG_INFO," desc: %s", (ctx->GetExceptionString()));
-	Logger::log(LOG_INFO," func: %s", (function->GetDeclaration()));
-	Logger::log(LOG_INFO," modl: %s", (function->GetModuleName()));
-	Logger::log(LOG_INFO," sect: %s", (function->GetScriptSectionName()));
+	const asIScriptFunction *function = ctx->GetExceptionFunction();
+	Logger::log(LOG_INFO,"--- exception ---");
+	Logger::log(LOG_INFO,"desc: %s", ctx->GetExceptionString());
+	Logger::log(LOG_INFO,"func: %s", function->GetDeclaration());
+	Logger::log(LOG_INFO,"modl: %s", function->GetModuleName());
+	Logger::log(LOG_INFO,"sect: %s", function->GetScriptSectionName());
 	int col, line = ctx->GetExceptionLineNumber(&col);
-	Logger::log(LOG_INFO," line: %d, %d", line, col);
+	Logger::log(LOG_INFO,"line: %d,%d", line, col);
 
 	// Show the call stack with the variables
 	Logger::log(LOG_INFO,"--- call stack ---");
-	for( unsigned int n = 0; n < ctx->GetCallstackSize(); n++ )
+	char tmp[2048]="";
+	for(asUINT n = 0; n < ctx->GetCallstackSize(); n++)
 	{
-		const asIScriptFunction *func = ctx->GetFunction(n);
-		line = ctx->GetLineNumber(n,&col);
-		Logger::log(LOG_INFO, "- %d -", n);
-		Logger::log(LOG_INFO, "%s: %s : %d,%d", func->GetModuleName(), func->GetDeclaration(), line, col);
+		function = ctx->GetFunction(n);
+		sprintf(tmp, "%s (%d): %s", function->GetScriptSectionName(), ctx->GetLineNumber(n), function->GetDeclaration());
+		Logger::log(LOG_INFO, tmp);
 		PrintVariables(ctx, n);
 	}
-
-	Logger::log(LOG_INFO, "--- end of script exception message ---");
+	Logger::log(LOG_INFO,"--- end of script exception message ---");
 }
 
 void ScriptEngine::LineCallback(asIScriptContext *ctx, void *param)
@@ -274,32 +272,47 @@ void ScriptEngine::PrintVariables(asIScriptContext *ctx, int stackLevel)
 {
 	asIScriptEngine *engine = ctx->GetEngine();
 
+	// First print the this pointer if this is a class method
 	int typeId = ctx->GetThisTypeId(stackLevel);
 	void *varPointer = ctx->GetThisPointer(stackLevel);
 	if( typeId )
 	{
-		Logger::log(LOG_INFO," this = 0x%x", varPointer);
+		Logger::log(LOG_INFO, " this = 0x%x", varPointer);
 	}
 
+	// Print the value of each variable, including parameters
 	int numVars = ctx->GetVarCount(stackLevel);
 	for( int n = 0; n < numVars; n++ )
 	{
 		int typeId = ctx->GetVarTypeId(n, stackLevel);
 		void *varPointer = ctx->GetAddressOfVar(n, stackLevel);
-		if( typeId == engine->GetTypeIdByDecl("int") )
+		if( typeId == asTYPEID_INT32 )
 		{
-			Logger::log(LOG_INFO," %s = %d", ctx->GetVarDeclaration(n, stackLevel), *(int*)varPointer);
+			Logger::log(LOG_INFO, " %s = %d", ctx->GetVarDeclaration(n, stackLevel), *(int*)varPointer);
+		}
+		else if( typeId == asTYPEID_FLOAT )
+		{
+			Logger::log(LOG_INFO, " %s = %f", ctx->GetVarDeclaration(n, stackLevel), *(float*)varPointer);
+		}
+		else if( typeId & asTYPEID_SCRIPTOBJECT )
+		{
+			asIScriptObject *obj = (asIScriptObject*)varPointer;
+			if( obj )
+				Logger::log(LOG_INFO, " %s = {...}", ctx->GetVarDeclaration(n, stackLevel));
+			else
+				Logger::log(LOG_INFO, " %s = <null>", ctx->GetVarDeclaration(n, stackLevel));
 		}
 		else if( typeId == engine->GetTypeIdByDecl("string") )
 		{
 			std::string *str = (std::string*)varPointer;
 			if( str )
-			{
-				Logger::log(LOG_INFO," %s = '%s'", ctx->GetVarDeclaration(n, stackLevel), str->c_str());
-			} else
-			{
-				Logger::log(LOG_INFO," %s = <null>", ctx->GetVarDeclaration(n, stackLevel));
-			}
+				Logger::log(LOG_INFO, " %s = '%s'", ctx->GetVarDeclaration(n, stackLevel), str->c_str());
+			else
+				Logger::log(LOG_INFO, " %s = <null>", ctx->GetVarDeclaration(n, stackLevel));
+		}
+		else
+		{
+			Logger::log(LOG_INFO, " %s = {...}", ctx->GetVarDeclaration(n, stackLevel));
 		}
 	}
 };
@@ -811,7 +824,7 @@ void ScriptEngine::addCallback(const std::string& type, asIScriptFunction* func,
 		// We're about to store a reference to the object, so let's tell the script engine about that
 		// This avoids the object from going out of scope while we're still trying to access it.
 		// BUT: it prevents local objects from being destroyed automatically....
-		engine->AddRefScriptObject(obj, obj->GetTypeId());
+		engine->AddRefScriptObject(obj, obj->GetObjectType());
 	}
 
 	// Add the function to the list
@@ -906,7 +919,7 @@ void ScriptEngine::deleteCallback(const std::string& type, asIScriptFunction* fu
 			callbacks[type].erase(it);
 			Logger::log(LOG_INFO, "ScriptEngine: success: removed a '"+type+"' callback: "+std::string(func->GetDeclaration(true)));
 			if(obj)
-				engine->ReleaseScriptObject(obj, obj->GetTypeId());
+				engine->ReleaseScriptObject(obj, obj->GetObjectType());
 			return;
 		}
 	}

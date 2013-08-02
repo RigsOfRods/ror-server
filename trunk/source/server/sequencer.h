@@ -18,11 +18,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 // $LastChangedDate: 2010-07-08 02:10:14 +0200 (Thu, 08 Jul 2010) $
-// $LastChangedRevision: 419 $
+// $LastChangedRevision$
 // $LastChangedBy: rorthomas $
 // $HeadURL: https://rorserver.svn.sourceforge.net/svnroot/rorserver/trunk/source/sequencer.h $
 // $Id: sequencer.h 419 2010-07-08 00:10:14Z rorthomas $
-// $Rev: 419 $
+// $Rev$
 
 #ifndef __Sequencer_H__
 #define __Sequencer_H__
@@ -57,7 +57,7 @@ class ScriptEngine;
 
 #define SEQUENCER Sequencer::Instance()
 
-#define VERSION "$Rev: 419 $"
+#define VERSION "$Rev$"
 
 // This is used to define who says it, when the server says something
 enum serverSayType {
@@ -212,7 +212,7 @@ public:
 
 	static bool kick(int to_kick_uid, int modUID, const char *msg=0);
 	static bool ban(int to_ban_uid, int modUID, const char *msg=0);
-	static void silentBan(int to_ban_uid, const char *msg=0);
+	static void silentBan(int to_ban_uid, const char *msg=0, bool doScriptCallback=true);
 	static bool unban(int buid);
 	static bool isbanned(const char *ip);
 	static void streamDebug();

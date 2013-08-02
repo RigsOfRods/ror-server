@@ -452,7 +452,7 @@ void Sequencer::killerthreadstart()
 	}
 }
 
-void Sequencer::disconnect(int uid, const char* errormsg, bool isError, bool doScriptCallback)
+void Sequencer::disconnect(int uid, const char* errormsg, bool isError, bool doScriptCallback /*= true*/)
 {
     STACKLOG;
     Sequencer* instance = Instance();
@@ -744,7 +744,7 @@ bool Sequencer::ban(int buid, int modUID, const char *msg)
 	return kick(buid, modUID, tmp);
 }
 
-void Sequencer::silentBan(int buid, const char *msg)
+void Sequencer::silentBan(int buid, const char *msg, bool doScriptCallback /*= true*/)
 {
 	STACKLOG;
 	Sequencer* instance = Instance();
@@ -771,7 +771,7 @@ void Sequencer::silentBan(int buid, const char *msg)
 			strcat(tmp, msg);
 		strcat(tmp, " (banned)");
 
-		disconnect(instance->clients[pos]->user.uniqueid, tmp);
+		disconnect(instance->clients[pos]->user.uniqueid, tmp, false, doScriptCallback);
 	}
 	else
 		Logger::log(LOG_ERROR, "void Sequencer::ban(%d, %s) --> uid %d not found!", buid, msg, buid);

@@ -33,7 +33,7 @@ public:
 	int loadScript(std::string scriptName);
 	int executeString(std::string command);
 
-    void playerDeleted(int uid, int crash);
+    void playerDeleted(int uid, int crash, bool doNestedCall = false);
     void playerAdded(int uid);
 	int streamAdded(int uid, stream_register_t* reg);
     int playerChat(int uid, UTFString msg);

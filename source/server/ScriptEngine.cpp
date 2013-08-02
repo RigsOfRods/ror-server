@@ -531,12 +531,19 @@ int ScriptEngine::framestep(float dt)
 	return 0;
 }
 
-void ScriptEngine::playerDeleted(int uid, int crash)
+void ScriptEngine::playerDeleted(int uid, int crash, bool doNestedCall /*= false*/)
 {
 	if(!engine) return;
-	MutexLocker scoped_lock(context_mutex);
+	if(!doNestedCall) MutexLocker scoped_lock(context_mutex);
 	if(!context) context = engine->CreateContext();
 	int r;
+	
+	// Push the state of the context if this is a nested call
+	if(doNestedCall)
+	{
+		r = context->PushState();
+		if(r<0) return;
+	}
 	
 	// Copy the callback list, because the callback list itself may get changed while executing the script
 	callbackList queue(callbacks["playerDeleted"]);
@@ -562,6 +569,15 @@ void ScriptEngine::playerDeleted(int uid, int crash)
 		// Execute it
 		r = context->Execute();
 	}
+	
+	// Pop the state of the context if this is was a nested call
+	if(doNestedCall)
+	{
+		r = context->PopState();
+		if(r<0) return;
+	}
+	
+	
 	return;
 }
 
@@ -959,11 +975,13 @@ void ServerScript::say(std::string &msg, int uid, int type)
 void ServerScript::kick(int kuid, std::string &msg)
 {
 	seq->disconnect(kuid, msg.c_str(), false, false);
+	mse->playerDeleted(kuid, 0, true);
 }
 
 void ServerScript::ban(int buid, std::string &msg)
 {
-	seq->silentBan(buid, msg.c_str());
+	seq->silentBan(buid, msg.c_str(), false);
+	mse->playerDeleted(buid, 0, true);
 }
 
 bool ServerScript::unban(int buid)

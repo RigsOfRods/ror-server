@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2010 Andreas Jonsson
+   Copyright (c) 2003-2013 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -40,16 +40,13 @@
 #include "as_config.h"
 #include "as_configgroup.h"
 #include "as_scriptengine.h"
+#include "as_texts.h"
 
 BEGIN_AS_NAMESPACE
 
 asCConfigGroup::asCConfigGroup()
 {
 	refCount = 0;
-#ifdef AS_DEPRECATED
-	// Deprecated since 2011-10-04
-	defaultAccess = true;
-#endif
 }
 
 asCConfigGroup::~asCConfigGroup()
@@ -109,13 +106,13 @@ void asCConfigGroup::RemoveConfiguration(asCScriptEngine *engine, bool notUsed)
 	// Remove global variables
 	for( n = 0; n < globalProps.GetLength(); n++ )
 	{
-		int index = engine->registeredGlobalProps.IndexOf(globalProps[n]);
+		int index = engine->registeredGlobalProps.GetIndex(globalProps[n]);
 		if( index >= 0 )
 		{
 			globalProps[n]->Release();
 
 			// TODO: global: Should compact the registeredGlobalProps array
-			engine->registeredGlobalProps[index] = 0;
+			engine->registeredGlobalProps.Erase(index);
 		}
 	}
 	globalProps.SetLength(0);
@@ -160,6 +157,8 @@ void asCConfigGroup::RemoveConfiguration(asCScriptEngine *engine, bool notUsed)
 #endif
 
 				engine->objectTypes.RemoveIndex(idx);
+				if( engine->defaultArrayObjectType == t )
+					engine->defaultArrayObjectType = 0;
 
 				if( t->flags & asOBJ_TYPEDEF )
 					engine->registeredTypeDefs.RemoveValue(t);
@@ -192,12 +191,31 @@ void asCConfigGroup::ValidateNoUsage(asCScriptEngine *engine, asCObjectType *typ
 		if( func->name == "_beh_2_" || func->name == "_beh_3_" || func->objectType == type )
 			continue;
 
-		asASSERT( func->returnType.GetObjectType() != type );
+		// Ignore function definitions too, as they aren't released until the engine is destroyed
+		if( func->funcType == asFUNC_FUNCDEF )
+			continue;
 
-		for( asUINT p = 0; p < func->parameterTypes.GetLength(); p++ )
+		if( func->returnType.GetObjectType() == type )
 		{
-			asASSERT(func->parameterTypes[p].GetObjectType() != type);
+			asCString msg;
+			// We can only use the function name here, because the types used by the function may have been deleted already
+			msg.Format(TXT_TYPE_s_IS_STILL_USED_BY_FUNC_s, type->name.AddressOf(), func->GetName());
+			engine->WriteMessage("", 0, 0, asMSGTYPE_ERROR, msg.AddressOf());
 		}
+		else
+		{
+			for( asUINT p = 0; p < func->parameterTypes.GetLength(); p++ )
+			{
+				if( func->parameterTypes[p].GetObjectType() == type )
+				{
+					asCString msg;
+					// We can only use the function name here, because the types used by the function may have been deleted already
+					msg.Format(TXT_TYPE_s_IS_STILL_USED_BY_FUNC_s, type->name.AddressOf(), func->GetName());
+					engine->WriteMessage("", 0, 0, asMSGTYPE_ERROR, msg.AddressOf());
+					break;
+				}
+			}
+		}	
 	}
 
 	// TODO: Check also usage of the type in global variables 
@@ -207,43 +225,6 @@ void asCConfigGroup::ValidateNoUsage(asCScriptEngine *engine, asCObjectType *typ
 	// TODO: Check also usage of the type as members of classes
 
 	// TODO: Check also usage of the type as sub types in other types
-}
-#endif
-
-#ifdef AS_DEPRECATED
-// deprecated since 2011-10-04
-int asCConfigGroup::SetModuleAccess(const char *module, bool hasAccess)
-{
-	if( module == asALL_MODULES )
-	{
-		// Set default module access
-		defaultAccess = hasAccess;
-	}
-	else
-	{
-		asCString mod(module ? module : "");
-		asSMapNode<asCString,bool> *cursor = 0;
-		if( moduleAccess.MoveTo(&cursor, mod) )
-		{
-			moduleAccess.GetValue(cursor) = hasAccess;
-		}
-		else
-		{
-			moduleAccess.Insert(mod, hasAccess);
-		}
-	}
-
-	return 0;
-}
-
-bool asCConfigGroup::HasModuleAccess(const char *module)
-{
-	asCString mod(module ? module : "");
-	asSMapNode<asCString,bool> *cursor = 0;
-	if( moduleAccess.MoveTo(&cursor, mod) )
-		return moduleAccess.GetValue(cursor);
-	
-	return defaultAccess;
 }
 #endif
 

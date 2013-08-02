@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2011 Andreas Jonsson
+   Copyright (c) 2003-2013 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -42,8 +42,8 @@
 
 BEGIN_AS_NAMESPACE
 
-// TODO: optimize: The access to the arguments should be optimized so that code 
-//                 doesn't have to count the position of the argument with every call
+// TODO: runtime optimize: The access to the arguments should be optimized so that code 
+//                         doesn't have to count the position of the argument with every call
 
 // internal
 asCGeneric::asCGeneric(asCScriptEngine *engine, asCScriptFunction *sysFunction, void *currentObject, asDWORD *stackPointer)
@@ -69,30 +69,9 @@ asIScriptEngine *asCGeneric::GetEngine() const
 }
 
 // interface
-int asCGeneric::GetFunctionId() const
-{
-	return sysFunction->id;
-}
-
-#ifdef AS_DEPRECATED
-// deprecated since 2011-10-03
-// interface
-asIScriptFunction *asCGeneric::GetFunctionDescriptor() const
-{
-	return sysFunction;
-}
-#endif
-
-// interface
 asIScriptFunction *asCGeneric::GetFunction() const
 {
 	return sysFunction;
-}
-
-// interface
-void *asCGeneric::GetFunctionUserData() const
-{
-	return sysFunction->userData;
 }
 
 // interface
@@ -269,7 +248,7 @@ void *asCGeneric::GetArgAddress(asUINT arg)
 		offset += sysFunction->parameterTypes[n].GetSizeOnStackDWords();
 
 	// Get the value
-	return (void*)*(size_t*)(&stackPointer[offset]);
+	return (void*)*(asPWORD*)(&stackPointer[offset]);
 }
 
 // interface
@@ -314,10 +293,16 @@ void *asCGeneric::GetAddressOfArg(asUINT arg)
 }
 
 // interface
-int asCGeneric::GetArgTypeId(asUINT arg) const
+int asCGeneric::GetArgTypeId(asUINT arg, asDWORD *flags) const
 {
 	if( arg >= (unsigned)sysFunction->parameterTypes.GetLength() )
 		return 0;
+
+	if( flags )
+	{
+		*flags = sysFunction->inOutFlags[arg];
+		*flags |= sysFunction->parameterTypes[arg].IsReadOnly() ? asTM_CONST : 0;
+	}
 
 	asCDataType *dt = &sysFunction->parameterTypes[arg];
 	if( dt->GetTokenType() != ttQuestion )
@@ -474,16 +459,12 @@ int asCGeneric::SetReturnObject(void *obj)
 	}
 	else
 	{
-#ifndef AS_OLD
 		// If function returns object by value the memory is already allocated.
 		// Here we should just initialize that memory by calling the copy constructor
 		// or the default constructor followed by the assignment operator
-		void *mem = (void*)*(size_t*)&stackPointer[-AS_PTR_SIZE];
+		void *mem = (void*)*(asPWORD*)&stackPointer[-AS_PTR_SIZE];
 		engine->ConstructScriptObjectCopy(mem, obj, dt->GetObjectType());
 		return 0;
-#else
-		obj = engine->CreateScriptObjectCopy(obj, engine->GetTypeIdFromDataType(*dt));
-#endif
 	}
 
 	objectRegister = obj;
@@ -515,25 +496,12 @@ void *asCGeneric::GetAddressOfReturnLocation()
 
 	if( dt.IsObject() && !dt.IsReference() )
 	{
-#ifndef AS_OLD
 		if( sysFunction->DoesReturnOnStack() )
 		{
 			// The memory is already preallocated on the stack,
 			// and the pointer to the location is found before the first arg
-			return (void*)*(size_t*)&stackPointer[-AS_PTR_SIZE];
+			return (void*)*(asPWORD*)&stackPointer[-AS_PTR_SIZE];
 		}
-#else
-		if( dt.GetObjectType()->flags & asOBJ_VALUE )
-		{
-			// Allocate the necessary memory for this object, 
-			// but do not initialize it, as the caller will do that.
-			objectRegister = engine->CallAlloc(dt.GetObjectType());
-
-			// TODO: How will we know if the initialization was successful?
-
-			return objectRegister;
-		}
-#endif
 
 		// Reference types store the handle in the objectReference
 		return &objectRegister;
@@ -544,9 +512,9 @@ void *asCGeneric::GetAddressOfReturnLocation()
 }
 
 // interface
-int asCGeneric::GetReturnTypeId() const
+int asCGeneric::GetReturnTypeId(asDWORD *flags) const
 {
-	return sysFunction->GetReturnTypeId();
+	return sysFunction->GetReturnTypeId(flags);
 }
 
 END_AS_NAMESPACE

@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2011 Andreas Jonsson
+   Copyright (c) 2003-2013 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -144,7 +144,7 @@ bool asCDataType::IsNullHandle() const
 	return false;
 }
 
-asCString asCDataType::Format() const
+asCString asCDataType::Format(bool includeNamespace) const
 {
 	if( IsNullHandle() )
 		return "<null handle>";
@@ -154,13 +154,22 @@ asCString asCDataType::Format() const
 	if( isReadOnly )
 		str = "const ";
 
+	if( includeNamespace )
+	{
+		if( objectType )
+			str += objectType->nameSpace->name + "::";
+		else if( funcDef )
+			str += funcDef->nameSpace->name + "::";
+	}
+
 	if( tokenType != ttIdentifier )
 	{
 		str += asCTokenizer::GetDefinition(tokenType);
 	}
 	else if( IsArrayType() && objectType && !objectType->engine->ep.expandDefaultArrayToTemplate )
 	{
-		str += objectType->templateSubType.Format();
+		asASSERT( objectType->templateSubTypes.GetLength() == 1 );
+		str += objectType->templateSubTypes[0].Format(includeNamespace);
 		str += "[]";
 	}
 	else if( funcDef )
@@ -173,7 +182,12 @@ asCString asCDataType::Format() const
 		if( objectType->flags & asOBJ_TEMPLATE )
 		{
 			str += "<";
-			str += objectType->templateSubType.Format();
+			for( asUINT subtypeIndex = 0; subtypeIndex < objectType->templateSubTypes.GetLength(); subtypeIndex++ )
+			{
+				str += objectType->templateSubTypes[subtypeIndex].Format(includeNamespace);
+				if( subtypeIndex != objectType->templateSubTypes.GetLength()-1 )
+					str += ",";
+			}
 			str += ">";
 		}
 	}
@@ -194,7 +208,6 @@ asCString asCDataType::Format() const
 
 	return str;
 }
-
 
 asCDataType &asCDataType::operator =(const asCDataType &dt)
 {
@@ -248,7 +261,9 @@ int asCDataType::MakeArray(asCScriptEngine *engine)
 
 	bool tmpIsReadOnly = isReadOnly;
 	isReadOnly = false;
-	asCObjectType *at = engine->GetTemplateInstanceType(engine->defaultArrayObjectType, *this);
+	asCArray<asCDataType> subTypes;
+	subTypes.PushLast(*this);
+	asCObjectType *at = engine->GetTemplateInstanceType(engine->defaultArrayObjectType, subTypes);
 	isReadOnly = tmpIsReadOnly;
 
 	isObjectHandle = false;
@@ -372,10 +387,10 @@ bool asCDataType::IsScriptObject() const
 	return false;
 }
 
-asCDataType asCDataType::GetSubType() const
+asCDataType asCDataType::GetSubType(asUINT subtypeIndex) const
 {
 	asASSERT(objectType);
-	return objectType->templateSubType;
+	return objectType->templateSubTypes[subtypeIndex];
 }
 
 
@@ -424,25 +439,6 @@ bool asCDataType::IsEqualExceptConst(const asCDataType &dt) const
 	return true;
 }
 
-bool asCDataType::IsEqualExceptInterfaceType(const asCDataType &dt) const
-{
-	if( tokenType != dt.tokenType )           return false;
-	if( isReference != dt.isReference )       return false;
-	if( isObjectHandle != dt.isObjectHandle ) return false;
-	if( isReadOnly != dt.isReadOnly )         return false;
-	if( isConstHandle != dt.isConstHandle )   return false;
-
-	if( objectType != dt.objectType )
-	{
-		if( !objectType || !dt.objectType ) return false;
-		if( !objectType->IsInterface() || !dt.objectType->IsInterface() ) return false;
-	}
-
-	if( funcDef != dt.funcDef ) return false;
-
-	return true;
-}
-
 bool asCDataType::IsPrimitive() const
 {
 	//	Enumerations are primitives
@@ -460,21 +456,6 @@ bool asCDataType::IsPrimitive() const
 	return true;
 }
 
-bool asCDataType::IsSamePrimitiveBaseType(const asCDataType &dt) const
-{
-	if( !IsPrimitive() || !dt.IsPrimitive() ) return false;
-	
-	if( IsIntegerType()  && dt.IsIntegerType()  ) return true;
-	if( IsUnsignedType() && dt.IsUnsignedType() ) return true;
-	if( IsFloatType()    && dt.IsFloatType()    ) return true;
-	if( IsDoubleType()   && dt.IsDoubleType()   ) return true;
-	if( IsBooleanType()  && dt.IsBooleanType()  ) return true;
-	if( IsFloatType()    && dt.IsDoubleType()   ) return true;
-	if( IsDoubleType()   && dt.IsFloatType()    ) return true;
-
-	return false;
-}
-
 bool asCDataType::IsIntegerType() const
 {
 	if( tokenType == ttInt ||
@@ -483,7 +464,8 @@ bool asCDataType::IsIntegerType() const
 		tokenType == ttInt64 )
 		return true;
 
-	return false;
+	// Enums are also integer types
+	return IsEnumType();
 }
 
 bool asCDataType::IsUnsignedType() const
@@ -569,6 +551,10 @@ int asCDataType::GetSizeInMemoryDWords() const
 	if( s == 0 ) return 0;
 	if( s <= 4 ) return 1;
 	
+	// Pad the size to 4 bytes
+	if( s & 0x3 )
+		s += 4 - (s & 0x3);
+
 	return s/4;
 }
 

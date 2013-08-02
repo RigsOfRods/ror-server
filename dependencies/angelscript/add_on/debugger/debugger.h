@@ -1,9 +1,15 @@
 #ifndef DEBUGGER_H
 #define DEBUGGER_H
 
+#ifndef ANGELSCRIPT_H 
+// Avoid having to inform include path if header is already include before
 #include <angelscript.h>
+#endif
+
 #include <string>
 #include <vector>
+
+BEGIN_AS_NAMESPACE
 
 class CDebugger
 {
@@ -57,5 +63,7 @@ protected:
 	};
 	std::vector<BreakPoint> breakPoints;
 };
+
+END_AS_NAMESPACE
 
 #endif

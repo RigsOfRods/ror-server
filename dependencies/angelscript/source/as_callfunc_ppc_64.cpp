@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2011 Andreas Jonsson
+   Copyright (c) 2003-2012 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied
    warranty. In no event will the authors be held liable for any
@@ -552,7 +552,7 @@ asQWORD CallSystemFunctionNative(asCContext *context, asCScriptFunction *descr, 
 	asBYTE argsType[AS_PPC_MAX_ARGS + 1 + 1 + 1];
 	memset( argsType, 0, sizeof(argsType));
 
-	asCScriptEngine *engine = context->engine;
+	asCScriptEngine *engine = context->m_engine;
 	asSSystemFunctionInterface *sysFunc = descr->sysFuncIntf;
 
 	int callConv = sysFunc->callConv;
@@ -710,7 +710,6 @@ asQWORD CallSystemFunctionNative(asCContext *context, asCScriptFunction *descr, 
 	}
 	
 	// one last verification to make sure things are how we expect
-	context->isCallingSystemFunction = true;
 	switch( callConv )
 	{
 	case ICC_CDECL:
@@ -740,7 +739,6 @@ asQWORD CallSystemFunctionNative(asCContext *context, asCScriptFunction *descr, 
 	default:
 		context->SetInternalException(TXT_INVALID_CALLING_CONVENTION);
 	}
-	context->isCallingSystemFunction = false;
 
 	if( sysFunc->hostReturnFloat )
 	{

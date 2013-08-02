@@ -947,7 +947,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 					instance->authresolver->sendUserEvent(instance->clients[pos]->user.usertoken, std::string("newvehicle"), std::string(reg->name), std::string());
 
 				// Notify the user about the vehicle limit
-				if( (instance->clients[pos]->streams.size() >= Config::getMaxVehicles()+NON_VEHICLE_STREAMS-3) && (instance->clients[pos]->streams.size() >= NON_VEHICLE_STREAMS) )
+				if( (instance->clients[pos]->streams.size() >= Config::getMaxVehicles()+NON_VEHICLE_STREAMS-3) && (instance->clients[pos]->streams.size() > NON_VEHICLE_STREAMS) )
 				{
 					// we start warning the user as soon as he has only 3 vehicles left before he will get kicked (that's why we do minus three in the 'if' statement above).
 					char sayMsg[128] = "";

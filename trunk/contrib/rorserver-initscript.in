@@ -62,7 +62,7 @@ case "$1" in
 			if [[ "${CRASHREPORTS}" == "OFF" ]]
 			then
 				# normal startup, no gdb
-				start-stop-daemon --start --background --user ${USERNAME} --name ${NAME}-${SRVNAME} --exec ${DAEMON} --make-pidfile --pidfile ${PIDFILE}  -- -c ${CONFIG} -resdir ${RESDIR} -logfilename ${LOGFILE} -inet
+				start-stop-daemon --start --background --user ${USERNAME} --chuid ${USERNAME} --name ${NAME}-${SRVNAME} --exec ${DAEMON} --make-pidfile --pidfile ${PIDFILE}  -- -c ${CONFIG} -resdir ${RESDIR} -logfilename ${LOGFILE} -inet
 				log_end_msg $?
 			else
 				# gdb startup

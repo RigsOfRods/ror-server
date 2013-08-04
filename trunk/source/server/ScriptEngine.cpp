@@ -19,6 +19,7 @@
 #include "utils.h"
 
 #include <cstdio>
+#include <stdlib.h>
 
 
 using namespace std;
@@ -1147,7 +1148,7 @@ std::string  ServerScript::get_voipServ()   { return Config::getVoIP();       }
 
 int ServerScript::rangeRandomInt(int from, int to)
 {
-	return from + (to-from) * ((float)rand()/(float)RAND_MAX);
+	return (int)(from + (to-from) * ((float)rand()/(float)RAND_MAX));
 }
 
 

@@ -154,7 +154,8 @@ private:
     unsigned int fuid;      //!< next userid
     std::queue<client_t*> killqueue; //!< holds pointer for client deletion
     std::deque <chat_save_t> chathistory;
-
+	int botCount;           //!< Amount of registered bots on the server.
+	
     int startTime;
     unsigned short getPosfromUid(unsigned int uid);
 

@@ -142,27 +142,29 @@ void Sequencer::cleanUp()
 	}
 	Logger::log(LOG_INFO,"all clients disconnected. exiting.");
 
-	instance->notifier->unregisterServer();
 	if(instance->notifier)
+	{
+		instance->notifier->unregisterServer();
 		delete instance->notifier;
-	instance->notifier = 0;
+		instance->notifier = 0;
+	}
 
 #ifdef WITH_ANGELSCRIPT
 	if(instance->script)
+	{
 		delete instance->script;
+		instance->script = 0;
+	}
 #endif //WITH_ANGELSCRIPT
 
 	if(instance->authresolver)
 		delete instance->authresolver;
 	
-	delete instance->listener;
-
-#ifndef WIN32
-	sleep(2);
-#else
-	Sleep(2000);
-#endif
-
+	if(instance->listener)
+	{
+		delete instance->listener;
+		instance->listener = 0;
+	}
 	
 	pthread_cancel(instance->killerthread);
 	pthread_detach(instance->killerthread);

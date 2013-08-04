@@ -85,8 +85,6 @@ void handler(int signalnum)
 
 	if(terminate)
 	{
-		Sequencer::cleanUp();
-
 		if(Config::getServerMode() == SERVER_LAN)
 		{
 			Logger::log(LOG_ERROR,"closing server ... ");

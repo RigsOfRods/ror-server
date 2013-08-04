@@ -206,6 +206,7 @@ public:
 	std::string  get_website();
 	std::string  get_ircServ();
 	std::string  get_voipServ();
+	int rangeRandomInt(int from, int to);
 
 	void addRef() {};
 	void releaseRef() {};

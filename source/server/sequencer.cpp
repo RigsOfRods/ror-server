@@ -73,7 +73,7 @@ unsigned int Sequencer::connCount = 0;
 
 
 Sequencer::Sequencer() :  listener( NULL ), notifier( NULL ), authresolver(NULL),
-fuid( 1 ), startTime ( Messaging::getTime() )
+fuid( 1 ), startTime ( Messaging::getTime() ), botCount( 0 )
 {
     STACKLOG;
 }
@@ -247,7 +247,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 
 	// check if server is full
 	Logger::log(LOG_DEBUG,"searching free slot for new client...");
-	if( instance->clients.size() >= Config::getMaxClients() )
+	if( instance->clients.size() >= (Config::getMaxClients() + instance->botCount) )
 	{
 		Logger::log(LOG_WARN,"join request from '%s' on full server: rejecting!", UTF8BuffertoString(user.username).c_str());
 		// set a low time out because we don't want to cause a back up of
@@ -280,7 +280,10 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 
 		// we should send him a message about the nickchange later...
 	}
-
+	
+	// Increase the botcount if this is a bot
+	if((user.authstatus & AUTH_BOT)>0)
+		instance->botCount++;
 
 	//okay, create the client slot
 	client_t* to_add = new client_t;
@@ -360,11 +363,15 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 
 	sprintf(hearbeatdata, "%s\n" \
 	                      "version5\n" \
-	                      "%i\n", challenge, clientnum);
+	                      "%i\n", challenge, clientnum - instance->botCount);
 	if(clientnum > 0)
 	{
+		int fakeslot = 0;
 		for( unsigned int i = 0; i < instance->clients.size(); i++)
 		{
+			// ignore bots
+			if(instance->clients[i]->user.authstatus & AUTH_BOT) continue;
+
 			char authst[10] = "";
 			if(instance->clients[i]->user.authstatus & AUTH_ADMIN) strcat(authst, "A");
 			if(instance->clients[i]->user.authstatus & AUTH_MOD) strcat(authst, "M");
@@ -373,7 +380,7 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 
 			char playerdata[1024] = "";
 			sprintf(playerdata, "%d;%s;%s;%s;%d\n",
-					i,
+					fakeslot++,
 					UTF8BuffertoString(instance->clients[i]->user.username).c_str(),
 					instance->clients[i]->sock->get_peerAddr(&error).c_str(),
 					authst,
@@ -473,6 +480,10 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError, bool doS
 	if(instance->script && doScriptCallback)
 		instance->script->playerDeleted(instance->clients[pos]->user.uniqueid, isError?1:0);
 #endif //WITH_ANGELSCRIPT
+
+	// Update the botCount value
+	if((instance->clients[pos]->user.authstatus & AUTH_BOT)>0)
+		instance->botCount--;
 
 	//this routine is a potential trouble maker as it can be called from many thread contexts
 	//so we use a killer thread

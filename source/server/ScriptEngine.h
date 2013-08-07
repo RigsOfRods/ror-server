@@ -186,6 +186,7 @@ public:
 	void setUserColourNum(int uid, int num);
 	std::string getUserToken(int uid);
 	std::string getUserVersion(int uid);
+	std::string getUserIPAddress(int uid);
 	int getUserPosition(int uid, Vector3 &v);
 	int getNumClients();
 

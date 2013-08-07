@@ -17,6 +17,7 @@
 #include "ScriptFileSafe.h" // (edited) angelscript addon
 
 #include "utils.h"
+#include "SocketW.h"
 
 #include <cstdio>
 #include <stdlib.h>
@@ -377,6 +378,7 @@ void ScriptEngine::init()
 	result = engine->RegisterObjectMethod("ServerScriptClass", "void broadcastUserInfo(int)", asMETHOD(ServerScript,broadcastUserInfo), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserToken(int uid)", asMETHOD(ServerScript,getUserToken), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserVersion(int uid)", asMETHOD(ServerScript,getUserVersion), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserIPAddress(int uid)", asMETHOD(ServerScript,getUserIPAddress), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getServerTerrain()", asMETHOD(ServerScript,getServerTerrain), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "int getTime()", asMETHOD(ServerScript,getTime), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "int getStartTime()", asMETHOD(ServerScript,getStartTime), asCALL_THISCALL); assert_net(result>=0);
@@ -1057,6 +1059,14 @@ std::string ServerScript::getUserVersion(int uid)
 	client_t *c = seq->getClient(uid);
 	if(!c) return 0;
 	return std::string(c->user.clientversion, 25);
+}
+
+std::string ServerScript::getUserIPAddress(int uid)
+{
+	client_t *c = seq->getClient(uid);
+	if(!c) return std::string("");
+	SWBaseSocket::SWBaseError error;
+	return c->sock->get_peerAddr(&error);
 }
 
 std::string ServerScript::getServerTerrain()

@@ -350,6 +350,26 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 	Logger::log(LOG_VERBOSE,"Sequencer: New client added");
 }
 
+// assuming client lock
+void Sequencer::broadcastUserInfo(int uid)
+{
+	STACKLOG;
+	Sequencer* instance = Instance();
+
+	unsigned short pos = instance->getPosfromUid(uid);
+	if( UID_NOT_FOUND == pos ) return;
+
+	// notify everyone of the client
+	// but blank out the user token and GUID
+	user_info_t info_for_others = instance->clients[pos]->user;
+	memset(info_for_others.usertoken, 0, 40);
+	memset(info_for_others.clientGUID, 0, 40);
+	for(unsigned int i = 0; i < instance->clients.size(); i++)
+	{
+		instance->clients[i]->broadcaster->queueMessage(MSG2_USER_INFO, instance->clients[pos]->user.uniqueid, 0, sizeof(user_info_t), (char*)&info_for_others);
+	}
+}
+	
 //this is called from the hearbeat notifier thread
 int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 {

@@ -370,9 +370,13 @@ void ScriptEngine::init()
 	result = engine->RegisterObjectMethod("ServerScriptClass", "int cmd(int uid, string cmd)", asMETHOD(ServerScript,sendGameCommand), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "int getNumClients()", asMETHOD(ServerScript,getNumClients), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserName(int uid)", asMETHOD(ServerScript,getUserName), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "void setUserName(int uid, const string &in)", asMETHOD(ServerScript,setUserName), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserAuth(int uid)", asMETHOD(ServerScript,getUserAuth), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "int getUserAuthRaw(int uid)", asMETHOD(ServerScript,getUserAuthRaw), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "void setUserAuthRaw(int uid, int)", asMETHOD(ServerScript,setUserAuthRaw), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "int getUserColourNum(int uid)", asMETHOD(ServerScript,getUserColourNum), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "void setUserColourNum(int uid, int)", asMETHOD(ServerScript,setUserColourNum), asCALL_THISCALL); assert_net(result>=0);
+	result = engine->RegisterObjectMethod("ServerScriptClass", "void broadcastUserInfo(int)", asMETHOD(ServerScript,broadcastUserInfo), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserToken(int uid)", asMETHOD(ServerScript,getUserToken), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getUserVersion(int uid)", asMETHOD(ServerScript,getUserVersion), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string getServerTerrain()", asMETHOD(ServerScript,getServerTerrain), asCALL_THISCALL); assert_net(result>=0);
@@ -1000,6 +1004,12 @@ std::string ServerScript::getUserName(int uid)
 	return narrow(tryConvertUTF(c->user.username).asWStr());
 }
 
+void ServerScript::setUserName(int uid, const string& username)
+{
+	client_t *c = seq->getClient(uid);
+	if(!c) return;
+	strncpy(c->user.username, UTFString(username).asUTF8_c_str(), MAX_USERNAME_LEN);
+}
 
 std::string ServerScript::getUserAuth(int uid)
 {
@@ -1020,11 +1030,25 @@ int ServerScript::getUserAuthRaw(int uid)
 	return c->user.authstatus;
 }
 
+void ServerScript::setUserAuthRaw(int uid, int authmode)
+{
+	client_t *c = seq->getClient(uid);
+	if(!c) return;
+	c->user.authstatus = authmode & ~(AUTH_RANKED|AUTH_BANNED);
+}
+
 int ServerScript::getUserColourNum(int uid)
 {
 	client_t *c = seq->getClient(uid);
 	if(!c) return 0;
 	return c->user.colournum;
+}
+
+void ServerScript::setUserColourNum(int uid, int num)
+{
+	client_t *c = seq->getClient(uid);
+	if(!c) return;
+	c->user.colournum = num;
 }
 
 std::string ServerScript::getUserToken(int uid)
@@ -1151,6 +1175,10 @@ int ServerScript::rangeRandomInt(int from, int to)
 	return (int)(from + (to-from) * ((float)rand()/(float)RAND_MAX));
 }
 
+void ServerScript::broadcastUserInfo(int uid)
+{
+	seq->broadcastUserInfo(uid);
+}
 
 
 #endif //WITH_ANGELSCRIPT

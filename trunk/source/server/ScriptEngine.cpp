@@ -47,8 +47,6 @@ std::string stream_register_get_name(stream_register_t* reg)
 {
 	return std::string(reg->name);
 };
-void stream_register_addRef(stream_register_t*) {};
-void stream_register_releaseRef(stream_register_t*) {};
 
 void *s_sethreadstart(void* se)
 {
@@ -361,7 +359,7 @@ void ScriptEngine::init()
 	Logger::log(LOG_INFO,"ScriptEngine: Registration of libs done, now custom things");
 
 	// Register ServerScript class
-	result = engine->RegisterObjectType("ServerScriptClass", sizeof(ServerScript), asOBJ_REF); assert_net(result>=0);
+	result = engine->RegisterObjectType("ServerScriptClass", sizeof(ServerScript), asOBJ_REF | asOBJ_NOCOUNT); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "void log(const string &in)", asMETHOD(ServerScript,log), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "void say(const string &in, int uid, int type)", asMETHOD(ServerScript,say), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "void kick(int kuid, const string &in)", asMETHOD(ServerScript,kick), asCALL_THISCALL); assert_net(result>=0);
@@ -398,20 +396,16 @@ void ScriptEngine::init()
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string get_ircServ()", asMETHOD(ServerScript,get_ircServ), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "string get_voipServ()", asMETHOD(ServerScript,get_voipServ), asCALL_THISCALL); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("ServerScriptClass", "int rangeRandomInt(int, int)", asMETHOD(ServerScript,rangeRandomInt), asCALL_THISCALL); assert_net(result>=0);
-	result = engine->RegisterObjectBehaviour("ServerScriptClass", asBEHAVE_ADDREF, "void f()",asMETHOD(ServerScript,addRef), asCALL_THISCALL); assert_net(result>=0);
-	result = engine->RegisterObjectBehaviour("ServerScriptClass", asBEHAVE_RELEASE, "void f()",asMETHOD(ServerScript,releaseRef), asCALL_THISCALL); assert_net(result>=0);
 	ServerScript *serverscript = new ServerScript(this, seq);
 	result = engine->RegisterGlobalProperty("ServerScriptClass server", serverscript); assert_net(result>=0);
 	
 	// Register stream_register_t class
-	result = engine->RegisterObjectType("stream_register_t", sizeof(stream_register_t), asOBJ_REF); assert_net(result>=0);
+	result = engine->RegisterObjectType("stream_register_t", sizeof(stream_register_t), asOBJ_REF | asOBJ_NOCOUNT); assert_net(result>=0);
 	result = engine->RegisterObjectMethod("stream_register_t", "string getName()", asFUNCTION(stream_register_get_name), asCALL_CDECL_OBJFIRST); assert_net(result>=0); // (No property accessor on purpose)
 	result = engine-> RegisterObjectProperty("stream_register_t", "int type", offsetof(stream_register_t, type)); assert_net(result>=0);
 	result = engine-> RegisterObjectProperty("stream_register_t", "int status", offsetof(stream_register_t, status)); assert_net(result>=0);
 	result = engine-> RegisterObjectProperty("stream_register_t", "int origin_sourceid", offsetof(stream_register_t, origin_sourceid)); assert_net(result>=0);
 	result = engine-> RegisterObjectProperty("stream_register_t", "int origin_streamid", offsetof(stream_register_t, origin_streamid)); assert_net(result>=0);
-	result = engine->RegisterObjectBehaviour("stream_register_t", asBEHAVE_ADDREF, "void f()",  asFUNCTION(stream_register_addRef),     asCALL_CDECL_OBJFIRST); assert_net(result>=0);
-	result = engine->RegisterObjectBehaviour("stream_register_t", asBEHAVE_RELEASE, "void f()", asFUNCTION(stream_register_releaseRef), asCALL_CDECL_OBJFIRST); assert_net(result>=0);
 
 	
 	// Register ServerType enum for the server.serverMode attribute

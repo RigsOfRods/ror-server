@@ -178,9 +178,12 @@ public:
 	int sendGameCommand(int uid, std::string cmd);
 	
 	std::string getUserName(int uid);
+	void setUserName(int uid, const std::string& username);
 	std::string getUserAuth(int uid);
 	int getUserAuthRaw(int uid);
+	void setUserAuthRaw(int uid, int authmode);
 	int getUserColourNum(int uid);
+	void setUserColourNum(int uid, int num);
 	std::string getUserToken(int uid);
 	std::string getUserVersion(int uid);
 	int getUserPosition(int uid, Vector3 &v);
@@ -207,6 +210,7 @@ public:
 	std::string  get_ircServ();
 	std::string  get_voipServ();
 	int rangeRandomInt(int from, int to);
+	void broadcastUserInfo(int uid);
 
 	void addRef() {};
 	void releaseRef() {};

@@ -220,6 +220,7 @@ public:
 
 	static std::vector<client_t> getClients();
 	static int getStartTime();
+	void broadcastUserInfo(int uid);
 
     static std::deque <chat_save_t> getChatHistory();
 

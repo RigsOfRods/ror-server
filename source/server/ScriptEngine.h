@@ -211,9 +211,6 @@ public:
 	std::string  get_voipServ();
 	int rangeRandomInt(int from, int to);
 	void broadcastUserInfo(int uid);
-
-	void addRef() {};
-	void releaseRef() {};
 };
 
 #endif //SCRIPTENGINE_H__

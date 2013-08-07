@@ -335,6 +335,12 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 		Sequencer::disconnect(instance->clients[npos]->user.uniqueid, "error sending welcome message" );
 		return;
 	}
+	
+	// Do script callback
+#ifdef WITH_ANGELSCRIPT
+	if(instance->script)
+		instance->script->playerAdded(instance->clients[npos]->user.uniqueid);
+#endif //WITH_ANGELSCRIPT
 
 	// notify everyone of the new client
 	// but blank out the user token and GUID

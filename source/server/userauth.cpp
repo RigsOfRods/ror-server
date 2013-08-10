@@ -229,9 +229,9 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
 
 		if(resultNick == L"error" || resultNick == L"reserved" || resultNick == L"notranked")
 		{
-			user_nick = widen(getNewPlayernameByID(clientid));
-			Logger::log(LOG_DEBUG, UTFString("got new random name for player: ") + user_nick);
-			return AUTH_NONE;
+			resultNick = widen(getNewPlayernameByID(clientid));
+			Logger::log(LOG_DEBUG, UTFString("got new random name for player: ") + resultNick);
+			authlevel = AUTH_NONE;
 		}
 
 		// returned name valid, use it

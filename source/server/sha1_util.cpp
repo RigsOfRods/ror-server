@@ -89,16 +89,16 @@ int getFileHash(char *filename, char *hash)
 		// obtain file size:
 		fseek (cfd , 0 , SEEK_END);
 		unsigned long lSize = ftell (cfd);
-		if( lSize <= 0 ) return 1;
+		if( lSize <= 0 ) { fclose(cfd); return 1; }
 		rewind (cfd);
 
 		// allocate memory to contain the whole file:
 		char *buffer = (char*) malloc (sizeof(char)*(lSize+1));
-		if (buffer == NULL) return -3;
+		if (buffer == NULL) { fclose(cfd); return -3; }
 		memset(buffer, 0, lSize);
 		// copy the file into the buffer:
 		size_t result = fread (buffer,1,lSize,cfd);
-		if (result != lSize) return -2;
+		if (result != lSize) { free(buffer); fclose(cfd); return -2; }
 		// terminate
 		fclose (cfd);
 		buffer[lSize]=0;
@@ -107,10 +107,11 @@ int getFileHash(char *filename, char *hash)
 		memset(sha1result, 0, 250);
 
 		if(lSize<300)
-			return -4;
+			{ free(buffer); return -4; }
 
 		if(!SHA1FromString(sha1result, buffer))
 		{
+			free(buffer);
 			return -1;
 		}
 

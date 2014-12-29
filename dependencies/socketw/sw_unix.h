@@ -15,7 +15,7 @@
 
 #ifndef sw_unix_H
 #define sw_unix_H
-#ifndef WIN32
+#ifndef __WIN32__
 
 #include "sw_internal.h"
 #include "sw_base.h"
@@ -37,5 +37,5 @@ protected:
 	virtual SWBaseSocket* create(int socketdescriptor, SWBaseError *error);
 };
 
-#endif /* WIN32 */
+#endif /* __WIN32__ */
 #endif /* sw_unix_H */

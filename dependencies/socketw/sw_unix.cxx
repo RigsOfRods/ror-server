@@ -16,13 +16,13 @@
 #include "sw_unix.h"
 #include <fcntl.h>
 
+using namespace std;
+
 //====================================================================
 //== SWUnixSocket
 //== Unix streaming sockets
 //====================================================================
-#ifndef WIN32
-
-using namespace std;
+#ifndef __WIN32__
 
 SWUnixSocket::SWUnixSocket(block_type block)
 {	
@@ -96,4 +96,4 @@ bool SWUnixSocket::connect(string path, SWBaseError *error)
 	return true;
 }
 
-#endif /* WIN32 */
+#endif /* __WIN32__ */

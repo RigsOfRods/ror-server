@@ -20,7 +20,7 @@
 
 #include "sw_config.h"
 
-#ifndef WIN32
+#ifndef __WIN32__
   #include <sys/types.h> 
   #include <sys/socket.h> 
   #include <netinet/in.h>

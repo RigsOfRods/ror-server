@@ -1,2 +1,0 @@
-0.5.0
-http://sourceforge.net/projects/jsoncpp/files/jsoncpp/0.5.0/jsoncpp-src-0.5.0.tar.gz/download

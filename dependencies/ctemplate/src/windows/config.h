@@ -150,6 +150,10 @@
 /* define if first argument to InterlockedExchange is just LONG */
 #undef INTERLOCKED_EXCHANGE_NONVOLATILE
 
+/* Define to the sub-directory in which libtool stores uninstalled libraries.
+   */
+#undef LT_OBJDIR
+
 /* Name of package */
 #undef PACKAGE
 
@@ -160,7 +164,7 @@
 #undef PACKAGE_NAME
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING  "ctemplate 0.91"
+#define PACKAGE_STRING  "ctemplate 1.1"
 
 /* Define to the one symbol short name of this package. */
 #undef PACKAGE_TARNAME
@@ -213,6 +217,6 @@
 #endif
 
 // TODO(csilvers): include windows/port.h in every relevant source file instead?
-#include "port.h"
+#include "windows/port.h"
 
 #endif  /* GOOGLE_CTEMPLATE_WINDOWS_CONFIG_H_ */

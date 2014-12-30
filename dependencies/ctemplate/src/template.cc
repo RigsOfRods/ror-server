@@ -28,47 +28,45 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // ---
-// Author: Frank H. Jernigan
-//
 
-#include "config.h"
-
+#include <config.h>
 #include "base/mutex.h"     // This must go first so we get _XOPEN_SOURCE
+#include <ctemplate/template.h>
+
 #include <assert.h>
 #include <errno.h>
-#include <ctype.h>
 #include <stdio.h>          // for fwrite, fflush
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
-#include <ctype.h>          // for isspace()
-#include <sys/stat.h>
 #ifdef HAVE_UNISTD_H
-#include <unistd.h>         // for stat() and open() and getcwd()
-#endif
-#include <string.h>
+# include <unistd.h>
+#endif         // for stat() and open() and getcwd()
 #include <algorithm>        // for binary_search()
-#include <sstream>          // for ostringstream
-#include <iostream>         // for logging
-#include <iomanip>          // for indenting in Dump()
+#include <functional>       // for binary_function()
+#include HASH_MAP_H
 #include <iterator>
 #include <list>
 #include <string>
-#include <vector>
 #include <utility>          // for pair
-#include HASH_MAP_H         // defined in config.h
+#include <vector>
+
+#include "base/thread_annotations.h"
 #include "htmlparser/htmlparser_cpp.h"
-#include "template_modifiers_internal.h"
 #include <ctemplate/per_expand_data.h>
-#include <ctemplate/template.h>
 #include <ctemplate/template_annotator.h>
 #include <ctemplate/template_cache.h>
 #include <ctemplate/template_dictionary.h>
 #include <ctemplate/template_dictionary_interface.h>   // also gets kIndent
 #include <ctemplate/template_modifiers.h>
+#include "template_modifiers_internal.h"
 #include <ctemplate/template_pathops.h>
 #include <ctemplate/template_string.h>
+#include "base/fileutil.h"
+#include <ctype.h>
+#include <iostream>
+#include <sstream>          // for ostringstream
 
 #ifndef PATH_MAX
 #ifdef MAXPATHLEN
@@ -78,7 +76,29 @@
 #endif
 #endif
 
-_START_GOOGLE_NAMESPACE_
+#define arraysize(x)  ( sizeof(x) / sizeof(*(x)) )
+
+#define AS_STR1(x)  #x
+#define AS_STR(x)   AS_STR1(x)
+
+// A very simple logging system
+#undef LOG   // a non-working version is provided in base/util.h; redefine it
+static int kVerbosity = 0;   // you can change this by hand to get vlogs
+#define LOG(level)   std::cerr << #level ": "
+#define VLOG(level)  if (kVerbosity >= level)  LOG(level)
+
+// TODO(csilvers): use our own tables for these?
+static bool ascii_isalnum(char c) {
+  return ((c & 0x80) == 0) && isalnum(c);  // 7-bit ascii, and an alnum
+}
+
+static bool ascii_isspace(char c) {
+  return ((c & 0x80) == 0) && isspace(c);  // 7-bit ascii, and a space
+}
+
+#define strsuffix(str, suffix)                                          \
+   ( strlen(str) > (sizeof("" suffix "") - 1) &&                            \
+     strcmp(str + strlen(str) - (sizeof(suffix) - 1), suffix) == 0 )
 
 using std::endl;
 using std::string;
@@ -93,9 +113,10 @@ using HASH_NAMESPACE::unordered_map;
 #else
 using HASH_NAMESPACE::hash_map;
 #endif
-using HTMLPARSER_NAMESPACE::HtmlParser;
 
-#define arraysize(x)  ( sizeof(x) / sizeof(*(x)) )
+_START_GOOGLE_NAMESPACE_
+
+using HTMLPARSER_NAMESPACE::HtmlParser;
 
 TemplateId GlobalIdForSTS_INIT(const TemplateString& s) {
   return s.GetGlobalId();   // normally this method is private
@@ -114,12 +135,12 @@ namespace {
 // deal with that complication, we just go with a global mutex.  Since
 // ReloadIfChanged is deprecated, in most applications all the mutex
 // uses will be as read-locks, so this shouldn't cause much contention.
-static Mutex g_template_mutex(Mutex::LINKER_INITIALIZED);
+static Mutex g_template_mutex(base::LINKER_INITIALIZED);
 
 // Mutex for protecting vars_seen in WriteOneHeaderEntry, below.
 // g_template_mutex and g_header_mutex are never held at the same time.
 // TODO(csilvers): assert this in the codebase.
-static Mutex g_header_mutex(Mutex::LINKER_INITIALIZED);
+static Mutex g_header_mutex(base::LINKER_INITIALIZED);
 
 // It's not great to have a global variable with a constructor, but
 // it's safe in this case: the constructor is trivial and does not
@@ -151,24 +172,19 @@ class HashedTemplateString : public TemplateString {
   }
 };
 
-// A very simple logging system
-static int kVerbosity = 0;   // you can change this by hand to get vlogs
-#define LOG(level)   std::cerr << #level ": "
-#define VLOG(level)  if (kVerbosity >= level)  std::cerr << "V" #level ": "
+#define LOG_TEMPLATE_NAME(severity, template)                           \
+  LOG(severity) << "Template " << template->template_file() << ": "
 
-#define LOG_TEMPLATE_NAME(severity, template) \
-   LOG(severity) << "Template " << template->template_file() << ": "
-
-#define LOG_AUTO_ESCAPE_ERROR(error_msg, my_template) do { \
-      LOG_TEMPLATE_NAME(ERROR, my_template); \
-      LOG(ERROR) << "Auto-Escape: " << error_msg << endl; \
-} while (0)
+#define LOG_AUTO_ESCAPE_ERROR(error_msg, my_template) do {      \
+    LOG_TEMPLATE_NAME(ERROR, my_template);                      \
+    LOG(ERROR) << "Auto-Escape: " << error_msg << endl;         \
+  } while (0)
 
 // We are in auto-escape mode.
 #define AUTO_ESCAPE_MODE(context) ((context) != TC_MANUAL)
 
 // Auto-Escape contexts which utilize the HTML Parser.
-#define AUTO_ESCAPE_PARSING_CONTEXT(context) \
+#define AUTO_ESCAPE_PARSING_CONTEXT(context)                            \
   ((context) == TC_HTML || (context) == TC_JS || (context) == TC_CSS)
 
 // ----------------------------------------------------------------------
@@ -380,7 +396,7 @@ PragmaMarker::PragmaMarker(const char* token_start, const char* token_end,
       if (!error.empty())  // Failed to parse attribute value.
         break;
       names_and_values_.push_back(pair<const string, const string>(
-                                      attribute_name, attribute_value));
+          attribute_name, attribute_value));
     }
   }
   if (error.empty())   // Success
@@ -436,18 +452,19 @@ static const char *memmatch(const char *haystack, size_t haystack_len,
 // we ignore it and just rely on the LOG(WARNING) in the logs.
 static bool FilenameValidForContext(const string& filename,
                                     TemplateContext context) {
-  // TODO(jad): Improve by also checking for "word" boundaries.
-  if ( filename.find("css") != string::npos ||
-       filename.find("stylesheet") != string::npos ||
-       filename.find("style") != string::npos) {
+  string stripped_filename = Basename(filename);
+
+  if (GOOGLE_NAMESPACE::ContainsFullWord(stripped_filename, "css") ||
+      GOOGLE_NAMESPACE::ContainsFullWord(stripped_filename, "stylesheet") ||
+      GOOGLE_NAMESPACE::ContainsFullWord(stripped_filename, "style")) {
     if (context != TC_CSS) {
       LOG(WARNING) << "Template filename " << filename
                    << " indicates CSS but given TemplateContext"
                    << " was not TC_CSS." << endl;
       return false;
     }
-  } else if (filename.find("js") != string::npos ||
-             filename.find("javascript") != string::npos) {
+  } else if (GOOGLE_NAMESPACE::ContainsFullWord(stripped_filename, "js") ||
+             GOOGLE_NAMESPACE::ContainsFullWord(stripped_filename, "javascript")) {
     if (context != TC_JS) {
       LOG(WARNING) << "Template filename " << filename
                    << " indicates javascript but given TemplateContext"
@@ -480,15 +497,15 @@ static TemplateContext GetTemplateContextFromPragma(
   const string* context = pragma.GetAttributeValue("context");
   if (context == NULL)
     return TC_MANUAL;
-  if (*context == "HTML")
+  if (*context == "HTML" || *context == "html")
     return TC_HTML;
-  else if (*context == "JAVASCRIPT")
+  else if (*context == "JAVASCRIPT" || *context == "javascript")
     return TC_JS;
-  else if (*context == "CSS")
+  else if (*context == "CSS" || *context == "css")
     return TC_CSS;
-  else if (*context == "JSON")
+  else if (*context == "JSON" || *context == "json")
     return TC_JSON;
-  else if (*context == "XML")
+  else if (*context == "XML" || *context == "xml")
     return TC_XML;
   return TC_MANUAL;
 }
@@ -595,18 +612,16 @@ static size_t FindLongestMatch(
 //    Output is *appended* to outstring.
 // ----------------------------------------------------------------------
 
-#define AS_STR1(x)  #x
-#define AS_STR(x)   AS_STR1(x)
-
-static void WriteOneHeaderEntry(string *outstring,
-                                const string& variable,
-                                const string& full_pathname) {
+static void WriteOneHeaderEntry(
+    string *outstring, const string& variable, const string& full_pathname)
+    LOCKS_EXCLUDED(g_header_mutex) {
   MutexLock ml(&g_header_mutex);
 
   // we use hash_map instead of hash_set just to keep the stl size down
-  static hash_map<string, bool, StringHash> vars_seen;
-  static string current_file;
-  static string prefix;
+  static hash_map<string, bool, StringHash> vars_seen
+      GUARDED_BY(g_header_mutex);
+  static string current_file GUARDED_BY(g_header_mutex);
+  static string prefix GUARDED_BY(g_header_mutex);
 
   if (full_pathname != current_file) {
     // changed files so re-initialize the static variables
@@ -640,7 +655,7 @@ static void WriteOneHeaderEntry(string *outstring,
   }
 
   // print out the variable, but only if we haven't seen it before.
-  if (vars_seen.find(variable) == vars_seen.end()) {
+  if (!vars_seen.count(variable)) {
     if (variable == kMainSectionName || variable.find("BI_") == 0) {
       // We don't want to write entries for __MAIN__ or the built-ins
     } else {
@@ -650,7 +665,7 @@ static void WriteOneHeaderEntry(string *outstring,
                 << AS_STR(GOOGLE_NAMESPACE) << "::StaticTemplateString "
                 << prefix << variable << " = STS_INIT_WITH_HASH("
                 << prefix << variable << ", \"" << variable << "\", "
-                << id << "LLU);\n";
+                << id << "ULL);\n";
       outstring->append(outstream.str());
     }
     vars_seen[variable] = true;
@@ -674,7 +689,9 @@ enum TemplateTokenType { TOKENTYPE_UNUSED,        TOKENTYPE_TEXT,
                          TOKENTYPE_VARIABLE,      TOKENTYPE_SECTION_START,
                          TOKENTYPE_SECTION_END,   TOKENTYPE_TEMPLATE,
                          TOKENTYPE_COMMENT,       TOKENTYPE_SET_DELIMITERS,
-                         TOKENTYPE_PRAGMA,        TOKENTYPE_NULL };
+                         TOKENTYPE_PRAGMA,        TOKENTYPE_NULL,
+                         TOKENTYPE_HIDDEN_DEFAULT_SECTION,
+                       };
 
 }  // unnamed namespace
 
@@ -689,12 +706,12 @@ enum TemplateTokenType { TOKENTYPE_UNUSED,        TOKENTYPE_TEXT,
 //    ":none" to each use is error-prone and inconvenient.
 //
 // Note: Keep this array sorted as you add new elements!
+//
 const char * const Template::kSafeWhitelistedVariables[] = {
   ""   // a placekeeper element: replace with your real values!
 };
 const size_t Template::kNumSafeWhitelistedVariables =
-    arraysize(Template::kSafeWhitelistedVariables) /
-    arraysize(*Template::kSafeWhitelistedVariables);
+    arraysize(Template::kSafeWhitelistedVariables);
 
 // A TemplateToken is a typed string. The semantics of the string depends on the
 // token type, as follows:
@@ -709,6 +726,9 @@ const size_t Template::kNumSafeWhitelistedVariables =
 //   TOKENTYPE_PRAGMA        - identifier and optional set of name/value pairs
 //                           - exactly as given in the template
 //   TOKENTYPE_NULL          - the empty string
+//   TOKENTYPE_HIDDEN_DEFAULT_SECTION
+//                           - like TOKENTYPE_SECTION_START, but defaults to
+//                             hidden
 // All non-comment tokens may also have modifiers, which follow the name
 // of the token: the syntax is {{<PREFIX><NAME>:<mod>:<mod>:<mod>...}}
 // The modifiers are also stored as a string, starting with the first :
@@ -818,7 +838,7 @@ static bool AnyMightModify(const vector<ModifierAndValue>& modifiers,
 // This applies the modifiers to the string in/inlen, and writes the end
 // result directly to the end of outbuf.  Precondition: |modifiers| > 0.
 //
-// TODO(turnidge): In the case of multiple modifiers, we are applying
+// TODO(user): In the case of multiple modifiers, we are applying
 // all of them if any of them MightModify the output.  We can do
 // better.  We should store the MightModify values that we use to
 // compute AnyMightModify and respect them here.
@@ -1014,11 +1034,11 @@ bool VariableTemplateNode::Expand(ExpandEmitter *output_buffer,
   const TemplateString value = dictionary->GetValue(variable_);
 
   if (AnyMightModify(token_.modvals, per_expand_data)) {
-    EmitModifiedString(token_.modvals, value.ptr_, value.length_,
+    EmitModifiedString(token_.modvals, value.data(), value.size(),
                        per_expand_data, output_buffer);
   } else {
     // No need to modify value, so just emit it.
-    output_buffer->Emit(value.ptr_, value.length_);
+    output_buffer->Emit(value.data(), value.size());
   }
 
   if (per_expand_data->annotate()) {
@@ -1270,7 +1290,7 @@ bool TemplateTemplateNode::ExpandOnce(
 
 class SectionTemplateNode : public TemplateNode {
  public:
-  explicit SectionTemplateNode(const TemplateToken& token);
+  SectionTemplateNode(const TemplateToken& token, bool hidden_by_default);
   virtual ~SectionTemplateNode();
 
   // The highest level parsing method. Reads a single token from the
@@ -1325,6 +1345,12 @@ class SectionTemplateNode : public TemplateNode {
   // sub-templates.
   string indentation_;
 
+  // If true, hide sections that have not explicitly had their hidden/visible
+  // state set. If false, use the underlying template dictionary's default
+  // behavior for hiding.
+  // This bool is currently always set to true.
+  bool hidden_by_default_;
+
   // A protected method used in parsing the template file
   // Finds the next token in the file and return it. Anything not inside
   // a template marker is just text. Each template marker type, delimited
@@ -1366,15 +1392,20 @@ class SectionTemplateNode : public TemplateNode {
   bool AddPragmaNode(TemplateToken* token, Template* my_template);
   bool AddTemplateNode(TemplateToken* token, Template* my_template,
                        const string& indentation);
+  bool AddSectionNode(const TemplateToken* token, Template* my_template,
+                      bool hidden_by_default);
   bool AddSectionNode(const TemplateToken* token, Template* my_template);
 };
 
 // --- constructor and destructor, Expand, Dump, and WriteHeaderEntries
 
-SectionTemplateNode::SectionTemplateNode(const TemplateToken& token)
+SectionTemplateNode::SectionTemplateNode(const TemplateToken& token,
+                                         bool hidden_by_default)
+
     : token_(token),
       variable_(token_.text, token_.textlen),
-      separator_section_(NULL), indentation_("\n") {
+      separator_section_(NULL), indentation_("\n"),
+      hidden_by_default_(hidden_by_default) {
   VLOG(2) << "Constructing SectionTemplateNode: "
           << string(token_.text, token_.textlen) << endl;
 }
@@ -1441,7 +1472,12 @@ bool SectionTemplateNode::Expand(
   // exactly once using the containing (main) dictionary.
   if (token_.text == kMainSectionName) {
     return ExpandOnce(output_buffer, dictionary, per_expand_data, true, cache);
-  } else if (dictionary->IsHiddenSection(variable_)) {
+  } else if (hidden_by_default_ ?
+             !dictionary->IsUnhiddenSection(variable_) :
+             dictionary->IsHiddenSection(variable_)) {
+    // Some dictionaries might have sections that can be explicitly hidden
+    // and unhidden, so by default both IsHidden() and IsUnhidden() are false,
+    // in which case hidden_by_default_ controls the behavior.
     return true;      // if this section is "hidden", do nothing
   }
 
@@ -1607,9 +1643,11 @@ bool SectionTemplateNode::AddPragmaNode(TemplateToken* token,
 
 // AddSectionNode
 bool SectionTemplateNode::AddSectionNode(const TemplateToken* token,
-                                         Template* my_template) {
+                                         Template* my_template,
+                                         bool hidden_by_default) {
   assert(token);
-  SectionTemplateNode *new_node = new SectionTemplateNode(*token);
+  SectionTemplateNode *new_node = new SectionTemplateNode(*token,
+                                                          hidden_by_default);
 
   // Not only create a new section node, but fill it with all *its*
   // subnodes by repeatedly calling AddSubNode until it returns false
@@ -1703,7 +1741,11 @@ bool SectionTemplateNode::AddSubnode(Template *my_template) {
       this->indentation_.clear();  // clear whenever last read wasn't whitespace
       break;
     case TOKENTYPE_SECTION_START:
-      auto_escape_success = this->AddSectionNode(&token, my_template);
+      auto_escape_success = this->AddSectionNode(&token, my_template, false);
+      this->indentation_.clear();  // clear whenever last read wasn't whitespace
+      break;
+    case TOKENTYPE_HIDDEN_DEFAULT_SECTION:
+      auto_escape_success = this->AddSectionNode(&token, my_template, true);
       this->indentation_.clear();  // clear whenever last read wasn't whitespace
       break;
     case TOKENTYPE_SECTION_END:
@@ -1779,7 +1821,7 @@ bool SectionTemplateNode::AddSubnode(Template *my_template) {
 // nothing else.
 static bool IsValidName(const char* name, int namelen) {
   for (const char *cur_char = name; cur_char - name <  namelen; ++cur_char) {
-    if (!isalnum(*cur_char) && *cur_char != '_')
+    if (!ascii_isalnum(*cur_char) && *cur_char != '_')
       return false;
   }
   return true;
@@ -1802,14 +1844,14 @@ static const char* MaybeEatNewline(const char* start, const char* end,
 }
 
 // When the parse fails, we take several actions.  msg is a stream
-#define FAIL(msg)   do {                                                  \
-  LOG_TEMPLATE_NAME(ERROR, my_template);                                  \
-  LOG(ERROR) << msg << endl;                                              \
-  my_template->set_state(TS_ERROR);                                       \
-  /* make extra-sure we never try to parse anything more */               \
-  my_template->parse_state_.bufstart = my_template->parse_state_.bufend;  \
-  return TemplateToken(TOKENTYPE_NULL, "", 0, NULL);                      \
-} while (0)
+#define FAIL(msg)   do {                                                \
+    LOG_TEMPLATE_NAME(ERROR, my_template);                              \
+    LOG(ERROR) << msg << endl;                                          \
+    my_template->set_state(TS_ERROR);                                   \
+    /* make extra-sure we never try to parse anything more */           \
+    my_template->parse_state_.bufstart = my_template->parse_state_.bufend; \
+    return TemplateToken(TOKENTYPE_NULL, "", 0, NULL);                  \
+  } while (0)
 
 // Parses the text of the template file in the input_buffer as
 // follows: If the buffer is empty, return the null token.  If getting
@@ -1884,8 +1926,8 @@ TemplateToken SectionTemplateNode::GetNextToken(Template *my_template) {
           // Keep token_start the same; the token includes the leading '='.
           // But we have to figure token-end specially: it should be "=}}".
           if (ps->bufend > (token_start + 1))
-              token_end = (char*)memchr(token_start + 1, '=',
-                                        ps->bufend - (token_start + 1));
+            token_end = (char*)memchr(token_start + 1, '=',
+                                      ps->bufend - (token_start + 1));
           if (!token_end ||
               token_end + ps->current_delimiters.end_marker_len > ps->bufend ||
               memcmp(token_end + 1, ps->current_delimiters.end_marker,
@@ -1931,7 +1973,8 @@ TemplateToken SectionTemplateNode::GetNextToken(Template *my_template) {
         const string* parser_state = pragma.GetAttributeValue("state");
         bool in_tag = false;
         if (parser_state != NULL) {
-          if (context == TC_HTML && *parser_state == "IN_TAG")
+          if (context == TC_HTML && (*parser_state == "IN_TAG" ||
+                                     *parser_state == "in_tag"))
             in_tag = true;
           else if (*parser_state != "default")
             FAIL("Unsupported state '" + *parser_state +
@@ -2025,7 +2068,7 @@ TemplateToken SectionTemplateNode::GetNextToken(Template *my_template) {
              << "are allowed to have modifiers");
       }
 
-      // Whew!  We passed the guantlet.  Get ready for the next token
+      // Whew!  We passed the gauntlet.  Get ready for the next token
       ps->phase = Template::ParseState::GETTING_TEXT;
       ps->bufstart = token_end + ps->current_delimiters.end_marker_len;
       // If requested, remove any linefeed following a comment,
@@ -2098,9 +2141,9 @@ Template* Template::StringToTemplate(const TemplateString& content,
   // But we have to do the "loading" and parsing ourselves:
 
   // BuildTree deletes the buffer when done, so we need a copy for it.
-  char* buffer = new char[content.length_];
-  size_t content_len = content.length_;
-  memcpy(buffer, content.ptr_, content_len);
+  char* buffer = new char[content.size()];
+  size_t content_len = content.size();
+  memcpy(buffer, content.data(), content_len);
   tpl->StripBuffer(&buffer, &content_len);
   if ( tpl->BuildTree(buffer, buffer + content_len) ) {
     assert(tpl->state() == TS_READY);
@@ -2128,7 +2171,7 @@ Template* Template::StringToTemplate(const TemplateString& content,
 Template::Template(const TemplateString& filename, Strip strip,
                    TemplateCache* owner)
     // TODO(csilvers): replace ToString() with an is_immutable() check
-    : original_filename_(filename.ToString()), resolved_filename_(),
+    : original_filename_(filename.data(), filename.size()), resolved_filename_(),
       filename_mtime_(0), strip_(strip), state_(TS_EMPTY),
       template_cache_(owner), template_text_(NULL), template_text_len_(0),
       tree_(NULL), parse_state_(),
@@ -2139,8 +2182,8 @@ Template::Template(const TemplateString& filename, Strip strip,
 
   // Preserve whitespace in Javascript files because carriage returns
   // can convey meaning for comment termination and closures
-  if ( strip_ == STRIP_WHITESPACE && original_filename_.length() >= 3 &&
-       !strcmp(original_filename_.c_str() + original_filename_.length() - 3, ".js") ) {
+  if (strsuffix(original_filename_.c_str(), ".js") &&
+      strip_ == STRIP_WHITESPACE) {
     strip_ = STRIP_BLANK_LINES;
   }
   ReloadIfChangedLocked();
@@ -2213,7 +2256,8 @@ bool Template::BuildTree(const char* input_buffer,
   // Assign an arbitrary name to the top-level node
   SectionTemplateNode *top_node = new SectionTemplateNode(
       TemplateToken(TOKENTYPE_SECTION_START,
-                    kMainSectionName, strlen(kMainSectionName), NULL));
+                    kMainSectionName, strlen(kMainSectionName), NULL),
+      false);
   while (top_node->AddSubnode(this)) {
     // Add the rest of the template in.
   }
@@ -2260,7 +2304,7 @@ void Template::DumpToString(const char *filename, string *out) const {
   if (!out)
     return;
   out->append("------------Start Template Dump [" + string(filename) +
-                        "]--------------\n");
+              "]--------------\n");
   if (tree_) {
     tree_->DumpToString(1, out);
   } else {
@@ -2273,11 +2317,13 @@ void Template::DumpToString(const char *filename, string *out) const {
 // Template::state()
 // Template::set_state()
 // Template::template_file()
+// Template::original_filename()
 // Template::strip()
 // Template::mtime()
 //    Various introspection methods.  state() is the parse-state
 //    (success, error).  template_file() is the resolved filename of a
-//    given template object's input. strip() is the Strip type. mtime() is
+//    given template object's input. original_filename() is the unresolved,
+//    original filename, strip() is the Strip type. mtime() is
 //    the lastmod time. For string-based templates, not backed by a file,
 //    mtime() returns 0.
 // -------------------------------------------------------------------------
@@ -2292,6 +2338,10 @@ TemplateState Template::state() const {
 
 const char *Template::template_file() const {
   return resolved_filename_.c_str();
+}
+
+const char *Template::original_filename() const {
+  return original_filename_.c_str();
 }
 
 Strip Template::strip() const {
@@ -2386,12 +2436,12 @@ bool Template::ParseDelimiters(const char* text, size_t textlen,
 // so we can take a size_t instead of an int.  The code is simple enough.
 static void StripTemplateWhiteSpace(const char** str, size_t* len) {
   // Strip off trailing whitespace.
-  while ((*len) > 0 && isspace((*str)[(*len)-1])) {
+  while ((*len) > 0 && ascii_isspace((*str)[(*len)-1])) {
     (*len)--;
   }
 
   // Strip off leading whitespace.
-  while ((*len) > 0 && isspace((*str)[0])) {
+  while ((*len) > 0 && ascii_isspace((*str)[0])) {
     (*len)--;
     (*str)++;
   }
@@ -2456,11 +2506,11 @@ size_t Template::InsertLine(const char *line, size_t len, Strip strip,
     StripTemplateWhiteSpace(&line, &len);
     add_newline = false;
 
-  // IsBlankOrOnlyHasOneRemovableMarker may modify the two input
-  // parameters if the line contains only spaces or only one input
-  // marker.  This modification must be done before the line is
-  // written to the input buffer. Hence the need for the boolean flag
-  // add_newline to be referenced after the Write statement.
+    // IsBlankOrOnlyHasOneRemovableMarker may modify the two input
+    // parameters if the line contains only spaces or only one input
+    // marker.  This modification must be done before the line is
+    // written to the input buffer. Hence the need for the boolean flag
+    // add_newline to be referenced after the Write statement.
   } else if (strip >= STRIP_BLANK_LINES
              && IsBlankOrOnlyHasOneRemovableMarker(&line, &len, delim)) {
     add_newline = false;
@@ -2547,7 +2597,8 @@ void Template::StripBuffer(char **buffer, size_t* len) {
 // Besides being called when locked, it's also ok to call this from
 // the constructor, when you know nobody else will be messing with
 // this object.
-bool Template::ReloadIfChangedLocked() {
+bool Template::ReloadIfChangedLocked()
+    EXCLUSIVE_LOCKS_REQUIRED(g_template_mutex) {
   // TODO(panicker): Remove this duplicate code when constructing the template,
   // after deprecating this method.
   // TemplateCache::GetTemplate() already checks if the template filename is
@@ -2558,11 +2609,11 @@ bool Template::ReloadIfChangedLocked() {
   // if a template is string-based, instead use the boolean 'string_based'
   // in the template cache.
   if (original_filename_.empty()) {
-  // string-based templates don't reload
+    // string-based templates don't reload
     return false;
   }
 
-  struct stat statbuf;
+  FileStat statbuf;
   if (resolved_filename_.empty()) {
     if (!template_cache_->ResolveTemplateFilename(original_filename_,
                                                   &resolved_filename_,
@@ -2572,7 +2623,7 @@ bool Template::ReloadIfChangedLocked() {
       return false;
     }
   } else {
-    if (stat(resolved_filename_.c_str(), &statbuf) != 0) {
+    if (!File::Stat(resolved_filename_, &statbuf)) {
       LOG(WARNING) << "Unable to stat file " << resolved_filename_ << endl;
       // We keep the old tree if there is one, otherwise we're in error
       set_state(TS_ERROR);
@@ -2580,14 +2631,14 @@ bool Template::ReloadIfChangedLocked() {
     }
   }
 
-  if (S_ISDIR(statbuf.st_mode)) {
+  if (statbuf.IsDirectory()) {
     LOG(WARNING) << resolved_filename_
                  << "is a directory and thus not readable" << endl;
     // We keep the old tree if there is one, otherwise we're in error
     set_state(TS_ERROR);
     return false;
   }
-  if (statbuf.st_mtime == filename_mtime_ && filename_mtime_ > 0
+  if (statbuf.mtime == filename_mtime_ && filename_mtime_ > 0
       && tree_) {   // force a reload if we don't already have a tree_
     VLOG(1) << "Not reloading file " << resolved_filename_
             << ": no new mod-time" << endl;
@@ -2595,7 +2646,7 @@ bool Template::ReloadIfChangedLocked() {
     return false;   // file's timestamp hasn't changed, so no need to reload
   }
 
-  FILE* fp = fopen(resolved_filename_.c_str(), "rb");
+  File* fp = File::Open(resolved_filename_.c_str(), "r");
   if (fp == NULL) {
     LOG(ERROR) << "Can't find file " << resolved_filename_
                << "; skipping" << endl;
@@ -2603,21 +2654,21 @@ bool Template::ReloadIfChangedLocked() {
     set_state(TS_ERROR);
     return false;
   }
-  size_t buflen = statbuf.st_size;
+  size_t buflen = statbuf.length;
   char* file_buffer = new char[buflen];
-  if (fread(file_buffer, 1, buflen, fp) != buflen) {
+  if (fp->Read(file_buffer, buflen) != buflen) {
     LOG(ERROR) << "Error reading file " << resolved_filename_
                << ": " << strerror(errno) << endl;
-    fclose(fp);
+    fp->Close();
     delete[] file_buffer;
     // We could just keep the old tree, but probably safer to say 'error'
     set_state(TS_ERROR);
     return false;
   }
-  fclose(fp);
+  fp->Close();
 
   // Now that we know we've read the file ok, mark the new mtime
-  filename_mtime_ = statbuf.st_mtime;
+  filename_mtime_ = statbuf.mtime;
 
   // Parse the input one line at a time to get the "stripped" input.
   StripBuffer(&file_buffer, &buflen);
@@ -2640,14 +2691,6 @@ bool Template::ReloadIfChangedLocked() {
   }
 }
 
-bool Template::ReloadIfChanged() {
-  // ReloadIfChanged() is protected by g_template_mutex so when it's
-  // called from different threads, they don't stomp on tree_ and
-  // state_.  (This is the only write-locker on g_template_mutex.)
-  WriterMutexLock ml(&g_template_mutex);
-  return ReloadIfChangedLocked();
-}
-
 // ----------------------------------------------------------------------
 // Template::ExpandLocked()
 // Template::ExpandWithDataAndCache()
@@ -2661,7 +2704,8 @@ bool Template::ReloadIfChanged() {
 bool Template::ExpandLocked(ExpandEmitter *expand_emitter,
                             const TemplateDictionaryInterface *dict,
                             PerExpandData *per_expand_data,
-                            const TemplateCache *cache) const {
+                            const TemplateCache *cache) const
+    SHARED_LOCKS_REQUIRED(g_template_mutex) {
   // Accumulator for the results of Expand for each sub-tree.
   bool error_free = true;
 
@@ -2714,10 +2758,11 @@ bool Template::ExpandLocked(ExpandEmitter *expand_emitter,
   return error_free;
 }
 
-bool Template::ExpandWithDataAndCache(ExpandEmitter *expand_emitter,
-                                      const TemplateDictionaryInterface *dict,
-                                      PerExpandData *per_expand_data,
-                                      const TemplateCache *cache) const {
+bool Template::ExpandWithDataAndCache(
+    ExpandEmitter *expand_emitter,
+    const TemplateDictionaryInterface *dict,
+    PerExpandData *per_expand_data,
+    const TemplateCache *cache) const LOCKS_EXCLUDED(g_template_mutex) {
   // We hold g_template_mutex the entire time we expand, because
   // ReloadIfChanged(), which also holds template_mutex, is allowed to
   // delete tree_, and we want to make sure it doesn't do that (in another

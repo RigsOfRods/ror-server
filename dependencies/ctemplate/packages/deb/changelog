@@ -1,3 +1,51 @@
+ctemplate (2.1-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Olaf van der Spek <olafvdspek@gmail.com>  Thu, 22 Mar 2012 00:29:09 +0100
+
+ctemplate (2.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Google Inc. and others <google-ctemplate@googlegroups.com>  Tue, 24 Jan 2012 16:00:51 -0800
+
+ctemplate (1.1-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Google Inc. <opensource@google.com>  Thu, 22 Dec 2011 14:03:27 -0800
+
+ctemplate (1.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Google Inc. <opensource@google.com>  Fri, 26 Aug 2011 13:10:46 -0700
+
+ctemplate (1.0rc2-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Google Inc. <opensource@google.com>  Fri, 29 Jul 2011 12:19:50 -0700
+
+ctemplate (1.0rc1-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Google Inc. <opensource@google.com>  Fri, 22 Jul 2011 15:31:05 -0700
+
+ctemplate (0.99-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Google Inc. <opensource@google.com>  Mon, 24 Jan 2011 15:38:31 -0800
+
+ctemplate (0.98-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Google Inc. <opensource@google.com>  Fri, 24 Sep 2010 11:38:27 -0700
+
 ctemplate (0.97-1) unstable; urgency=low
 
   * New upstream release.

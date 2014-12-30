@@ -28,19 +28,18 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // ---
-// Author: Ryoji Watanabe
 //
 // This contains some implementation of PerExpandData that is still simple
 // but is not conveniently defined in the header file, e.g., because it would
 // introduce new include dependencies.
 
-#include "config.h"
+#include <config.h>
 #include <ctemplate/per_expand_data.h>
 #include <ctemplate/template_annotator.h>
 
-using std::string;
-
 _START_GOOGLE_NAMESPACE_
+
+using std::string;
 
 #ifndef _MSC_VER
 bool PerExpandData::DataEq::operator()(const char* s1, const char* s2) const {
@@ -48,6 +47,10 @@ bool PerExpandData::DataEq::operator()(const char* s1, const char* s2) const {
           (s1 && s2 && *s1 == *s2 && strcmp(s1, s2) == 0));
 }
 #endif
+
+PerExpandData::~PerExpandData() {
+  delete map_;
+}
 
 TemplateAnnotator* PerExpandData::annotator() const {
   if (annotator_ != NULL) {
@@ -59,4 +62,19 @@ TemplateAnnotator* PerExpandData::annotator() const {
   return &g_default_annotator;
 }
 
-}  // namespace ctemplate
+void PerExpandData::InsertForModifiers(const char* key, const void* value) {
+  if (!map_)
+    map_ = new DataMap;
+  (*map_)[key] = value;
+}
+
+  // Retrieve data specific to this Expand call. Returns NULL if key
+  // is not found.  This should only be used by template modifiers.
+const void* PerExpandData::LookupForModifiers(const char* key) const {
+  if (!map_)
+    return NULL;
+  const DataMap::const_iterator it = map_->find(key);
+  return it == map_->end() ? NULL : it->second;
+}
+
+_END_GOOGLE_NAMESPACE_

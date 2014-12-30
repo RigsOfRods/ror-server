@@ -28,11 +28,10 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // ---
-// Author: Frank H. Jernigan
 //
 // This file implements the Template class.  For information about
 // how to use this class, and to write the templates it takes as input,
-// see doc/howto.html
+// see the doc/ directory.
 
 #ifndef CTEMPLATE_TEMPLATE_H_
 #define CTEMPLATE_TEMPLATE_H_
@@ -45,7 +44,8 @@
 
 // We include this just so folks don't have to include both template.h
 // and template_dictionary.h, or template_namelist.h etc, to use the
-// template system; we don't actually use anything in these files ourselves.
+// template system; we don't actually use anything in these files
+// ourselves.
 #if 1
 #include <ctemplate/template_dictionary.h>
 #include <ctemplate/template_namelist.h>
@@ -57,11 +57,11 @@ class PerExpandData;
 @ac_google_end_namespace@
 #endif
 
-@ac_windows_dllexport_defines@
-
 namespace @ac_htmlparser_namespace@ {
 class HtmlParser;
 }
+
+@ac_windows_dllexport_defines@
 
 @ac_google_start_namespace@
 
@@ -74,8 +74,8 @@ class HtmlParser;
 // to create your own TemplateCache object, and work directly with
 // it.  See template_cache.h for details.
 
-@ac_windows_dllexport@ const TemplateCache* default_template_cache();
-@ac_windows_dllexport@ TemplateCache* mutable_default_template_cache();
+extern @ac_windows_dllexport@ const TemplateCache* default_template_cache();
+extern @ac_windows_dllexport@ TemplateCache* mutable_default_template_cache();
 
 
 // ---- EXPANDING A TEMPLATE -------
@@ -269,6 +269,7 @@ class @ac_windows_dllexport@ Template {
   // Retrieves the state, template-file, or strip mode of this Template.
   TemplateState state() const;
   const char *template_file() const;
+  const char *original_filename() const;
   Strip strip() const;
 
   // Work at the level of groups of templates, so just call through to
@@ -284,7 +285,8 @@ class @ac_windows_dllexport@ Template {
   static std::string template_root_directory() {
     return default_template_cache()->template_root_directory();
   }
-  static std::string FindTemplateFilename(const std::string& unresolved) {
+  static std::string FindTemplateFilename(
+      const std::string& unresolved) {
     return default_template_cache()->FindTemplateFilename(unresolved);
   }
   static void RemoveStringFromTemplateCache(const std::string& key) {
@@ -316,9 +318,6 @@ class @ac_windows_dllexport@ Template {
   // StringToTemplateCache here, not the one in Template.
   static bool StringToTemplateCache(const TemplateString& key,
                                     const char* content, Strip);
-
-  // INSTEAD, use ReloadAllIfChanged.
-  bool ReloadIfChanged();
 
  protected:
   friend class SectionTemplateNode;  // for access to set_state(), ParseState
@@ -400,7 +399,7 @@ class @ac_windows_dllexport@ Template {
 
   // Template markers have the form {{VARIABLE}}, etc.  These constants
   // define the {{ and }} that delimit template markers.
-  struct MarkerDelimiters {
+  struct @ac_windows_dllexport@ MarkerDelimiters {
     const char* start_marker;
     size_t start_marker_len;
     const char* end_marker;
@@ -415,7 +414,7 @@ class @ac_windows_dllexport@ Template {
   };
 
   // The current parsing state.  Used in BuildTree() and subroutines
-  struct ParseState {
+  struct @ac_windows_dllexport@ ParseState {
     const char* bufstart;
     const char* bufend;
     enum { PS_UNUSED, GETTING_TEXT, GETTING_NAME } phase;
@@ -480,5 +479,6 @@ class @ac_windows_dllexport@ Template {
 };
 
 @ac_google_end_namespace@
+
 
 #endif // CTEMPLATE_TEMPLATE_H_

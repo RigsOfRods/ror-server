@@ -1,4 +1,4 @@
-// Copyright (c) 2007, Google Inc.
+// Copyright (c) 2012, Olaf van der Spek <olafvdspek@gmail.com>
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -28,43 +28,43 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // ---
-// Author: Craig Silverstein
-//
-// When we expand a template, we expand into an abstract "emitter".
-// This is typically a string, but could be a file-wrapper, or any
-// other data structure that supports this very simple "append" API.
+// Author: Olaf van der Spek <olafvdspek@gmail.com>
 
-#ifndef TEMPLATE_TEMPLATE_EMITTER_H_
-#define TEMPLATE_TEMPLATE_EMITTER_H_
+#ifndef TEMPLATE_FIND_PTR_H_
+#define TEMPLATE_FIND_PTR_H_
 
-#include <sys/types.h>     // for size_t
-#include <string>
+@ac_windows_dllexport_defines@
 
+@ac_google_start_namespace@
 
-
-namespace ctemplate {
-
-class  ExpandEmitter {
- public:
-  ExpandEmitter() {}
-  virtual ~ExpandEmitter() {}
-  virtual void Emit(char c) = 0;
-  virtual void Emit(const std::string& s) = 0;
-  virtual void Emit(const char* s) = 0;
-  virtual void Emit(const char* s, size_t slen) = 0;
-};
-
-
-class  StringEmitter : public ExpandEmitter {
-  std::string* const outbuf_;
- public:
-  StringEmitter(std::string* outbuf) : outbuf_(outbuf) {}
-  virtual void Emit(char c) { *outbuf_ += c; }
-  virtual void Emit(const std::string& s) { *outbuf_ += s; }
-  virtual void Emit(const char* s) { *outbuf_ += s; }
-  virtual void Emit(const char* s, size_t slen) { outbuf_->append(s, slen); }
-};
-
+template <class T, class U>
+typename T::value_type::second_type* find_ptr(T& c, U v)
+{
+  typename T::iterator i = c.find(v);
+  return i == c.end() ? NULL : &i->second;
 }
 
-#endif  // TEMPLATE_TEMPLATE_EMITTER_H_
+template <class T, class U>
+const typename T::value_type::second_type* find_ptr(const T& c, U v)
+{
+  typename T::const_iterator i = c.find(v);
+  return i == c.end() ? NULL : &i->second;
+}
+
+template <class T, class U>
+typename T::value_type::second_type find_ptr2(T& c, U v)
+{
+  typename T::iterator i = c.find(v);
+  return i == c.end() ? NULL : i->second;
+}
+
+template <class T, class U>
+const typename T::value_type::second_type find_ptr2(const T& c, U v)
+{
+  typename T::const_iterator i = c.find(v);
+  return i == c.end() ? NULL : i->second;
+}
+
+@ac_google_end_namespace@
+
+#endif // TEMPLATE_FIND_PTR_H_

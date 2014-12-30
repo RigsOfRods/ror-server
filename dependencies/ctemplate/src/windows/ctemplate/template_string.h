@@ -26,11 +26,18 @@
 // THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// ---
+// Author: csilvers@google.com (Craig Silerstein)
 
 #ifndef TEMPLATE_TEMPLATE_STRING_H_
 #define TEMPLATE_TEMPLATE_STRING_H_
 
 #include <string.h>      // for memcmp() and size_t
+#include <hash_map>
+#include <string>
+#include <vector>
+
 #include <assert.h>
 #if 0
 #include <stdint.h>       // one place @ac_cv_unit64@ might live
@@ -39,16 +46,13 @@
 #include <inttypes.h>     // another place @ac_cv_unit64@ might live
 #endif
 #include <sys/types.h>    // final place @ac_cv_unit64@ might live
-#include <hash_map>
-#include <string>
-#include <vector>
 
 class TemplateStringTest;          // needed for friendship declaration
 class StaticTemplateStringTest;
 
 #if 0
-extern char _start[] __attribute__((weak));  // the linker emits this: start of .text
-extern char data_start[] __attribute__((weak));        // start of .data
+extern char _start[] __attribute__((weak));     // linker emits: start of .text
+extern char data_start[] __attribute__((weak));               // start of .data
 #endif
 
 // NOTE: if you are statically linking the template library into your binary
@@ -87,10 +91,22 @@ struct StaticTemplateString;
 // StaticTemplateString here, since they are hashed more efficiently
 // based on their id.
 struct CTEMPLATE_DLL_DECL StringHash {
-  inline size_t operator()(const char* s) const;
-  inline size_t operator()(const std::string& s) const;
-  inline bool operator()(const char* a, const char* b) const;   // <, for MSVC
-  inline bool operator()(const std::string& a, const std::string& b) const;
+  inline size_t operator()(const char* s) const {
+    return Hash(s, strlen(s));
+  };
+
+  inline size_t operator()(const std::string& s) const {
+    return Hash(s.data(), s.size());
+  }
+
+  inline bool operator()(const char* a, const char* b) const {
+    return (a != b) && (strcmp(a, b) < 0);    // <, for MSVC
+  }
+
+  inline bool operator()(const std::string& a, const std::string& b) const {
+    return a < b;
+  }
+
   static const size_t bucket_size = 4;    // These are required by MSVC
   static const size_t min_buckets = 8;    // 4 and 8 are the defaults
  private:
@@ -126,7 +142,7 @@ struct CTEMPLATE_DLL_DECL StaticTemplateString {
   } do_not_use_directly_;
 
   // This class is a good hash_compare functor to pass in as the third
-  // argument to hash_map<>, when creating a map whose keys are
+  // argument to stdext::hash_map<>, when creating a map whose keys are
   // StaticTemplateString.  NOTE: This class isn't that safe to use,
   // because it requires that StaticTemplateStringInitializer has done
   // its job.  Unfortunately, even when you use the STS_INIT macro
@@ -142,17 +158,13 @@ struct CTEMPLATE_DLL_DECL StaticTemplateString {
     static const size_t min_buckets = 8;    // 4 and 8 are the defaults
   };
 
-  inline bool empty() const;
-
-  // Use sparingly. Converting to a string loses information about the
-  // id of the template string, making operations require extra hash_compare
-  // computations.
-  inline std::string ToString() const;
+  inline bool empty() const {
+    return do_not_use_directly_.length_ == 0;
+  }
 
   // Allows comparisons of StaticTemplateString objects as if they were
   // strings.  This is useful for STL.
   inline bool operator==(const StaticTemplateString& x) const;
-  inline bool operator!=(const StaticTemplateString& x) const;
 };
 
 class CTEMPLATE_DLL_DECL TemplateString {
@@ -169,42 +181,53 @@ class CTEMPLATE_DLL_DECL TemplateString {
       : ptr_(s), length_(slen),
         is_immutable_(InTextSegment(s)), id_(kIllegalTemplateId) {
   }
-  TemplateString(const TemplateString& s)
-      : ptr_(s.ptr_), length_(s.length_),
-        is_immutable_(s.is_immutable_), id_(s.id_) {
-  }
   TemplateString(const StaticTemplateString& s)
       : ptr_(s.do_not_use_directly_.ptr_),
         length_(s.do_not_use_directly_.length_),
         is_immutable_(true), id_(s.do_not_use_directly_.id_) {
   }
 
-  inline bool empty() const;
+  const char* begin() const {
+    return ptr_;
+  }
+
+  const char* end() const {
+    return ptr_ + length_;
+  }
+
+  const char* data() const {
+    return ptr_;
+  }
+
+  size_t size() const {
+    return length_;
+  }
+
+  inline bool empty() const {
+    return length_ == 0;
+  };
+
+  inline bool is_immutable() const {
+    return is_immutable_;
+  }
 
   // STL requires this to be public for hash_map, though I'd rather not.
-  inline bool operator==(const TemplateString& x) const;
+  inline bool operator==(const TemplateString& x) const {
+    return GetGlobalId() == x.GetGlobalId();
+  }
 
  private:
   // Only TemplateDictionaries and template expansion code can read these.
-  friend class OldTemplateDictionary;
   friend class TemplateDictionary;
-  friend class TemplateDictionaryPeer;           // TDP::GetSectionValue()
-  friend class Template;                         // for StringToTemplate()
-  friend class VariableTemplateNode;             // VTN::Expand()
   friend class TemplateCache;                    // for GetGlobalId
   friend class StaticTemplateStringInitializer;  // for AddToGlo...
   friend struct TemplateStringHasher;            // for GetGlobalId
-  friend class ::TemplateStringTest;
-  friend class ::StaticTemplateStringTest;       // for GetGlobalId
   friend TemplateId GlobalIdForTest(const char* ptr, int len);
   friend TemplateId GlobalIdForSTS_INIT(const TemplateString& s);
 
-  TemplateString();    // no empty constructor allowed
   TemplateString(const char* s, size_t slen, bool is_immutable, TemplateId id)
       : ptr_(s), length_(slen), is_immutable_(is_immutable), id_(id) {
   }
-
-  inline bool is_immutable() const;
 
   // This returns true if s is in the .text segment of the binary.
   // (Note this only checks .text of the main executable, not of
@@ -220,7 +243,9 @@ class CTEMPLATE_DLL_DECL TemplateString {
   }
 
  protected:
-  inline void CacheGlobalId();      // used by HashedTemplateString
+  inline void CacheGlobalId() { // used by HashedTemplateString
+    id_ = GetGlobalId();
+  };
 
  private:
   // Returns the global id, computing it for the first time if
@@ -293,10 +318,6 @@ inline bool StaticTemplateString::Hasher::operator()(
   return TemplateIdHasher()(id_a, id_b);
 }
 
-inline std::string StaticTemplateString::ToString() const {
-  return std::string(do_not_use_directly_.ptr_, do_not_use_directly_.length_);
-}
-
 inline bool StaticTemplateString::operator==(
     const StaticTemplateString& x) const {
   return (do_not_use_directly_.length_ == x.do_not_use_directly_.length_ &&
@@ -304,49 +325,6 @@ inline bool StaticTemplateString::operator==(
            memcmp(do_not_use_directly_.ptr_, x.do_not_use_directly_.ptr_,
                   do_not_use_directly_.length_) == 0));
 }
-
-inline bool StaticTemplateString::operator!=(
-    const StaticTemplateString& x) const {
-  return !(*this == x);
-}
-
-inline bool StaticTemplateString::empty() const {
-  return do_not_use_directly_.length_ == 0;
-}
-
-
-inline bool TemplateString::operator==(const TemplateString& x) const {
-  return (GetGlobalId() == x.GetGlobalId());
-}
-
-bool TemplateString::empty() const {
-  return length_ == 0;
-}
-
-inline void TemplateString::CacheGlobalId() {
-  id_ = GetGlobalId();
-}
-
-inline bool TemplateString::is_immutable() const { return is_immutable_; }
-
-
-
-inline size_t StringHash::operator()(const char* s) const {
-  return Hash(s, strlen(s));
-}
-
-inline size_t StringHash::operator()(const std::string& s) const {
-  return Hash(s.data(), s.size());
-}
-
-inline bool StringHash::operator()(const char* a, const char* b) const {
-  return (a != b) && (strcmp(a, b) < 0);    // <, for MSVC
-}
-
-inline bool StringHash::operator()(const std::string& a, const std::string& b) const {
-  return a < b;
-}
-
 
 // We set up as much of StaticTemplateString as we can at
 // static-initialization time (using brace-initialization), but some
@@ -380,5 +358,6 @@ const StaticTemplateString kStsEmpty =
     STS_INIT_WITH_HASH(kStsEmpty, "", 1457976849674613049ULL);
 
 }
+
 
 #endif  // TEMPLATE_TEMPLATE_STRING_H_

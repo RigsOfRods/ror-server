@@ -30,15 +30,14 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # ---
-# Author: Craig Silverstein
-
+# Author: csilvers@google.com (Craig Silverstein)
+#
 
 die() {
     echo "Test failed: $@" 1>&2
     exit 1
 }
 
-# Optional first argument is where the executable lives
 MAKETPL=${1-"$TEST_SRCDIR/make_tpl_varnames_h"}
 
 # Optional second argument is tmpdir to use
@@ -74,8 +73,8 @@ $MAKETPL --help >/dev/null 2>&1 \
    || die "$LINENO: $MAKETPL --help failed"
 $MAKETPL --nonsense >/dev/null 2>&1 \
    && die "$LINENO: $MAKETPL --nonsense didn't give an error"
-$MAKETPL -f$TMPDIR/bar.h $TMPDIR/ok1.tpl $TMPDIR/ok2.tpl >/dev/null 2>&1 \
-   && die "$LINENO: $MAKETPL -f with multiple input files didn't give an error"
+$MAKETPL -f$TMPDIR/bar.h >/dev/null 2>&1 \
+   && die "$LINENO: $MAKETPL -f with no templates didn't give an error"
 
 # Some weird (broken) shells leave the ending EOF in the here-document,
 # hence the grep.
@@ -84,9 +83,9 @@ expected_ok1=`cat <<EOF | grep -v '^EOF$'
 #define %%%OUTPUT_NAME%%%
 
 #include <ctemplate/template_string.h>
-static const ::ctemplate::StaticTemplateString ko_QCHAR = STS_INIT_WITH_HASH(ko_QCHAR, "QCHAR", 13739615363438531061LLU);
-static const ::ctemplate::StaticTemplateString ko_HREF = STS_INIT_WITH_HASH(ko_HREF, "HREF", 4441707909033668369LLU);
-static const ::ctemplate::StaticTemplateString ko_PARAMS = STS_INIT_WITH_HASH(ko_PARAMS, "PARAMS", 10755877064288701757LLU);
+static const ::ctemplate::StaticTemplateString ko_QCHAR = STS_INIT_WITH_HASH(ko_QCHAR, "QCHAR", 13739615363438531061ULL);
+static const ::ctemplate::StaticTemplateString ko_HREF = STS_INIT_WITH_HASH(ko_HREF, "HREF", 4441707909033668369ULL);
+static const ::ctemplate::StaticTemplateString ko_PARAMS = STS_INIT_WITH_HASH(ko_PARAMS, "PARAMS", 10755877064288701757ULL);
 
 #endif  // %%%OUTPUT_NAME%%%
 EOF`
@@ -96,8 +95,8 @@ expected_ok2=`cat <<EOF | grep -v '^EOF$'
 #define %%%OUTPUT_NAME%%%
 
 #include <ctemplate/template_string.h>
-static const ::ctemplate::StaticTemplateString ko_ATTRIBUTES = STS_INIT_WITH_HASH(ko_ATTRIBUTES, "ATTRIBUTES", 11813232524653503831LLU);
-static const ::ctemplate::StaticTemplateString ko_ATTRIBUTE = STS_INIT_WITH_HASH(ko_ATTRIBUTE, "ATTRIBUTE", 14959290143384361001LLU);
+static const ::ctemplate::StaticTemplateString ko_ATTRIBUTES = STS_INIT_WITH_HASH(ko_ATTRIBUTES, "ATTRIBUTES", 11813232524653503831ULL);
+static const ::ctemplate::StaticTemplateString ko_ATTRIBUTE = STS_INIT_WITH_HASH(ko_ATTRIBUTE, "ATTRIBUTE", 14959290143384361001ULL);
 
 #endif  // %%%OUTPUT_NAME%%%
 EOF`
@@ -107,7 +106,7 @@ expected_ok3=`cat <<EOF | grep -v '^EOF$'
 #define %%%OUTPUT_NAME%%%
 
 #include <ctemplate/template_string.h>
-static const ::ctemplate::StaticTemplateString ko_TITLE = STS_INIT_WITH_HASH(ko_TITLE, "TITLE", 8931122033088041025LLU);
+static const ::ctemplate::StaticTemplateString ko_TITLE = STS_INIT_WITH_HASH(ko_TITLE, "TITLE", 8931122033088041025ULL);
 
 #endif  // %%%OUTPUT_NAME%%%
 EOF`
@@ -117,8 +116,8 @@ expected_ok4=`cat <<EOF | grep -v '^EOF$'
 #define %%%OUTPUT_NAME%%%
 
 #include <ctemplate/template_string.h>
-static const ::ctemplate::StaticTemplateString ko_HREF = STS_INIT_WITH_HASH(ko_HREF, "HREF", 4441707909033668369LLU);
-static const ::ctemplate::StaticTemplateString ko_PARAMS = STS_INIT_WITH_HASH(ko_PARAMS, "PARAMS", 10755877064288701757LLU);
+static const ::ctemplate::StaticTemplateString ko_HREF = STS_INIT_WITH_HASH(ko_HREF, "HREF", 4441707909033668369ULL);
+static const ::ctemplate::StaticTemplateString ko_PARAMS = STS_INIT_WITH_HASH(ko_PARAMS, "PARAMS", 10755877064288701757ULL);
 
 #endif  // %%%OUTPUT_NAME%%%
 EOF`
@@ -128,22 +127,37 @@ expected_ok6=`echo "$expected_ok4" | sed s/ok4/ok6/g`
 expected_ok7=`echo "$expected_ok4" | sed s/ok4/ok7/g`
 expected_ok8=`echo "$expected_ok4" | sed s/ok4/ok8/g`
 
+# When -f (--output-file) is used on ok1.tpl and ok2.tpl
+# Note that there are no variables in common in these two templates.
+# All should be returned.
+expected_ok1and2=`cat <<EOF | grep -v '^EOF$'
+#ifndef %%%OUTPUT_NAME%%%
+#define %%%OUTPUT_NAME%%%
 
-# The "by <program>" line is messed up when using libtool.  Thus, we just
-# strip it out when doing the comparisons.  In fact, get rid of all comments.
+#include <ctemplate/template_string.h>
+static const ::ctemplate::StaticTemplateString ko_QCHAR = STS_INIT_WITH_HASH(ko_QCHAR, "QCHAR", 13739615363438531061ULL);
+static const ::ctemplate::StaticTemplateString ko_HREF = STS_INIT_WITH_HASH(ko_HREF, "HREF", 4441707909033668369ULL);
+static const ::ctemplate::StaticTemplateString ko_PARAMS = STS_INIT_WITH_HASH(ko_PARAMS, "PARAMS", 10755877064288701757ULL);
+static const ::ctemplate::StaticTemplateString ko_ATTRIBUTES = STS_INIT_WITH_HASH(ko_ATTRIBUTES, "ATTRIBUTES", 11813232524653503831ULL);
+static const ::ctemplate::StaticTemplateString ko_ATTRIBUTE = STS_INIT_WITH_HASH(ko_ATTRIBUTE, "ATTRIBUTE", 14959290143384361001ULL);
+
+#endif  // %%%OUTPUT_NAME%%%
+EOF`
+
+# When -f (--output-file) is used on ok1.tpl and ok4.tpl
+# Note that both variables in ok4.tpl will be duplicates and hence not returned.
+expected_ok1and4=`echo "$expected_ok1" | sed s/ok1/ok1and4/g`
+
+# Suppress unimportant aspects of the make_tpl_varnames_h output.
 Cleanse() {
   # Replace the file name guard with %%%OUTPUT_NAME%%% so we can use
   # the same expected_ok* variables for different file names.
-  # We use 'basename' plus .* (in the sed) to match the filename,
-  # because mingw automatically converts mingw directories to windows
-  # directories sometimes, and we want both to match.  It's not perfect.
-  #
   # Note that we only append 'H_' to the end of the string, instead
   # of '_H_'.  This is because the first call to 'tr' is already
   # adding a '_' at the end of the converted $1 (due to the newline
   # emitted by echo).
-  n="`basename $1 | tr -c '0-9a-zA-Z' '_' | tr 'a-z' 'A-Z'`"
-  grep -v '^//' "$1" | sed -e "s:TPL_.*${n}H_:%%%OUTPUT_NAME%%%:" > "$1.cleansed"
+  n="`basename $1 | sed -e 's/[^0-9a-zA-Z]/_/g' | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`"
+  grep -v '^//' "$1" | sed -e "s:TPL_.*${n}_H_:%%%OUTPUT_NAME%%%:" > "$1.cleansed"
 }
 
 # syntax-check these templates
@@ -182,11 +196,25 @@ Cleanse "$TMPDIR/ok3.tpl.out"
 echo "$expected_ok3" | diff - "$TMPDIR/ok3.tpl.out.cleansed" \
    || die "$LINENO: $MAKETPL didn't make ok3 output correctly"
 
-# Verify that -f generates the requested output file
+# Verify that -f generates the requested output file:
+# -f with one file
 $MAKETPL -t$TMPDIR -f$TMPDIR/ok1.h ok1.tpl >/dev/null 2>&1
 Cleanse "$TMPDIR/ok1.h"
 echo "$expected_ok1" | diff - "$TMPDIR/ok1.h.cleansed" \
    || die "$LINENO: $MAKETPL didn't make ok1.h output correctly"
+# -f with two files - no common template variables
+$MAKETPL -t$TMPDIR -f$TMPDIR/ok1and2.h ok1.tpl ok2.tpl >/dev/null 2>&1
+Cleanse "$TMPDIR/ok1and2.h"
+echo "$expected_ok1and2" | diff - "$TMPDIR/ok1and2.h.cleansed" \
+   || die "$LINENO: $MAKETPL didn't make ok1and2.h output correctly"
+# -f with two files - two common template variables
+$MAKETPL -t$TMPDIR -f$TMPDIR/ok1and4.h ok1.tpl ok4.tpl >/dev/null 2>&1
+Cleanse "$TMPDIR/ok1and4.h"
+echo "$expected_ok1and4" | diff - "$TMPDIR/ok1and4.h.cleansed" \
+   || die "$LINENO: $MAKETPL didn't make ok1and4.h output correctly"
+# -f with a bad file should not produce an output
+$MAKETPL -t$TMPDIR -f$TMPDIR/bar.h ok1.tpl bad1.tpl >/dev/null 2>&1 \
+  && die "$LINENO: $MAKETPL -f gave no error parsing bad template"
 
 # Verify we don't give any output iff everything works, with -q flag.
 # Also test using a different output dir.  Also, test *every* ok template.

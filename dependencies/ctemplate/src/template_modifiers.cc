@@ -28,7 +28,7 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // ---
-// Author: Craig Silverstein
+// Author: csilvers@google.com (Craig Silverstein)
 //
 // template_modifiers.h has a description of what each escape-routine does.
 //
@@ -43,26 +43,48 @@
 // introduce the possibility for cross-site scripting attacks.  If you
 // do change a modifier, be careful that it does not affect
 // the list of Safe XSS Alternatives.
+//
 
-#include "config.h"
+#include <config.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
 #include <string>
 #include <vector>
 #include "htmlparser/htmlparser_cpp.h"
-#include "template_modifiers_internal.h"
 #include <ctemplate/template_modifiers.h>
+#include "template_modifiers_internal.h"
 #include <ctemplate/per_expand_data.h>
-
 using std::string;
 using std::vector;
 
-using HTMLPARSER_NAMESPACE::HtmlParser;
+#define strliterallen(s)  (sizeof("" s "") - 1)
 
 // Really we should be using uint_16_t or something, but this is good
 // enough, and more portable...
 typedef unsigned int uint16;
+
+namespace URL {
+bool HasInsecureProtocol(const char* in, int inlen) {
+  if (inlen > strliterallen("http://") &&
+      strncasecmp(in, "http://", strliterallen("http://")) == 0) {
+    return false;  // We're ok, it's an http protocol
+  }
+  if (inlen > strliterallen("https://") &&
+      strncasecmp(in, "https://", strliterallen("https://")) == 0) {
+    return false;  // https is ok as well
+  }
+  if (inlen > strliterallen("ftp://") &&
+      strncasecmp(in, "ftp://", strliterallen("ftp://")) == 0) {
+    return false;  // and ftp
+  }
+  return true;
+}
+}  // namespace URL
+
+_START_GOOGLE_NAMESPACE_
+
+using HTMLPARSER_NAMESPACE::HtmlParser;
 
 // A most-efficient way to append a string literal to the var named 'out'.
 // The ""s ensure literal is actually a string literal
@@ -71,10 +93,8 @@ typedef unsigned int uint16;
 // Check whether the string of length len is identical to the literal.
 // The ""s ensure literal is actually a string literal
 #define STR_IS(str, len, literal) \
-  ((len) == sizeof(""literal"")-1 && \
-   memcmp(str, literal, sizeof(""literal"")-1) == 0)
-
-_START_GOOGLE_NAMESPACE_
+  ((len) == sizeof("" literal "") - 1 && \
+   memcmp(str, literal, sizeof("" literal "") - 1) == 0)
 
 TemplateModifier::~TemplateModifier() {}
 
@@ -146,13 +166,81 @@ void PreEscape::Modify(const char* in, size_t inlen,
 }
 PreEscape pre_escape;
 
+// We encode the presence and ordering of unclosed tags in a string, using the
+// letters b, i, s, and e to stand for <b>, <i>, <span>, and <em> respectively.
+// The most recently opened tag is appended onto the end of the string, so in
+// the common case of properly nested tags, we need only look at the last
+// character.  If we don't find it there, we need to continue looking at
+// everything until we find it, because tags may not necessarily be in order.
+// Similarly, when we add a tag, we need to check each existing tag for a match
+// so that we don't nest.
+class UnclosedSnippetTags {
+ public:
+  // We could use ordinary ints for the enum values, but using mnemonic
+  // characters potentially makes debugging easier.
+  typedef enum {
+    TAG_B = 'b',
+    TAG_I = 'i',
+    TAG_EM = 'e',
+    TAG_SPAN = 's',
+  } Tag;
+
+  UnclosedSnippetTags() : tag_length(0) {
+    memset(tags, 0, 5);
+  }
+
+  // Adds a tag to the set of open tags if it's not already open, or otherwise
+  // return false.
+  inline bool MaybeAdd(Tag tag) {
+    if (strchr(tags, tag)) {
+      return false;
+    } else {
+      tags[tag_length++] = tag;
+      return true;
+    }
+  }
+
+  // Removes a tag from the set of open tags if it's open, or otherwise return
+  // false.
+  inline bool MaybeRemove(Tag tag) {
+    char* tag_location = strchr(tags, tag);
+    if (tag_location) {
+      for (char* c = tag_location; *c; ++c) {
+        // Have to copy all later tags down by one so we don't leave a gap in the
+        // array.
+        *c = *(c + 1);
+      }
+      --tag_length;
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  inline void PrintClosingTags(ExpandEmitter* out) {
+    for (int i = tag_length; i >= 0; --i) {
+      switch (tags[i]) {
+        case TAG_B:
+          out->Emit("</b>"); break;
+        case TAG_I:
+          out->Emit("</i>"); break;
+        case TAG_EM:
+          out->Emit("</em>"); break;
+        case TAG_SPAN:
+          out->Emit("</span>"); break;
+      }
+    }
+  }
+
+ private:
+  char tags[5];
+  int tag_length;
+};
+
 void SnippetEscape::Modify(const char* in, size_t inlen,
                            const PerExpandData*,
                            ExpandEmitter* out, const string& arg) const {
-  enum { NONE, B, I, B_THEN_I, I_THEN_B } state = NONE;
-  static const char* kCloser[] =
-      { "", "</b>", "</i>", "</i></b>", "</b></i>" };
-
+  UnclosedSnippetTags unclosed;
   const char* pos = in;
   const char* start = pos;
   const char* const limit = in + inlen;
@@ -170,30 +258,44 @@ void SnippetEscape::Modify(const char* in, size_t inlen,
         const char* const next_pos = pos + 1;
         const int chars_left = limit - next_pos;
         if ((chars_left >= 2) && !memcmp(next_pos, "b>", 2)
-            && (state == NONE || state == I)) {
-          state = (state == I) ? I_THEN_B : B;
-          pos += 3;  // length of <b>
+            && unclosed.MaybeAdd(UnclosedSnippetTags::TAG_B)) {
+          pos += strliterallen("<b>");
           continue;
         } else if ((chars_left >= 2) && !memcmp(next_pos, "i>", 2)
-                   && (state == NONE || state == B)) {
-          state = (state == B) ? B_THEN_I : I;
-          pos += 3;  // length of <i>
+                   && unclosed.MaybeAdd(UnclosedSnippetTags::TAG_I)) {
+          pos += strliterallen("<i>");
+          continue;
+        } else if ((chars_left >= 3) && !memcmp(next_pos, "em>", 3)
+                   && unclosed.MaybeAdd(UnclosedSnippetTags::TAG_EM)) {
+          pos += strliterallen("<em>");
+          continue;
+        } else if ((chars_left >= 13) && !memcmp(next_pos, "span dir=", 9)
+                   && (!memcmp(next_pos + 9, "ltr>", 4) ||
+                       !memcmp(next_pos + 9, "rtl>", 4))
+                   && unclosed.MaybeAdd(UnclosedSnippetTags::TAG_SPAN)) {
+          pos += strliterallen("<span dir=ltr>");
           continue;
         } else if ((chars_left >= 3) && !memcmp(next_pos, "/b>", 3)
-                   && (state != NONE && state != I)) {
-          state = (state == B) ? NONE : I;
-          pos += 4;  // length of </b>
+                   && unclosed.MaybeRemove(UnclosedSnippetTags::TAG_B)) {
+          pos += strliterallen("</b>");
           continue;
         } else if ((chars_left >= 3) && !memcmp(next_pos, "/i>", 3)
-                   && (state != NONE && state != B)) {
-          state = (state == I) ? NONE : B;
-          pos += 4;  // length of </i>
+                   && unclosed.MaybeRemove(UnclosedSnippetTags::TAG_I)) {
+          pos += strliterallen("</i>");
+          continue;
+        } else if ((chars_left >= 4) && !memcmp(next_pos, "/em>", 4)
+                   && unclosed.MaybeRemove(UnclosedSnippetTags::TAG_EM)) {
+          pos += strliterallen("</em>");
+          continue;
+        } else if ((chars_left >= 6) && !memcmp(next_pos, "/span>", 6)
+                   && unclosed.MaybeRemove(UnclosedSnippetTags::TAG_SPAN)) {
+          pos += strliterallen("</span>");
           continue;
         } else if ((chars_left >= 3) && !memcmp(next_pos, "br>", 3)) {
-          pos += 4;  // length of <br>
+          pos += strliterallen("<br>");
           continue;
         } else if ((chars_left >= 4) && !memcmp(next_pos, "wbr>", 4)) {
-          pos += 5;  // length of <wbr>
+          pos += strliterallen("<wbr>");
           continue;
         }
 
@@ -226,9 +328,7 @@ void SnippetEscape::Modify(const char* in, size_t inlen,
     start = ++pos;
   }
   EmitRun(start, pos, out);
-  if (state != NONE) {
-    out->Emit(kCloser[state]);
-  }
+  unclosed.PrintClosingTags(out);
 }
 SnippetEscape snippet_escape;
 
@@ -339,6 +439,11 @@ void CssUrlEscape::Modify(const char* in, size_t inlen,
 }
 CssUrlEscape css_url_escape;
 
+// These URLs replace unsafe URLs for :U and :I url-escaping modes.
+const char* const ValidateUrl::kUnsafeUrlReplacement = "#";
+const char* const ValidateUrl::kUnsafeImgSrcUrlReplacement =
+    "/images/cleardot.gif";
+
 void ValidateUrl::Modify(const char* in, size_t inlen,
                          const PerExpandData* per_expand_data,
                          ExpandEmitter* out, const string& arg) const {
@@ -347,28 +452,37 @@ void ValidateUrl::Modify(const char* in, size_t inlen,
     slashpos = in + inlen;
   }
   const void* colonpos = memchr(in, ':', slashpos - in);
-  if (colonpos != NULL) {   // colon before first slash, could be a protocol    
-    if (inlen > sizeof("http://")-1 &&
-        strncasecmp(in, "http://", sizeof("http://")-1) == 0) {
-      // We're ok, it's an http protocol                                        
-    } else if (inlen > sizeof("https://")-1 &&
-               strncasecmp(in, "https://", sizeof("https://")-1) == 0) {
-      // https is ok as well                                                    
-    } else if (inlen > sizeof("ftp://")-1 &&
-               strncasecmp(in, "ftp://", sizeof("ftp://")-1) == 0) {
-      // and ftp
-    } else {
-      // It's a bad protocol, so return something safe                          
-      chained_modifier_.Modify("#", 1, per_expand_data, out, "");
-      return;
-    }
+  // colon before first slash, could be a protocol
+  if (colonpos != NULL && URL::HasInsecureProtocol(in, inlen)) {
+    // It's a bad protocol, so return something safe
+    chained_modifier_.Modify(unsafe_url_replacement_,
+                             unsafe_url_replacement_length_,
+                             per_expand_data,
+                             out,
+                             "");
+    return;
   }
   // If we get here, it's a valid url, so just escape it
   chained_modifier_.Modify(in, inlen, per_expand_data, out, "");
 }
-ValidateUrl validate_url_and_html_escape(html_escape);
-ValidateUrl validate_url_and_javascript_escape(javascript_escape);
-ValidateUrl validate_url_and_css_escape(css_url_escape);
+ValidateUrl validate_url_and_html_escape(
+    html_escape,
+    ValidateUrl::kUnsafeUrlReplacement);
+ValidateUrl validate_url_and_javascript_escape(
+    javascript_escape,
+    ValidateUrl::kUnsafeUrlReplacement);
+ValidateUrl validate_url_and_css_escape(
+    css_url_escape,
+    ValidateUrl::kUnsafeUrlReplacement);
+ValidateUrl validate_img_src_url_and_html_escape(
+    html_escape,
+    ValidateUrl::kUnsafeImgSrcUrlReplacement);
+ValidateUrl validate_img_src_url_and_javascript_escape(
+    javascript_escape,
+    ValidateUrl::kUnsafeImgSrcUrlReplacement);
+ValidateUrl validate_img_src_url_and_css_escape(
+    css_url_escape,
+    ValidateUrl::kUnsafeImgSrcUrlReplacement);
 
 void XmlEscape::Modify(const char* in, size_t inlen,
                        const PerExpandData*,
@@ -377,7 +491,21 @@ void XmlEscape::Modify(const char* in, size_t inlen,
   const char* start = pos;
   const char* const limit = in + inlen;
   while (pos < limit) {
-    switch (*pos) {
+    char ch = *pos;
+
+    // According to section 2.2 of the spec
+    // http://www.w3.org/TR/REC-xml/#charsets control characters in range
+    // 0x00-0x1F (except \t, \r and \n) are not valid XML characters. In
+    // particular, conformant parsers are allowed to die when encountering a FF
+    // char in PCDATA sections. These chars are replaced by a space.
+    if (ch >= 0x00 && ch < 0x20 && ch != '\t' && ch != '\r' && ch != '\n') {
+      EmitRun(start, pos, out);
+      out->Emit(' ');
+      start = ++pos;
+      continue;
+    }
+
+    switch (ch) {
       default:
         // Increment our counter and look at the next character.
         ++pos;
@@ -395,27 +523,47 @@ void XmlEscape::Modify(const char* in, size_t inlen,
 }
 XmlEscape xml_escape;
 
+// This table maps initial characters to code lengths.  This could be
+// done with a 16-byte table and a shift, but there's a substantial
+// performance increase by eliminating the shift.
+static const char kCodeLengths[256] = {
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+};
+
 // Returns the UTF-8 code-unit starting at start, or the special codepoint
 // 0xFFFD if the input ends abruptly or is not well-formed UTF-8.
 // start -- address of the start of the code unit which also receives the
 //          address past the end of the code unit returned.
 // end -- exclusive end of the string
 static inline uint16 UTF8CodeUnit(const char** start, const char *end) {
-  size_t code_unit_len = 1;
-  switch (**start & 0xF0) {
-    case 0xC0: case 0xD0:  // 110x xxxx  10xx xxxx
-      code_unit_len = 2;
-      break;
-    case 0xE0:             // 1110 xxxx  10xx xxxx  10xx xxxx
-      code_unit_len = 3;
-      break;
-    default:
-      // Return the current byte as a codepoint.
-      // Either it is a valid single byte codepoint, or it's not part of a valid
-      // UTF-8 sequence, and so has to be handled individually.
-      char first_char = **start;
-      ++*start;
-      return static_cast<unsigned char>(first_char);
+  // Use kCodeLengths table to calculate the length of the code unit
+  // from the first character.
+  unsigned char first_char = static_cast<unsigned char>(**start);
+  size_t code_unit_len = kCodeLengths[first_char];
+  if (code_unit_len == 1) {
+    // Return the current byte as a codepoint.
+    // Either it is a valid single byte codepoint, or it's not part of a valid
+    // UTF-8 sequence, and so has to be handled individually.
+    ++*start;
+    return first_char;
   }
   const char *code_unit_end = *start + code_unit_len;
   if (code_unit_end < *start || code_unit_end > end) {  // Truncated code unit.
@@ -450,40 +598,51 @@ void JavascriptEscape::Modify(const char* in, size_t inlen,
   while (pos < limit) {
     const char* next_pos = pos;
     uint16 code_unit = UTF8CodeUnit(&next_pos, limit);
-    switch (code_unit) {
-      default:
-        // Increment our counter and look at the next character.
+
+    // Test for 16-bit values outside the switch below, because gcc
+    // will emit chained branches rather than a jump table for such a
+    // wide range of values.
+    if (code_unit & 0xFF00) {
+      // Linebreaks according to EcmaScript 262 which cannot appear in strings.
+      if (code_unit == 0x2028) {
+        // Line separator
+        EmitRun(start, pos, out); APPEND("\\u2028");
+      } else if (code_unit == 0x2029) {
+        // Paragraph separator
+        EmitRun(start, pos, out); APPEND("\\u2029");
+      } else {
         pos = next_pos;
         continue;
+      }
+    } else {
+      switch (code_unit) {
+        default:
+          // Increment our counter and look at the next character.
+          pos = next_pos;
+          continue;
 
-      case '\0': EmitRun(start, pos, out); APPEND("\\x00"); break;
-      case '"':  EmitRun(start, pos, out); APPEND("\\x22"); break;
-      case '\'': EmitRun(start, pos, out); APPEND("\\x27"); break;
-      case '\\': EmitRun(start, pos, out); APPEND("\\\\");  break;
-      case '\t': EmitRun(start, pos, out); APPEND("\\t");   break;
-      case '\r': EmitRun(start, pos, out); APPEND("\\r");   break;
-      case '\n': EmitRun(start, pos, out); APPEND("\\n");   break;
-      case '\b': EmitRun(start, pos, out); APPEND("\\b");   break;
-      case '\f': EmitRun(start, pos, out); APPEND("\\f");   break;
-      case '&':  EmitRun(start, pos, out); APPEND("\\x26"); break;
-      case '<':  EmitRun(start, pos, out); APPEND("\\x3c"); break;
-      case '>':  EmitRun(start, pos, out); APPEND("\\x3e"); break;
-      case '=':  EmitRun(start, pos, out); APPEND("\\x3d"); break;
+        case '\0': EmitRun(start, pos, out); APPEND("\\x00"); break;
+        case '"':  EmitRun(start, pos, out); APPEND("\\x22"); break;
+        case '\'': EmitRun(start, pos, out); APPEND("\\x27"); break;
+        case '\\': EmitRun(start, pos, out); APPEND("\\\\");  break;
+        case '\t': EmitRun(start, pos, out); APPEND("\\t");   break;
+        case '\r': EmitRun(start, pos, out); APPEND("\\r");   break;
+        case '\n': EmitRun(start, pos, out); APPEND("\\n");   break;
+        case '\b': EmitRun(start, pos, out); APPEND("\\b");   break;
+        case '\f': EmitRun(start, pos, out); APPEND("\\f");   break;
+        case '&':  EmitRun(start, pos, out); APPEND("\\x26"); break;
+        case '<':  EmitRun(start, pos, out); APPEND("\\x3c"); break;
+        case '>':  EmitRun(start, pos, out); APPEND("\\x3e"); break;
+        case '=':  EmitRun(start, pos, out); APPEND("\\x3d"); break;
 
-      case '\v':
-        // Do not escape vertical tabs to "\\v" since it is interpreted as 'v'
-        // by JScript according to section 2.1 of
-        // http://wiki.ecmascript.org/lib/exe/fetch.php?id=resources%3Aresources
-        // &cache=cache&media=resources:jscriptdeviationsfromes3.pdf
-        EmitRun(start, pos, out); APPEND("\\x0b"); break;
-
-      // Linebreaks according to EcmaScript 262 which cannot appear in strings.
-      case 0x2028:
-        // Line separator
-        EmitRun(start, pos, out); APPEND("\\u2028"); break;
-      case 0x2029:
-        // Paragraph separator
-        EmitRun(start, pos, out); APPEND("\\u2029"); break;
+        case '\v':
+          // Do not escape vertical tabs to "\\v" since it is interpreted as 'v'
+          // by JScript according to section 2.1 of
+          // http://wiki.ecmascript.org/lib/exe/fetch.php?
+          // id=resources%3Aresources&cache=cache&
+          // media=resources:jscriptdeviationsfromes3.pdf
+          EmitRun(start, pos, out); APPEND("\\x0b"); break;
+      }
     }
     start = pos = next_pos;
   }
@@ -669,13 +828,16 @@ PrefixLine prefix_line;
 // point to other ones within that same array so elements
 // may not be re-ordered easily. Also you need to change
 // the global g_am_dirs correspondingly.
+//
 static struct ModifierWithAlternatives {
   ModifierInfo modifier_info;
   ModifierInfo* safe_alt_mods[MAX_SAFE_ALTERNATIVES];
 } g_modifiers[] = {
   /* 0 */ { ModifierInfo("cleanse_css", 'c',
                          XSS_WEB_STANDARD, &cleanse_css),
-            {&g_modifiers[16].modifier_info} },  // url_escape_with_arg=css
+            {&g_modifiers[16].modifier_info,  // url_escape_with_arg=css
+             // img_src_url_escape_with_arg=css
+             &g_modifiers[19].modifier_info} },
   /* 1 */ { ModifierInfo("html_escape", 'h',
                          XSS_WEB_STANDARD, &html_escape),
             {&g_modifiers[2].modifier_info,   // html_escape_with_arg=snippet
@@ -685,8 +847,9 @@ static struct ModifierWithAlternatives {
              &g_modifiers[8].modifier_info,   // pre_escape
              &g_modifiers[9].modifier_info,   // url_query_escape
              &g_modifiers[11].modifier_info,  // url_escape_with_arg=html
-             &g_modifiers[12].modifier_info} },  // url_escape_with_arg=query
-
+             &g_modifiers[12].modifier_info,  // url_escape_with_arg=query
+             // img_src_url_escape_with_arg=html
+             &g_modifiers[18].modifier_info} },
   /* 2 */ { ModifierInfo("html_escape_with_arg=snippet", 'H',
                          XSS_WEB_STANDARD, &snippet_escape),
             {&g_modifiers[1].modifier_info,   // html_escape
@@ -706,10 +869,15 @@ static struct ModifierWithAlternatives {
   /* 4 */ { ModifierInfo("html_escape_with_arg=attribute", 'H',
                          XSS_WEB_STANDARD, &cleanse_attribute), {} },
   /* 5 */ { ModifierInfo("html_escape_with_arg=url", 'H',
-                         XSS_WEB_STANDARD, &validate_url_and_html_escape), {} },
+                         XSS_WEB_STANDARD, &validate_url_and_html_escape),
+            // img_src_url_escape_with_arg=html
+            {&g_modifiers[18].modifier_info} },
   /* 6 */ { ModifierInfo("javascript_escape", 'j',
                          XSS_WEB_STANDARD, &javascript_escape),
-            {&g_modifiers[7].modifier_info} },  // json_escape
+            {&g_modifiers[7].modifier_info,   // json_escape
+             &g_modifiers[10].modifier_info,  // url_escape_with_arg=javascript
+             // img_src_url_escape_with_arg=javascript
+             &g_modifiers[17].modifier_info} },
   /* 7 */ { ModifierInfo("json_escape", 'o', XSS_WEB_STANDARD, &json_escape),
             {&g_modifiers[6].modifier_info} },  // javascript_escape
   /* 8 */ { ModifierInfo("pre_escape", 'p', XSS_WEB_STANDARD, &pre_escape),
@@ -723,9 +891,13 @@ static struct ModifierWithAlternatives {
                          XSS_WEB_STANDARD, &url_query_escape), {} },
   /* 10 */ { ModifierInfo("url_escape_with_arg=javascript", 'U',
                           XSS_WEB_STANDARD,
-                          &validate_url_and_javascript_escape), {} },
+                          &validate_url_and_javascript_escape),
+             // img_src_url_escape_with_arg=javascript
+             {&g_modifiers[17].modifier_info} },
   /* 11 */ { ModifierInfo("url_escape_with_arg=html", 'U',
-                          XSS_WEB_STANDARD, &validate_url_and_html_escape), {} },
+                          XSS_WEB_STANDARD, &validate_url_and_html_escape),
+             // img_src_url_escape_with_arg=html
+             {&g_modifiers[18].modifier_info} },
   /* 12 */ { ModifierInfo("url_escape_with_arg=query", 'U',
                           XSS_WEB_STANDARD, &url_query_escape), {} },
   /* 13 */ { ModifierInfo("none", '\0', XSS_SAFE, &null_modifier), {} },
@@ -736,6 +908,15 @@ static struct ModifierWithAlternatives {
                           XSS_WEB_STANDARD, &javascript_number), {} },
   /* 16 */ { ModifierInfo("url_escape_with_arg=css", 'U',
                           XSS_WEB_STANDARD, &validate_url_and_css_escape), {} },
+  /* 17 */ { ModifierInfo("img_src_url_escape_with_arg=javascript", 'I',
+                          XSS_WEB_STANDARD,
+                          &validate_img_src_url_and_javascript_escape), {} },
+  /* 18 */ { ModifierInfo("img_src_url_escape_with_arg=html", 'I',
+                          XSS_WEB_STANDARD,
+                          &validate_img_src_url_and_html_escape), {} },
+  /* 19 */ { ModifierInfo("img_src_url_escape_with_arg=css", 'I',
+                          XSS_WEB_STANDARD,
+                          &validate_img_src_url_and_css_escape), {} },
 };
 
 static vector<const ModifierInfo*> g_extension_modifiers;
@@ -1136,9 +1317,9 @@ vector<const ModifierAndValue*> GetModifierForHtmlJs(
             modvals.push_back(g_am_dirs[AM_JS_NUMBER]);
           break;
         case HtmlParser::ATTR_NONE:
-          assert("We should be in attribute!" == NULL);
+          assert("We should be in attribute!" && 0);
         default:
-          assert("Should not be able to get here." == NULL);
+          assert("Should not be able to get here." && 0);
           return modvals;  // Empty
       }
       // In STATE_VALUE particularly, the parser may get out of sync with
@@ -1178,11 +1359,11 @@ vector<const ModifierAndValue*> GetModifierForHtmlJs(
       return modvals;
     }
     default:{
-      assert("Should not be able to get here." == NULL);
+      assert("Should not be able to get here." && 0);
       return modvals;   // Empty
     }
   }
-  assert("Should not be able to get here." == NULL);
+  assert("Should not be able to get here." && 0);
   return modvals;   // Empty
 }
 

@@ -11,6 +11,14 @@ if GCC
 AM_CXXFLAGS = -Wall -Wwrite-strings -Woverloaded-virtual -Wno-sign-compare
 endif
 
+# mingw does weird directory munging on /tmp, which causes some of our
+# tests to fail, so use a different tmpdir there.
+if MINGW
+TMPDIR = ./
+else
+TMPDIR = /tmp
+endif
+
 ctemplateincludedir = $(includedir)/ctemplate
 ## The .h files you want to install (that is, .h files that people
 ## who install this package can include in their own applications.)
@@ -29,7 +37,8 @@ nodist_ctemplateinclude_HEADERS = \
 	src/ctemplate/template_annotator.h \
 	src/ctemplate/template_emitter.h \
 	src/ctemplate/template_namelist.h \
-	src/ctemplate/per_expand_data.h
+	src/ctemplate/per_expand_data.h \
+	src/ctemplate/str_ref.h
 noinst_HEADERS = \
 	src/ctemplate/template.h.in \
 	src/ctemplate/template_cache.h.in \
@@ -42,15 +51,17 @@ noinst_HEADERS = \
 	src/ctemplate/template_annotator.h.in \
 	src/ctemplate/template_emitter.h.in \
 	src/ctemplate/template_namelist.h.in \
-	src/ctemplate/per_expand_data.h.in
+	src/ctemplate/per_expand_data.h.in \
+	src/ctemplate/str_ref.h.in
 
 docdir = $(prefix)/share/doc/$(PACKAGE)-$(VERSION)
 ## This is for HTML and other documentation you want to install.
 ## Add your documentation files (in doc/) in addition to these
 ## top-level boilerplate files.  Also add a TODO file if you have one.
-dist_doc_DATA = AUTHORS COPYING ChangeLog INSTALL NEWS README README.windows \
+dist_doc_DATA = AUTHORS COPYING ChangeLog INSTALL NEWS README README_windows.txt \
 	doc/designstyle.css doc/index.html \
-	doc/howto.html doc/tips.html doc/example.html doc/auto_escape.html \
+	doc/howto.html doc/guide.html doc/reference.html \
+	doc/tips.html doc/example.html doc/auto_escape.html \
 	doc/xss_resources.html
 
 ## The libraries (.so's) you want to install
@@ -61,7 +72,7 @@ noinst_LTLIBRARIES =
 bin_PROGRAMS =
 bin_SCRIPTS =
 ## The location of the windows project file for each binary we make
-WINDOWS_PROJECTS = google-ctemplate.sln
+WINDOWS_PROJECTS = ctemplate.sln
 
 
 ## unittests you want to run when people type 'make check'.
@@ -111,20 +122,40 @@ CTEMPLATE_SYMBOLS = '(ctemplate|template_modifiers|BaseArena|UnsafeArena|[^A-Za-
 lib_LTLIBRARIES += libctemplate.la
 WINDOWS_PROJECTS += vsprojects/libctemplate/libctemplate.vcproj
 libctemplate_la_SOURCES = $(nodist_ctemplateinclude_HEADERS) \
-	src/base/arena.h src/base/arena.cc src/base/mutex.h \
-	src/base/small_map.h src/base/manual_constructor.h \
-	src/template_modifiers_internal.h src/indented_writer.h \
-	src/template.cc src/template_cache.cc \
-	src/template_dictionary.cc src/template_modifiers.cc \
-	src/template_annotator.cc src/per_expand_data.cc \
+	src/base/arena-inl.h \
+	src/base/arena.cc \
+	src/base/arena.h \
+	src/base/fileutil.h \
+	src/base/macros.h \
+	src/base/manual_constructor.h \
+	src/base/mutex.h \
+	src/base/small_map.h \
+	src/base/thread_annotations.h \
+	src/base/util.h \
+	src/indented_writer.h \
+	src/per_expand_data.cc \
+	src/template.cc \
+	src/template_annotator.cc \
+	src/template_cache.cc \
+	src/template_dictionary.cc \
+	src/template_modifiers.cc \
+	src/template_modifiers_internal.h \
+	src/template_namelist.cc \
+	src/template_pathops.cc \
 	src/template_string.cc \
-	src/template_namelist.cc src/template_pathops.cc \
-	src/htmlparser/htmlparser.h src/htmlparser/htmlparser.cc \
-	src/htmlparser/jsparser.h src/htmlparser/jsparser.cc \
-	src/htmlparser/statemachine.h src/htmlparser/statemachine.cc \
-	src/htmlparser/htmlparser_cpp.h
+	src/htmlparser/htmlparser.cc \
+	src/htmlparser/htmlparser.h \
+	src/htmlparser/htmlparser_cpp.h \
+	src/htmlparser/jsparser.cc \
+	src/htmlparser/jsparser.h \
+	src/htmlparser/statemachine.cc \
+	src/htmlparser/statemachine.h
 libctemplate_la_CXXFLAGS = $(PTHREAD_CFLAGS) -DNDEBUG $(AM_CXXFLAGS)
-libctemplate_la_LDFLAGS = $(PTHREAD_CFLAGS) -export-symbols-regex $(CTEMPLATE_SYMBOLS)
+# -version-info gets passed to libtool
+libctemplate_la_LDFLAGS = $(PTHREAD_CFLAGS) \
+                          -export-symbols-regex $(CTEMPLATE_SYMBOLS) \
+                          -no-undefined \
+                          -version-info @SO_VERSION@
 libctemplate_la_LIBADD = $(PTHREAD_LIBS)
 
 # For MinGW, we need to bring in the windows port files
@@ -138,7 +169,9 @@ lib_LTLIBRARIES += libctemplate_nothreads.la
 libctemplate_nothreads_la_SOURCES = $(libctemplate_la_SOURCES)
 libctemplate_nothreads_la_DEPENDENCIES = $(libctemplate_la_DEPENDENCIES)
 libctemplate_nothreads_la_CXXFLAGS = -DNDEBUG -DNO_THREADS $(AM_CXXFLAGS)
-libctemplate_nothreads_la_LDFLAGS = -export-symbols-regex $(CTEMPLATE_SYMBOLS)
+libctemplate_nothreads_la_LDFLAGS = -export-symbols-regex $(CTEMPLATE_SYMBOLS) \
+                                    -no-undefined \
+                                    -version-info @SO_VERSION@
 
 # For our tests, we want versions of these libraries that include asserts.
 noinst_LTLIBRARIES += libctemplate_debug.la
@@ -168,11 +201,16 @@ libctemplate_testing_la_SOURCES = $(nodist_ctemplateinclude_HEADERS) \
                                   src/tests/template_test_util.cc
 libctemplate_testing_la_CXXFLAGS = $(PTHREAD_CFLAGS) $(AM_CXXFLAGS)
 CTEMPLATE_TESTING_SYMBOLS = 'TemporaryRegisterTemplate|TemplateDictionaryPeer'
-libctemplate_testing_la_LDFLAGS = $(PTHREAD_CFLAGS) -export-symbols-regex $(CTEMPLATE_TESTING_SYMBOLS)
+libctemplate_testing_la_LDFLAGS = $(PTHREAD_CFLAGS) \
+                                  -export-symbols-regex $(CTEMPLATE_TESTING_SYMBOLS) \
+                                  -no-undefined \
+                                  -version-info @SO_VERSION@
 libctemplate_testing_la_LIBADD = $(PTHREAD_LIBS)
 libctemplate_testing_nothreads_la_SOURCES = $(libctemplate_testing_la_SOURCES)
 libctemplate_testing_nothreads_la_CXXFLAGS = $(AM_CXXFLAGS) -DNO_THREADS
-libctemplate_testing_nothreads_la_LDFLAGS = -export-symbols-regex $(CTEMPLATE_TESTING_SYMBOLS)
+libctemplate_testing_nothreads_la_LDFLAGS = -export-symbols-regex $(CTEMPLATE_TESTING_SYMBOLS) \
+                                            -no-undefined \
+                                            -version-info @SO_VERSION@
 
 # This library depends on libctemplate, but it can use either libctemplate
 # or libctemplate_nothreads.  Rather than have two versions of this
@@ -209,9 +247,18 @@ compile_nothreads_test_SOURCES = $(compile_test_SOURCES)
 compile_nothreads_test_CXXFLAGS = -DNO_THREADS $(AM_CXXFLAGS)
 compile_nothreads_test_LDADD = libctemplate_nothreads_debug.la
 
+# With compile_test, we are making sure that the code compiles without
+# needing config.h/etc.  The best test is to make sure we can compile
+# with just the installed header files.  The best way to do this is at
+# installcheck time.  When this rule is run (via 'make distcheck'),
+# 'includedir' is the installed include-dir.
+installcheck-local:
+	$(CXX) -I $(includedir) -c $(top_srcdir)/src/tests/compile_test.cc \
+	       -o installcheck_compile_test.o
+
 TESTS += template_test_util_test template_test_util_nothreads_test
 WINDOWS_PROJECTS += vsprojects/template_test_util_test/template_test_util_test.vcproj
-template_test_util_test_SOURCES = src/config_for_unittests.h \
+template_test_util_test_SOURCES = src/tests/config_for_unittests.h \
                                    src/template_dictionary.cc \
                                    src/tests/template_test_util_test.cc
 template_test_util_test_CXXFLAGS = $(PTHREAD_CFLAGS) $(AM_CXXFLAGS)
@@ -225,7 +272,7 @@ template_test_util_nothreads_test_LDADD = libctemplate_testing_nothreads.la \
 
 TESTS += template_dictionary_unittest template_dictionary_nothreads_unittest
 WINDOWS_PROJECTS += vsprojects/template_dictionary_unittest/template_dictionary_unittest.vcproj
-template_dictionary_unittest_SOURCES = src/config_for_unittests.h \
+template_dictionary_unittest_SOURCES = src/tests/config_for_unittests.h \
                                        src/base/arena.h \
                                        src/tests/template_dictionary_unittest.cc
 template_dictionary_unittest_CXXFLAGS = $(PTHREAD_CFLAGS) $(AM_CXXFLAGS)
@@ -239,7 +286,7 @@ template_dictionary_nothreads_unittest_LDADD = libctemplate_testing_nothreads.la
 
 TESTS += template_modifiers_unittest template_modifiers_nothreads_unittest
 WINDOWS_PROJECTS += vsprojects/template_modifiers_unittest/template_modifiers_unittest.vcproj
-template_modifiers_unittest_SOURCES = src/config_for_unittests.h \
+template_modifiers_unittest_SOURCES = src/tests/config_for_unittests.h \
                                       src/tests/template_modifiers_unittest.cc
 template_modifiers_unittest_CXXFLAGS = $(PTHREAD_CFLAGS) $(AM_CXXFLAGS)
 template_modifiers_unittest_LDFLAGS = $(PTHREAD_CFLAGS)
@@ -252,7 +299,7 @@ template_modifiers_nothreads_unittest_LDADD = libctemplate_testing_nothreads.la 
 
 TESTS += template_setglobals_unittest template_setglobals_nothreads_unittest
 WINDOWS_PROJECTS += vsprojects/template_setglobals_unittest/template_setglobals_unittest.vcproj
-template_setglobals_unittest_SOURCES = src/config_for_unittests.h \
+template_setglobals_unittest_SOURCES = src/tests/config_for_unittests.h \
                                        src/tests/template_setglobals_unittest.cc
 template_setglobals_unittest_CXXFLAGS = $(PTHREAD_CFLAGS) $(AM_CXXFLAGS)
 template_setglobals_unittest_LDFLAGS = $(PTHREAD_CFLAGS)
@@ -265,7 +312,7 @@ template_setglobals_nothreads_unittest_LDADD = libctemplate_testing_nothreads.la
 
 TESTS += template_cache_test template_cache_nothreads_test
 WINDOWS_PROJECTS += vsprojects/template_cache_test/template_cache_test.vcproj
-template_cache_test_SOURCES = src/config_for_unittests.h \
+template_cache_test_SOURCES = src/tests/config_for_unittests.h \
                               src/template_modifiers_internal.h \
                               src/tests/template_cache_test.cc
 template_cache_test_CXXFLAGS = $(PTHREAD_CFLAGS) $(AM_CXXFLAGS)
@@ -280,7 +327,7 @@ template_cache_nothreads_test_LDADD = libctemplate_testing_nothreads.la \
 TESTS += template_unittest template_nothreads_unittest
 WINDOWS_PROJECTS += vsprojects/template_unittest/template_unittest.vcproj
 WINDOWS_PROJECTS += vsprojects/template_unittest_static/template_unittest_static.vcproj
-template_unittest_SOURCES = src/config_for_unittests.h \
+template_unittest_SOURCES = src/tests/config_for_unittests.h \
                             src/template_modifiers_internal.h \
                             src/tests/template_unittest.cc
 template_unittest_CXXFLAGS = $(PTHREAD_CFLAGS) $(AM_CXXFLAGS)
@@ -335,7 +382,7 @@ TESTDATA += \
 
 TESTS += htmlparser_test htmlparser_nothreads_test
 WINDOWS_PROJECTS += vsprojects/htmlparser_test/htmlparser_test.vcproj
-htmlparser_test_SOURCES = src/tests/htmlparser_test.cc
+htmlparser_test_SOURCES = src/tests/htmlparser_cpp_test.cc
 htmlparser_test_CXXFLAGS = $(PTHREAD_CFLAGS) $(AM_CXXFLAGS)
 htmlparser_test_LDFLAGS = $(PTHREAD_CFLAGS)
 htmlparser_test_LDADD = libctemplate_debug.la $(PTHREAD_LIBS)
@@ -346,6 +393,7 @@ TESTDATA += \
    src/tests/htmlparser_testdata/cdata.html \
    src/tests/htmlparser_testdata/comments.html \
    src/tests/htmlparser_testdata/context.html \
+   src/tests/htmlparser_testdata/google.html \
    src/tests/htmlparser_testdata/javascript_attribute.html \
    src/tests/htmlparser_testdata/javascript_block.html \
    src/tests/htmlparser_testdata/javascript_regexp.html \
@@ -381,7 +429,7 @@ generate_fsm_test_sh: src/tests/generate_fsm_test.sh \
                       src/tests/htmlparser_testdata/sample_fsm.config \
                       src/tests/htmlparser_testdata/sample_fsm.c \
                       src/htmlparser/generate_fsm.py
-	$(top_srcdir)/src/tests/generate_fsm_test.sh $(top_srcdir)
+	sh $(top_srcdir)/src/tests/generate_fsm_test.sh $(top_srcdir)
 TESTDATA += \
    src/tests/htmlparser_testdata/sample_fsm.config \
    src/tests/htmlparser_testdata/sample_fsm.c
@@ -390,18 +438,15 @@ check_SCRIPTS += make_tpl_varnames_h_unittest_sh
 noinst_SCRIPTS += src/tests/make_tpl_varnames_h_unittest.sh
 make_tpl_varnames_h_unittest_sh: src/tests/make_tpl_varnames_h_unittest.sh \
                                  make_tpl_varnames_h
-	$(top_srcdir)/src/tests/make_tpl_varnames_h_unittest.sh \
-	   $(top_builddir)/make_tpl_varnames_h /tmp/$@_dir
+	sh $(top_srcdir)/src/tests/make_tpl_varnames_h_unittest.sh \
+	   $(top_builddir)/make_tpl_varnames_h $(TMPDIR)/$@_dir
 
-## diff_tpl_auto_escape.cc has the following comment (as of April 2009):
-##    // TODO(jad): This script is currently broken. Fix me.
-## Uncomment this unittest when that TODO is resolved
-#check_SCRIPTS += diff_tpl_auto_escape_unittest_sh
-#noinst_SCRIPTS += src/tests/diff_tpl_auto_escape_unittest.sh
-#diff_tpl_auto_escape_unittest_sh: src/tests/diff_tpl_auto_escape_unittest.sh \
-#                                  diff_tpl_auto_escape
-#	$(top_srcdir)/src/tests/diff_tpl_auto_escape_unittest.sh \
-#	   $(top_builddir)/diff_tpl_auto_escape /tmp/$@_dir
+check_SCRIPTS += diff_tpl_auto_escape_unittest_sh
+noinst_SCRIPTS += src/tests/diff_tpl_auto_escape_unittest.sh
+diff_tpl_auto_escape_unittest_sh: src/tests/diff_tpl_auto_escape_unittest.sh \
+                                  diff_tpl_auto_escape
+	sh $(top_srcdir)/src/tests/diff_tpl_auto_escape_unittest.sh \
+	   $(top_builddir)/diff_tpl_auto_escape $(TMPDIR)/$@_dir
 
 ## ^^^^ END OF RULES TO MAKE THE LIBRARIES, BINARIES, AND UNITTESTS
 
@@ -415,6 +460,34 @@ rpm: dist-gzip packages/rpm.sh packages/rpm/rpm.spec
 deb: dist-gzip packages/deb.sh packages/deb/*
 	@cd packages && ./deb.sh ${PACKAGE} ${VERSION}
 
+# http://linux.die.net/man/1/pkg-config, http://pkg-config.freedesktop.org/wiki
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = lib${PACKAGE}.pc lib${PACKAGE}_nothreads.pc
+CLEANFILES += $(pkgconfig_DATA)
+
+# I get the description and URL lines from the rpm spec. I use sed to
+# try to rewrite exec_prefix, libdir, and includedir in terms of
+# prefix, if possible.
+lib${PACKAGE}.pc: Makefile packages/rpm/rpm.spec
+	echo 'prefix=$(prefix)' > "$@".tmp
+	echo 'exec_prefix='`echo '$(exec_prefix)' | sed 's@^$(prefix)@$${prefix}@'` >> "$@".tmp
+	echo 'libdir='`echo '$(libdir)' | sed 's@^$(exec_prefix)@$${exec_prefix}@'` >> "$@".tmp
+	echo 'includedir='`echo '$(includedir)' | sed 's@^$(prefix)@$${prefix}@'` >> "$@".tmp
+	echo '' >> "$@".tmp
+	echo 'Name: $(PACKAGE)' >> "$@".tmp
+	echo 'Version: $(VERSION)' >> "$@".tmp
+	-grep '^Summary:' $(top_srcdir)/packages/rpm/rpm.spec | sed s/^Summary:/Description:/ | head -n1 >> "$@".tmp
+	-grep '^URL: ' $(top_srcdir)/packages/rpm/rpm.spec >> "$@".tmp
+	echo 'Requires:' >> "$@".tmp
+	echo 'Libs: -L$${libdir} -l$(PACKAGE)' >> "$@".tmp
+	echo 'Libs.private: $(PTHREAD_CFLAGS) $(PTHREAD_LIBS)' >> "$@".tmp
+	echo 'Cflags: -I$${includedir}' >> "$@".tmp
+	mv -f "$@".tmp "$@"
+
+# The nothreads version is mostly the same
+lib${PACKAGE}_nothreads.pc: lib${PACKAGE}.pc
+	grep -v Libs.private lib${PACKAGE}.pc | sed s/-l$(PACKAGE)/-l$(PACKAGE)_nothreads/ > "$@"
+
 # Windows wants write permission to .vcproj files and maybe even sln files.
 dist-hook:
 	test -e "$(distdir)/vsprojects" \
@@ -423,13 +496,13 @@ dist-hook:
 ## If you're using libtool, add 'libtool' here.  Also add this rule:
 libtool: $(LIBTOOL_DEPS)
 	$(SHELL) ./config.status --recheck
+
 # In addition to the normal stuff, we include all the windows-specific
 # code, and also the code used to generate the html-parser fsm files.
 # NOTE: BUILT_SOURCES should come after the .config files, so they
 # come later (and thus end up with a later timestamp) when we tar/untar.
 EXTRA_DIST = packages/rpm.sh packages/rpm/rpm.spec packages/deb.sh packages/deb \
-	$(SCRIPTS) $(TESTDATA) libtool \
-	src/htmlparser/README \
+	$(SCRIPTS) $(TESTDATA) libtool autogen.sh \
 	src/htmlparser/generate_fsm.py src/htmlparser/fsm_config.py \
 	src/tests/statemachine_test_fsm.config \
 	src/htmlparser/htmlparser_fsm.config \

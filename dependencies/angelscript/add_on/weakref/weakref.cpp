@@ -17,7 +17,7 @@ static CScriptWeakRef* ScriptWeakRefFactory2(asIObjectType *type, void *ref)
 {
 	CScriptWeakRef *wr = new CScriptWeakRef(ref, type);
 
-	// It's possible the constructor raised a script exception, in which case we 
+	// It's possible the constructor raised a script exception, in which case we
 	// need to free the memory and return null instead, else we get a memory leak.
 	asIScriptContext *ctx = asGetActiveContext();
 	if( ctx && ctx->GetState() == asEXECUTION_EXCEPTION )
@@ -36,7 +36,7 @@ static bool ScriptWeakRefTemplateCallback(asIObjectType *ot, bool &/*dontGarbage
 	// Weak references only work for reference types
 	if( subType == 0 ) return false;
 	if( !(subType->GetFlags() & asOBJ_REF) ) return false;
-	
+
 	// The subtype shouldn't be a handle
 	if( ot->GetSubTypeId() & asTYPEID_OBJHANDLE )
 		return false;
@@ -51,6 +51,7 @@ static bool ScriptWeakRefTemplateCallback(asIObjectType *ot, bool &/*dontGarbage
 			return true;
 	}
 
+	ot->GetEngine()->WriteMessage("weakref", 0, 0, asMSGTYPE_ERROR, "The subtype doesn't support weak references");
 	return false;
 }
 
@@ -81,14 +82,15 @@ CScriptWeakRef::CScriptWeakRef(void *ref, asIObjectType *type)
 	m_type = type;
 	m_type->AddRef();
 
+	// The given type should be the weakref template instance
+	assert( strcmp(type->GetName(), "weakref") == 0 ||
+	        strcmp(type->GetName(), "const_weakref") == 0 );
+
 	// Get the shared flag that will tell us when the object has been destroyed
-	// This is threadsafe as we hold a strong reference to the object 
+	// This is threadsafe as we hold a strong reference to the object
 	m_weakRefFlag = m_type->GetEngine()->GetWeakRefFlagOfScriptObject(m_ref, m_type->GetSubType());
 	if( m_weakRefFlag )
 		m_weakRefFlag->AddRef();
-
-	// Release the handle that was received, since the weakref isn't suppose to prevent the object from being destroyed
-	m_type->GetEngine()->ReleaseScriptObject(m_ref, m_type->GetSubType());
 }
 
 CScriptWeakRef::~CScriptWeakRef()
@@ -108,7 +110,7 @@ void CScriptWeakRef::Release() const
 {
 	if( asAtomicDec(refCount) == 0 )
 	{
-		// When reaching 0 no more references to this instance 
+		// When reaching 0 no more references to this instance
 		// exists and the object should be destroyed
 		delete this;
 	}
@@ -165,7 +167,7 @@ void *CScriptWeakRef::Get() const
 	// If we hold a null handle, then just return null
 	if( m_ref == 0 || m_weakRefFlag == 0 )
 		return 0;
-	
+
 	// Lock on the shared bool, so we can be certain it won't be changed to true
 	// between the inspection of the flag and the increase of the ref count in the
 	// owning object.
@@ -189,7 +191,7 @@ void RegisterScriptWeakRef_Native(asIScriptEngine *engine)
 	r = engine->RegisterObjectType("weakref<class T>", 0, asOBJ_REF | asOBJ_TEMPLATE); assert( r >= 0 );
 
 	r = engine->RegisterObjectBehaviour("weakref<T>", asBEHAVE_FACTORY, "weakref<T>@ f(int&in)", asFUNCTION(ScriptWeakRefFactory), asCALL_CDECL); assert( r>= 0 );
-	r = engine->RegisterObjectBehaviour("weakref<T>", asBEHAVE_FACTORY, "weakref<T>@ f(int&in, T@)", asFUNCTION(ScriptWeakRefFactory2), asCALL_CDECL); assert( r>= 0 );
+	r = engine->RegisterObjectBehaviour("weakref<T>", asBEHAVE_FACTORY, "weakref<T>@ f(int&in, T@+)", asFUNCTION(ScriptWeakRefFactory2), asCALL_CDECL); assert( r>= 0 );
 	r = engine->RegisterObjectBehaviour("weakref<T>", asBEHAVE_TEMPLATE_CALLBACK, "bool f(int&in, bool&out)", asFUNCTION(ScriptWeakRefTemplateCallback), asCALL_CDECL); assert( r >= 0 );
 	r = engine->RegisterObjectBehaviour("weakref<T>", asBEHAVE_ADDREF, "void f()", asMETHOD(CScriptWeakRef,AddRef), asCALL_THISCALL); assert( r >= 0 );
 	r = engine->RegisterObjectBehaviour("weakref<T>", asBEHAVE_RELEASE, "void f()", asMETHOD(CScriptWeakRef,Release), asCALL_THISCALL); assert( r >= 0 );
@@ -202,7 +204,7 @@ void RegisterScriptWeakRef_Native(asIScriptEngine *engine)
 	r = engine->RegisterObjectType("const_weakref<class T>", 0, asOBJ_REF | asOBJ_TEMPLATE); assert( r >= 0 );
 
 	r = engine->RegisterObjectBehaviour("const_weakref<T>", asBEHAVE_FACTORY, "const_weakref<T>@ f(int&in)", asFUNCTION(ScriptWeakRefFactory), asCALL_CDECL); assert( r>= 0 );
-	r = engine->RegisterObjectBehaviour("const_weakref<T>", asBEHAVE_FACTORY, "const_weakref<T>@ f(int&in, const T@)", asFUNCTION(ScriptWeakRefFactory2), asCALL_CDECL); assert( r>= 0 );
+	r = engine->RegisterObjectBehaviour("const_weakref<T>", asBEHAVE_FACTORY, "const_weakref<T>@ f(int&in, const T@+)", asFUNCTION(ScriptWeakRefFactory2), asCALL_CDECL); assert( r>= 0 );
 	r = engine->RegisterObjectBehaviour("const_weakref<T>", asBEHAVE_TEMPLATE_CALLBACK, "bool f(int&in, bool&out)", asFUNCTION(ScriptWeakRefTemplateCallback), asCALL_CDECL); assert( r >= 0 );
 	r = engine->RegisterObjectBehaviour("const_weakref<T>", asBEHAVE_ADDREF, "void f()", asMETHOD(CScriptWeakRef,AddRef), asCALL_THISCALL); assert( r >= 0 );
 	r = engine->RegisterObjectBehaviour("const_weakref<T>", asBEHAVE_RELEASE, "void f()", asMETHOD(CScriptWeakRef,Release), asCALL_THISCALL); assert( r >= 0 );
@@ -214,6 +216,21 @@ void RegisterScriptWeakRef_Native(asIScriptEngine *engine)
 	// Allow non-const weak references to be converted to const weak references
 	r = engine->RegisterObjectMethod("const_weakref<T>", "const_weakref<T> &opAssign(const weakref<T> &in)", asMETHOD(CScriptWeakRef, operator=), asCALL_THISCALL); assert( r >= 0 );
 	r = engine->RegisterObjectMethod("const_weakref<T>", "bool opEquals(const weakref<T> &in) const", asMETHODPR(CScriptWeakRef, operator==, (const CScriptWeakRef &) const, bool), asCALL_THISCALL); assert( r >= 0 );
+}
+
+static void ScriptWeakRefFactory_Generic(asIScriptGeneric *gen)
+{
+	asIObjectType *ot = *(asIObjectType**)gen->GetAddressOfArg(0);
+
+	*(CScriptWeakRef**)gen->GetAddressOfReturnLocation() = ScriptWeakRefFactory(ot);
+}
+
+static void ScriptWeakRefFactory2_Generic(asIScriptGeneric *gen)
+{
+	asIObjectType *ot = *(asIObjectType**)gen->GetAddressOfArg(0);
+	void *ref = gen->GetArgAddress(1);
+
+	*(CScriptWeakRef**)gen->GetAddressOfReturnLocation() = ScriptWeakRefFactory2(ot, ref);
 }
 
 static void ScriptWeakRefAddRef_Generic(asIScriptGeneric *gen)
@@ -230,7 +247,6 @@ static void ScriptWeakRefRelease_Generic(asIScriptGeneric *gen)
 
 void CScriptWeakRef_Get_Generic(asIScriptGeneric *gen)
 {
-	int typeId = gen->GetArgTypeId(0);
 	CScriptWeakRef *self = reinterpret_cast<CScriptWeakRef*>(gen->GetObject());
 	gen->SetReturnAddress(self->Get());
 }
@@ -250,19 +266,46 @@ void CScriptWeakRef_Equals_Generic(asIScriptGeneric *gen)
 	gen->SetReturnByte(*self == *other);
 }
 
+static void ScriptWeakRefTemplateCallback_Generic(asIScriptGeneric *gen)
+{
+	asIObjectType *ot = *(asIObjectType**)gen->GetAddressOfArg(0);
+	bool *dontGarbageCollect = *(bool**)gen->GetAddressOfArg(1);
+	*(bool*)gen->GetAddressOfReturnLocation() = ScriptWeakRefTemplateCallback(ot, *dontGarbageCollect);
+}
+
 void RegisterScriptWeakRef_Generic(asIScriptEngine *engine)
 {
 	int r;
 
+	// Register a type for non-const handles
 	r = engine->RegisterObjectType("weakref<class T>", 0, asOBJ_REF | asOBJ_TEMPLATE); assert( r >= 0 );
 
-	r = engine->RegisterObjectBehaviour("weakref<T>", asBEHAVE_TEMPLATE_CALLBACK, "bool f(int&in, bool&out)", asFUNCTION(ScriptWeakRefTemplateCallback), asCALL_CDECL); assert( r >= 0 );
+	r = engine->RegisterObjectBehaviour("weakref<T>", asBEHAVE_FACTORY, "weakref<T>@ f(int&in)", asFUNCTION(ScriptWeakRefFactory_Generic), asCALL_GENERIC); assert( r>= 0 );
+	r = engine->RegisterObjectBehaviour("weakref<T>", asBEHAVE_FACTORY, "weakref<T>@ f(int&in, T@)", asFUNCTION(ScriptWeakRefFactory2_Generic), asCALL_GENERIC); assert( r>= 0 );
+	r = engine->RegisterObjectBehaviour("weakref<T>", asBEHAVE_TEMPLATE_CALLBACK, "bool f(int&in, bool&out)", asFUNCTION(ScriptWeakRefTemplateCallback_Generic), asCALL_GENERIC); assert( r >= 0 );
 	r = engine->RegisterObjectBehaviour("weakref<T>", asBEHAVE_ADDREF, "void f()", asFUNCTION(ScriptWeakRefAddRef_Generic), asCALL_GENERIC); assert( r >= 0 );
 	r = engine->RegisterObjectBehaviour("weakref<T>", asBEHAVE_RELEASE, "void f()", asFUNCTION(ScriptWeakRefRelease_Generic), asCALL_GENERIC); assert( r >= 0 );
 
-	r = engine->RegisterObjectMethod("weakref<T>", "T get()", asFUNCTION(CScriptWeakRef_Get_Generic), asCALL_GENERIC); assert( r >= 0 );
-	r = engine->RegisterObjectMethod("weakref<T>", "ref &opAssign(const ref &in)", asFUNCTION(CScriptWeakRef_Assign_Generic), asCALL_GENERIC); assert( r >= 0 );
-	r = engine->RegisterObjectMethod("weakref<T>", "bool opEquals(const ref &in) const", asFUNCTION(CScriptWeakRef_Equals_Generic), asCALL_GENERIC); assert( r >= 0 );
+	r = engine->RegisterObjectMethod("weakref<T>", "T@ get() const", asFUNCTION(CScriptWeakRef_Get_Generic), asCALL_GENERIC); assert( r >= 0 );
+	r = engine->RegisterObjectMethod("weakref<T>", "weakref<T> &opAssign(const weakref<T> &in)", asFUNCTION(CScriptWeakRef_Assign_Generic), asCALL_GENERIC); assert( r >= 0 );
+	r = engine->RegisterObjectMethod("weakref<T>", "bool opEquals(const weakref<T> &in) const", asFUNCTION(CScriptWeakRef_Equals_Generic), asCALL_GENERIC); assert( r >= 0 );
+
+	// Register another type for const handles
+	r = engine->RegisterObjectType("const_weakref<class T>", 0, asOBJ_REF | asOBJ_TEMPLATE); assert( r >= 0 );
+
+	r = engine->RegisterObjectBehaviour("const_weakref<T>", asBEHAVE_FACTORY, "const_weakref<T>@ f(int&in)", asFUNCTION(ScriptWeakRefFactory_Generic), asCALL_GENERIC); assert( r>= 0 );
+	r = engine->RegisterObjectBehaviour("const_weakref<T>", asBEHAVE_FACTORY, "const_weakref<T>@ f(int&in, const T@)", asFUNCTION(ScriptWeakRefFactory2_Generic), asCALL_GENERIC); assert( r>= 0 );
+	r = engine->RegisterObjectBehaviour("const_weakref<T>", asBEHAVE_TEMPLATE_CALLBACK, "bool f(int&in, bool&out)", asFUNCTION(ScriptWeakRefTemplateCallback_Generic), asCALL_GENERIC); assert( r >= 0 );
+	r = engine->RegisterObjectBehaviour("const_weakref<T>", asBEHAVE_ADDREF, "void f()", asFUNCTION(ScriptWeakRefAddRef_Generic), asCALL_GENERIC); assert( r >= 0 );
+	r = engine->RegisterObjectBehaviour("const_weakref<T>", asBEHAVE_RELEASE, "void f()", asFUNCTION(ScriptWeakRefRelease_Generic), asCALL_GENERIC); assert( r >= 0 );
+
+	r = engine->RegisterObjectMethod("const_weakref<T>", "const T@ get() const", asFUNCTION(CScriptWeakRef_Get_Generic), asCALL_GENERIC); assert( r >= 0 );
+	r = engine->RegisterObjectMethod("const_weakref<T>", "const_weakref<T> &opAssign(const const_weakref<T> &in)", asFUNCTION(CScriptWeakRef_Assign_Generic), asCALL_GENERIC); assert( r >= 0 );
+	r = engine->RegisterObjectMethod("const_weakref<T>", "bool opEquals(const const_weakref<T> &in) const", asFUNCTION(CScriptWeakRef_Equals_Generic), asCALL_GENERIC); assert( r >= 0 );
+
+	// Allow non-const weak references to be converted to const weak references
+	r = engine->RegisterObjectMethod("const_weakref<T>", "const_weakref<T> &opAssign(const weakref<T> &in)", asFUNCTION(CScriptWeakRef_Assign_Generic), asCALL_GENERIC); assert( r >= 0 );
+	r = engine->RegisterObjectMethod("const_weakref<T>", "bool opEquals(const weakref<T> &in) const", asFUNCTION(CScriptWeakRef_Equals_Generic), asCALL_GENERIC); assert( r >= 0 );
 }
 
 void RegisterScriptWeakRef(asIScriptEngine *engine)

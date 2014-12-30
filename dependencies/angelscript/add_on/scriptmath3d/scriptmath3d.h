@@ -64,3 +64,4 @@ void RegisterScriptMath3D_Generic(asIScriptEngine *engine);
 END_AS_NAMESPACE
 
 #endif
+

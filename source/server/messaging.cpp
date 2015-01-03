@@ -217,9 +217,9 @@ int Messaging::receivemessage(SWInetSocket *socket, int *type, int *source, unsi
 	return 0;
 }
 
-stream_traffic_t Messaging::getTraffic() { return traffic; };
+stream_traffic_t Messaging::getTraffic() { return traffic; }
 
-int Messaging::getTime() { return (int)time(NULL); };
+int Messaging::getTime() { return (int)time(NULL); }
 
 
 int Messaging::broadcastLAN()

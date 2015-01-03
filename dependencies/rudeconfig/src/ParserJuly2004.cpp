@@ -313,6 +313,7 @@ bool ParserJuly2004::parse(std::istream& infile, AbstractOrganiser& organiser)
 						sectionState = ENDSECTION;
 						break;
 					}
+					case ENDSECTION: break; // should never happen, fixes compiler warning
 				}
 			}
 		}
@@ -657,6 +658,7 @@ bool ParserJuly2004::parse(std::istream& infile, AbstractOrganiser& organiser)
 							kvState = ENDKEYVALUE;
 							break;
 					}
+					case ENDKEYVALUE: break; // should never happen, fixes compiler warning
 				} // end switch
 			} // end while
 		}

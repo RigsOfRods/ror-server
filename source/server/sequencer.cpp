@@ -73,7 +73,7 @@ unsigned int Sequencer::connCount = 0;
 
 
 Sequencer::Sequencer() :  listener( NULL ), notifier( NULL ), authresolver(NULL),
-fuid( 1 ), startTime ( Messaging::getTime() ), botCount( 0 )
+fuid( 1 ), botCount( 0 ), startTime ( Messaging::getTime() )
 {
     STACKLOG;
 }
@@ -993,9 +993,9 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 					
 					// special case if the user has exactly 1 vehicle
 					if(instance->clients[pos]->streams.size() == NON_VEHICLE_STREAMS+1)
-						sprintf(sayMsg, "You now have 1 vehicle. The vehicle limit on this server is set on %d.", Config::getMaxVehicles());
+						sprintf(sayMsg, "You now have 1 vehicle. The vehicle limit on this server is set to %d.", Config::getMaxVehicles());
 					else
-						sprintf(sayMsg, "You now have %d vehicles. The vehicle limit on this server is set on %d.", (instance->clients[pos]->streams.size()-NON_VEHICLE_STREAMS), Config::getMaxVehicles());
+						sprintf(sayMsg, "You now have %lu vehicles. The vehicle limit on this server is set to %d.", (instance->clients[pos]->streams.size()-NON_VEHICLE_STREAMS), Config::getMaxVehicles());
 					
 					serverSay(sayMsg, instance->clients[pos]->user.uniqueid, FROM_SERVER);
 				}

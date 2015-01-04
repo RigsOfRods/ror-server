@@ -15,7 +15,7 @@
 
 #include "sw_inet.h"
 
-#ifndef __WIN32__
+#ifndef _WIN32
   #include <netdb.h>
   #include <arpa/inet.h>
   #include <fcntl.h>

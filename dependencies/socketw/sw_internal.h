@@ -20,7 +20,7 @@
 
 #include "sw_config.h"
 
-#ifndef __WIN32__
+#ifndef _WIN32
   #include <sys/types.h> 
   #include <sys/socket.h> 
   #include <netinet/in.h>
@@ -65,7 +65,7 @@ COMPILE_TIME_ASSERT(sint32, sizeof(Sint32) == 4);
       #define DECLSPEC __declspec(export)
     #endif
   #else
-    #ifdef WIN32
+    #ifdef _WIN32
       #define DECLSPEC __declspec(dllexport)
     #else
       #define DECLSPEC

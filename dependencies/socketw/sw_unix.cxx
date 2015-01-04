@@ -22,7 +22,7 @@ using namespace std;
 //== SWUnixSocket
 //== Unix streaming sockets
 //====================================================================
-#ifndef __WIN32__
+#ifndef _WIN32
 
 SWUnixSocket::SWUnixSocket(block_type block)
 {	
@@ -96,4 +96,4 @@ bool SWUnixSocket::connect(string path, SWBaseError *error)
 	return true;
 }
 
-#endif /* __WIN32__ */
+#endif /* _WIN32 */

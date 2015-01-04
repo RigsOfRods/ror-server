@@ -21,7 +21,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#ifndef __WIN32__
+#ifndef _WIN32
   #include <netdb.h>
   #include <arpa/inet.h>
   #include <fcntl.h>
@@ -60,7 +60,7 @@
 // Socklen hack
 #if defined(__linux__) || defined(__FreeBSD__) // || defined(__bsdi__) || defined(__NetBSD__) too, perhaps? Bugreports, please!
   #define sw_socklen_t socklen_t
-#elif defined(__WIN32__) || defined(__osf__)
+#elif defined(_WIN32) || defined(__osf__)
   #define sw_socklen_t int
 #else
   #define sw_socklen_t unsigned int
@@ -69,7 +69,7 @@
 
 using namespace std;
 
-#ifdef __WIN32__
+#ifdef _WIN32
 //Win32 braindamage
 int close(int fd)
 {
@@ -183,7 +183,7 @@ SWBaseSocket::SWBaseSocket()
 	tsec = 0;
 	tusec = 0;
 	
-	#ifdef __WIN32__
+	#ifdef _WIN32
 	//kick winsock awake
 	static bool firstuse = true;
 	if( firstuse == true ){
@@ -198,7 +198,7 @@ SWBaseSocket::SWBaseSocket()
 		atexit(WSA_exit);
 		firstuse = false;
 	}
-	#endif /* __WIN32__ */
+	#endif /* _WIN32 */
 }
 
 SWBaseSocket::~SWBaseSocket()
@@ -639,7 +639,7 @@ void SWBaseSocket::print_error()
 
 void SWBaseSocket::handle_errno(SWBaseError *error, string msg)
 {
-	#ifndef __WIN32__
+	#ifndef _WIN32
 	msg += strerror(errno);
 	#else
 	//stupid stupid stupid stupid M$
@@ -701,7 +701,7 @@ void SWBaseSocket::handle_errno(SWBaseError *error, string msg)
 	int errorno;
 	
 	//Win32 braindamage
-	#ifdef __WIN32__
+	#ifdef _WIN32
 	  errorno = WSAGetLastError();
 	#else
 	  errorno = errno;

@@ -15,9 +15,9 @@
 #include <cstdio>
 #include <cstdarg>
 
-#ifndef WIN32
+#ifndef _WIN32
 #include <sys/stat.h>
-#endif //WIN32
+#endif //_WIN32
 
 std::deque <log_save_t> Logger::loghistory;
 Mutex Logger::log_mutex;
@@ -88,14 +88,14 @@ void Logger::log(const LogLevel& level, const UTFString& msg)
 		
 	if(file && level >= log_level[LOGTYPE_FILE])
 	{
-#ifndef WIN32
+#ifndef _WIN32
 		// check if we need to reopen the file (i.e. moved by logrotate)
 		struct stat mystat;
 		if (stat(logfilename.asUTF8_c_str(), &mystat))
 		{
 			file = freopen(logfilename.asUTF8_c_str(), "a+", file);
 		}
-#endif // WIN32
+#endif // _WIN32
 		fprintf(file, "%s|t%02d|%5s| %s\n", timestr, ThreadID::getID(), loglevelname[(int)level], msg.asUTF8_c_str());
 		fflush(file);
 	}

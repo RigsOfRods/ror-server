@@ -26,16 +26,16 @@
 using namespace std;
 
 // cross platform assert
-#ifdef WIN32
+#ifdef _WIN32
 #include "windows.h" // for Sleep()
 extern "C" {
 _CRTIMP void __cdecl _wassert(_In_z_ const wchar_t * _Message, _In_z_ const wchar_t *_File, _In_ unsigned _Line);
 }
 # define assert_net(_Expression) (void)( (!!(_Expression)) || (_wassert(_CRT_WIDE(#_Expression), _CRT_WIDE(__FILE__), __LINE__), 0) )
-#else
+#else // _WIN32
 #include <assert.h>
 # define assert_net(expr) assert(expr)
-#endif
+#endif // _WIN32
 
 
 #ifdef __GNUC__
@@ -745,11 +745,11 @@ void ScriptEngine::timerLoop()
 	while(!exit)
 	{
 		// sleep 200 miliseconds
-#ifndef WIN32
+#ifndef _WIN32
 		usleep(200000);
-#else
+#else // _WIN32
 		Sleep(200);
-#endif
+#endif // _WIN32
 		// call script
 		framestep(200);
 	}

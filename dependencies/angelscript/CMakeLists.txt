@@ -13,3 +13,4 @@ include_directories (include)
 add_definitions("-DANGELSCRIPT_EXPORT -D_LIB")
 
 add_library(angelscript STATIC ${angelscript_src} ${angelscript_include} ${angelscript_add_on_dict} ${angelscript_add_on_math} ${angelscript_add_on_math3d} ${angelscript_add_on_array} ${angelscript_add_on_stdstring} ${angelscript_add_on_builder} ${angelscript_add_on_any})
+

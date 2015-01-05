@@ -30,7 +30,7 @@ struct mg_context	*ctx;
 #include <sys/types.h>
 #include <sys/select.h>
 #include <sys/wait.h>
-#endif
+#endif /* _WIN32 */
 
 #ifndef _WIN32_WCE /* Some ANSI #includes are not available on Windows CE */
 #include <time.h>

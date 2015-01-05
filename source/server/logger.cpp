@@ -10,6 +10,7 @@
 #include "utils.h"
 #include "mutexutils.h"
 
+#include <stdio.h>
 #include <ctime>
 #include <cstring>
 #include <cstdio>
@@ -88,14 +89,17 @@ void Logger::log(const LogLevel& level, const UTFString& msg)
 		
 	if(file && level >= log_level[LOGTYPE_FILE])
 	{
+/* FIXME If you need this feature, use copytruncate option for logrotate for now
 #ifndef _WIN32
+		
 		// check if we need to reopen the file (i.e. moved by logrotate)
 		struct stat mystat;
 		if (stat(logfilename.asUTF8_c_str(), &mystat))
-		{
-			file = freopen(logfilename.asUTF8_c_str(), "a+", file);
+		{		
+			freopen(logfilename.asUTF8_c_str(), "a+", file);
 		}
 #endif // _WIN32
+*/
 		fprintf(file, "%s|t%02d|%5s| %s\n", timestr, ThreadID::getID(), loglevelname[(int)level], msg.asUTF8_c_str());
 		fflush(file);
 	}

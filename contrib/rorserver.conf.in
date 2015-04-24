@@ -1,0 +1,14 @@
+# /etc/xdg/rorserver/rorserver.conf
+#
+# Environment configuration file for Rigs of Rods server. Not used by the client.
+
+# Resources
+RESDIR=@CMAKE_INSTALL_PREFIX@/share/rorserver
+
+# Configuration
+CFGDIR=/etc/xdg/rorserver
+CONFIG=/etc/xdg/rorserver/server.cfg
+
+# Logging
+LOGDIR=/var/log/rorserver
+LOGFILE=/var/log/rorserver/server.log

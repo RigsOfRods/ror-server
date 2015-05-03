@@ -26,9 +26,9 @@
 // THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 // ---
-// Author: Kenton Varda
+//
+// Author: kenton@google.com (Kenton Varda)
 //
 // ManualConstructor statically-allocates space in which to store some
 // object, but does not initialize it.  You can then call the constructor
@@ -44,29 +44,83 @@
 #ifndef UTIL_GTL_MANUAL_CONSTRUCTOR_H_
 #define UTIL_GTL_MANUAL_CONSTRUCTOR_H_
 
+#include <config.h>
 _START_GOOGLE_NAMESPACE_
 
 namespace util {
 namespace gtl {
 namespace internal {
 
-// The Aligner template is used to ensure proper alignment of the
-// ManualConstructor space_
-template <int size>
-struct Aligner {
-  typedef void* AlignType;
-};
+//
+// Provides a char array with the exact same alignment as another type. The
+// first parameter must be a complete type, the second parameter is how many
+// of that type to provide space for.
+//
+//   UTIL_GTL_ALIGNED_CHAR_ARRAY(struct stat, 16) storage_;
+//
+// Because MSVC and older GCCs require that the argument to their alignment
+// construct to be a literal constant integer, we use a template instantiated
+// at all the possible powers of two.
+#ifndef SWIG
+template<int alignment, int size> struct AlignType { };
+template<int size> struct AlignType<0, size> { typedef char result[size]; };
+#if defined(_MSC_VER)
+#define UTIL_GTL_ALIGN_ATTRIBUTE(X) __declspec(align(X))
+#define UTIL_GTL_ALIGN_OF(T) __alignof(T)
+#elif defined(__GNUC__) || defined(__APPLE__) || defined(__INTEL_COMPILER) \
+  || defined(__nacl__)
+#define UTIL_GTL_ALIGN_ATTRIBUTE(X) __attribute__((aligned(X)))
+#define UTIL_GTL_ALIGN_OF(T) __alignof__(T)
+#endif
 
-template <>
-struct Aligner<1> {
-  typedef char AlignType;
-};
+#if defined(UTIL_GTL_ALIGN_ATTRIBUTE)
 
-// We could do better for the 2/3/4 case as well (int16/int32/int32).
+#define UTIL_GTL_ALIGNTYPE_TEMPLATE(X) \
+  template<int size> struct AlignType<X, size> { \
+    typedef UTIL_GTL_ALIGN_ATTRIBUTE(X) char result[size]; \
+  }
 
-}  // namespace
-}  // namespace
-}  // namespace
+UTIL_GTL_ALIGNTYPE_TEMPLATE(1);
+UTIL_GTL_ALIGNTYPE_TEMPLATE(2);
+UTIL_GTL_ALIGNTYPE_TEMPLATE(4);
+UTIL_GTL_ALIGNTYPE_TEMPLATE(8);
+UTIL_GTL_ALIGNTYPE_TEMPLATE(16);
+UTIL_GTL_ALIGNTYPE_TEMPLATE(32);
+UTIL_GTL_ALIGNTYPE_TEMPLATE(64);
+UTIL_GTL_ALIGNTYPE_TEMPLATE(128);
+UTIL_GTL_ALIGNTYPE_TEMPLATE(256);
+UTIL_GTL_ALIGNTYPE_TEMPLATE(512);
+UTIL_GTL_ALIGNTYPE_TEMPLATE(1024);
+UTIL_GTL_ALIGNTYPE_TEMPLATE(2048);
+UTIL_GTL_ALIGNTYPE_TEMPLATE(4096);
+UTIL_GTL_ALIGNTYPE_TEMPLATE(8192);
+// Any larger and MSVC++ will complain.
+
+#define UTIL_GTL_ALIGNED_CHAR_ARRAY(T, Size) \
+  typename util::gtl::internal::AlignType<UTIL_GTL_ALIGN_OF(T), \
+                                          sizeof(T) * Size>::result
+
+#undef UTIL_GTL_ALIGNTYPE_TEMPLATE
+#undef UTIL_GTL_ALIGN_ATTRIBUTE
+
+#else  // defined(UTIL_GTL_ALIGN_ATTRIBUTE)
+#error "You must define UTIL_GTL_ALIGNED_CHAR_ARRAY for your compiler."
+#endif  // defined(UTIL_GTL_ALIGN_ATTRIBUTE)
+
+#else  // !SWIG
+
+// SWIG can't represent alignment and doesn't care about alignment on data
+// members (it works fine without it).
+template<typename Size>
+struct AlignType { typedef char result[Size]; };
+#define UTIL_GTL_ALIGNED_CHAR_ARRAY(T, Size) \
+    util::gtl::internal::AlignType<Size * sizeof(T)>::result
+
+#endif  // !SWIG
+
+}  // namespace internal
+}  // namespace gtl
+}  // namespace util
 
 template <typename Type>
 class ManualConstructor {
@@ -114,16 +168,68 @@ class ManualConstructor {
     new(space_) Type(p1, p2, p3, p4);
   }
 
+  template <typename T1, typename T2, typename T3, typename T4, typename T5>
+  inline void Init(const T1& p1, const T2& p2, const T3& p3, const T4& p4,
+                   const T5& p5) {
+    new(space_) Type(p1, p2, p3, p4, p5);
+  }
+
+  template <typename T1, typename T2, typename T3, typename T4, typename T5,
+            typename T6>
+  inline void Init(const T1& p1, const T2& p2, const T3& p3, const T4& p4,
+                   const T5& p5, const T6& p6) {
+    new(space_) Type(p1, p2, p3, p4, p5, p6);
+  }
+
+  template <typename T1, typename T2, typename T3, typename T4, typename T5,
+            typename T6, typename T7>
+  inline void Init(const T1& p1, const T2& p2, const T3& p3, const T4& p4,
+                   const T5& p5, const T6& p6, const T7& p7) {
+    new(space_) Type(p1, p2, p3, p4, p5, p6, p7);
+  }
+
+  template <typename T1, typename T2, typename T3, typename T4, typename T5,
+            typename T6, typename T7, typename T8>
+  inline void Init(const T1& p1, const T2& p2, const T3& p3, const T4& p4,
+                   const T5& p5, const T6& p6, const T7& p7, const T8& p8) {
+    new(space_) Type(p1, p2, p3, p4, p5, p6, p7, p8);
+  }
+
+  template <typename T1, typename T2, typename T3, typename T4, typename T5,
+            typename T6, typename T7, typename T8, typename T9>
+  inline void Init(const T1& p1, const T2& p2, const T3& p3, const T4& p4,
+                   const T5& p5, const T6& p6, const T7& p7, const T8& p8,
+                   const T9& p9) {
+    new(space_) Type(p1, p2, p3, p4, p5, p6, p7, p8, p9);
+  }
+
+  template <typename T1, typename T2, typename T3, typename T4, typename T5,
+            typename T6, typename T7, typename T8, typename T9, typename T10>
+  inline void Init(const T1& p1, const T2& p2, const T3& p3, const T4& p4,
+                   const T5& p5, const T6& p6, const T7& p7, const T8& p8,
+                   const T9& p9, const T10& p10) {
+    new(space_) Type(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10);
+  }
+
+  template <typename T1, typename T2, typename T3, typename T4, typename T5,
+            typename T6, typename T7, typename T8, typename T9, typename T10,
+            typename T11>
+  inline void Init(const T1& p1, const T2& p2, const T3& p3, const T4& p4,
+                   const T5& p5, const T6& p6, const T7& p7, const T8& p8,
+                   const T9& p9, const T10& p10, const T11& p11) {
+    new(space_) Type(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11);
+  }
+
   inline void Destroy() {
     get()->~Type();
   }
 
  private:
-  union {
-    typename util::gtl::internal::Aligner<sizeof(Type)>::AlignType alignment_;
-    char space_[sizeof(Type)];
-  };
+  UTIL_GTL_ALIGNED_CHAR_ARRAY(Type, 1) space_;
 };
+
+#undef UTIL_GTL_ALIGNED_CHAR_ARRAY
+#undef UTIL_GTL_ALIGN_OF
 
 _END_GOOGLE_NAMESPACE_
 

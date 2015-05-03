@@ -40,8 +40,7 @@
 #ifndef CTEMPLATE_WINDOWS_PORT_H_
 #define CTEMPLATE_WINDOWS_PORT_H_
 
-#include "config.h"
-
+#include "windows/config.h"
 #ifdef _WIN32
 
 #define USING_PORT_CC
@@ -89,7 +88,7 @@
 #define utimbuf  _utimbuf
 
 /* Not quite as lightweight as a hard-link, but more than good enough for us. */
-#define link(oldpath, newpath)  CopyFileA(oldpath, newpath, false)
+#define link(oldpath, newpath)  (!CopyFileA(oldpath, newpath, false))
 
 #define strcasecmp   _stricmp
 #define strncasecmp  _strnicmp

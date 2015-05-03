@@ -7,10 +7,10 @@ Summary: Simple but powerful template language for C++
 Version: %VERSION
 Release: %rel
 Group: Development/Libraries
-URL: http://code.google.com/p/google-ctemplate
+URL: http://code.google.com/p/ctemplate
 License: BSD
-Vendor: Google
-Packager: Google Inc. <opensource@google.com>
+Vendor: Google Inc. and others
+Packager: Google Inc. and others <google-ctemplate@googlegroups.com>
 Source: http://%{NAME}.googlecode.com/files/%{NAME}-%{VERSION}.tar.gz
 Distribution: Redhat 7 and above.
 Buildroot: %{_tmppath}/%{name}-root
@@ -78,3 +78,4 @@ rm -rf $RPM_BUILD_ROOT
 %{_bindir}/make_tpl_varnames_h
 %{_bindir}/template-converter
 %{_bindir}/diff_tpl_auto_escape
+%{_libdir}/pkgconfig/*.pc

@@ -18,7 +18,7 @@
 
 #include "sw_internal.h"
 
-//#include <unistd.h>
+#include <unistd.h>
 #include <string>
 
 // Set error handling mode

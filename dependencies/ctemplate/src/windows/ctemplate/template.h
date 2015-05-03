@@ -28,11 +28,10 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // ---
-// Author: Frank H. Jernigan
 //
 // This file implements the Template class.  For information about
 // how to use this class, and to write the templates it takes as input,
-// see doc/howto.html
+// see the doc/ directory.
 
 #ifndef CTEMPLATE_TEMPLATE_H_
 #define CTEMPLATE_TEMPLATE_H_
@@ -45,7 +44,8 @@
 
 // We include this just so folks don't have to include both template.h
 // and template_dictionary.h, or template_namelist.h etc, to use the
-// template system; we don't actually use anything in these files ourselves.
+// template system; we don't actually use anything in these files
+// ourselves.
 #if 1
 #include <ctemplate/template_dictionary.h>
 #include <ctemplate/template_namelist.h>
@@ -57,16 +57,16 @@ class PerExpandData;
 }
 #endif
 
+namespace google_ctemplate_streamhtmlparser {
+class HtmlParser;
+}
+
 // NOTE: if you are statically linking the template library into your binary
 // (rather than using the template .dll), set '/D CTEMPLATE_DLL_DECL='
 // as a compiler flag in your project file to turn off the dllimports.
 #ifndef CTEMPLATE_DLL_DECL
 # define CTEMPLATE_DLL_DECL  __declspec(dllimport)
 #endif
-
-namespace google_ctemplate_streamhtmlparser {
-class HtmlParser;
-}
 
 namespace ctemplate {
 
@@ -79,8 +79,8 @@ namespace ctemplate {
 // to create your own TemplateCache object, and work directly with
 // it.  See template_cache.h for details.
 
-CTEMPLATE_DLL_DECL const TemplateCache* default_template_cache();
-CTEMPLATE_DLL_DECL TemplateCache* mutable_default_template_cache();
+extern CTEMPLATE_DLL_DECL const TemplateCache* default_template_cache();
+extern CTEMPLATE_DLL_DECL TemplateCache* mutable_default_template_cache();
 
 
 // ---- EXPANDING A TEMPLATE -------
@@ -274,6 +274,7 @@ class CTEMPLATE_DLL_DECL Template {
   // Retrieves the state, template-file, or strip mode of this Template.
   TemplateState state() const;
   const char *template_file() const;
+  const char *original_filename() const;
   Strip strip() const;
 
   // Work at the level of groups of templates, so just call through to
@@ -289,7 +290,8 @@ class CTEMPLATE_DLL_DECL Template {
   static std::string template_root_directory() {
     return default_template_cache()->template_root_directory();
   }
-  static std::string FindTemplateFilename(const std::string& unresolved) {
+  static std::string FindTemplateFilename(
+      const std::string& unresolved) {
     return default_template_cache()->FindTemplateFilename(unresolved);
   }
   static void RemoveStringFromTemplateCache(const std::string& key) {
@@ -405,7 +407,7 @@ class CTEMPLATE_DLL_DECL Template {
 
   // Template markers have the form {{VARIABLE}}, etc.  These constants
   // define the {{ and }} that delimit template markers.
-  struct MarkerDelimiters {
+  struct CTEMPLATE_DLL_DECL MarkerDelimiters {
     const char* start_marker;
     size_t start_marker_len;
     const char* end_marker;
@@ -420,7 +422,7 @@ class CTEMPLATE_DLL_DECL Template {
   };
 
   // The current parsing state.  Used in BuildTree() and subroutines
-  struct ParseState {
+  struct CTEMPLATE_DLL_DECL ParseState {
     const char* bufstart;
     const char* bufend;
     enum { PS_UNUSED, GETTING_TEXT, GETTING_NAME } phase;
@@ -485,5 +487,6 @@ class CTEMPLATE_DLL_DECL Template {
 };
 
 }
+
 
 #endif // CTEMPLATE_TEMPLATE_H_

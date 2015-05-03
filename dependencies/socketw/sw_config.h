@@ -1,3 +1,1 @@
-//#define _HAVE_SSL /* build SSL class? */
-
-
+#define _HAVE_SSL /* build SSL class? */

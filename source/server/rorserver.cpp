@@ -37,10 +37,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdio.h>
 #include <string.h>
 
-#ifdef WIN32
+#ifdef _WIN32
 # include "windows.h"
 # include "resource.h"
-#else // WIN32
+#else // _WIN32
 # include <fcntl.h>
 # include <signal.h>
 # include <unistd.h>
@@ -48,7 +48,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # include <pwd.h>
 # include <sys/types.h>
 # include <sys/stat.h>
-#endif // WIN32
+#endif // _WIN32
 
 int terminate_triggered = 0;
 
@@ -71,13 +71,13 @@ void handler(int signalnum)
 		Logger::log(LOG_ERROR,"got termiante signal, terminating ...");
 		terminate = true;
 	}
-#ifndef WIN32
+#ifndef _WIN32
 	else if (signalnum == SIGHUP)
 	{
 		Logger::log(LOG_ERROR,"got HUP signal, terminating ...");
 		terminate = true;
 	}
-#endif // ! WIN32
+#endif // ! _WIN32
 	else
 	{
 		Logger::log(LOG_ERROR,"got unkown signal: %d", signal);
@@ -103,7 +103,7 @@ void handler(int signalnum)
 
 #ifndef WITHOUTMAIN
 
-#ifndef WIN32
+#ifndef _WIN32
 // from http://www.enderunix.org/docs/eng/daemon.php
 // also http://www-theorie.physik.unizh.ch/~dpotter/howto/daemonize
 
@@ -212,7 +212,7 @@ void daemonize()
 	signal(SIGTTOU,SIG_IGN);
 	signal(SIGTTIN,SIG_IGN);
 }
-#endif // ! WIN32
+#endif // ! _WIN32
 
 int main(int argc, char* argv[])
 {
@@ -234,19 +234,19 @@ int main(int argc, char* argv[])
 		exit(-123);
 	}
 
-#ifndef WIN32
+#ifndef _WIN32
 	if(!Config::getForeground())
 	{
 		// no output because of background mode
 		Logger::setLogLevel(LOGTYPE_DISPLAY, LOG_NONE);
 		daemonize();
 	}
-#endif // ! WIN32
+#endif // ! _WIN32
 
 	// so ready to run, then set up signal handling
-#ifndef WIN32
+#ifndef _WIN32
 	signal(SIGHUP, handler);
-#endif // ! WIN32
+#endif // ! _WIN32
 	signal(SIGINT, handler);
 	signal(SIGTERM, handler);
 
@@ -284,7 +284,7 @@ int main(int argc, char* argv[])
 			Messaging::broadcastLAN();
 
 			// sleep a minute
-#ifndef WIN32
+#ifndef _WIN32
 			sleep(60);
 #else
 			Sleep(60*1000);

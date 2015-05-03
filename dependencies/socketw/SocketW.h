@@ -15,13 +15,9 @@
 #ifndef SocketW_H
 #define SocketW_H
 
-#ifdef WIN32
 #include "sw_base.h"
-#else
 #include "sw_unix.h"
-#endif
-
 #include "sw_inet.h"
-//#include "sw_ssl.h"
+#include "sw_ssl.h"
 
 #endif //SocketW_H

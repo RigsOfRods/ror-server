@@ -28,98 +28,25 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // ---
-// Authors: Jay Crim, Craig Silverstein
+// Authors: jcrim@google.com (Jay Crim)
+//          csilvers@google.com (Craig Silverstein)
 
-#include "config.h"
+#include <config.h>
 #include "base/mutex.h"   // This has to come first to get _XOPEN_SOURCE
-#include <assert.h>
-#ifdef HAVE_STDINT_H
-#include <stdint.h>       // one place u_int32_t might live
-#endif
-#ifdef HAVE_INTTYPES_H
-#include <inttypes.h>     // another place u_int32_t might live
-#endif
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>    // final place u_int32_t might live
-#endif
-#include HASH_SET_H
 #include <ctemplate/template_string.h>
+#include HASH_SET_H
 #include "base/arena.h"
+#include "base/thread_annotations.h"
+#include <assert.h>
+#include "base/macros.h"    // for uint32, uint64, UNALIGNED_LOAD32
+#include "base/util.h"
 
-// This is all to figure out endian-ness and byte-swapping on various systems
-#if defined(HAVE_ENDIAN_H)
-#include <endian.h>           // for the __BYTE_ORDER use below
-#elif defined(HAVE_SYS_ENDIAN_H)
-#include <sys/endian.h>       // location on FreeBSD
-#elif defined(HAVE_MACHINE_ENDIAN_H)
-#include <machine/endian.h>   // location on OS X
-#endif
-#if defined(HAVE_SYS_BYTEORDER_H)
-#include <sys/byteorder.h>    // BSWAP_32 on Solaris 10
-#endif
-#ifdef HAVE_SYS_ISA_DEFS_H
-#include <sys/isa_defs.h>     // _BIG_ENDIAN/_LITTLE_ENDIAN on Solaris 10
-#endif
-
-#if defined(HAVE_U_INT32_T)
-typedef u_int32_t uint32;
-#elif defined(HAVE_UINT32_T)
-typedef uint32_t uint32;
-#elif defined(HAVE___INT32)
-typedef unsigned __int32 uint32;
-#endif
-
-#if defined(HAVE_U_INT64_T)
-typedef u_int64_t uint64;
-#elif defined(HAVE_UINT64_T)
-typedef uint64_t uint64;
-#elif defined(HAVE___INT64)
-typedef unsigned __int64 uint64;
-#endif
-
-// MurmurHash does a lot of 4-byte unaligned integer access.  It
-// interprets these integers in little-endian order.  This is perfect
-// on x86, for which this is a natural memory access; for other systems
-// we do what we can to make this as efficient as possible.
-#if defined(HAVE_BYTESWAP_H)
-# include <byteswap.h>              // GNU (especially linux)
-# define BSWAP32(x)  bswap_32(x)
-#elif defined(HAVE_LIBKERN_OSBYTEORDER_H)
-# include <libkern/OSByteOrder.h>   // OS X
-# define BSWAP32(x)  OSSwapInt32(x)
-#elif defined(bswap32)              // FreeBSD
-  // FreeBSD defines bswap32 as a macro in sys/endian.h (already #included)
-# define BSWAP32(x)  bswap32(x)
-#elif defined(BSWAP_32)             // Solaris 10
-  // Solaris defines BSWSAP_32 as a macro in sys/byteorder.h (already #included)
-# define BSWAP32(x)  BSWAP_32(x)
+#ifdef HAVE_UNORDERED_MAP
+using HASH_NAMESPACE::unordered_set;
+// This is totally cheap, but minimizes the need for #ifdef's below...
+#define hash_set unordered_set
 #else
-  // We could just define this in C, but might as well find a fast way to do it
-# define BSWAP32(x)  Need_to_define_BSWAP32_for_your_architecture(x)
-#endif
-
-#if defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)
-  // We know they allow unaligned memory access and are little-endian
-# define UNALIGNED_LOAD32(_p) (*reinterpret_cast<const uint32 *>(_p))
-#elif defined(__ppc__) || defined(__ppc64__)
-  // We know they allow unaligned memory access and are big-endian
-# define UNALIGNED_LOAD32(_p) BSWAP32(*reinterpret_cast<const uint32 *>(_p))
-#elif (BYTE_ORDER == 1234) || (_BYTE_ORDER == 1234) || defined(_LITTLE_ENDIAN)
-  // Use memcpy to align the memory properly
-  inline uint32 UNALIGNED_LOAD32(const void *p) {
-    uint32 t;
-    memcpy(&t, p, sizeof(t));
-    return t;
-  }
-#elif (BYTE_ORDER == 4321) || (_BYTE_ORDER == 4321) || defined(_BIG_ENDIAN)
-  inline uint32 UNALIGNED_LOAD32(const void *p) {
-    uint32 t;
-    memcpy(&t, p, sizeof(t));
-    return BSWAP32(t);
-  }
-#else
-  // Means we can't find find endian.h on this machine:
-# error Need to define UNALIGNED_LOAD32 for this architecture
+using HASH_NAMESPACE::hash_set;
 #endif
 
 _START_GOOGLE_NAMESPACE_
@@ -131,7 +58,7 @@ _START_GOOGLE_NAMESPACE_
 //     to generate more random bits,
 //   - has a more complex final mix to combine the 32-bit hashes into
 //     64-bits,
-//   - uses a fixed seed
+//   - uses a fixed seed.
 // This is not static because template_string_test accesses it directly.
 uint64 MurmurHash64(const char* ptr, size_t len) {
   const uint32 kMultiplyVal = 0x5bd1e995;
@@ -205,7 +132,7 @@ uint64 MurmurHash64(const char* ptr, size_t len) {
 struct TemplateStringHasher {
   size_t operator()(const TemplateString& ts) const {
     TemplateId id = ts.GetGlobalId();
-    assert(IsTemplateIdInitialized(id));
+    DCHECK(IsTemplateIdInitialized(id));
     return hasher(id);
   }
   // Less operator for MSVC's hash containers.
@@ -216,38 +143,32 @@ struct TemplateStringHasher {
     assert(IsTemplateIdInitialized(id_b));
     return hasher(id_a, id_b);
   }
-  // static makes this compile under MSVC (shrug)
-  static const TemplateIdHasher hasher;
+  TemplateIdHasher hasher;
   // These two public members are required by msvc.  4 and 8 are defaults.
   static const size_t bucket_size = 4;
   static const size_t min_buckets = 8;
 };
 
-/*static*/ const TemplateIdHasher TemplateStringHasher::hasher = {};
-
 namespace {
-Mutex mutex(Mutex::LINKER_INITIALIZED);
+Mutex mutex(base::LINKER_INITIALIZED);
 
-#ifdef HAVE_UNORDERED_MAP
-typedef HASH_NAMESPACE::unordered_set<TemplateString, TemplateStringHasher>
-    TemplateStringSet;
-#else
-typedef HASH_NAMESPACE::hash_set<TemplateString, TemplateStringHasher>
-    TemplateStringSet;
-#endif
+typedef hash_set<TemplateString, TemplateStringHasher> TemplateStringSet;
 
-TemplateStringSet* template_string_set;
-UnsafeArena* arena;
-}  // namespace
+TemplateStringSet* template_string_set
+GUARDED_BY(mutex) PT_GUARDED_BY(mutex) = NULL;
+
+UnsafeArena* arena
+GUARDED_BY(mutex) PT_GUARDED_BY(mutex) = NULL;
+}  // unnamed namespace
 
 
 size_t StringHash::Hash(const char* s, size_t slen) const {
   return static_cast<size_t>(MurmurHash64(s, slen));
 }
 
-void TemplateString::AddToGlobalIdToNameMap() {
+void TemplateString::AddToGlobalIdToNameMap() LOCKS_EXCLUDED(mutex) {
   // shouldn't be calling this if we don't have an id.
-  assert(IsTemplateIdInitialized(id_));
+  CHECK(IsTemplateIdInitialized(id_));
   {
     // Check to see if it's already here.
     ReaderMutexLock reader_lock(&mutex);
@@ -255,19 +176,22 @@ void TemplateString::AddToGlobalIdToNameMap() {
       TemplateStringSet::const_iterator iter =
           template_string_set->find(*this);
       if (iter != template_string_set->end()) {
-        assert(length_ == iter->length_ &&
-               memcmp(ptr_, iter->ptr_, length_) == 0);
-        // "TemplateId collision!";
+        DCHECK_EQ(TemplateString(ptr_, length_),
+                  TemplateString(iter->ptr_, iter->length_))
+            << "TemplateId collision!";
         return;
       }
     }
   }
   WriterMutexLock writer_lock(&mutex);
   // First initialize our data structures if we need to.
-  if (!template_string_set)
+  if (!template_string_set) {
     template_string_set = new TemplateStringSet;
-  if (!arena)
+  }
+
+  if (!arena) {
     arena = new UnsafeArena(1024);  // 1024 was picked out of a hat.
+  }
 
   if (template_string_set->find(*this) != template_string_set->end()) {
     return;
@@ -293,7 +217,7 @@ TemplateId TemplateString::GetGlobalId() const {
 }
 
 // static
-TemplateString TemplateString::IdToString(TemplateId id) {
+TemplateString TemplateString::IdToString(TemplateId id) LOCKS_EXCLUDED(mutex) {
   ReaderMutexLock reader_lock(&mutex);
   if (!template_string_set)
     return TemplateString(kStsEmpty);
@@ -309,6 +233,7 @@ TemplateString TemplateString::IdToString(TemplateId id) {
   return *iter;
 }
 
+
 StaticTemplateStringInitializer::StaticTemplateStringInitializer(
     const StaticTemplateString* sts) {
   // Compute the sts's id if it wasn't specified at static-init
@@ -316,15 +241,16 @@ StaticTemplateStringInitializer::StaticTemplateStringInitializer(
   // correct.  This is necessary because static-init id's are, by
   // nature, pre-computed, and the id-generating algorithm may have
   // changed between the time they were computed and now.
-  if (sts->do_not_use_directly_.id_ == 0)
+  if (sts->do_not_use_directly_.id_ == 0) {
     sts->do_not_use_directly_.id_ = TemplateString(*sts).GetGlobalId();
-  else
+  } else {
     // Don't use the TemplateString(const StaticTemplateString& sts)
     // constructor below, since if we do, GetGlobalId will just return
     // sts->do_not_use_directly_.id_ and the check will be pointless.
-    assert(TemplateString(sts->do_not_use_directly_.ptr_,
-                          sts->do_not_use_directly_.length_).GetGlobalId()
-           == sts->do_not_use_directly_.id_);
+    DCHECK_EQ(TemplateString(sts->do_not_use_directly_.ptr_,
+                             sts->do_not_use_directly_.length_).GetGlobalId(),
+              sts->do_not_use_directly_.id_);
+  }
 
   // Now add this id/name pair to the backwards map from id to name.
   TemplateString ts_copy_of_sts(*sts);

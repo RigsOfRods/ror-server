@@ -28,8 +28,8 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // ---
-// Author: Shubhie Panicker
-// Author: Craig Silverstein
+// Author: csilvers@google.com (Craig Silverstein)
+//
 
 #include "config_for_unittests.h"
 #include <ctemplate/template_cache.h>
@@ -39,34 +39,32 @@
 #include <string.h>      // for strcmp()
 #include <sys/types.h>   // for mode_t
 #ifdef HAVE_UNISTD_H
-#include <unistd.h>      // for unlink()
-#endif
+# include <unistd.h>
+#endif      // for unlink()
 #include <ctemplate/template.h>  // for Template
 #include <ctemplate/template_dictionary.h>  // for TemplateDictionary
 #include <ctemplate/template_enums.h>  // for DO_NOT_STRIP, etc
 #include <ctemplate/template_pathops.h>  // for PathJoin(), kCWD
 #include <ctemplate/template_string.h>  // for TemplateString
 #include "tests/template_test_util.h"  // for AssertExpandIs(), etc
-
 using std::string;
+using GOOGLE_NAMESPACE::FLAGS_test_tmpdir;
+using GOOGLE_NAMESPACE::AssertExpandIs;
+using GOOGLE_NAMESPACE::CreateOrCleanTestDir;
+using GOOGLE_NAMESPACE::CreateOrCleanTestDirAndSetAsTmpdir;
+using GOOGLE_NAMESPACE::DO_NOT_STRIP;
+using GOOGLE_NAMESPACE::PathJoin;
+using GOOGLE_NAMESPACE::STRIP_BLANK_LINES;
+using GOOGLE_NAMESPACE::STRIP_WHITESPACE;
+using GOOGLE_NAMESPACE::StaticTemplateString;
+using GOOGLE_NAMESPACE::StringToFile;
+using GOOGLE_NAMESPACE::StringToTemplateCache;
+using GOOGLE_NAMESPACE::StringToTemplateFile;
 using GOOGLE_NAMESPACE::Template;
 using GOOGLE_NAMESPACE::TemplateCache;
 using GOOGLE_NAMESPACE::TemplateCachePeer;
 using GOOGLE_NAMESPACE::TemplateDictionary;
-using GOOGLE_NAMESPACE::StaticTemplateString;
-using GOOGLE_NAMESPACE::DO_NOT_STRIP;
-using GOOGLE_NAMESPACE::STRIP_BLANK_LINES;
-using GOOGLE_NAMESPACE::STRIP_WHITESPACE;
-using GOOGLE_NAMESPACE::FLAGS_test_tmpdir;
-using GOOGLE_NAMESPACE::PathJoin;
 using GOOGLE_NAMESPACE::kCWD;
-using GOOGLE_NAMESPACE::CreateOrCleanTestDir;
-using GOOGLE_NAMESPACE::CreateOrCleanTestDirAndSetAsTmpdir;
-using GOOGLE_NAMESPACE::StringToFile;
-using GOOGLE_NAMESPACE::StringToTemplateFile;
-using GOOGLE_NAMESPACE::AssertExpandIs;
-
-using GOOGLE_NAMESPACE::StringToTemplateCache;
 
 #define ASSERT(cond)  do {                                      \
   if (!(cond)) {                                                \
@@ -81,6 +79,8 @@ using GOOGLE_NAMESPACE::StringToTemplateCache;
 static const StaticTemplateString kKey = STS_INIT(kKey, "MY_KEY");
 static const StaticTemplateString kContent = STS_INIT(kContent, "content");
 
+// It would be nice to use the TEST framework, but it makes friendship
+// more difficult.  (TemplateCache befriends TemplateCacheUnittest.)
 class TemplateCacheUnittest {
  public:
   static void TestGetTemplate() {
@@ -479,7 +479,115 @@ class TemplateCacheUnittest {
                                                               STRIP_WHITESPACE);
     ASSERT(tpl2_post_reload == tpl2);
 
+    // Test delete & re-add: delete tpl2, and reload.
+    unlink(filename2.c_str());
+    cache1.ReloadAllIfChanged(TemplateCache::IMMEDIATE_RELOAD);
+    ASSERT(!cache_peer.GetTemplate(filename2, STRIP_WHITESPACE));
+    // Re-add tpl2 and ensure it reloads.
+    StringToFile("{re-add valid template contents}", filename2);
+    cache1.ReloadAllIfChanged(TemplateCache::IMMEDIATE_RELOAD);
+    ASSERT(cache_peer.GetTemplate(filename2, STRIP_WHITESPACE));
+
+    // Ensure that string templates don't reload
+    const string cache_key_a = "cache key a";
+    const string text = "Test template 1";
+    const Template *str_tpl;
+    ASSERT(cache1.StringToTemplateCache(cache_key_a, text, DO_NOT_STRIP));
+    str_tpl = cache1.GetTemplate(cache_key_a, DO_NOT_STRIP);
+    AssertExpandIs(str_tpl, &dict, text, true);
+    cache1.ReloadAllIfChanged(TemplateCache::IMMEDIATE_RELOAD);
+    ASSERT(cache1.GetTemplate(cache_key_a, DO_NOT_STRIP) == str_tpl);
+
     cache1.ClearCache();
+  }
+
+  static void TestReloadImmediateWithDifferentSearchPaths() {
+    TemplateDictionary dict("empty");
+    TemplateCache cache1;
+    TemplateCachePeer cache_peer(&cache1);
+
+    const string pathA = PathJoin(FLAGS_test_tmpdir, "a/");
+    const string pathB = PathJoin(FLAGS_test_tmpdir, "b/");
+    CreateOrCleanTestDir(pathA);
+    CreateOrCleanTestDir(pathB);
+
+    cache1.SetTemplateRootDirectory(pathA);
+    cache1.AddAlternateTemplateRootDirectory(pathB);
+    ASSERT(cache1.template_root_directory() == pathA);
+
+    // Add b/foo
+    const string path_b_foo = PathJoin(pathB, "template_foo");
+    StringToFile("b/template_foo", path_b_foo);
+    ASSERT_STREQ(path_b_foo.c_str(),
+                 cache1.FindTemplateFilename("template_foo").c_str());
+    // Add b/foo to the template cache.
+    cache1.GetTemplate("template_foo", DO_NOT_STRIP);
+
+    // Add a/foo
+    const string path_a_foo = PathJoin(pathA, "template_foo");
+    StringToFile("a/template_foo", path_a_foo);
+    ASSERT_STREQ(path_a_foo.c_str(),
+                 cache1.FindTemplateFilename("template_foo").c_str());
+
+    // Now, on reload we pick up foo from the earlier search path: a/foo
+    cache1.ReloadAllIfChanged(TemplateCache::IMMEDIATE_RELOAD);
+    const Template* foo_post_reload = cache_peer.GetTemplate("template_foo",
+                                                             STRIP_WHITESPACE);
+    AssertExpandIs(foo_post_reload, &dict, "a/template_foo",
+                   true);
+
+    // Delete a/foo and reload. Now we pick up the next available foo: b/foo
+    unlink(path_a_foo.c_str());
+    cache1.ReloadAllIfChanged(TemplateCache::IMMEDIATE_RELOAD);
+    foo_post_reload = cache_peer.GetTemplate("template_foo",
+                                             STRIP_WHITESPACE);
+    AssertExpandIs(foo_post_reload, &dict, "b/template_foo",
+                   true);
+  }
+
+  static void TestReloadLazyWithDifferentSearchPaths() {
+    // Identical test as above with but with LAZY_RELOAD
+    TemplateDictionary dict("empty");
+    TemplateCache cache1;
+    TemplateCachePeer cache_peer(&cache1);
+
+    const string pathA = PathJoin(FLAGS_test_tmpdir, "a/");
+    const string pathB = PathJoin(FLAGS_test_tmpdir, "b/");
+    CreateOrCleanTestDir(pathA);
+    CreateOrCleanTestDir(pathB);
+
+    cache1.SetTemplateRootDirectory(pathA);
+    cache1.AddAlternateTemplateRootDirectory(pathB);
+    ASSERT(cache1.template_root_directory() == pathA);
+
+    // Add b/foo
+    const string path_b_foo = PathJoin(pathB, "template_foo");
+    StringToFile("b/template_foo", path_b_foo);
+    ASSERT_STREQ(path_b_foo.c_str(),
+                 cache1.FindTemplateFilename("template_foo").c_str());
+    // Add b/foo to the template cache.
+    cache1.GetTemplate("template_foo", DO_NOT_STRIP);
+
+    // Add a/foo
+    const string path_a_foo = PathJoin(pathA, "template_foo");
+    StringToFile("a/template_foo", path_a_foo);
+    ASSERT_STREQ(path_a_foo.c_str(),
+                 cache1.FindTemplateFilename("template_foo").c_str());
+
+    // Now, on reload we pick up foo from the earlier search path: a/foo
+    cache1.ReloadAllIfChanged(TemplateCache::LAZY_RELOAD);
+    const Template* foo_post_reload = cache_peer.GetTemplate("template_foo",
+                                                             STRIP_WHITESPACE);
+    AssertExpandIs(foo_post_reload, &dict, "a/template_foo",
+                   true);
+
+    // Delete a/foo and reload. Now we pick up the next available foo: b/foo
+    unlink(path_a_foo.c_str());
+    cache1.ReloadAllIfChanged(TemplateCache::LAZY_RELOAD);
+    foo_post_reload = cache_peer.GetTemplate("template_foo",
+                                             STRIP_WHITESPACE);
+    AssertExpandIs(foo_post_reload, &dict, "b/template_foo",
+                   true);
   }
 
   static void TestRefcounting() {
@@ -876,6 +984,7 @@ class TemplateCacheUnittest {
     AssertExpandIs(cache_tpl1, &dict, "{valid template}", true);
     const Template* cache_tpl2 = cache.GetTemplate(filename2, DO_NOT_STRIP);
     assert(cache_tpl2);
+    static_cast<void>(cache_tpl2);  // avoid unused var warning in opt mode
     AssertExpandWithCacheIs(&cache, filename2, DO_NOT_STRIP, &dict, NULL,
                             "hi  bar\n", true);
 
@@ -892,6 +1001,7 @@ class TemplateCacheUnittest {
     string filename3 = StringToTemplateFile("{yet another valid template}");
     const Template* cache_tpl3 = cache.GetTemplate(filename3, STRIP_WHITESPACE);
     assert(!cache_tpl3);
+    static_cast<void>(cache_tpl3);  // avoid unused var warning in opt mode
 
     // 2. Reloading existing templates fails.
     StringToFile("{file1 contents changed}", filename1);
@@ -925,6 +1035,7 @@ class TemplateCacheUnittest {
 
 
 int main(int argc, char** argv) {
+
   CreateOrCleanTestDirAndSetAsTmpdir(FLAGS_test_tmpdir);
 
   TemplateCacheUnittest::TestGetTemplate();
@@ -937,6 +1048,8 @@ int main(int argc, char** argv) {
   TemplateCacheUnittest::TestTemplateCache();
   TemplateCacheUnittest::TestReloadAllIfChangedLazyLoad();
   TemplateCacheUnittest::TestReloadAllIfChangedImmediateLoad();
+  TemplateCacheUnittest::TestReloadImmediateWithDifferentSearchPaths();
+  TemplateCacheUnittest::TestReloadLazyWithDifferentSearchPaths();
   TemplateCacheUnittest::TestRefcounting();
   TemplateCacheUnittest::TestDoneWithGetTemplatePtrs();
   TemplateCacheUnittest::TestCloneStringTemplates();

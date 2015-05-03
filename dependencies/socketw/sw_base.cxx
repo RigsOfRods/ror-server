@@ -19,20 +19,20 @@
 #include <time.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
-#ifndef WIN32
+#ifndef _WIN32
   #include <netdb.h>
   #include <arpa/inet.h>
   #include <fcntl.h>
   #include <sys/select.h>
   #include <sys/time.h>
-  #include <stdlib.h> //exit() function
   
   #define INVALID_SOCKET -1  //avoid M$ braindamage
 #else
   //why use POSIX standards when we can make our own
   //and frustrate people? (well known M$ policy)
-
+  
   #ifndef EBADF
     #define EBADF WSAEBADF
   #endif
@@ -60,7 +60,7 @@
 // Socklen hack
 #if defined(__linux__) || defined(__FreeBSD__) // || defined(__bsdi__) || defined(__NetBSD__) too, perhaps? Bugreports, please!
   #define sw_socklen_t socklen_t
-#elif defined(WIN32) || defined(__osf__)
+#elif defined(_WIN32) || defined(__osf__)
   #define sw_socklen_t int
 #else
   #define sw_socklen_t unsigned int
@@ -69,7 +69,7 @@
 
 using namespace std;
 
-#ifdef WIN32
+#ifdef _WIN32
 //Win32 braindamage
 int close(int fd)
 {
@@ -183,7 +183,7 @@ SWBaseSocket::SWBaseSocket()
 	tsec = 0;
 	tusec = 0;
 	
-	#ifdef WIN32
+	#ifdef _WIN32
 	//kick winsock awake
 	static bool firstuse = true;
 	if( firstuse == true ){
@@ -198,7 +198,7 @@ SWBaseSocket::SWBaseSocket()
 		atexit(WSA_exit);
 		firstuse = false;
 	}
-	#endif /* WIN32 */
+	#endif /* _WIN32 */
 }
 
 SWBaseSocket::~SWBaseSocket()
@@ -639,7 +639,7 @@ void SWBaseSocket::print_error()
 
 void SWBaseSocket::handle_errno(SWBaseError *error, string msg)
 {
-	#ifndef WIN32
+	#ifndef _WIN32
 	msg += strerror(errno);
 	#else
 	//stupid stupid stupid stupid M$
@@ -701,7 +701,7 @@ void SWBaseSocket::handle_errno(SWBaseError *error, string msg)
 	int errorno;
 	
 	//Win32 braindamage
-	#ifdef WIN32
+	#ifdef _WIN32
 	  errorno = WSAGetLastError();
 	#else
 	  errorno = errno;
@@ -760,7 +760,7 @@ void SWBaseSocket::set_error(SWBaseError *error, SWBaseError name, string msg)
 			e.failed_class = this;
 			throw e;
 		}else
-			exit(-1);
+			exit(-1);	
 	}
 }
 

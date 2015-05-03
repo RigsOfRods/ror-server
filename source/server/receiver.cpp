@@ -27,7 +27,7 @@ void *s_lithreadstart(void* vid)
 {
     STACKLOG;
 	((Receiver*)vid)->threadstart();
-#ifdef WIN32	
+#ifdef _WIN32	
 	Logger::log( LOG_DEBUG, "Receiver thread %u:%u is exiting",
 	        (unsigned int) pthread_self().p, ThreadID::getID() );
 #endif
@@ -63,7 +63,7 @@ void Receiver::stop()
     STACKLOG;
 	if(!running) return; // already called, discard call
     running = false;
-#ifdef WIN32
+#ifdef _WIN32
     Logger::log( LOG_DEBUG, "joining with receiver thread: %u",
             (unsigned int) &thread.p);
 #endif

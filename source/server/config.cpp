@@ -12,7 +12,7 @@
 
 #include <cmath>
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <windows.h>
 #include <time.h>
 #else
@@ -106,15 +106,15 @@ int getRandomPort()
 	{
 		unsigned int tick_count = 0;
 		// we need to be that precise here as it may happen that we start several servers at once, and thus the seed must be different
-#ifdef WIN32
+#ifdef _WIN32
 		LARGE_INTEGER tick;
 		QueryPerformanceCounter(&tick);
 		tick_count = (unsigned int)tick.QuadPart;
-#else // WIN32
+#else // _WIN32
 		struct timeval now;
 		gettimeofday(&now, NULL);
 		tick_count = (now.tv_sec * 1000) + (now.tv_usec / 1000);
-#endif // WIN32
+#endif // _WIN32
 		// init the random number generator
 		srand (tick_count);
 	}
@@ -216,11 +216,11 @@ Config::Config():
 	website(""),
 	irc(""),
 	voip(""),
-#ifdef WIN32
+#ifdef _WIN32
 	resourcedir()
-#else // WIN32
+#else // _WIN32
 	resourcedir("/usr/share/rorserver/") // trailing slash important
-#endif // WIN32
+#endif // _WIN32
 {
 }
 

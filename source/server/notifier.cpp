@@ -201,7 +201,7 @@ void Notifier::loop()
 		//Sequencer::printStats();
 
 		//every minute
-#ifndef WIN32
+#ifndef _WIN32
 		sleep(60);
 #else
 		Sleep(60*1000);

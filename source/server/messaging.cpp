@@ -217,14 +217,14 @@ int Messaging::receivemessage(SWInetSocket *socket, int *type, int *source, unsi
 	return 0;
 }
 
-stream_traffic_t Messaging::getTraffic() { return traffic; };
+stream_traffic_t Messaging::getTraffic() { return traffic; }
 
-int Messaging::getTime() { return (int)time(NULL); };
+int Messaging::getTime() { return (int)time(NULL); }
 
 
 int Messaging::broadcastLAN()
 {
-#ifdef WIN32
+#ifdef _WIN32
 	// since socketw only abstracts TCP, we are on our own with UDP here :-/
 	// the following code was only tested under windows
 
@@ -294,7 +294,7 @@ int Messaging::broadcastLAN()
 	closesocket(sockfd);
 	
 	Logger::log(LOG_DEBUG, "LAN broadcast successful");
-#endif // WIN32	
+#endif // _WIN32	
 	return 0;
 }
 

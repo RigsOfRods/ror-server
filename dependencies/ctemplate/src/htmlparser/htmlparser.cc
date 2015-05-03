@@ -1,48 +1,49 @@
-// Copyright (c) 2008, Google Inc.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-//     * Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//     * Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-//     * Neither the name of Google Inc. nor the names of its
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// ---
-// Author: Filipe Almeida
+/*
+ * Copyright (c) 2007, Google Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * ---
+ *
+ * Author: falmeida@google.com (Filipe Almeida)
+ */
 
 /* TODO(falmeida): Breaks on NULL characters in the stream. fix.
  */
 
-#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <assert.h>
 
-#include "statemachine.h"
-#include "htmlparser.h"
-#include "jsparser.h"
+#include "htmlparser/statemachine.h"
+#include "htmlparser/htmlparser.h"
+#include "htmlparser/jsparser.h"
 
 /* So we can support both C and C++ compilers, we use the CAST() macro instead
  * of using C style casts or static_cast<>() directly.
@@ -58,7 +59,7 @@ namespace HTMLPARSER_NAMESPACE {
 #endif
 
 /* Generated state machine definition. */
-#include "htmlparser_fsm.h"
+#include "htmlparser/htmlparser_fsm.h"
 
 #define is_js_attribute(attr) ((attr)[0] == 'o' && (attr)[1] == 'n')
 #define is_style_attribute(attr) (strcmp((attr), "style") == 0)
@@ -676,7 +677,7 @@ void htmlparser_reset_mode(htmlparser_ctx *ctx, int mode)
       ctx->statemachine->current_state = HTMLPARSER_STATE_INT_TAG_SPACE;
       break;
     default:
-      assert("Invalid mode in htmlparser_reset_mode()." == NULL);
+      assert("Invalid mode in htmlparser_reset_mode()." && 0);
   }
 }
 
@@ -990,12 +991,9 @@ int htmlparser_value_index(htmlparser_ctx *ctx)
  */
 int htmlparser_is_url_start(htmlparser_ctx *ctx)
 {
-  const char *tag;
-  const char *attr;
-
   if (htmlparser_attr_type(ctx) == HTMLPARSER_ATTR_URI) {
-    tag = htmlparser_tag(ctx);
-    attr = htmlparser_attr(ctx);
+    const char* tag = htmlparser_tag(ctx);
+    /*const char* attr =*/ htmlparser_attr(ctx);
 
     if ((tag && strcmp(tag, "meta") == 0 &&
          meta_redirect_type(htmlparser_value(ctx)) ==
@@ -1011,11 +1009,6 @@ int htmlparser_is_url_start(htmlparser_ctx *ctx)
  */
 int htmlparser_attr_type(htmlparser_ctx *ctx)
 {
-    const char *tag;
-    const char *attr;
-    const char *value;
-    enum meta_redirect_type_enum redirect_type;
-
     if (!htmlparser_in_attr(ctx))
         return HTMLPARSER_ATTR_NONE;
 
@@ -1028,15 +1021,15 @@ int htmlparser_attr_type(htmlparser_ctx *ctx)
     if (is_style_attribute(ctx->attr))
         return HTMLPARSER_ATTR_STYLE;
 
-    tag = htmlparser_tag(ctx);
-    attr = htmlparser_attr(ctx);
+    const char* tag = htmlparser_tag(ctx);
+    const char* attr = htmlparser_attr(ctx);
 
     /* Special logic to handle meta redirect type tags. */
     if (tag && strcmp(tag, "meta") == 0 &&
         attr && strcmp(attr, "content") == 0) {
 
-      value = htmlparser_value(ctx);
-      redirect_type = meta_redirect_type(value);
+      const char* value = htmlparser_value(ctx);
+      meta_redirect_type_enum redirect_type = meta_redirect_type(value);
 
       if (redirect_type == META_REDIRECT_TYPE_URL ||
           redirect_type == META_REDIRECT_TYPE_URL_START)
@@ -1099,5 +1092,5 @@ void htmlparser_delete(htmlparser_ctx *ctx)
 }
 
 #ifdef __cplusplus
-}  /* namespace HTMLPARSER_NAMESPACE */
+}  /* namespace security_streamhtmlparser */
 #endif

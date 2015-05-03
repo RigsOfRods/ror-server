@@ -1,0 +1,12 @@
+[Unit]
+Description=Rigs of Rods dedicated server
+After=network.target
+
+[Service]
+EnvironmentFile=/etc/xdg/rorserver/rorserver.conf
+User=rorserver
+Group=rorserver
+ExecStart=@CMAKE_INSTALL_PREFIX@/bin/rorserver -c $CONFIG -resdir $RESDIR -logfilename $LOGFILE -inet
+
+[Install]
+WantedBy=multi-user.target

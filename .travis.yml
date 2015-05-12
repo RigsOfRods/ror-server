@@ -3,6 +3,9 @@ language: cpp
 compiler:
   - gcc
 
+before_script:
+  - chmod +x ./tools/travis/linux/build.sh
+
 script:
   - ./tools/travis/linux/build.sh
 

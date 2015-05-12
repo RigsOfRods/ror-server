@@ -1,0 +1,19 @@
+language: cpp
+
+compiler:
+  - gcc
+
+before_script:
+  - chmod +x ./tools/travis/linux/build.sh
+
+script:
+  - ./tools/travis/linux/build.sh
+
+notifications:
+  irc:
+    template:
+      - "%{repository}#%{build_number} %{commit} %{author}: %{message} %{build_url}"
+    channels:
+      - "irc.freenode.org#rigsofrods-dev"
+    use_notice: true
+    skip_join: true

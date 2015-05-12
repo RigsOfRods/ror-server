@@ -3,7 +3,7 @@
 // Started 020316
 //
 // License: LGPL v2.1+ (see the file LICENSE)
-// (c)2002-2003 Anders Lindström
+// (c)2002-2003 Anders LindstrÃ¶m
 
 /***********************************************************************
  *  This library is free software; you can redistribute it and/or      *
@@ -18,6 +18,6 @@
 #include "sw_base.h"
 #include "sw_unix.h"
 #include "sw_inet.h"
-#include "sw_ssl.h"
+//#include "sw_ssl.h"
 
 #endif //SocketW_H

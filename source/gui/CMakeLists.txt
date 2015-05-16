@@ -54,9 +54,11 @@ IF(wxWidgets_FOUND)
 
   add_executable(servergui WIN32 ${servergui_src} ${servergui_server_src})
 
-  set_target_properties(servergui PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:WINDOWS")
-  set_target_properties(servergui PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
-  set_target_properties(servergui PROPERTIES LINK_FLAGS_RELEASE "/LTCG /OPT:REF /SUBSYSTEM:WINDOWS")
+  IF(WIN32)
+    set_target_properties(servergui PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:WINDOWS")
+    set_target_properties(servergui PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
+    set_target_properties(servergui PROPERTIES LINK_FLAGS_RELEASE "/LTCG /OPT:REF /SUBSYSTEM:WINDOWS")
+  ENDIF(WIN32)
 
   if(RORSERVER_WITH_ANGELSCRIPT)
     add_dependencies(servergui angelscript)

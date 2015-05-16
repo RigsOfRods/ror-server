@@ -1,3 +1,4 @@
+#pragma once
 #ifndef HTTPMSG_H_
 #define HTTPMSG_H_
 #include <string>

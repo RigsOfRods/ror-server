@@ -1,3 +1,4 @@
+#pragma once
 #ifndef WEBSERVER_H__
 #define WEBSERVER_H__
 

@@ -22,6 +22,7 @@
  * $Id: mongoose.h 404 2009-05-28 10:05:48Z valenok $
  */
 
+#pragma once
 #ifndef MONGOOSE_HEADER_INCLUDED
 #define	MONGOOSE_HEADER_INCLUDED
 

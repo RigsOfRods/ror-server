@@ -1,3 +1,4 @@
+#pragma once
 #ifndef MUTEXUTILS_H_
 #define MUTEXUTILS_H_
 

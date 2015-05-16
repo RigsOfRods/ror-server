@@ -5,6 +5,8 @@
  * A simple Logger with different logging levels. As well as an easy to use
  * stack log
  */
+
+#pragma once
 #ifndef LOGGER_H_
 #define LOGGER_H_
 

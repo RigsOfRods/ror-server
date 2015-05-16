@@ -1,6 +1,8 @@
 // copied from the angelscript library and edited for use in Rigs of Rods Multiplayer Server
 // 01 Jan 2012
 
+#pragma once
+
 #ifdef WITH_ANGELSCRIPT
 //
 // ScriptFileSafe

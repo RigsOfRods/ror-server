@@ -5,6 +5,7 @@
  * or disable features selectively, and reduce the global
  * memory footprint.
  */
+#pragma once
 #ifndef XYSSL_CONFIG_H
 #define XYSSL_CONFIG_H
 

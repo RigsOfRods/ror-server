@@ -169,6 +169,7 @@ expand wildcards in command-line arguments to a list of all matching files.
 See the @link SimpleGlob.h SimpleGlob @endlink documentation for full details.
 */
 
+#pragma once
 #ifndef INCLUDED_SimpleOpt
 #define INCLUDED_SimpleOpt
 

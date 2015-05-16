@@ -1,6 +1,7 @@
 /**
  * \file sha1.h
  */
+#pragma once
 #ifndef XYSSL_SHA1_H
 #define XYSSL_SHA1_H
 

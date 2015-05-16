@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // $Id: sequencer.h 419 2010-07-08 00:10:14Z rorthomas $
 // $Rev$
 
+#pragma once
 #ifndef __Sequencer_H__
 #define __Sequencer_H__
 

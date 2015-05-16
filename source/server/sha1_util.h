@@ -1,3 +1,4 @@
+#pragma once
 #ifndef SHA1UTIL_H_
 #define SHA1UTIL_H_
 

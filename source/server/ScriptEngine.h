@@ -1,4 +1,7 @@
+#pragma once
+
 #ifdef WITH_ANGELSCRIPT
+
 #ifndef SCRIPTENGINE_H__
 #define SCRIPTENGINE_H__
 

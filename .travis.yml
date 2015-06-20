@@ -8,11 +8,13 @@ env:
   - ANALYZE=false
   - ANALYZE=true
 
-before_script:
+before_install:
   - chmod +x ./tools/travis/linux/travis.sh
   - chmod +x ./tools/travis/linux/build.sh
 
-  - sudo apt-get install cppcheck
+  - sudo add-apt-repository -qq ppa:ubuntu-toolchain-r/test
+  - sudo apt-get -qq update
+  - sudo apt-get install cppcheck clang
 
 script:
   - ./tools/travis/linux/travis.sh

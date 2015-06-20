@@ -4,11 +4,18 @@ compiler:
   - gcc
   - clang
 
+env:
+  - ANALYZE=false
+  - ANALYZE=true
+
 before_script:
+  - chmod +x ./tools/travis/linux/travis.sh
   - chmod +x ./tools/travis/linux/build.sh
 
+  - sudo apt-get install cppcheck
+
 script:
-  - ./tools/travis/linux/build.sh
+  - ./tools/travis/linux/travis.sh
 
 notifications:
   irc:

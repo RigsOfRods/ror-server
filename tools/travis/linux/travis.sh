@@ -22,7 +22,7 @@ if [ $ANALYZE = "true" ]; then
         cppcheck --version
         cppcheck \
           --template "{file}({line}): {severity} ({id}): {message}" \
-          --enable=information --enable=warning --enable=performance \
+          --enable=information --enable=performance \
           --force --std=c++11 -j2 . 2> cppcheck.txt
         if [ -s cppcheck.txt ]; then
             cat cppcheck.txt

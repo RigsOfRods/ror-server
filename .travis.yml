@@ -14,7 +14,7 @@ before_install:
 
 install:
   # only install clang/cppcheck if necessary
-  - if [ "$CXX" = "clang" ]; then sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y; sudo apt-get -qq update; sudo apt-get install clang; fi
+  - if [ "$CXX" = "clang++" ]; then sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y; sudo apt-get -qq update; sudo apt-get install clang; fi
   - if [ $ANALYZE = "true" ] && [ "$CXX" = "g++" ]; then sudo apt-get install -qq cppcheck; fi
 
 script:

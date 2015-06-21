@@ -4,7 +4,7 @@
 # and static analysis when ANALYZE=true.
 #
 if [ $ANALYZE = "true" ]; then
-    if [ "$CC" = "clang" ]; then
+    if [ "$CXX" = "clang++" ]; then
         scan-build cmake -G "Unix Makefiles" \
           -DCMAKE_INSTALL_PREFIX:STRING=/usr \
           -DRORSERVER_NO_STACKLOG:BOOL=ON \
@@ -14,19 +14,24 @@ if [ $ANALYZE = "true" ]; then
           -DRORSERVER_WITH_WEBSERVER:BOOL=OFF \
           .
         scan-build \
-          -enable-checker security.FloatLoopCounter \
-          -enable-checker security.insecureAPI.UncheckedReturn \
+          -enable-checker core \
+          -enable-checker cplusplus \
+          -enable-checker security \
+          -enable-checker deadcode \
+          -enable-checker unix \
           --status-bugs -v \
           make -j2
+        exit 0
     else
         cppcheck --version
         cppcheck \
           --template "{file}({line}): {severity} ({id}): {message}" \
           --enable=information --enable=performance \
-          --force --std=c++11 -j2 ./source 2> cppcheck.txt
+          --force --std=c++11 -j2 ./source \
+          1> /dev/null 2> cppcheck.txt
         if [ -s cppcheck.txt ]; then
             cat cppcheck.txt
-            exit 1
+            exit 0
         fi
     fi
 else # no static analysis, do regular build

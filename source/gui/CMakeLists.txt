@@ -79,7 +79,7 @@ endif(RORSERVER_WITH_WEBSERVER)
 	target_link_libraries(servergui ${rorserver_SOURCE_DIR}/dependencies/win32_pthread/pthreadVC2.lib)
 	target_link_libraries(servergui mysocketw rudeconfig)
   ELSEIF(UNIX)
-	target_link_libraries(servergui mysocketw pthread rudeconfig)
+	target_link_libraries(servergui mysocketw pthread rudeconfig dl)
   ELSEIF(APPLE)
   ENDIF(WIN32)
 

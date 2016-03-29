@@ -25,6 +25,7 @@
   #include <netdb.h>
   #include <arpa/inet.h>
   #include <fcntl.h>
+  #include <unistd.h>
   #include <sys/select.h>
   #include <sys/time.h>
   

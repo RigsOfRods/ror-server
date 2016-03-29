@@ -28,11 +28,15 @@ IF(wxWidgets_FOUND)
 	include_directories (${rorserver_SOURCE_DIR}/dependencies/angelscript/add_on)
   endif(RORSERVER_WITH_ANGELSCRIPT)
   
-  if(RORSERVER_WITH_WEBSERVER)
+if(RORSERVER_WITH_WEBSERVER)
 	add_definitions("-DWITH_WEBSERVER")
+IF(WIN32)
 	include_directories (${rorserver_SOURCE_DIR}/dependencies/ctemplate/src/windows/)
+ELSEIF(UNIX)
+	include_directories (${rorserver_SOURCE_DIR}/dependencies/ctemplate/src/)
+ENDIF(WIN32)
 	include_directories (${rorserver_SOURCE_DIR}/dependencies/jsoncpp/include/)
-  endif(RORSERVER_WITH_WEBSERVER)
+endif(RORSERVER_WITH_WEBSERVER)
 
 
   add_definitions("-D${wxWidgets_DEFINITIONS}")

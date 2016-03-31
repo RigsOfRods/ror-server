@@ -110,13 +110,9 @@ void Sequencer::initilize()
 
 	instance->authresolver = 0;
 	instance->notifier = 0;
-	if( Config::getServerMode() != SERVER_LAN )
-	{
-		instance->notifier = new Notifier(instance->authresolver);
-
-		// start userauth
-		instance->authresolver = new UserAuth(instance->notifier->getChallenge(), instance->notifier->getTrustLevel(), Config::getAuthFile());
-	}
+	instance->notifier = new Notifier(instance->authresolver);
+	// start userauth
+	instance->authresolver = new UserAuth(instance->notifier->getChallenge(), instance->notifier->getTrustLevel(), Config::getAuthFile());
 }
 
 /**

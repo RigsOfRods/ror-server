@@ -116,6 +116,10 @@
 #   pragma comment(lib, "pthread")
 #endif
 
+#if _MSC_VER == 1900 // Visual Studio 2015
+#   define HAVE_STRUCT_TIMESPEC // Defined in <time.h> from Windows 10 SDK
+#endif
+
 /*
  * -------------------------------------------------------------
  *

@@ -72,17 +72,14 @@ void Logger::log(const LogLevel& level, const char* format, ...)
 
 void Logger::log(const LogLevel& level, const UTFString& msg)
 {
-	time_t lotime = time(NULL);
-	char timestr[50];
-	memset(timestr, 0, 50);
+	time_t current_time = time(nullptr);
+	char time_str[] = "DD-MM-YYYY hh:mm:ss"; // Placeholder
+	strftime(time_str, 20, "%d-%m-%Y %H:%M:%S", localtime(&current_time));
 
-	ctime_r(&lotime, timestr);
-	
-	// remove trailing new line
-	timestr[strlen(timestr)-1]=0;
-	
 	if (level >= log_level[LOGTYPE_DISPLAY])
-		printf("%s|t%02d|%5s|%s\n", timestr, ThreadID::getID(), loglevelname[(int)level], msg.asUTF8_c_str());
+	{
+		printf("%s|t%02d|%5s|%s\n", time_str, ThreadID::getID(), loglevelname[(int)level], msg.asUTF8_c_str());
+	}
 
 	// do not use the class for locking, otherwise you get recursion because of STACKLOG
 	pthread_mutex_lock(log_mutex.getRaw());
@@ -100,14 +97,14 @@ void Logger::log(const LogLevel& level, const UTFString& msg)
 		}
 #endif // _WIN32
 */
-		fprintf(file, "%s|t%02d|%5s| %s\n", timestr, ThreadID::getID(), loglevelname[(int)level], msg.asUTF8_c_str());
+		fprintf(file, "%s|t%02d|%5s| %s\n", time_str, ThreadID::getID(), loglevelname[(int)level], msg.asUTF8_c_str());
 		fflush(file);
 	}
 
 	if(callback)
 	{
 		char tmp[2048]="";
-		sprintf(tmp, "%s|t%02d|%5s|", timestr, ThreadID::getID(), loglevelname[(int)level]);
+		sprintf(tmp, "%s|t%02d|%5s|", time_str, ThreadID::getID(), loglevelname[(int)level]);
 		callback(level, msg, UTFString(tmp) + msg + "\n");
 	}
 
@@ -119,12 +116,12 @@ void Logger::log(const LogLevel& level, const UTFString& msg)
 		log_save_t h;
 		h.level = level;
 		h.threadid = ThreadID::getID();
-		h.time = UTFString(timestr);
+		h.time = UTFString(time_str);
 		h.msg = msg;
 		loghistory.push_back(h);
 	}
-	pthread_mutex_unlock(log_mutex.getRaw());
 
+	pthread_mutex_unlock(log_mutex.getRaw());
 }
 
 std::deque <log_save_t> Logger::getLogHistory()

@@ -1,5 +1,4 @@
-#ifndef UTILS_HPP_
-#define UTILS_HPP_
+#pragma once
 
 #include <string>
 #include <sstream>
@@ -7,6 +6,13 @@
 #include <stdexcept>
 
 #include "UTFString.h"
+
+namespace Utils
+{
+
+int generateRandomPortNumber();
+
+}
 
 void tokenize(const std::string& str,
 				std::vector<std::string>& tokens,
@@ -50,4 +56,4 @@ UTFString tryConvertUTF(const char *buffer);
 
 std::string UTF8BuffertoString(const char *buffer);
 std::string UTF8toString(UTFString &u);
-#endif /*UTILS_HPP_*/
+

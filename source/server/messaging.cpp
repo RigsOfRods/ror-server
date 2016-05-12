@@ -28,9 +28,38 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "logger.h"
 #include "SocketW.h"
 #include "config.h"
+#include "HttpMsg.h"
 
 
 stream_traffic_t Messaging::traffic = {0,0,0,0,0,0,0,0,0,0,0,0};
+
+std::string Messaging::retrievePublicIpFromServer()
+{
+	SWBaseSocket::SWBaseError error;
+	SWInetSocket mySocket;
+
+	if (!mySocket.connect(80, REPO_SERVER, &error))
+		return "";
+
+	char query[2048] = { 0 };
+	sprintf(query, "GET /getpublicip/ HTTP/1.1\r\nHost: %s\r\n\r\n", REPO_SERVER);
+	Logger::log(LOG_DEBUG, "Query to get public IP: %s\n", query);
+	if (mySocket.sendmsg(query, &error) < 0)
+		return "";
+
+	std::string retval = mySocket.recvmsg(250, &error);
+	if (error != SWBaseSocket::ok)
+		return "";
+	Logger::log(LOG_DEBUG, "Response from public IP request :'%s'", retval.c_str());
+
+	HttpMsg msg(retval);
+	retval = msg.getBody();
+	//		printf("Response:'%s'\n", pubip);
+
+	// disconnect
+	mySocket.disconnect();
+	return retval;
+}
 
 void Messaging::updateMinuteStats()
 {

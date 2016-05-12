@@ -6,9 +6,38 @@
 
 #include <stdlib.h>
 #include <cstdio>
-#include <iostream> 
-#include <locale> 
+#include <iostream>
+#include <locale>
 
+#ifdef _WIN32
+#include <windows.h>
+#include <time.h>
+#else
+#include <sys/time.h>
+#endif
+
+namespace Utils
+{
+
+int generateRandomPortNumber()
+{
+	unsigned int tick_count = 0;
+	// we need to be that precise here as it may happen that we start several servers at once, and thus the seed must be different
+#ifdef _WIN32
+	LARGE_INTEGER tick;
+	QueryPerformanceCounter(&tick);
+	tick_count = (unsigned int)tick.QuadPart;
+#else // _WIN32
+	struct timeval now;
+	gettimeofday(&now, NULL);
+	tick_count = (now.tv_sec * 1000) + (now.tv_usec / 1000);
+#endif // _WIN32
+	// init the random number generator
+	srand(tick_count);
+	return 12000 + (rand() % 1000);
+}
+
+} // namespace Utils
 
 using namespace std;
 
@@ -183,3 +212,4 @@ std::string UTF8toString(UTFString &u)
 {
 	return narrow(u.asWStr_c_str());
 }
+

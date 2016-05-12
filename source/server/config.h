@@ -1,14 +1,10 @@
 #pragma once
-#ifndef CONFIG_H_
-#define CONFIG_H_
-#include <string>
 
 #include <string>
-
-#include <rudeconfig/config.h>
 
 // server modes
-enum ServerType {
+enum ServerType
+{
 	SERVER_LAN = 0,
 	SERVER_INET,
 	SERVER_AUTO
@@ -78,7 +74,6 @@ public:
 	static void setVoIP(const std::string& voip);
 	//!@}
 
-	static std::string getPublicIP();
 	static Config instance;
 	
 private:
@@ -107,5 +102,3 @@ private:
 	std::string resourcedir;
 
 };
-
-#endif /*CONFIG_H_*/

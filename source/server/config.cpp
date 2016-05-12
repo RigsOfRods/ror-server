@@ -5,19 +5,17 @@
 #include "SimpleOpt.h"
 #include "SocketW.h"
 #include "rornet.h"
-#include "HttpMsg.h"
+
 #include "logger.h"
 #include "sequencer.h"
 #include "sha1_util.h"
+#include "utils.h"
+#include "messaging.h"
 
 #include <cmath>
+#include <rudeconfig/config.h>
 
-#ifdef _WIN32
-#include <windows.h>
-#include <time.h>
-#else
-#include <sys/time.h>
-#endif
+
 
 #ifdef __GNUC__
 #include <unistd.h>
@@ -101,53 +99,6 @@ static CSimpleOpt::SOption cmdline_options[] = {
 #endif //NOCMDLINE
 
 //======== helper functions ====================================================
-int getRandomPort()
-{
-	{
-		unsigned int tick_count = 0;
-		// we need to be that precise here as it may happen that we start several servers at once, and thus the seed must be different
-#ifdef _WIN32
-		LARGE_INTEGER tick;
-		QueryPerformanceCounter(&tick);
-		tick_count = (unsigned int)tick.QuadPart;
-#else // _WIN32
-		struct timeval now;
-		gettimeofday(&now, NULL);
-		tick_count = (now.tv_sec * 1000) + (now.tv_usec / 1000);
-#endif // _WIN32
-		// init the random number generator
-		srand (tick_count);
-	}
-	return 12000 + (rand()%1000);
-}
-
-std::string Config::getPublicIP()
-{
-	SWBaseSocket::SWBaseError error;
-	SWInetSocket mySocket;
-	
-	if( !mySocket.connect(80, REPO_SERVER, &error) )
-		return "";
-
-	char query[2048] = {0};
-	sprintf(query, "GET /getpublicip/ HTTP/1.1\r\nHost: %s\r\n\r\n", REPO_SERVER);
-	Logger::log(LOG_DEBUG, "Query to get public IP: %s\n", query);
-	if( mySocket.sendmsg(query, &error) < 0 )
-		return "";
-	
-	std::string retval = mySocket.recvmsg(250, &error);
-	if( error != SWBaseSocket::ok )
-		return "";
-	Logger::log(LOG_DEBUG, "Response from public IP request :'%s'", retval.c_str() );
-	
-	HttpMsg msg( retval );
-	retval = msg.getBody();
-	//		printf("Response:'%s'\n", pubip);
-	
-	// disconnect
-	mySocket.disconnect();
-	return retval;
-}
 
 void showUsage()
 {
@@ -254,7 +205,7 @@ bool Config::checkConfig()
 	    {
 	        Logger::log( LOG_WARN, "no IP address has been specified, attempting to "
 	                "detect.");
-	        setIPAddr( getPublicIP() );
+	        setIPAddr( Messaging::retrievePublicIpFromServer() );
 	        
 	        if( getIPAddr().empty() )
 	            Logger::log(LOG_ERROR, "could not get public IP automatically!");
@@ -283,7 +234,7 @@ bool Config::checkConfig()
 	if( !getListenPort() )
 	{
 		Logger::log( LOG_WARN, "No port supplied, randomly generating one");
-		setListenPort( getRandomPort() );
+		setListenPort( Utils::generateRandomPortNumber() );
 	}
 
 	if( getWebserverEnabled() && !getWebserverPort() )

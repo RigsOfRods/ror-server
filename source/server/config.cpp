@@ -1,28 +1,22 @@
 #include "config.h"
 
-// simpleopt by http://code.jellycan.com/simpleopt/
-// license: MIT
-#include "SimpleOpt.h"
-#include "SocketW.h"
-#include "rornet.h"
-
 #include "logger.h"
 #include "sequencer.h"
 #include "sha1_util.h"
 #include "utils.h"
 #include "messaging.h"
 
-#include <cmath>
+// simpleopt by http://code.jellycan.com/simpleopt/
+// license: MIT
+#include "SimpleOpt.h"
 #include <rudeconfig/config.h>
-
-
-
+#include <cmath>
 #ifdef __GNUC__
 #include <unistd.h>
 #include <stdlib.h>
 #endif
 
-#include <cstdio>
+// ============================== Constants ===================================
 
 #ifndef NOCMDLINE
 
@@ -60,45 +54,77 @@ enum
 
 // option array
 static CSimpleOpt::SOption cmdline_options[] = {
-	{ OPT_IP,             ((char *)"-ip"),   SO_REQ_SEP },
-	{ OPT_PORT,           ((char *)"-port"), SO_REQ_SEP },
-	{ OPT_NAME,           ((char *)"-name"), SO_REQ_SEP },
-	{ OPT_PASS,           ((char *)"-password"), SO_REQ_SEP },
-	{ OPT_TERRAIN,        ((char *)"-terrain"), SO_REQ_SEP },
-	{ OPT_MAXCLIENTS,     ((char *)"-maxclients"), SO_REQ_SEP },
-	{ OPT_LAN,            ((char *)"-lan"), SO_NONE },
-	{ OPT_INET,           ((char *)"-inet"), SO_NONE },
-	{ OPT_VERBOSITY,      ((char *)"-verbosity"), SO_REQ_SEP },
-	{ OPT_LOGVERBOSITY,   ((char *)"-logverbosity"), SO_REQ_SEP },
-	{ OPT_LOGFILENAME,    ((char *)"-logfilename"), SO_REQ_SEP },
-	{ OPT_SCRIPTNAME,     ((char *)"-script"), SO_REQ_SEP },
-	{ OPT_WEBSERVER,      ((char *)"-webserver"), SO_NONE },
+	{ OPT_IP,             ((char *)"-ip"),            SO_REQ_SEP },
+	{ OPT_PORT,           ((char *)"-port"),          SO_REQ_SEP },
+	{ OPT_NAME,           ((char *)"-name"),          SO_REQ_SEP },
+	{ OPT_PASS,           ((char *)"-password"),      SO_REQ_SEP },
+	{ OPT_TERRAIN,        ((char *)"-terrain"),       SO_REQ_SEP },
+	{ OPT_MAXCLIENTS,     ((char *)"-maxclients"),    SO_REQ_SEP },
+	{ OPT_LAN,            ((char *)"-lan"),           SO_NONE    },
+	{ OPT_INET,           ((char *)"-inet"),          SO_NONE    },
+	{ OPT_VERBOSITY,      ((char *)"-verbosity"),     SO_REQ_SEP },
+	{ OPT_LOGVERBOSITY,   ((char *)"-logverbosity"),  SO_REQ_SEP },
+	{ OPT_LOGFILENAME,    ((char *)"-logfilename"),   SO_REQ_SEP },
+	{ OPT_SCRIPTNAME,     ((char *)"-script"),        SO_REQ_SEP },
+	{ OPT_WEBSERVER,      ((char *)"-webserver"),     SO_NONE    },
 	{ OPT_WEBSERVER_PORT, ((char *)"-webserverport"), SO_REQ_SEP },
-	{ OPT_VERSION,        ((char *)"-version"), SO_NONE },
-	{ OPT_HELP,           ((char *)"-?"), SO_NONE },	
-	{ OPT_HELP,           ((char *)"-h"), SO_NONE },
-	{ OPT_HELP,           ((char *)"-help"), SO_NONE },
-	{ OPT_HELP,           ((char *)"--help"), SO_NONE },
-	{ OPT_HELP,           ((char *)"/\?"), SO_NONE },	
-	{ OPT_HELP,           ((char *)"/help"), SO_NONE },
-	{ OPT_HELP,           ((char *)"/h"), SO_NONE },	
-	{ OPT_FOREGROUND,     ((char *)"-fg"), SO_NONE },
-	{ OPT_CONFIGFILE,     ((char *)"-c"), SO_REQ_SEP },
-	{ OPT_CONFIGFILE,     ((char *)"-config"), SO_REQ_SEP },
-	{ OPT_RESDIR,         ((char *)"-resdir"), SO_REQ_SEP },
-	{ OPT_AUTHFILE,       ((char *)"-authfile"), SO_REQ_SEP },
-	{ OPT_MOTDFILE,       ((char *)"-motdfile"), SO_REQ_SEP },
-	{ OPT_RULESFILE,      ((char *)"-rulesfile"), SO_REQ_SEP },
-	{ OPT_VEHICLELIMIT,   ((char *)"-vehiclelimit"), SO_REQ_SEP },
-	{ OPT_OWNER,          ((char *)"-owner"), SO_REQ_SEP },
-	{ OPT_WEBSITE,        ((char *)"-website"), SO_REQ_SEP },
-	{ OPT_IRC,            ((char *)"-irc"), SO_REQ_SEP },
-	{ OPT_VOIP,           ((char *)"-voip"), SO_REQ_SEP },
+	{ OPT_VERSION,        ((char *)"-version"),       SO_NONE    },
+	{ OPT_HELP,           ((char *)"-?"),             SO_NONE    },
+	{ OPT_HELP,           ((char *)"-h"),             SO_NONE    },
+	{ OPT_HELP,           ((char *)"-help"),          SO_NONE    },
+	{ OPT_HELP,           ((char *)"--help"),         SO_NONE    },
+	{ OPT_HELP,           ((char *)"/\?"),            SO_NONE    },
+	{ OPT_HELP,           ((char *)"/help"),          SO_NONE    },
+	{ OPT_HELP,           ((char *)"/h"),             SO_NONE    },
+	{ OPT_FOREGROUND,     ((char *)"-fg"),            SO_NONE    },
+	{ OPT_CONFIGFILE,     ((char *)"-c"),             SO_REQ_SEP },
+	{ OPT_CONFIGFILE,     ((char *)"-config"),        SO_REQ_SEP },
+	{ OPT_RESDIR,         ((char *)"-resdir"),        SO_REQ_SEP },
+	{ OPT_AUTHFILE,       ((char *)"-authfile"),      SO_REQ_SEP },
+	{ OPT_MOTDFILE,       ((char *)"-motdfile"),      SO_REQ_SEP },
+	{ OPT_RULESFILE,      ((char *)"-rulesfile"),     SO_REQ_SEP },
+	{ OPT_VEHICLELIMIT,   ((char *)"-vehiclelimit"),  SO_REQ_SEP },
+	{ OPT_OWNER,          ((char *)"-owner"),         SO_REQ_SEP },
+	{ OPT_WEBSITE,        ((char *)"-website"),       SO_REQ_SEP },
+	{ OPT_IRC,            ((char *)"-irc"),           SO_REQ_SEP },
+	{ OPT_VOIP,           ((char *)"-voip"),          SO_REQ_SEP },
 	SO_END_OF_OPTIONS
 };
 #endif //NOCMDLINE
 
-//======== helper functions ====================================================
+// ============================== Variables ===================================
+
+static std::string s_server_name;
+static std::string s_terrain_name("any");
+static std::string s_public_password;
+static std::string s_ip_addr("0.0.0.0");
+static std::string s_scriptname;
+static std::string s_authfile("admins.txt");
+static std::string s_motdfile("motd.txt");
+static std::string s_rulesfile("rules.txt");
+static std::string s_owner;
+static std::string s_website;
+static std::string s_irc;
+static std::string s_voip;
+
+#ifdef _WIN32
+static std::string s_resourcedir;
+#else // _WIN32
+static std::string s_resourcedir("/usr/share/rorserver/"); // trailing slash important
+#endif // _WIN32
+
+static unsigned int s_max_vehicles(20);
+static unsigned int s_webserver_port(0);
+static unsigned int s_listen_port(0);
+static unsigned int s_max_clients(16);
+
+static bool s_print_stats(false);
+static bool s_webserver_enabled(false);
+static bool s_foreground(false);
+
+static ServerType s_server_mode(SERVER_AUTO);
+
+// ============================== Functions ===================================
 
 void showUsage()
 {
@@ -143,44 +169,11 @@ void showUsage()
 " -help                        Show this list\n");
 }
 
-//==============================================================================
-
-
-Config Config::instance;
-
-Config::Config():
-	max_clients( 16 ),
-	server_name( "" ),
-	terrain_name( "any" ),
-	ip_addr( "0.0.0.0" ),
-	scriptname(""),
-	listen_port( 0 ),
-	server_mode( SERVER_AUTO ),
-	print_stats(false),
-	webserver_port( 0 ),
-	foreground(false),
-	authfile("admins.txt"),
-	motdfile("motd.txt"),
-	rulesfile("rules.txt"),
-	max_vehicles( 20 ),
-	owner(""),
-	website(""),
-	irc(""),
-	voip(""),
-#ifdef _WIN32
-	resourcedir()
-#else // _WIN32
-	resourcedir("/usr/share/rorserver/") // trailing slash important
-#endif // _WIN32
+namespace Config
 {
-}
-
-Config::~Config()
-{
-}
 
 //! runs a check that all the required fields are present
-bool Config::checkConfig()
+bool checkConfig()
 {
 	
 	switch ( getServerMode() )
@@ -286,7 +279,7 @@ bool Config::checkConfig()
 			!getTerrainName().empty();
 }
 
-bool Config::fromArgs( int argc, char* argv[] )
+bool fromArgs( int argc, char* argv[] )
 {
 #ifndef NOCMDLINE
 	// parse arguments
@@ -397,134 +390,114 @@ bool Config::fromArgs( int argc, char* argv[] )
 	return true;
 }
 
-//! checks if a password has been set for server access
-bool Config::isPublic() { return !getPublicPassword().empty(); }
+bool isPublic() { return !getPublicPassword().empty(); }
 
-//! getter function
-//!@{
-unsigned int       Config::getMaxClients()      { return instance.max_clients;     }
-const std::string& Config::getServerName()      { return instance.server_name;     }
-const std::string& Config::getTerrainName()     { return instance.terrain_name;    }
-const std::string& Config::getPublicPassword()  { return instance.public_password; }
-const std::string& Config::getIPAddr()          { return instance.ip_addr;         }
-const std::string& Config::getScriptName()      { return instance.scriptname;      }
-bool               Config::getEnableScripting() { return (instance.scriptname != ""); }
-unsigned int       Config::getListenPort()      { return instance.listen_port;     }
-ServerType         Config::getServerMode()      { return instance.server_mode;     }
-bool               Config::getPrintStats()      { return instance.print_stats;     }
-bool               Config::getWebserverEnabled(){ return instance.webserver_enabled; }
-unsigned int       Config::getWebserverPort()   { return instance.webserver_port;  }
-bool               Config::getForeground()      { return instance.foreground;      }
-const std::string& Config::getResourceDir()     { return instance.resourcedir;     }
-const std::string& Config::getAuthFile()        { return instance.authfile;        }
-const std::string& Config::getMOTDFile()        { return instance.motdfile;        }
-const std::string& Config::getRulesFile()       { return instance.rulesfile;       }
-unsigned int       Config::getMaxVehicles()     { return instance.max_vehicles;    }
-const std::string& Config::getOwner()           { return instance.owner;           }
-const std::string& Config::getWebsite()         { return instance.website;         }
-const std::string& Config::getIRC()             { return instance.irc;             }
-const std::string& Config::getVoIP()            { return instance.voip;            }
+unsigned int       getMaxClients()      { return s_max_clients;        }
+const std::string& getServerName()      { return s_server_name;        }
+const std::string& getTerrainName()     { return s_terrain_name;       }
+const std::string& getPublicPassword()  { return s_public_password;    }
+const std::string& getIPAddr()          { return s_ip_addr;            }
+const std::string& getScriptName()      { return s_scriptname;         }
+bool               getEnableScripting() { return (s_scriptname != ""); }
+unsigned int       getListenPort()      { return s_listen_port;        }
+ServerType         getServerMode()      { return s_server_mode;        }
+bool               getPrintStats()      { return s_print_stats;        }
+bool               getWebserverEnabled(){ return s_webserver_enabled;  }
+unsigned int       getWebserverPort()   { return s_webserver_port;     }
+bool               getForeground()      { return s_foreground;         }
+const std::string& getResourceDir()     { return s_resourcedir;        }
+const std::string& getAuthFile()        { return s_authfile;           }
+const std::string& getMOTDFile()        { return s_motdfile;           }
+const std::string& getRulesFile()       { return s_rulesfile;          }
+unsigned int       getMaxVehicles()     { return s_max_vehicles;       }
+const std::string& getOwner()           { return s_owner;              }
+const std::string& getWebsite()         { return s_website;            }
+const std::string& getIRC()             { return s_irc;                }
+const std::string& getVoIP()            { return s_voip;               }
 
-//!@}
 
-//! setter functions
-//!@{
-bool Config::setScriptName(const std::string& name ) { 
+bool setScriptName(const std::string& name )
+{ 
 	if( name.empty() ) return false;
-	instance.scriptname = name;
- 	return true;
+	s_scriptname = name;
+	return true;
 }
-bool Config::setMaxClients(unsigned int num) { 
+
+bool setMaxClients(unsigned int num)
+{
 	if( num < 2 || num > 64 ) return false;
-	instance.max_clients = num;
- 	return true;
+	s_max_clients = num;
+	return true;
 }
-bool Config::setServerName( const std::string& name ) {
+
+bool setServerName( const std::string& name )
+{
 	if( name.empty() ) return false;
-	instance.server_name = name;
+	s_server_name = name;
 	return true;
 }
-bool Config::setTerrain( const std::string& tern ) {
+
+bool setTerrain( const std::string& tern )
+{
 	if( tern.empty()) return false;
-	instance.terrain_name = tern;
+	s_terrain_name = tern;
 	return true;
 }
-bool Config::setPublicPass( const std::string& pub_pass ) {
+
+bool setPublicPass( const std::string& pub_pass )
+{
 	if(pub_pass.length() > 0 && pub_pass.size() < 250  &&  
-			!SHA1FromString(instance.public_password, pub_pass))
+			!SHA1FromString(s_public_password, pub_pass))
 	{
 		Logger::log(LOG_ERROR, "could not generate server SHA1 password hash!");
-		instance.public_password = "";
+		s_public_password = "";
 		return false;
 	}
 	Logger::log(LOG_DEBUG,"sha1(%s) = %s", pub_pass.c_str(), 
-			instance.public_password.c_str());
+			s_public_password.c_str());
 	return true;
 }
 
-bool Config::setIPAddr( const std::string& ip ) {
-	if( ip.empty() ) return false;
-	instance.ip_addr = ip;
-	return true;
-}
-bool Config::setListenPort( unsigned int port ) {
-	instance.listen_port = port;
-	return true;
-}
-void Config::setWebserverPort( unsigned int port ) {
-	instance.webserver_port = port;
-}
-void Config::setWebserverEnabled(bool webserver) {
-	instance.webserver_enabled = webserver;
-}
-bool Config::setServerMode( ServerType mode) {
-	instance.server_mode = mode;
-	return true;
-}
-void Config::setPrintStats(bool value)
+bool setIPAddr( const std::string& ip )
 {
-	instance.print_stats = value;
+	if( ip.empty() ) return false;
+	s_ip_addr = ip;
+	return true;
 }
-void Config::setForeground(bool value) {
-	instance.foreground = value;
+
+bool setListenPort( unsigned int port )
+{
+	s_listen_port = port;
+	return true;
 }
-void Config::setResourceDir(std::string dir) {
+
+void setWebserverPort( unsigned int port )  { s_webserver_port = port;         }
+void setWebserverEnabled(bool webserver)    { s_webserver_enabled = webserver; }
+void setPrintStats(bool value)              { s_print_stats = value;           }
+void setAuthFile(const std::string& file)   { s_authfile = file;               }
+void setMOTDFile(const std::string& file)   { s_motdfile = file;               }
+void setRulesFile(const std::string& file)  { s_rulesfile = file;              }
+void setMaxVehicles(unsigned int num)       { s_max_vehicles = num;            }
+void setOwner(const std::string& owner)     { s_owner = owner;                 }
+void setForeground(bool value)              { s_foreground = value;            }
+void setWebsite(const std::string& website) { s_website = website;             }
+void setIRC(const std::string& irc)         { s_irc = irc;                     }
+void setVoIP(const std::string& voip)       { s_voip = voip;                   }
+
+bool setServerMode( ServerType mode)
+{
+	s_server_mode = mode;
+	return true;
+}
+
+void setResourceDir(std::string dir)
+{
 	if(dir.length()>0 && dir.substr(dir.length()-1)!="/")
 		dir += "/";
-	instance.resourcedir = dir;
-}
-void Config::setAuthFile(const std::string& file) {
-	instance.authfile = file;
-}
-void Config::setMOTDFile(const std::string& file) {
-	instance.motdfile = file;
+	s_resourcedir = dir;
 }
 
-void Config::setRulesFile( const std::string& file ) {
-	instance.rulesfile = file;
-}
-
-void Config::setMaxVehicles(unsigned int num) {
-	instance.max_vehicles = num;
-}
-
-void Config::setOwner( const std::string& owner ) {
-	instance.owner = owner;
-}
-
-void Config::setWebsite( const std::string& website ) {
-	instance.website = website;
-}
-
-void Config::setIRC( const std::string& irc ) {
-	instance.irc = irc;
-}
-
-void Config::setVoIP( const std::string& voip ) {
-	instance.voip = voip;
-}
-
-void Config::loadConfigFile(const std::string& filename)
+void loadConfigFile(const std::string& filename)
 {
 	Logger::log(LOG_INFO, "loading config file %s ...", filename.c_str());
 	rude::Config config;
@@ -562,4 +535,6 @@ void Config::loadConfigFile(const std::string& filename)
 		Logger::log(LOG_ERROR, "could not load config file %s : %s", filename.c_str(), config.getError());
 	}
 }
-//!@}
+
+} //namespace Config
+

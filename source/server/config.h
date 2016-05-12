@@ -10,95 +10,67 @@ enum ServerType
 	SERVER_AUTO
 };
 
-class Config
+namespace Config
 {
-public:
-	virtual ~Config();
 
-	//! runs a check that all the required fields are present
-	static bool checkConfig();
-	static bool fromArgs( int argc, char* argv[] );
-	
-	//! checks if a password has been set for server access
-	static bool isPublic();
-	
-	//! getter function
-	//!@{
-	static unsigned int       getMaxClients();
-	static const std::string& getServerName();
-	static const std::string& getTerrainName();
-	static const std::string& getPublicPassword();
-	static const std::string& getIPAddr();
-	static const std::string& getScriptName();
-	static unsigned int       getListenPort();
-	static ServerType         getServerMode();
-	static bool               getPrintStats();
-	static bool               getEnableScripting();
-	static bool               getWebserverEnabled();
-	static unsigned int       getWebserverPort();
-	static bool               getForeground();
-	static const std::string& getResourceDir();
-	static const std::string& getAuthFile();
-	static const std::string& getMOTDFile();
-	static const std::string& getRulesFile();
-	static unsigned int       getMaxVehicles();
-	static const std::string& getOwner();
-	static const std::string& getWebsite();
-	static const std::string& getIRC();
-	static const std::string& getVoIP();
-	//!@}
+//! runs a check that all the required fields are present
+bool checkConfig();
+bool fromArgs( int argc, char* argv[] );
 
-	//! setter functions
-	//!@{
-	static bool setMaxClients(unsigned int num);
-	static bool setServerName( const std::string& name );
-	static bool setScriptName( const std::string& name );
-	static bool setTerrain( const std::string& name );
-	static bool setPublicPass( const std::string& name );
-	static bool setIPAddr( const std::string& name );
-	static bool setListenPort( unsigned int port );
-	static bool setServerMode( ServerType mode);
-	static void setPrintStats(bool value);
-	static void setWebserverEnabled(bool value);
-	static void setWebserverPort( unsigned int port );
-	static void setForeground(bool value);
-	static void loadConfigFile(const std::string& filename);
-	static void setResourceDir(std::string dir);
-	static void setAuthFile(const std::string& file);
-	static void setMOTDFile(const std::string& file);
-	static void setRulesFile(const std::string& rulesFile);
-	static void setMaxVehicles(unsigned int num);
-	static void setOwner(const std::string& owner);
-	static void setWebsite(const std::string& website);
-	static void setIRC(const std::string& irc);
-	static void setVoIP(const std::string& voip);
-	//!@}
+//! checks if a password has been set for server access
+bool isPublic();
 
-	static Config instance;
-	
-private:
-	Config();
-	
-	unsigned int max_clients;
-	std::string server_name;
-	std::string terrain_name;
-	std::string public_password;
-	std::string ip_addr;
-	std::string scriptname;
-	unsigned int listen_port;
-	ServerType server_mode;
-	bool print_stats;
-	bool webserver_enabled;
-	unsigned int webserver_port;
-	bool foreground;
-	std::string authfile;
-	std::string motdfile;
-	std::string rulesfile;
-	unsigned int max_vehicles;
-	std::string owner;
-	std::string website;
-	std::string irc;
-	std::string voip;
-	std::string resourcedir;
+//! getter function
+//!@{
+unsigned int       getMaxClients();
+const std::string& getServerName();
+const std::string& getTerrainName();
+const std::string& getPublicPassword();
+const std::string& getIPAddr();
+const std::string& getScriptName();
+unsigned int       getListenPort();
+ServerType         getServerMode();
+bool               getPrintStats();
+bool               getEnableScripting();
+bool               getWebserverEnabled();
+unsigned int       getWebserverPort();
+bool               getForeground();
+const std::string& getResourceDir();
+const std::string& getAuthFile();
+const std::string& getMOTDFile();
+const std::string& getRulesFile();
+unsigned int       getMaxVehicles();
+const std::string& getOwner();
+const std::string& getWebsite();
+const std::string& getIRC();
+const std::string& getVoIP();
+//!@}
 
-};
+//! setter functions
+//!@{
+bool setMaxClients(unsigned int num);
+bool setServerName( const std::string& name );
+bool setScriptName( const std::string& name );
+bool setTerrain( const std::string& name );
+bool setPublicPass( const std::string& name );
+bool setIPAddr( const std::string& name );
+bool setListenPort( unsigned int port );
+bool setServerMode( ServerType mode);
+void setPrintStats(bool value);
+void setWebserverEnabled(bool value);
+void setWebserverPort( unsigned int port );
+void setForeground(bool value);
+void loadConfigFile(const std::string& filename);
+void setResourceDir(std::string dir);
+void setAuthFile(const std::string& file);
+void setMOTDFile(const std::string& file);
+void setRulesFile(const std::string& rulesFile);
+void setMaxVehicles(unsigned int num);
+void setOwner(const std::string& owner);
+void setWebsite(const std::string& website);
+void setIRC(const std::string& irc);
+void setVoIP(const std::string& voip);
+//!@}
+
+} // namespace Config
+

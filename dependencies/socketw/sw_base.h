@@ -18,7 +18,9 @@
 
 #include "sw_internal.h"
 
-#include <unistd.h>
+#ifndef _WIN32 // Microsoft Visual Studio has no <unistd.h>
+#   include <unistd.h>
+#endif
 #include <string>
 
 // Set error handling mode

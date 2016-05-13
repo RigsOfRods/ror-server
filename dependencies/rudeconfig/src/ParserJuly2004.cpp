@@ -110,7 +110,7 @@ bool ParserJuly2004::parse(std::istream& infile, AbstractOrganiser& organiser)
 		return false;
 	}
 	
-	register char c;
+	char c;
 		
 	// eof only gets set when error_flag is set on previous operation
 	// as such, you need to peek() at the end ot the while loop
@@ -142,7 +142,7 @@ bool ParserJuly2004::parse(std::istream& infile, AbstractOrganiser& organiser)
 			//
 			infile.get();
 				
-			register SectionState sectionState = STARTSECTION;
+			SectionState sectionState = STARTSECTION;
 
 			std::string sectionID = "";
 			std::string comment = "";
@@ -346,7 +346,7 @@ bool ParserJuly2004::parse(std::istream& infile, AbstractOrganiser& organiser)
 		}
 		else
 		{
-			register KeyValueState kvState = KEY;
+			KeyValueState kvState = KEY;
 			std::string key = "";
 			std::string value = "";
 			std::string comment = "";

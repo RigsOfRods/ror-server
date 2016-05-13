@@ -922,7 +922,7 @@ string GetAbsolutePath(const string &file)
 
 string GetCurrentDir()
 {
-	char buffer[1024];
+	char buffer[1024] = "";
 #ifdef _MSC_VER
 #ifdef _WIN32_WCE
     static TCHAR apppath[MAX_PATH] = TEXT("");
@@ -969,7 +969,7 @@ string GetCurrentDir()
 #elif defined(__APPLE__)
 	return getcwd(buffer, 1024);
 #else
-	return "";
+	return buffer;
 #endif
 }
 

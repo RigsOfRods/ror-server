@@ -57,7 +57,7 @@ enum
 	OPT_OWNER,
 	OPT_WEBSITE,
 	OPT_IRC,
-	OPT_VOIP,
+	OPT_VOIP 
 };
 
 // option array

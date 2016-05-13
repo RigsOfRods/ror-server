@@ -65,7 +65,7 @@ enum serverSayType {
 	FROM_SERVER = 0,
 	FROM_HOST,
 	FROM_MOTD,
-	FROM_RULES,
+	FROM_RULES 
 };
 
 enum broadcastType {
@@ -74,7 +74,7 @@ enum broadcastType {
 	BROADCAST_ALL,        // broadcast to all clients including sender
 	BROADCAST_NORMAL,     // broadcast to all clients except sender
 	BROADCAST_AUTHED,     // broadcast to authed users (bots)
-	BROADCAST_BLOCK,      // no broadcast
+	BROADCAST_BLOCK       // no broadcast
 };
 
 // constant for functions that receive an uid for sending something

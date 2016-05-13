@@ -67,7 +67,7 @@ public:
 protected:
 	mutable asCAtomic refCount;
 	bool      value;
-	DECLARECRITICALSECTION(mutable lock);
+	DECLARECRITICALSECTION(mutable lock)
 };
 
 class asCScriptObject : public asIScriptObject

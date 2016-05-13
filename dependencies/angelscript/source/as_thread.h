@@ -80,7 +80,7 @@ protected:
 #else
 	asDWORD tlsKey;
 #endif
-	DECLARECRITICALSECTION(criticalSection);
+	DECLARECRITICALSECTION(criticalSection)
 #else
 	asCThreadLocalData *tld;
 #endif

@@ -34,7 +34,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <cstdio>
 
 
-Notifier::Notifier(UserAuth *u) : exit(false), wasregistered( false ), error_count( 0 ), authresolver(u)
+Notifier::Notifier(UserAuth *u) : exit(false), wasregistered( false ), error_count( 0 )
 {
     STACKLOG;
 	memset( &httpresp, 0, 65536);

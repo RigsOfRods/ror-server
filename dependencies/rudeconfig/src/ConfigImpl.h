@@ -54,7 +54,6 @@ class ConfigImpl{
 	static std::string s_returnValue;
 
 	AbstractWriter *d_writer;
-	AbstractOrganiser *d_organiser;
 	AbstractParser *d_parser;
 	
 	File *d_file;

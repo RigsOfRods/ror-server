@@ -45,7 +45,7 @@ private:
 	bool registerServer(); //!< attempt to register with the master server
 	bool sendHearbeat();   //!< send a heart beat message to the master server
 	bool advertised;
-	UserAuth *authresolver;
+	
 public:
     
 	Notifier(UserAuth *u);

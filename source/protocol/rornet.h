@@ -97,7 +97,7 @@ enum {
 
 	// added on 16th of October 2011
 	MSG2_UTF_CHAT,                      //!< chat line in UTF encoding
-	MSG2_UTF_PRIVCHAT,                  //!< private chat line in UTF encoding
+	MSG2_UTF_PRIVCHAT                   //!< private chat line in UTF encoding
 };
 
 /*
@@ -109,7 +109,7 @@ enum {
 	AUTH_RANKED = BITMASK(2),          //!< ranked status
 	AUTH_MOD    = BITMASK(3),          //!< moderator status
 	AUTH_BOT    = BITMASK(4),          //!< bot status
-	AUTH_BANNED = BITMASK(5),          //!< banned
+	AUTH_BANNED = BITMASK(5)           //!< banned
 };
 
 
@@ -141,7 +141,7 @@ enum {
 	NETMASK_ENGINE_MODE_SEMIAUTO      = BITMASK(21), //!< engine mode
 	NETMASK_ENGINE_MODE_MANUAL        = BITMASK(22), //!< engine mode
 	NETMASK_ENGINE_MODE_MANUAL_STICK  = BITMASK(23), //!< engine mode
-	NETMASK_ENGINE_MODE_MANUAL_RANGES = BITMASK(24), //!< engine mode
+	NETMASK_ENGINE_MODE_MANUAL_RANGES = BITMASK(24)  //!< engine mode
 };
 
 // structs

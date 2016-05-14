@@ -187,7 +187,7 @@ typedef enum _ESOError
 																						SO_ARG_INVALID_TYPE = -4,   /*!< SO_REQ_CMB style-argument was supplied to a SO_REQ_SEP option
 																													Only returned when using SO_O_PEDANTIC. */
 																													SO_ARG_MISSING      = -5,   //!< Required argument was not supplied
-																													SO_ARG_INVALID_DATA = -6,   /*!< Option argument looks like another option.
+																													SO_ARG_INVALID_DATA = -6    /*!< Option argument looks like another option.
 																																				Only returned when NOT using SO_O_NOERR. */
 } ESOError;
 

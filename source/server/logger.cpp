@@ -188,15 +188,15 @@ ScopeLog::ScopeLog(const LogLevel& level, const char* format, ...)
     msg = msg + format_arg_list(format, args);
     va_end(args);
     
-    Logger::log(LOG_STACK, "ENTER - %s", msg.asUTF8_c_str());
+    Logger::log(level, "ENTER - %s", msg.asUTF8_c_str());
 }
 ScopeLog::ScopeLog(const LogLevel& level, const UTFString& func)
 : msg(func), level(level)
 {
-    Logger::log(LOG_STACK, "ENTER - %s", msg.asUTF8_c_str());
+    Logger::log(level, "ENTER - %s", msg.asUTF8_c_str());
 }
 
 ScopeLog::~ScopeLog()
 {
-    Logger::log(LOG_STACK, "EXIT - %s", msg.asUTF8_c_str());
+    Logger::log(level, "EXIT - %s", msg.asUTF8_c_str());
 }

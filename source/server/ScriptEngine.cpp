@@ -47,7 +47,7 @@ _CRTIMP void __cdecl _wassert(_In_z_ const wchar_t * _Message, _In_z_ const wcha
 std::string stream_register_get_name(stream_register_t* reg)
 {
 	return std::string(reg->name);
-};
+}
 
 void *s_sethreadstart(void* se)
 {
@@ -314,7 +314,7 @@ void ScriptEngine::PrintVariables(asIScriptContext *ctx, int stackLevel)
 			Logger::log(LOG_INFO, " %s = {...}", ctx->GetVarDeclaration(n, stackLevel));
 		}
 	}
-};
+}
 
 // continue with initializing everything
 void ScriptEngine::init()

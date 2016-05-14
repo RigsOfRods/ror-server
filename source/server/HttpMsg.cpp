@@ -75,9 +75,7 @@ void HttpMsg::assign( const std::string& message )
 	strict_tokenize( message.substr( 0, locHolder ), header, "\r\n" );
 	
 	headermap["httpcode"] = header[0];
-	for( unsigned short index = 1;
-	header.size() >= 0 && index < header.size();
-	index++ )
+	for( unsigned short index = 1; index < header.size(); index++ )
 	{
 		tmp.clear();
 		tokenize( header[index], tmp, ":" );

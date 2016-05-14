@@ -29,6 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define __Sequencer_H__
 
 #include "rornet.h"
+#include "notifier.h"
 #ifdef WITH_ANGELSCRIPT
 #include "scriptmath3d/scriptmath3d.h" // angelscript addon
 #endif //WITH_ANGELSCRIPT
@@ -43,7 +44,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 class Broadcaster;
 class Receiver;
 class Listener;
-class Notifier;
 class UserAuth;
 class SWInetSocket;
 class ScriptEngine;
@@ -147,7 +147,7 @@ private:
     
     Listener* listener;     //!< listens for incoming connections
     ScriptEngine* script;     //!< listens for incoming connections
-    Notifier* notifier;     //!< registers and handles the master server
+    Notifier notifier;     //!< registers and handles the master server
 	UserAuth* authresolver; //!< authenticates users
     std::vector<client_t*> clients; //!< clients is a list of all the available 
     std::vector<ban_t*> bans; //!< list of bans

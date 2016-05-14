@@ -114,7 +114,10 @@ void Sequencer::initilize()
 
 	instance->authresolver = 0;
 	instance->notifier.activate(instance->authresolver);
-	instance->notifier.registerServer();
+	if (Config::getServerMode() != SERVER_LAN)
+	{
+		instance->notifier.registerServer();
+	}
 	// start userauth
 	instance->authresolver = new UserAuth(instance->notifier.getChallenge(), instance->notifier.getTrustLevel(), Config::getAuthFile());
 }

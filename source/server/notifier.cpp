@@ -23,7 +23,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "messaging.h"
 #include "logger.h"
 #include "config.h"
-#include "userauth.h"
 
 #include <stdexcept>
 
@@ -35,12 +34,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
 Notifier::Notifier():
+	trustlevel(0),
 	exit(false),
 	wasregistered(false),
-	advertised(false),
 	error_count(0),
-	trustlevel(0),
-	authresolver(nullptr),
+	advertised(false),
 	is_active(false)
 {
 	STACKLOG;
@@ -54,16 +52,14 @@ Notifier::~Notifier(void)
 	exit = true;
 }
 
-void Notifier::activate(UserAuth* u)
+void Notifier::activate()
 {
-	authresolver = u;
 	is_active = true;
 }
 
 void Notifier::deactivate()
 {
 	is_active = false;
-	authresolver = nullptr;
 }
 
 bool Notifier::registerServer()

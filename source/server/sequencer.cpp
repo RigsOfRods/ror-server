@@ -112,8 +112,7 @@ void Sequencer::initilize()
 
 	pthread_create(&instance->killerthread, NULL, s_klthreadstart, &instance);
 
-	instance->authresolver = 0;
-	instance->notifier.activate(instance->authresolver);
+	instance->notifier.activate();
 	if (Config::getServerMode() != SERVER_LAN)
 	{
 		instance->notifier.registerServer();

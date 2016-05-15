@@ -91,7 +91,7 @@ Sequencer::~Sequencer()
 /**
  * Inililize, needs to be called before the class is used
  */
-void Sequencer::initilize()
+void Sequencer::initialize(Listener* listener)
 {
     STACKLOG;
 
@@ -99,7 +99,7 @@ void Sequencer::initilize()
 		delete mInstance;
     Sequencer* instance  = Instance();
 	instance->clients.reserve( Config::getMaxClients() );
-	instance->listener = new Listener(Config::getListenPort());
+	instance->listener = listener;
 
 	instance->script = 0;
 #ifdef WITH_ANGELSCRIPT
@@ -111,14 +111,19 @@ void Sequencer::initilize()
 #endif //WITH_ANGELSCRIPT
 
 	pthread_create(&instance->killerthread, NULL, s_klthreadstart, &instance);
-
 	instance->notifier.activate();
-	if (Config::getServerMode() != SERVER_LAN)
-	{
-		instance->notifier.registerServer();
-	}
-	// start userauth
-	instance->authresolver = new UserAuth(instance->notifier.getChallenge(), instance->notifier.getTrustLevel(), Config::getAuthFile());
+}
+
+void Sequencer::activateUserAuth()
+{
+	Sequencer* instance = Instance();
+	instance->authresolver = new UserAuth(
+		instance->notifier.getChallenge(), instance->notifier.getTrustLevel(), Config::getAuthFile());
+}
+
+void Sequencer::registerServer()
+{
+	Sequencer::Instance()->notifier.registerServer();
 }
 
 /**

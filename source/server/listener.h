@@ -16,8 +16,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef __Listener_H__
-#define __Listener_H__
+
+#pragma once
 
 #include <pthread.h>
 #include "SocketW.h"
@@ -29,9 +29,15 @@ private:
 	int lport;
 	bool running;
 	SWInetSocket listSocket;
+	pthread_mutex_t* m_ready_mtx;
+	pthread_cond_t* m_ready_cond;
+	int* m_ready_value;
+
+	/// Signals the main thread that we're ready to listen for connections.
+	void signalReady();
 public:
-	Listener(int port);
+	Listener(int port, pthread_mutex_t* ready_mtx, pthread_cond_t* ready_cond, int* ready_value);
 	~Listener(void);
 	void threadstart();
 };
-#endif
+

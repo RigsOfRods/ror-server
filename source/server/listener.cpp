@@ -42,7 +42,11 @@ void *s_lsthreadstart(void* vid)
 }
 
 
-Listener::Listener(int port): lport( port )
+Listener::Listener(int port, pthread_mutex_t* ready_mtx, pthread_cond_t* ready_cond, int* ready_value):
+	lport(port),
+	m_ready_mtx(ready_mtx),
+	m_ready_cond(ready_cond),
+	m_ready_value(ready_value)
 {
     STACKLOG;
 	running = true;
@@ -57,6 +61,14 @@ Listener::~Listener(void)
 	running = false;
 	listSocket.set_timeout(1,0);
 	pthread_cancel(thread);
+}
+
+void Listener::signalReady()
+{
+	pthread_mutex_lock(m_ready_mtx);
+	*m_ready_value = 1;
+	pthread_cond_signal(m_ready_cond);
+	pthread_mutex_unlock(m_ready_mtx);
 }
 
 void Listener::threadstart()
@@ -78,8 +90,10 @@ void Listener::threadstart()
 	}
 	listSocket.listen();
 
-	//await connections
 	Logger::log(LOG_VERBOSE,"Listener ready");
+	this->signalReady();
+
+	//await connections
 	while (running)
 	{
 		Logger::log(LOG_VERBOSE,"Listener awaiting connections");

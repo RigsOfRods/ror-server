@@ -166,13 +166,13 @@ protected:
     //! method to access the singleton instance
     static Sequencer* Instance();
     static Sequencer* mInstance;
-	
-	
-    
+
 public:
-    //!    initilize theSequencers information
-    static void initilize();
-    
+
+    static void initialize(Listener* listener);
+    static void activateUserAuth();
+    static void registerServer();
+
     //! destructor call, used for clean up
     static void cleanUp();
     

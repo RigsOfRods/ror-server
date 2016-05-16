@@ -17,11 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <stdarg.h>
-#include <time.h>
-#include <string>
-#include <errno.h>
-
 #include "messaging.h"
 #include "sequencer.h"
 #include "rornet.h"
@@ -30,6 +25,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #include "HttpMsg.h"
 
+#include <stdarg.h>
+#include <time.h>
+#include <string>
+#include <errno.h>
+#include <assert.h>
 
 stream_traffic_t Messaging::traffic = {0,0,0,0,0,0,0,0,0,0,0,0};
 
@@ -156,39 +156,31 @@ void Messaging::addBandwidthDropOutgoing(int bytes)
 }
 
 /**
- * Name: receivemessage
- * @param *socket:
- * @param *type:
- * @param *source:
- * @param *wrotelen:
- * @param content:
- * @param bufferlen:
- * @return
+ * @param out_type        Message type, see MSG2_* macros in rornet.h
+ * @param out_source      Magic. Value 5000 used by serverlist to check this server.
+ * @return                0 on success, negative number on error.
  */
-int Messaging::receivemessage(SWInetSocket *socket, int *type, int *source, unsigned int *streamid, unsigned int *wrotelen, char* content,
-		unsigned int bufferlen)
+int Messaging::receivemessage(
+		SWInetSocket *socket,
+		int* out_type,
+		int* out_source,
+		unsigned int* out_stream_id,
+		unsigned int* out_payload_len,
+		char* out_payload,
+		unsigned int payload_buf_len)
 {
-    STACKLOG;
+	STACKLOG;
 
-    if( NULL == source )
-    {
-    	Logger::log( LOG_ERROR, "source is null, no where to send it.");
-    	return -1;
-    }
-    
-    if( NULL == socket )
-    {
-    	Logger::log( LOG_ERROR, "attempt to receive a messaage over a"
-    			"null socket." );
-    	return -3;
-    }
-    
-	SWBaseSocket::SWBaseError error;
-	
-	char buffer[MAX_MESSAGE_LENGTH];
-	memset(buffer,0, MAX_MESSAGE_LENGTH);
+	assert(socket        != nullptr);
+	assert(out_type      != nullptr);
+	assert(out_source    != nullptr);
+	assert(out_stream_id != nullptr);
+	assert(out_payload   != nullptr);
+
+	char buffer[MAX_MESSAGE_LENGTH] = {};
 	
 	int hlen=0;
+	SWBaseSocket::SWBaseError error;
 	while (hlen<(int)sizeof(header_t))
 	{
 		int recvnum=socket->recv(buffer+hlen, sizeof(header_t)-hlen, &error);
@@ -200,23 +192,22 @@ int Messaging::receivemessage(SWInetSocket *socket, int *type, int *source, unsi
 		}
 		hlen+=recvnum;
 	}
+
 	header_t head;
 	memcpy(&head, buffer, sizeof(header_t));
-	*type     = head.command;
-	*source   = head.source;
-	*wrotelen = head.size;
-	*streamid = head.streamid;
+	*out_type         = head.command;
+	*out_source       = head.source;
+	*out_payload_len  = head.size;
+	*out_stream_id    = head.streamid;
 	
 	if((int)head.size >= MAX_MESSAGE_LENGTH)
 	{
-    	return -3;
+		Logger::log(LOG_ERROR, "receivemessage(): payload too long: %d b (max. is %d b)", head.size, MAX_MESSAGE_LENGTH);
+		return -3;
 	}
 
 	if( head.size > 0)
 	{
-		if(!socket)
-			return -3;
-		
 		//read the rest
 		while (hlen < (int)sizeof(header_t) + (int)head.size)
 		{
@@ -231,18 +222,9 @@ int Messaging::receivemessage(SWInetSocket *socket, int *type, int *source, unsi
 			hlen += recvnum;
 		}
 	}
-	
-#if 0
-	// comment out since this severly bloats teh server log
-	char body[*wrotelen*2+1];
-	memset( body, 0,*wrotelen*2+1);
-	bodyblockashex(body, content, *wrotelen);
-	Logger::log( LOG_DEBUG, "received  message:\t%d\t%d\t%d", *type, *source, *wrotelen);
-	Logger::log( LOG_DEBUG, "%s", body);
-#endif
-	//Logger::log(LOG_DEBUG, "message of size %d received by uid %d.", hlen, *source);
+
 	traffic.bandwidthIncoming += (int)sizeof(header_t)+(int)head.size;
-	memcpy(content, buffer+sizeof(header_t), bufferlen);
+	memcpy(out_payload, buffer+sizeof(header_t), payload_buf_len);
 	return 0;
 }
 

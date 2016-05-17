@@ -20,32 +20,24 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-class SWInetSocket;
-
 #include "sequencer.h"
 
-//TODO: does this even need to be a class? couldn't it be done just as well
-//	using two functions outside of a class? 
-class Messaging
-{
-public:
-    Messaging(void) {;}
-    ~Messaging(void) {;}
+class SWInetSocket;
+
+namespace Messaging {
     
-    static int sendmessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len, const char* content);
-    static int receivemessage(SWInetSocket *socket, int *type, int *source, unsigned int *streamid, unsigned int *wrotelen, char* content, unsigned int bufferlen);
+int sendmessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len, const char* content);
+int receivemessage(SWInetSocket *socket, int *type, int *source, unsigned int *streamid, unsigned int *wrotelen, char* content, unsigned int bufferlen);
 
-    static int broadcastLAN();
+int broadcastLAN();
 
-    static void addBandwidthDropIncoming(int bytes);
-    static void addBandwidthDropOutgoing(int bytes);
-    static stream_traffic_t getTraffic();
+void addBandwidthDropIncoming(int bytes);
+void addBandwidthDropOutgoing(int bytes);
+stream_traffic_t getTraffic();
 
-    static void updateMinuteStats();
-    static int getTime();
+void updateMinuteStats();
+int getTime();
 
-    static std::string retrievePublicIpFromServer();
+std::string retrievePublicIpFromServer();
 
-protected:
-    static stream_traffic_t traffic;
-};
+} // namespace Messaging

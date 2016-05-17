@@ -33,50 +33,57 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <errno.h>
 #include <assert.h>
 
-stream_traffic_t Messaging::traffic = {0,0,0,0,0,0,0,0,0,0,0,0};
+static stream_traffic_t s_traffic = {0,0,0,0,0,0,0,0,0,0,0,0};
 
-std::string Messaging::retrievePublicIpFromServer()
+namespace Messaging {
+
+std::string retrievePublicIpFromServer()
 {
     SWBaseSocket::SWBaseError error;
     SWInetSocket mySocket;
 
     if (!mySocket.connect(80, REPO_SERVER, &error))
+    {
         return "";
+    }
 
     char query[2048] = { 0 };
     sprintf(query, "GET /getpublicip/ HTTP/1.1\r\nHost: %s\r\n\r\n", REPO_SERVER);
     Logger::log(LOG_DEBUG, "Query to get public IP: %s\n", query);
     if (mySocket.sendmsg(query, &error) < 0)
+    {
         return "";
+    }
 
     std::string retval = mySocket.recvmsg(250, &error);
     if (error != SWBaseSocket::ok)
+    {
         return "";
+    }
     Logger::log(LOG_DEBUG, "Response from public IP request :'%s'", retval.c_str());
 
     HttpMsg msg(retval);
     retval = msg.getBody();
-    //		printf("Response:'%s'\n", pubip);
 
     // disconnect
     mySocket.disconnect();
     return retval;
 }
 
-void Messaging::updateMinuteStats()
+void updateMinuteStats()
 {
     STACKLOG;
     // normal bandwidth
-    traffic.bandwidthIncomingRate       = (traffic.bandwidthIncoming - traffic.bandwidthIncomingLastMinute) / 60;
-    traffic.bandwidthIncomingLastMinute = traffic.bandwidthIncoming;
-    traffic.bandwidthOutgoingRate       = (traffic.bandwidthOutgoing - traffic.bandwidthOutgoingLastMinute) / 60;
-    traffic.bandwidthOutgoingLastMinute = traffic.bandwidthOutgoing;
+    s_traffic.bandwidthIncomingRate       = (s_traffic.bandwidthIncoming - s_traffic.bandwidthIncomingLastMinute) / 60;
+    s_traffic.bandwidthIncomingLastMinute = s_traffic.bandwidthIncoming;
+    s_traffic.bandwidthOutgoingRate       = (s_traffic.bandwidthOutgoing - s_traffic.bandwidthOutgoingLastMinute) / 60;
+    s_traffic.bandwidthOutgoingLastMinute = s_traffic.bandwidthOutgoing;
 
     // dropped bandwidth
-    traffic.bandwidthDropIncomingRate       = (traffic.bandwidthDropIncoming - traffic.bandwidthDropIncomingLastMinute) / 60;
-    traffic.bandwidthDropIncomingLastMinute = traffic.bandwidthDropIncoming;
-    traffic.bandwidthDropOutgoingRate       = (traffic.bandwidthDropOutgoing - traffic.bandwidthDropOutgoingLastMinute) / 60;
-    traffic.bandwidthDropOutgoingLastMinute = traffic.bandwidthDropOutgoing;
+    s_traffic.bandwidthDropIncomingRate       = (s_traffic.bandwidthDropIncoming - s_traffic.bandwidthDropIncomingLastMinute) / 60;
+    s_traffic.bandwidthDropIncomingLastMinute = s_traffic.bandwidthDropIncoming;
+    s_traffic.bandwidthDropOutgoingRate       = (s_traffic.bandwidthDropOutgoing - s_traffic.bandwidthDropOutgoingLastMinute) / 60;
+    s_traffic.bandwidthDropOutgoingLastMinute = s_traffic.bandwidthDropOutgoing;
 }
 
 /**
@@ -87,16 +94,11 @@ void Messaging::updateMinuteStats()
  * @param content message to send
  * @return dunno
  */
-int Messaging::sendmessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len, const char* content)
+int sendmessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len, const char* content)
 {
     STACKLOG;
-    if( NULL == socket )
-    {
-        Logger::log( LOG_ERROR, "UID: %d - attempt to send a messaage over a"
-                "null socket.", source );
-        return -3;
-    }
-    //SWInetSocket* socket = Sequencer::getSocket(source)
+    assert(socket != nullptr);
+
     SWBaseSocket::SWBaseError error;
     header_t head;
 
@@ -124,14 +126,6 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, int source, unsigned 
     memcpy(buffer, (char *)&head, sizeof(header_t));
     memcpy(buffer + sizeof(header_t), content, len);
 
-#if 0
-    // comment out since this severly bloats the server log
-    char body[len*2+1];
-    memset( body, 0,len*2+1);
-    bodyblockashex(body, content, len);
-    Logger::log( LOG_DEBUG, "sending message:  \t%d\t%d\t%d", type, source, len);
-    Logger::log( LOG_DEBUG, "%s", body);
-#endif
     while (rlen < msgsize)
     {
         int sendnum = socket->send( buffer + rlen, msgsize - rlen, &error );
@@ -142,19 +136,18 @@ int Messaging::sendmessage(SWInetSocket *socket, int type, int source, unsigned 
         }
         rlen += sendnum;
     }
-    //Logger::log(LOG_DEBUG, "message of size %d sent to uid %d.", rlen, source);
-    traffic.bandwidthOutgoing += msgsize;
+    s_traffic.bandwidthOutgoing += msgsize;
     return 0;
 }
 
-void Messaging::addBandwidthDropIncoming(int bytes)
+void addBandwidthDropIncoming(int bytes)
 {
-    traffic.bandwidthDropIncoming += bytes;
+    s_traffic.bandwidthDropIncoming += bytes;
 }
 
-void Messaging::addBandwidthDropOutgoing(int bytes)
+void addBandwidthDropOutgoing(int bytes)
 {
-    traffic.bandwidthDropOutgoing += bytes;
+    s_traffic.bandwidthDropOutgoing += bytes;
 }
 
 /**
@@ -162,7 +155,7 @@ void Messaging::addBandwidthDropOutgoing(int bytes)
  * @param out_source      Magic. Value 5000 used by serverlist to check this server.
  * @return                0 on success, negative number on error.
  */
-int Messaging::receivemessage(
+int receivemessage(
         SWInetSocket *socket,
         int* out_type,
         int* out_source,
@@ -225,17 +218,16 @@ int Messaging::receivemessage(
         }
     }
 
-    traffic.bandwidthIncoming += (int)sizeof(header_t)+(int)head.size;
+    s_traffic.bandwidthIncoming += (int)sizeof(header_t)+(int)head.size;
     memcpy(out_payload, buffer+sizeof(header_t), payload_buf_len);
     return 0;
 }
 
-stream_traffic_t Messaging::getTraffic() { return traffic; }
+stream_traffic_t getTraffic() { return s_traffic; }
 
-int Messaging::getTime() { return (int)time(NULL); }
+int getTime() { return (int)time(NULL); }
 
-
-int Messaging::broadcastLAN()
+int broadcastLAN()
 {
 #ifdef _WIN32
     // since socketw only abstracts TCP, we are on our own with UDP here :-/
@@ -248,7 +240,7 @@ int Messaging::broadcastLAN()
     struct sockaddr_in recvaddr;
     memset(&recvaddr, 0, sizeof(recvaddr));
 
-    WSADATA        wsd;
+    WSADATA wsd;
     if (WSAStartup(MAKEWORD(2, 2), &wsd) != 0)
     {
         Logger::log(LOG_ERROR, "error starting up winsock");
@@ -311,3 +303,4 @@ int Messaging::broadcastLAN()
     return 0;
 }
 
+} // namespace Messaging

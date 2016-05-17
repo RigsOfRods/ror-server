@@ -23,8 +23,6 @@
  */
 
 #pragma once
-#ifndef MONGOOSE_HEADER_INCLUDED
-#define	MONGOOSE_HEADER_INCLUDED
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,22 +37,22 @@ struct mg_connection;	/* Handle for the individual connection	*/
  * It is passed to the user-specified callback function as a parameter.
  */
 struct mg_request_info {
-	char	*request_method;	/* "GET", "POST", etc	*/
-	char	*uri;			/* Normalized URI	*/
-	char	*query_string;		/* \0 - terminated	*/
-	char	*post_data;		/* POST data buffer	*/
-	char	*remote_user;		/* Authenticated user	*/
-	long	remote_ip;		/* Client's IP address	*/
-	int	remote_port;		/* Client's port	*/
-	int	post_data_len;		/* POST buffer length	*/
-	int	http_version_major;
-	int	http_version_minor;
-	int	status_code;		/* HTTP status code	*/
-	int	num_headers;		/* Number of headers	*/
-	struct mg_header {
-		char	*name;		/* HTTP header name	*/
-		char	*value;		/* HTTP header value	*/
-	} http_headers[64];		/* Maximum 64 headers	*/
+    char	*request_method;	/* "GET", "POST", etc	*/
+    char	*uri;			/* Normalized URI	*/
+    char	*query_string;		/* \0 - terminated	*/
+    char	*post_data;		/* POST data buffer	*/
+    char	*remote_user;		/* Authenticated user	*/
+    long	remote_ip;		/* Client's IP address	*/
+    int	remote_port;		/* Client's port	*/
+    int	post_data_len;		/* POST buffer length	*/
+    int	http_version_major;
+    int	http_version_minor;
+    int	status_code;		/* HTTP status code	*/
+    int	num_headers;		/* Number of headers	*/
+    struct mg_header {
+        char	*name;		/* HTTP header name	*/
+        char	*value;		/* HTTP header value	*/
+    } http_headers[64];		/* Maximum 64 headers	*/
 };
 
 
@@ -63,7 +61,7 @@ struct mg_request_info {
  * or logging server messages.
  */
 typedef void (*mg_callback_t)(struct mg_connection *,
-		const struct mg_request_info *info, void *user_data);
+        const struct mg_request_info *info, void *user_data);
 
 
 /*
@@ -118,7 +116,7 @@ int mg_set_option(struct mg_context *, const char *opt_name, const char *value);
  *	0 on error 
  */
 int mg_modify_passwords_file(struct mg_context *ctx, const char *file_name,
-		const char *user_name, const char *password);
+        const char *user_name, const char *password);
 
 
 /*
@@ -129,7 +127,7 @@ int mg_modify_passwords_file(struct mg_context *ctx, const char *file_name,
  * handler for this uri_regex is removed.
  */
 void mg_set_uri_callback(struct mg_context *ctx, const char *uri_regex,
-		mg_callback_t func, void *user_data);
+        mg_callback_t func, void *user_data);
 
 
 /*
@@ -142,7 +140,7 @@ void mg_set_uri_callback(struct mg_context *ctx, const char *uri_regex,
  * the request info structure that is passed to the callback.
  */
 void mg_set_error_callback(struct mg_context *ctx, int error_code,
-		mg_callback_t func, void *user_data);
+        mg_callback_t func, void *user_data);
 
 
 /*
@@ -154,7 +152,7 @@ void mg_set_error_callback(struct mg_context *ctx, int error_code,
  * callback must call mg_authorize() if the request is authorized.
  */
 void mg_set_auth_callback(struct mg_context *ctx, const char *uri_regex,
-		mg_callback_t func, void *user_data);
+        mg_callback_t func, void *user_data);
 
 
 /*
@@ -246,5 +244,3 @@ void mg_show_usage_string(FILE *fp);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-
-#endif /* MONGOOSE_HEADER_INCLUDED */

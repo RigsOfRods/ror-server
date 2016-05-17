@@ -1,3 +1,23 @@
+/*
+This file is part of "Rigs of Rods Server" (Relay mode)
+
+Copyright 2007   Pierre-Michel Ricordel
+Copyright 2014+  Rigs of Rods Community
+
+"Rigs of Rods Server" is free software: you can redistribute it
+and/or modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation, either version 3
+of the License, or (at your option) any later version.
+
+"Rigs of Rods Server" is distributed in the hope that it will
+be useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Foobar. If not, see <http://www.gnu.org/licenses/>.
+*/
+
 // copied from the angelscript library and edited for use in Rigs of Rods Multiplayer Server
 // 01 Jan 2012
 
@@ -47,10 +67,10 @@ public:
     void AddRef() const;
     void Release() const;
 
-	// TODO: Implement the "r+", "w+" and "a+" modes
-	// mode = "r" -> open the file for reading
-	//        "w" -> open the file for writing (overwrites existing file)
-	//        "a" -> open the file for appending
+    // TODO: Implement the "r+", "w+" and "a+" modes
+    // mode = "r" -> open the file for reading
+    //        "w" -> open the file for writing (overwrites existing file)
+    //        "a" -> open the file for appending
     int  Open(const std::string &filename, const std::string &mode);
     int  Close();
     int  GetSize() const;
@@ -72,7 +92,7 @@ public:
     int WriteDouble(double v);
 
     // Cursor
-	int GetPos() const;
+    int GetPos() const;
     int SetPos(int pos);
     int MovePos(int delta);
 

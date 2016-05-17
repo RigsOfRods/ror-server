@@ -1,20 +1,21 @@
 /*
 This file is part of "Rigs of Rods Server" (Relay mode)
-Copyright 2007 Pierre-Michel Ricordel
-Contact: pricorde@rigsofrods.com
-"Rigs of Rods Server" is distributed under the terms of the GNU General Public License.
 
-"Rigs of Rods Server" is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; version 3 of the License.
+Copyright 2007   Pierre-Michel Ricordel
+Copyright 2014+  Rigs of Rods Community
 
-"Rigs of Rods Server" is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+"Rigs of Rods Server" is free software: you can redistribute it
+and/or modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation, either version 3
+of the License, or (at your option) any later version.
+
+"Rigs of Rods Server" is distributed in the hope that it will
+be useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
+along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #pragma once
@@ -31,38 +32,38 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 class Notifier
 {
 private:
-	char httpresp[65536];  //!< http response from the master server
-	char trustlevel;       //!< the server's trustworthiness level, received upon registration
-	char challenge[256];   //!< the server's token to identify itself to the master server
-	bool exit;             //!< exit the server 
-	bool wasregistered;    //!< is registered with the master server
-	int error_count;       //!< counter how many failed heartbeats we had 
-	HttpMsg resp;          //!< holds the latest response fromt he master server
-	bool advertised;
-	bool is_active;
+    char httpresp[65536];  //!< http response from the master server
+    char trustlevel;       //!< the server's trustworthiness level, received upon registration
+    char challenge[256];   //!< the server's token to identify itself to the master server
+    bool exit;             //!< exit the server 
+    bool wasregistered;    //!< is registered with the master server
+    int error_count;       //!< counter how many failed heartbeats we had 
+    HttpMsg resp;          //!< holds the latest response fromt he master server
+    bool advertised;
+    bool is_active;
 
-	bool sendHearbeat();   //!< send a heart beat message to the master server
+    bool sendHearbeat();   //!< send a heart beat message to the master server
 
 public:
-	Notifier();
-	
-	~Notifier(void);
+    Notifier();
+    
+    ~Notifier(void);
 
-	void activate();
-	void deactivate();
+    void activate();
+    void deactivate();
 
-	/// attempt to register with the master server
-	bool registerServer();
-	
-	/// main loop for the server?
-	void loop();
-	
-	/**
-	* perform an HTTPGET
-	* @param[in] master server address
-	* @return the amount of data received, if negative an error occured
-	*/
-	int HTTPGET(const char* URL);
+    /// attempt to register with the master server
+    bool registerServer();
+    
+    /// main loop for the server?
+    void loop();
+    
+    /**
+    * perform an HTTPGET
+    * @param[in] master server address
+    * @return the amount of data received, if negative an error occured
+    */
+    int HTTPGET(const char* URL);
 
     /**
      * perform an HTTPPOST
@@ -70,20 +71,20 @@ public:
      * @param[in] data the message to send
      * @return the amount of data received, if negative an error occured
      */
-	int HTTPPOST(const char* URL, const char* data);
+    int HTTPPOST(const char* URL, const char* data);
 
-	/**
-	 * @return the respond from the last HTTP{GET,POST} method call
-	 */
-	HttpMsg getResponse() { return resp; }
+    /**
+     * @return the respond from the last HTTP{GET,POST} method call
+     */
+    HttpMsg getResponse() { return resp; }
 
-	//! notify the master server that this server is shutting down 
-	bool unregisterServer();
-	
-	std::string getChallenge() { return std::string(challenge); };
-	bool getAdvertised() { return advertised; };
-	int getTrustLevel() { return trustlevel; };
+    //! notify the master server that this server is shutting down 
+    bool unregisterServer();
+    
+    std::string getChallenge() { return std::string(challenge); };
+    bool getAdvertised() { return advertised; };
+    int getTrustLevel() { return trustlevel; };
 
-	bool isActive() const { return is_active; }
+    bool isActive() const { return is_active; }
 };
 

@@ -1,14 +1,25 @@
-/**
- * Logger Class Header file
- * @file logger.h
- * @author Christopher Ritchey (aka Aperion) 
- * A simple Logger with different logging levels. As well as an easy to use
- * stack log
- */
+/*
+This file is part of "Rigs of Rods Server" (Relay mode)
+
+Copyright 2007   Pierre-Michel Ricordel
+Copyright 2008   Christopher Ritchey (aka Aperion)
+Copyright 2014+  Rigs of Rods Community
+
+"Rigs of Rods Server" is free software: you can redistribute it
+and/or modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation, either version 3
+of the License, or (at your option) any later version.
+
+"Rigs of Rods Server" is distributed in the hope that it will
+be useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Foobar. If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #pragma once
-#ifndef LOGGER_H_
-#define LOGGER_H_
 
 #include "mutexutils.h"
 
@@ -17,30 +28,29 @@
 #include <string>
 #include <deque>
 
-
 enum LogLevel
 {
-	LOG_STACK=0,
-	LOG_DEBUG,
-	LOG_VERBOSE,
-	LOG_INFO,
-	LOG_WARN,
-	LOG_ERROR,
-	LOG_NONE
+    LOG_STACK=0,
+    LOG_DEBUG,
+    LOG_VERBOSE,
+    LOG_INFO,
+    LOG_WARN,
+    LOG_ERROR,
+    LOG_NONE
 };
 
 enum LogType
 {
-	LOGTYPE_FILE=0,
-	LOGTYPE_DISPLAY
+    LOGTYPE_FILE=0,
+    LOGTYPE_DISPLAY
 };
 
 typedef struct log_save_t
 {
-	LogLevel level;
-	int threadid;
-	UTFString time;
-	UTFString msg;
+    LogLevel level;
+    int threadid;
+    UTFString time;
+    UTFString msg;
 } log_save_t;
 
 //extern int loglevel;
@@ -49,48 +59,48 @@ void logmsgf(const LogLevel& level, const char* format, ...);
 class Logger
 {
 public:
-	virtual ~Logger();
+    virtual ~Logger();
 
-	static void log(const LogLevel& level, const char* format, ...);
-	static void log(const LogLevel& level, const UTFString& msg);
-	
-	static void setOutputFile(const UTFString& filename);
-	static void setLogLevel(const LogType type, const LogLevel level);
-	static const LogLevel getLogLevel(const LogType type);
+    static void log(const LogLevel& level, const char* format, ...);
+    static void log(const LogLevel& level, const UTFString& msg);
+    
+    static void setOutputFile(const UTFString& filename);
+    static void setLogLevel(const LogType type, const LogLevel level);
+    static const LogLevel getLogLevel(const LogType type);
 
-	static void setCallback(void (*ptr)(int, UTFString msg, UTFString msgf));
+    static void setCallback(void (*ptr)(int, UTFString msg, UTFString msgf));
 
-	static std::deque <log_save_t> getLogHistory();
-	static const char *getLoglevelName(int i) { return loglevelname[i]; };
+    static std::deque <log_save_t> getLogHistory();
+    static const char *getLoglevelName(int i) { return loglevelname[i]; };
 private:
-	Logger();
-	Logger instance();
-	static Logger theLog;
-	static FILE *file;
-	static LogLevel log_level[2];
-	static const char *loglevelname[];
-	static UTFString logfilename;
-	static bool compress_file;
-	static void (*callback)(int, UTFString msg, UTFString msgf);
-	static std::deque <log_save_t> loghistory;
-	static Mutex log_mutex;
+    Logger();
+    Logger instance();
+    static Logger theLog;
+    static FILE *file;
+    static LogLevel log_level[2];
+    static const char *loglevelname[];
+    static UTFString logfilename;
+    static bool compress_file;
+    static void (*callback)(int, UTFString msg, UTFString msgf);
+    static std::deque <log_save_t> loghistory;
+    static Mutex log_mutex;
 };
 
 class ScopeLog
 {
 public:
     ScopeLog(const LogLevel& level, const char* format, ...);
-	ScopeLog(const LogLevel& level, const UTFString& func);
-	~ScopeLog();
+    ScopeLog(const LogLevel& level, const UTFString& func);
+    ~ScopeLog();
 private:
-	UTFString msg;
-	const LogLevel level;
+    UTFString msg;
+    const LogLevel level;
 };
 
 
 // macros for crossplatform compiling
 #ifndef __GNUC__
-	#define __PRETTY_FUNCTION__ __FUNCTION__
+    #define __PRETTY_FUNCTION__ __FUNCTION__
 #endif
 
 #ifndef NOSTACKLOG
@@ -99,4 +109,3 @@ private:
 #define STACKLOG {}
 #endif
 
-#endif // LOGGER_H_

@@ -1,5 +1,27 @@
+/*
+This file is part of "Rigs of Rods Server" (Relay mode)
+
+Copyright 2007   Pierre-Michel Ricordel
+Copyright 2014+  Rigs of Rods Community
+
+"Rigs of Rods Server" is free software: you can redistribute it
+and/or modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation, either version 3
+of the License, or (at your option) any later version.
+
+"Rigs of Rods Server" is distributed in the hope that it will
+be useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Foobar. If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #include "mutexutils.h"
+
 #include "logger.h"
+
 #include <signal.h>
 
 Condition::Condition() { pthread_cond_init(&cond, NULL); }
@@ -10,19 +32,19 @@ Mutex::Mutex() : lock_owner( 0 ) { pthread_mutex_init(&m, NULL); }
 Mutex::~Mutex() { pthread_mutex_destroy(&m); }
 void Mutex::lock()
 {
-	// check for deadlock, if this occurs raise an abort signal to stop the
-	// debugger
-	STACKLOG;
-	if( ThreadID::getID() == lock_owner )
-		raise( SIGABRT );
-	pthread_mutex_lock(&m);
-	lock_owner = ThreadID::getID(); 
+    // check for deadlock, if this occurs raise an abort signal to stop the
+    // debugger
+    STACKLOG;
+    if( ThreadID::getID() == lock_owner )
+        raise( SIGABRT );
+    pthread_mutex_lock(&m);
+    lock_owner = ThreadID::getID(); 
 } 
 void Mutex::unlock()
 {
-	STACKLOG;
-	pthread_mutex_unlock(&m);
-	lock_owner = 0;
+    STACKLOG;
+    pthread_mutex_unlock(&m);
+    lock_owner = 0;
 } 
 void Mutex::wait(Condition &c) {  pthread_cond_wait(&(c.cond), &m);	}
 
@@ -36,16 +58,16 @@ unsigned int ThreadID::tuid = 1;
 
 unsigned int ThreadID::getID()
 {
-	ThreadID *ptr = NULL;
-	pthread_once(&key_once, ThreadID::make_key);
-	ptr = (ThreadID*)pthread_getspecific(key);
-	
-	if( !ptr ) {
-		ptr = new ThreadID();
-		pthread_setspecific(key, (void*)ptr);
-	}
-	
-	return ptr->thread_id;
+    ThreadID *ptr = NULL;
+    pthread_once(&key_once, ThreadID::make_key);
+    ptr = (ThreadID*)pthread_getspecific(key);
+    
+    if( !ptr ) {
+        ptr = new ThreadID();
+        pthread_setspecific(key, (void*)ptr);
+    }
+    
+    return ptr->thread_id;
 }
 
 ThreadID::ThreadID() : thread_id( tuid ) { tuid++; }

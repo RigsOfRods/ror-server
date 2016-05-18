@@ -39,7 +39,7 @@ void *s_brthreadstart(void* vid)
         instance->queue_mutex.wait( instance->queue_cv );
     }
 #ifdef _WIN32
-    Logger::log( LOG_DEBUG, "broadcaster thread %u:%u is exiting",
+    Logger::Log( LOG_DEBUG, "broadcaster thread %u:%u is exiting",
         (unsigned int) &pthread_self().p, ThreadID::getID() );
 #endif
     return NULL;
@@ -83,7 +83,7 @@ void Broadcaster::stop()
     queue_cv.signal();
     queue_mutex.unlock();
 #ifdef _WIN32
-    Logger::log( LOG_DEBUG, "joining with broadcaster thread: %u",
+    Logger::Log( LOG_DEBUG, "joining with broadcaster thread: %u",
             (unsigned int) &thread.p);
 #endif
     pthread_join( thread, NULL );
@@ -92,7 +92,7 @@ void Broadcaster::stop()
 void Broadcaster::threadstart()
 {
     queue_entry_t msg;
-    Logger::log( LOG_DEBUG, "broadcaster thread %u owned by uid %d", ThreadID::getID(), id);
+    Logger::Log( LOG_DEBUG, "broadcaster thread %u owned by uid %d", ThreadID::getID(), id);
     while( running )
     {
         {   // define a new scope and use a scope lock
@@ -145,7 +145,7 @@ void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigne
     // soft limit: we start dropping data packages
     if(msg_queue.size() > (size_t)queue_soft_limit && type == MSG2_STREAM_DATA)
     {
-        Logger::log( LOG_DEBUG, "broadcaster queue soft full: thread %u owned by uid %d", ThreadID::getID(), id);
+        Logger::Log( LOG_DEBUG, "broadcaster queue soft full: thread %u owned by uid %d", ThreadID::getID(), id);
         msg.process_type = BC_QUEUE_DROP;
         dropstate = 1;
     } else if (msg_queue.size() < (size_t)queue_soft_limit - 20) // - 20 to prevent border problems
@@ -157,7 +157,7 @@ void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigne
     // data packages, which is not really feasible
     if(msg_queue.size() > (size_t)queue_hard_limit)
     {
-        Logger::log( LOG_DEBUG, "broadcaster queue hard full: thread %u owned by uid %d", ThreadID::getID(), id);
+        Logger::Log( LOG_DEBUG, "broadcaster queue hard full: thread %u owned by uid %d", ThreadID::getID(), id);
         // Commented out to decrease CPU usage. Uncomment if you wish to debug the message queue.
         //debugMessageQueue();
         msg.process_type = BC_QUEUE_DROP;
@@ -187,10 +187,10 @@ void Broadcaster::debugMessageQueue()
         
         types[type] += 1;
     }
-    Logger::log( LOG_DEBUG, "broadcaster queue debug (thread %u owned by uid %d)", ThreadID::getID(), id);
+    Logger::Log( LOG_DEBUG, "broadcaster queue debug (thread %u owned by uid %d)", ThreadID::getID(), id);
     
     for(it = types.begin(); it != types.end() ; it++)
-        Logger::log( LOG_DEBUG, " * message type %03d : %03d times out of %03d ( %0.2f %%)", it->first, it->second, msgsize, ((float)it->second / (float)msgsize) * 100.0f);
+        Logger::Log( LOG_DEBUG, " * message type %03d : %03d times out of %03d ( %0.2f %%)", it->first, it->second, msgsize, ((float)it->second / (float)msgsize) * 100.0f);
 
 }
 

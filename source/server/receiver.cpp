@@ -30,7 +30,7 @@ void *s_lithreadstart(void* vid)
 {
     ((Receiver*)vid)->threadstart();
 #ifdef _WIN32	
-    Logger::log( LOG_DEBUG, "Receiver thread %u:%u is exiting",
+    Logger::Log( LOG_DEBUG, "Receiver thread %u:%u is exiting",
             (unsigned int) pthread_self().p, ThreadID::getID() );
 #endif
     return NULL;
@@ -63,7 +63,7 @@ void Receiver::stop()
     if(!running) return; // already called, discard call
     running = false;
 #ifdef _WIN32
-    Logger::log( LOG_DEBUG, "joining with receiver thread: %u",
+    Logger::Log( LOG_DEBUG, "joining with receiver thread: %u",
             (unsigned int) &thread.p);
 #endif
     pthread_join(thread, NULL);
@@ -71,7 +71,7 @@ void Receiver::stop()
 
 void Receiver::threadstart()
 {
-    Logger::log( LOG_DEBUG, "receiver thread %d owned by uid %d", ThreadID::getID(), id);
+    Logger::Log( LOG_DEBUG, "receiver thread %d owned by uid %d", ThreadID::getID(), id);
     //get the vehicle description
     int type;
     int source;
@@ -84,7 +84,7 @@ void Receiver::threadstart()
     //send motd
     Sequencer::sendMOTD(id);
 
-    Logger::log(LOG_VERBOSE,"UID %d is switching to FLOW", id);
+    Logger::Log(LOG_VERBOSE,"UID %d is switching to FLOW", id);
     
     // this prevents the socket from hangingwhen sending data
     // which is the cause of threads getting blocked
@@ -99,7 +99,7 @@ void Receiver::threadstart()
         if( !running ) break;
         
         if(type != MSG2_STREAM_DATA)
-            Logger::log(LOG_VERBOSE,"got message: type: %d, source: %d:%d, len: %d", type, source, streamid, len);
+            Logger::Log(LOG_VERBOSE,"got message: type: %d, source: %d:%d, len: %d", type, source, streamid, len);
         
         if (type < 1000 || type > 1050)
         {

@@ -49,7 +49,7 @@ std::string retrievePublicIpFromServer()
 
     char query[2048] = { 0 };
     sprintf(query, "GET /getpublicip/ HTTP/1.1\r\nHost: %s\r\n\r\n", REPO_SERVER);
-    Logger::log(LOG_DEBUG, "Query to get public IP: %s\n", query);
+    Logger::Log(LOG_DEBUG, "Query to get public IP: %s\n", query);
     if (mySocket.sendmsg(query, &error) < 0)
     {
         return "";
@@ -60,7 +60,7 @@ std::string retrievePublicIpFromServer()
     {
         return "";
     }
-    Logger::log(LOG_DEBUG, "Response from public IP request :'%s'", retval.c_str());
+    Logger::Log(LOG_DEBUG, "Response from public IP request :'%s'", retval.c_str());
 
     HttpMsg msg(retval);
     retval = msg.getBody();
@@ -104,7 +104,7 @@ int sendmessage(SWInetSocket *socket, int type, int source, unsigned int streami
 
     if(msgsize >= MAX_MESSAGE_LENGTH)
     {
-        Logger::log( LOG_ERROR, "UID: %d - attempt to send too long message", source);
+        Logger::Log( LOG_ERROR, "UID: %d - attempt to send too long message", source);
         return -4;
     }
 
@@ -129,7 +129,7 @@ int sendmessage(SWInetSocket *socket, int type, int source, unsigned int streami
         int sendnum = socket->send( buffer + rlen, msgsize - rlen, &error );
         if (sendnum < 0 || error != SWBaseSocket::ok) 
         {
-            Logger::log(LOG_ERROR, "send error -1: %s", error.get_error().c_str());
+            Logger::Log(LOG_ERROR, "send error -1: %s", error.get_error().c_str());
             return -1;
         }
         rlen += sendnum;
@@ -177,7 +177,7 @@ int receivemessage(
         int recvnum=socket->recv(buffer+hlen, sizeof(header_t)-hlen, &error);
         if (recvnum < 0 || error!=SWBaseSocket::ok)
         {
-            Logger::log(LOG_ERROR, "receive error -2: %s", error.get_error().c_str());
+            Logger::Log(LOG_ERROR, "receive error -2: %s", error.get_error().c_str());
             // this also happens when the connection is canceled
             return -2;
         }
@@ -193,7 +193,7 @@ int receivemessage(
     
     if((int)head.size >= MAX_MESSAGE_LENGTH)
     {
-        Logger::log(LOG_ERROR, "receivemessage(): payload too long: %d b (max. is %d b)", head.size, MAX_MESSAGE_LENGTH);
+        Logger::Log(LOG_ERROR, "receivemessage(): payload too long: %d b (max. is %d b)", head.size, MAX_MESSAGE_LENGTH);
         return -3;
     }
 
@@ -206,7 +206,7 @@ int receivemessage(
                     (head.size+sizeof(header_t)) - hlen, &error);
             if (recvnum<0 || error!=SWBaseSocket::ok)
             {
-                Logger::log(LOG_ERROR, "receive error -1: %s",
+                Logger::Log(LOG_ERROR, "receive error -1: %s",
                         error.get_error().c_str());
                 return -1;
             }
@@ -239,18 +239,18 @@ int broadcastLAN()
     WSADATA wsd;
     if (WSAStartup(MAKEWORD(2, 2), &wsd) != 0)
     {
-        Logger::log(LOG_ERROR, "error starting up winsock");
+        Logger::Log(LOG_ERROR, "error starting up winsock");
         return 1;
     }
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
     {
-        Logger::log(LOG_ERROR, "error creating socket for LAN broadcast: %s", strerror(errno));
+        Logger::Log(LOG_ERROR, "error creating socket for LAN broadcast: %s", strerror(errno));
         return 1;
     }
     if (setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (const char *)&on, sizeof(on)) < 0)
     {	
-        Logger::log(LOG_ERROR, "error setting socket options for LAN broadcast: %s", strerror(errno));
+        Logger::Log(LOG_ERROR, "error setting socket options for LAN broadcast: %s", strerror(errno));
         return 2;
     }
     
@@ -260,7 +260,7 @@ int broadcastLAN()
 
     if (bind(sockfd, (struct sockaddr *)&sendaddr, sizeof(sendaddr))  == SOCKET_ERROR)
     {
-        Logger::log(LOG_ERROR, "error binding socket for LAN broadcast: %s", strerror(errno));
+        Logger::Log(LOG_ERROR, "error binding socket for LAN broadcast: %s", strerror(errno));
         return 3;
     }
 
@@ -287,14 +287,14 @@ int broadcastLAN()
     int numbytes = 0;
     while((numbytes = sendto(sockfd, tmp, strnlen(tmp, 1024), 0, (struct sockaddr *)&recvaddr, sizeof recvaddr)) < -1) 
     {
-        Logger::log(LOG_ERROR, "error sending data over socket for LAN broadcast: %s", strerror(errno));
+        Logger::Log(LOG_ERROR, "error sending data over socket for LAN broadcast: %s", strerror(errno));
         return 4;
     }
 
     // and close the socket again
     closesocket(sockfd);
     
-    Logger::log(LOG_DEBUG, "LAN broadcast successful");
+    Logger::Log(LOG_DEBUG, "LAN broadcast successful");
 #endif // _WIN32	
     return 0;
 }

@@ -21,8 +21,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "mutexutils.h"
-
 #include "UTFString.h"
 
 enum LogLevel
@@ -42,25 +40,12 @@ enum LogType
     LOGTYPE_DISPLAY
 };
 
-class Logger
-{
-public:
-    virtual ~Logger();
+namespace Logger {
 
-    static void log(const LogLevel& level, const char* format, ...);
-    static void log(const LogLevel& level, const UTFString& msg);
-    
-    static void setOutputFile(const UTFString& filename);
-    static void setLogLevel(const LogType type, const LogLevel level);
+void Log(const LogLevel& level, const char* format, ...);
+void Log(const LogLevel& level, const UTFString& msg);
 
-private:
-    Logger();
-    Logger instance();
-    static Logger theLog;
-    static FILE *file;
-    static LogLevel log_level[2];
-    static const char *loglevelname[];
-    static UTFString logfilename;
-    static bool compress_file;
-    static Mutex log_mutex;
-};
+void SetOutputFile(const UTFString& filename);
+void SetLogLevel(const LogType type, const LogLevel level);
+
+} // namespace Logger

@@ -213,7 +213,7 @@ UTFString tryConvertUTF(const char *buffer)
 
     } catch(std::exception &e)
     {
-        Logger::log(LOG_INFO, UTFString("UTF conversion error: ") + tryConvertUTF(e.what()));
+        Logger::Log(LOG_INFO, UTFString("UTF conversion error: ") + tryConvertUTF(e.what()));
         return UTFString("(UTF conversion error 2)");
     }
     return UTFString("(UTF conversion error 3)");

@@ -52,10 +52,10 @@ int UserAuth::readConfig(const char* authFile)
     FILE *f = fopen(authFile, "r");
     if (!f)
     {
-        Logger::log(LOG_WARN, "Couldn't open the local authorizations file ('%s'). No authorizations were loaded.", authFile);
+        Logger::Log(LOG_WARN, "Couldn't open the local authorizations file ('%s'). No authorizations were loaded.", authFile);
         return -1;
     }
-    Logger::log(LOG_VERBOSE, "Reading the local authorizations file...");
+    Logger::Log(LOG_VERBOSE, "Reading the local authorizations file...");
     int linecounter=0;
     while(!feof(f))
     {
@@ -89,7 +89,7 @@ int UserAuth::readConfig(const char* authFile)
         int res = sscanf(line, "%d %s %s", &authmode, token, user_nick);
         if(res != 3 && res != 2)
         {
-            Logger::log(LOG_ERROR, "error parsing authorizations file: " + std::string(line));
+            Logger::Log(LOG_ERROR, "error parsing authorizations file: " + std::string(line));
             continue;
         }
         
@@ -97,13 +97,13 @@ int UserAuth::readConfig(const char* authFile)
         if(authmode & AUTH_RANKED) authmode &= ~AUTH_RANKED;
         if(authmode & AUTH_BANNED) authmode &= ~AUTH_BANNED;
         
-        Logger::log(LOG_DEBUG, "adding entry to local auth cache, size: %d", local_auth.size());
+        Logger::Log(LOG_DEBUG, "adding entry to local auth cache, size: %d", local_auth.size());
         user_auth_pair_t p;
         p.first = authmode;
         p.second = widen(std::string(user_nick));
         local_auth[std::string(token)] = p;
     }
-    Logger::log(LOG_INFO, "found %d auth overrides in the authorizations file!",  local_auth.size());
+    Logger::Log(LOG_INFO, "found %d auth overrides in the authorizations file!",  local_auth.size());
     fclose (f);
     return 0;
 }
@@ -139,16 +139,16 @@ int UserAuth::sendUserEvent(std::string user_token, std::string type, std::strin
     
     char url[2048];
     sprintf(url, "%s/userevent_utf8/?v=0&sh=%s&h=%s&t=%s&a1=%s&a2=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), type.c_str(), arg1.c_str(), arg2.c_str());
-    Logger::log(LOG_DEBUG, "UserAuth event to server: " + std::string(url));
+    Logger::Log(LOG_DEBUG, "UserAuth event to server: " + std::string(url));
     HttpMsg resp;
     if (HTTPGET(url, resp) < 0)
     {
-        Logger::log(LOG_ERROR, "UserAuth event query result empty");
+        Logger::Log(LOG_ERROR, "UserAuth event query result empty");
         return -1;
     }
 
     std::string body = resp.getBody();
-    Logger::log(LOG_DEBUG,"UserEvent reply: " + body);
+    Logger::Log(LOG_DEBUG,"UserEvent reply: " + body);
 
     return (body!="ok");
 }
@@ -186,23 +186,23 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
         // not found in cache or local_auth, get auth from masterserver
         char url[2048];
         sprintf(url, "%s/authuser_utf8/?c=%s&t=%s&u=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), user_nick.asUTF8_c_str());
-        Logger::log(LOG_DEBUG, "UserAuth query to server: " + std::string(url));
+        Logger::Log(LOG_DEBUG, "UserAuth query to server: " + std::string(url));
         HttpMsg resp;
         if (HTTPGET(url, resp) < 0)
         {
-            Logger::log(LOG_ERROR, "UserAuth resolve query result empty");
+            Logger::Log(LOG_ERROR, "UserAuth resolve query result empty");
             return AUTH_NONE;
         }
 
         std::string body = resp.getBody();
-        Logger::log(LOG_DEBUG,"UserAuth reply: " + body);
+        Logger::Log(LOG_DEBUG,"UserAuth reply: " + body);
         
         std::vector<std::string> args;
         strict_tokenize(body, args, "\t");
 
         if(args.size() < 2)
         {
-            Logger::log(LOG_INFO,"UserAuth: invalid return value from server: " + body);
+            Logger::Log(LOG_INFO,"UserAuth: invalid return value from server: " + body);
             return AUTH_NONE;
         }
         
@@ -219,12 +219,12 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
         if(authlevel & AUTH_RANKED) authst = authst + "R";
         if(authlevel & AUTH_BOT)    authst = authst + "B";
         if(authst.empty()) authst = "(none)";
-        Logger::log(LOG_DEBUG, UTFString("User Auth Result: ") + authst + " / " + (resultNick) + " / " + tryConvertUTF(msg.c_str()));
+        Logger::Log(LOG_DEBUG, UTFString("User Auth Result: ") + authst + " / " + (resultNick) + " / " + tryConvertUTF(msg.c_str()));
 
         if(resultNick == L"error" || resultNick == L"reserved" || resultNick == L"notranked")
         {
             resultNick = widen(getNewPlayernameByID(clientid));
-            Logger::log(LOG_DEBUG, UTFString("got new random name for player: ") + resultNick);
+            Logger::Log(LOG_DEBUG, UTFString("got new random name for player: ") + resultNick);
             authlevel = AUTH_NONE;
         }
 
@@ -249,7 +249,7 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
         p.first = authlevel;
         p.second = user_nick;
         
-        Logger::log(LOG_DEBUG, "adding entry to remote auth cache, size: %d",  cache.size());
+        Logger::Log(LOG_DEBUG, "adding entry to remote auth cache, size: %d",  cache.size());
         cache[user_token] = p;
     }
 
@@ -261,7 +261,7 @@ int UserAuth::HTTPGET(const char* URL, HttpMsg &resp)
     if(trustlevel<=1)
     {
         // If this happens, then you did something wrong in the server code
-        Logger::log(LOG_ERROR, "userauth: tried to contact master server without permission. URL: %s", URL);
+        Logger::Log(LOG_ERROR, "userauth: tried to contact master server without permission. URL: %s", URL);
         return 0;
     }
     
@@ -274,27 +274,27 @@ int UserAuth::HTTPGET(const char* URL, HttpMsg &resp)
     {
         char query[2048];
         sprintf(query, "GET %s HTTP/1.1\r\nHost: %s\r\n\r\n", URL, REPO_SERVER);
-        Logger::log(LOG_DEBUG,"Query to Master server: %s", query);
+        Logger::Log(LOG_DEBUG,"Query to Master server: %s", query);
         if (mySocket.sendmsg(query, &error)<0)
         {
-            Logger::log(LOG_ERROR,"Notifier: could not send request (%s)", error.get_error().c_str());
+            Logger::Log(LOG_ERROR,"Notifier: could not send request (%s)", error.get_error().c_str());
             res=-1;
         }
         int rlen=mySocket.recv(httpresp, 65536, &error);
         if (rlen>0 && rlen<65535) httpresp[rlen]=0;
         else
         {
-            Logger::log(LOG_ERROR,"Notifier: could not get a valid response (%s)", error.get_error().c_str());
+            Logger::Log(LOG_ERROR,"Notifier: could not get a valid response (%s)", error.get_error().c_str());
             res=-1;
         }
-        Logger::log(LOG_DEBUG,"Response from Master server:'%s'", httpresp);
+        Logger::Log(LOG_DEBUG,"Response from Master server:'%s'", httpresp);
         try
         {
             resp = HttpMsg(httpresp);
         }
         catch( std::runtime_error e)
         {
-            Logger::log(LOG_ERROR, e.what() );
+            Logger::Log(LOG_ERROR, e.what() );
             res = -1;
         }
         // disconnect
@@ -302,7 +302,7 @@ int UserAuth::HTTPGET(const char* URL, HttpMsg &resp)
     }
     else
     {
-        Logger::log(LOG_ERROR,"Notifier: could not connect to the Master server (%s)", error.get_error().c_str());
+        Logger::Log(LOG_ERROR,"Notifier: could not connect to the Master server (%s)", error.get_error().c_str());
         res=-1;
     }
     return res;

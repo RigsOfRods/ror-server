@@ -35,13 +35,18 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <sys/stat.h>
 #endif //_WIN32
 
-Mutex Logger::log_mutex;
+static FILE *file = nullptr;
+static LogLevel log_level[2] = { LOG_VERBOSE, LOG_INFO };
+static const char *loglevelname[] = { "STACK", "DEBUG", "VERBO", "INFO", "WARN", "ERROR" };
+static UTFString logfilename = "server.log";
+static bool compress_file = false;
+static Mutex log_mutex;
 
 // take care about mutexes: only manual lock in the Logger, otherwise you 
 // could possibly start a recursion that ends in a deadlock
 
 // shamelessly taken from:
-// http://senzee.blogspot.com/2006/05/c-formatting-stdstring.html   
+// http://senzee.blogspot.com/2006/05/c-formatting-stdstring.html
 UTFString format_arg_list(const char *fmt, va_list args)
 {
     if (!fmt) return "";
@@ -60,22 +65,17 @@ UTFString format_arg_list(const char *fmt, va_list args)
     return s;
 }
 
-// public:
-Logger::~Logger()
-{
-    if(file)
-        fclose(file);
-}
+namespace Logger {
 
-void Logger::log(const LogLevel& level, const char* format, ...)
+void Log(const LogLevel& level, const char* format, ...)
 {
     va_list args;
     va_start(args, format);
-    Logger::log(level, format_arg_list(format, args));
+    Logger::Log(level, format_arg_list(format, args));
     va_end(args);
 }
 
-void Logger::log(const LogLevel& level, const UTFString& msg)
+void Log(const LogLevel& level, const UTFString& msg)
 {
     time_t current_time = time(nullptr);
     char time_str[] = "DD-MM-YYYY hh:mm:ss"; // Placeholder
@@ -110,7 +110,7 @@ void Logger::log(const LogLevel& level, const UTFString& msg)
     pthread_mutex_unlock(log_mutex.getRaw());
 }
 
-void Logger::setOutputFile(const UTFString& filename)
+void SetOutputFile(const UTFString& filename)
 {
     logfilename = filename;
     if(file)
@@ -118,22 +118,9 @@ void Logger::setOutputFile(const UTFString& filename)
     file = fopen(logfilename.asUTF8_c_str(), "a+");
 }
 
-void Logger::setLogLevel(const LogType type, const LogLevel level)
+void SetLogLevel(const LogType type, const LogLevel level)
 {
     log_level[(int)type] = level;
 }
 
-Logger::Logger()
-{
-    // Commented out, exactly the same is already done in rorserver.ccp
-    // and furthermore, this bugs on ubuntu
-    // setOutputFile("server.log");
-}
-
-Logger Logger::theLog;
-FILE *Logger::file = 0;
-LogLevel Logger::log_level[2] = {LOG_VERBOSE, LOG_INFO};
-const char *Logger::loglevelname[] = {"STACK", "DEBUG", "VERBO", "INFO", "WARN", "ERROR"};
-bool Logger::compress_file = false;
-UTFString Logger::logfilename = "server.log";
-
+} // namespace Logger

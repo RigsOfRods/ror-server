@@ -128,7 +128,7 @@ void Sequencer::cleanUp()
     cleanup=true;
 
     Sequencer* instance = Instance();
-    Logger::log(LOG_INFO,"closing. disconnecting clients ...");
+    Logger::Log(LOG_INFO,"closing. disconnecting clients ...");
     const char *str = "server shutting down (try to reconnect later!)";
     for( unsigned int i = 0; i < instance->clients.size(); i++)
     {
@@ -136,7 +136,7 @@ void Sequencer::cleanUp()
         Messaging::sendmessage(instance->clients[i]->sock, MSG2_USER_LEAVE, instance->clients[i]->user.uniqueid, 0, strlen(str), str);
         //disconnect(instance->clients[i]->user.uniqueid, );
     }
-    Logger::log(LOG_INFO,"all clients disconnected. exiting.");
+    Logger::Log(LOG_INFO,"all clients disconnected. exiting.");
 
     if(instance->notifier.isActive())
     {
@@ -217,7 +217,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
     Sequencer* instance = Instance();
     //we have a confirmed client that wants to play
     //try to find a place for him
-    Logger::log(LOG_DEBUG,"got instance in createClient()");
+    Logger::Log(LOG_DEBUG,"got instance in createClient()");
 
     MutexLocker scoped_lock(instance->clients_mutex);
     
@@ -231,16 +231,16 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
     SWBaseSocket::SWBaseError error;
     if(Sequencer::isbanned(sock->get_peerAddr(&error).c_str()))
     {
-        Logger::log(LOG_VERBOSE,"rejected banned IP %s", sock->get_peerAddr(&error).c_str());
+        Logger::Log(LOG_VERBOSE,"rejected banned IP %s", sock->get_peerAddr(&error).c_str());
         Messaging::sendmessage(sock, MSG2_BANNED, 0, 0, 0, 0);
         return;
     }
 
     // check if server is full
-    Logger::log(LOG_DEBUG,"searching free slot for new client...");
+    Logger::Log(LOG_DEBUG,"searching free slot for new client...");
     if( instance->clients.size() >= (Config::getMaxClients() + instance->botCount) )
     {
-        Logger::log(LOG_WARN,"join request from '%s' on full server: rejecting!", UTF8BuffertoString(user.username).c_str());
+        Logger::Log(LOG_WARN,"join request from '%s' on full server: rejecting!", UTF8BuffertoString(user.username).c_str());
         // set a low time out because we don't want to cause a back up of
         // connecting clients
         sock->set_timeout( 10, 0 );
@@ -250,7 +250,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 
     if(dupeNick)
     {
-        Logger::log(LOG_WARN, UTFString("found duplicate nick, getting new one: ") + tryConvertUTF(user.username));
+        Logger::Log(LOG_WARN, UTFString("found duplicate nick, getting new one: ") + tryConvertUTF(user.username));
 
         // shorten username so the number will fit (only if its too long already)
         UTFString nick = tryConvertUTF(user.username).substr(0, MAX_USERNAME_LEN - 4);
@@ -265,7 +265,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 
             dupeNick = Sequencer::checkNickUnique(newNick);
         }
-        Logger::log(LOG_WARN, UTFString("chose alternate username: ") + newNick);
+        Logger::Log(LOG_WARN, UTFString("chose alternate username: ") + newNick);
 
         strncpy(user.username, newNick.asUTF8_c_str(), MAX_USERNAME_LEN);
 
@@ -291,7 +291,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
         sprintf(buf, " (%s), using %s %s, with token %s", user.language, user.clientname, user.clientversion, std::string(user.usertoken).substr(0,40).c_str());
     else
         sprintf(buf, " (%s), using %s %s, without token", user.language, user.clientname, user.clientversion);
-    Logger::log(LOG_INFO, UTFString("New client: ") + tryConvertUTF(user.username) + tryConvertUTF(buf));
+    Logger::Log(LOG_INFO, UTFString("New client: ") + tryConvertUTF(user.username) + tryConvertUTF(buf));
 
     // create new class instances for the receiving and sending thread
     to_add->receiver    = new Receiver();
@@ -320,7 +320,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
     int npos = instance->getPosfromUid(to_add->user.uniqueid);
     instance->clients[npos]->user.slotnum = npos;
 
-    Logger::log(LOG_VERBOSE,"Sending welcome message to uid %i, slotpos: %i", instance->clients[npos]->user.uniqueid, npos);
+    Logger::Log(LOG_VERBOSE,"Sending welcome message to uid %i, slotpos: %i", instance->clients[npos]->user.uniqueid, npos);
     if( Messaging::sendmessage(sock, MSG2_WELCOME, instance->clients[npos]->user.uniqueid, 0, sizeof(user_info_t), (char *)&to_add->user) )
     {
         Sequencer::disconnect(instance->clients[npos]->user.uniqueid, "error sending welcome message" );
@@ -344,7 +344,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
     }
 
     // done!
-    Logger::log(LOG_VERBOSE,"Sequencer: New client added");
+    Logger::Log(LOG_VERBOSE,"Sequencer: New client added");
 }
 
 // assuming client lock
@@ -431,12 +431,12 @@ ScriptEngine* Sequencer::getScriptEngine()
 void Sequencer::killerthreadstart()
 {
     Sequencer* instance = Instance();
-    Logger::log(LOG_DEBUG,"Killer thread ready");
+    Logger::Log(LOG_DEBUG,"Killer thread ready");
     while (1)
     {
         SWBaseSocket::SWBaseError error;
 
-        Logger::log(LOG_DEBUG,"Killer entering cycle");
+        Logger::Log(LOG_DEBUG,"Killer entering cycle");
 
         instance->killer_mutex.lock();
         while( instance->killqueue.empty() )
@@ -447,7 +447,7 @@ void Sequencer::killerthreadstart()
         instance->killqueue.pop();
         instance->killer_mutex.unlock();
 
-        Logger::log(LOG_DEBUG, UTFString("Killer called to kill ") + tryConvertUTF(to_del->user.username) );
+        Logger::Log(LOG_DEBUG, UTFString("Killer called to kill ") + tryConvertUTF(to_del->user.username) );
         // CRITICAL ORDER OF EVENTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         // stop the broadcaster first, then disconnect the socket.
         // other wise there is a chance (being concurrent code) that the
@@ -496,11 +496,11 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError, bool doS
 
     //this routine is a potential trouble maker as it can be called from many thread contexts
     //so we use a killer thread
-    Logger::log(LOG_VERBOSE, "Disconnecting Slot %d: %s", pos, errormsg);
+    Logger::Log(LOG_VERBOSE, "Disconnecting Slot %d: %s", pos, errormsg);
 
     client_t *c = instance->clients[pos];
 
-    Logger::log(LOG_DEBUG, "adding client to kill queue, size: %d", instance->killqueue.size());
+    Logger::Log(LOG_DEBUG, "adding client to kill queue, size: %d", instance->killqueue.size());
     instance->killqueue.push(c);
 
     //notify the others
@@ -516,7 +516,7 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError, bool doS
     instance->connCount++;
     if(isError)
         instance->connCrash++;
-    Logger::log(LOG_INFO, "crash statistic: %d of %d deletes crashed", instance->connCrash, instance->connCount);
+    Logger::Log(LOG_INFO, "crash statistic: %d of %d deletes crashed", instance->connCrash, instance->connCount);
 
     printStats();
 }
@@ -622,10 +622,10 @@ void Sequencer::notifyAllVehicles(int uid, bool lock)
             memset(info_for_others2.clientGUID, 0, 40);
             instance->clients[pos]->broadcaster->queueMessage(MSG2_USER_INFO, instance->clients[i]->user.uniqueid, 0, sizeof(user_info_t), (char*)&info_for_others2);
 
-            Logger::log(LOG_VERBOSE, " * %d streams registered for user %d", instance->clients[i]->streams.size(), instance->clients[i]->user.uniqueid);
+            Logger::Log(LOG_VERBOSE, " * %d streams registered for user %d", instance->clients[i]->streams.size(), instance->clients[i]->user.uniqueid);
             for(std::map<unsigned int, stream_register_t>::iterator it = instance->clients[i]->streams.begin(); it!=instance->clients[i]->streams.end(); it++)
             {
-                Logger::log(LOG_VERBOSE, "sending stream registration %d:%d to user %d", instance->clients[i]->user.uniqueid, it->first, uid);
+                Logger::Log(LOG_VERBOSE, "sending stream registration %d:%d to user %d", instance->clients[i]->user.uniqueid, it->first, uid);
                 instance->clients[pos]->broadcaster->queueMessage(MSG2_STREAM_REGISTER, instance->clients[i]->user.uniqueid, it->first, sizeof(stream_register_t), (char*)&it->second);
             }
 
@@ -719,7 +719,7 @@ bool Sequencer::kick(int kuid, int modUID, const char *msg)
     sprintf(kickmsg2, "player %s was %s", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), kickmsg);
     serverSay(kickmsg2, TO_ALL, FROM_SERVER);
     
-    Logger::log(LOG_VERBOSE, "player '%s' kicked by '%s'", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), UTF8BuffertoString(instance->clients[posMod]->user.username).c_str());
+    Logger::Log(LOG_VERBOSE, "player '%s' kicked by '%s'", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), UTF8BuffertoString(instance->clients[posMod]->user.username).c_str());
     disconnect(instance->clients[pos]->user.uniqueid, kickmsg);
     return true;
 }
@@ -742,9 +742,9 @@ bool Sequencer::ban(int buid, int modUID, const char *msg)
     strncpy(b->bannedby_nick, UTF8BuffertoString(instance->clients[posMod]->user.username).c_str(), MAX_USERNAME_LEN);
     strncpy(b->ip, instance->clients[pos]->sock->get_peerAddr(&error).c_str(), 16);
     strncpy(b->nickname, UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), MAX_USERNAME_LEN);
-    Logger::log(LOG_DEBUG, "adding ban, size: %d", instance->bans.size());
+    Logger::Log(LOG_DEBUG, "adding ban, size: %d", instance->bans.size());
     instance->bans.push_back(b);
-    Logger::log(LOG_VERBOSE, "new ban added '%s' by '%s'", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), UTF8BuffertoString(instance->clients[posMod]->user.username).c_str());
+    Logger::Log(LOG_VERBOSE, "new ban added '%s' by '%s'", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), UTF8BuffertoString(instance->clients[posMod]->user.username).c_str());
 
     char tmp[1024]="";
     if(msg)
@@ -773,9 +773,9 @@ void Sequencer::silentBan(int buid, const char *msg, bool doScriptCallback /*= t
         strncpy(b->bannedby_nick, "rorserver", MAX_USERNAME_LEN);
         strncpy(b->ip, instance->clients[pos]->sock->get_peerAddr(&error).c_str(), 16);
         strncpy(b->nickname, UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), MAX_USERNAME_LEN);
-        Logger::log(LOG_DEBUG, "adding ban, size: %d", instance->bans.size());
+        Logger::Log(LOG_DEBUG, "adding ban, size: %d", instance->bans.size());
         instance->bans.push_back(b);
-        Logger::log(LOG_VERBOSE, "new ban added '%s' by rorserver", UTF8BuffertoString(instance->clients[pos]->user.username).c_str());
+        Logger::Log(LOG_VERBOSE, "new ban added '%s' by rorserver", UTF8BuffertoString(instance->clients[pos]->user.username).c_str());
 
         char tmp[1024]="";
         if(msg)
@@ -785,7 +785,7 @@ void Sequencer::silentBan(int buid, const char *msg, bool doScriptCallback /*= t
         disconnect(instance->clients[pos]->user.uniqueid, tmp, false, doScriptCallback);
     }
     else
-        Logger::log(LOG_ERROR, "void Sequencer::ban(%d, %s) --> uid %d not found!", buid, msg, buid);
+        Logger::Log(LOG_ERROR, "void Sequencer::ban(%d, %s) --> uid %d not found!", buid, msg, buid);
 }
 
 bool Sequencer::unban(int buid)
@@ -796,7 +796,7 @@ bool Sequencer::unban(int buid)
         if(((int)instance->bans[i]->uid) == buid)
         {
             instance->bans.erase(instance->bans.begin() + i);
-            Logger::log(LOG_VERBOSE, "uid unbanned: %d", buid);
+            Logger::Log(LOG_VERBOSE, "uid unbanned: %d", buid);
             return true;
         }
     }
@@ -826,9 +826,9 @@ void Sequencer::streamDebug()
     {
         if (instance->clients[i]->status == USED)
         {
-            Logger::log(LOG_VERBOSE, " * %d %s (slot %d):", instance->clients[i]->user.uniqueid, UTF8BuffertoString(instance->clients[i]->user.username).c_str(), i);
+            Logger::Log(LOG_VERBOSE, " * %d %s (slot %d):", instance->clients[i]->user.uniqueid, UTF8BuffertoString(instance->clients[i]->user.username).c_str(), i);
             if(!instance->clients[i]->streams.size())
-                Logger::log(LOG_VERBOSE, "  * no streams registered for user %d", instance->clients[i]->user.uniqueid);
+                Logger::Log(LOG_VERBOSE, "  * no streams registered for user %d", instance->clients[i]->user.uniqueid);
             else
                 for(std::map<unsigned int, stream_register_t>::iterator it = instance->clients[i]->streams.begin(); it!=instance->clients[i]->streams.end(); it++)
                 {
@@ -836,7 +836,7 @@ void Sequencer::streamDebug()
                     char *typeStr = (char *)"unkown";
                     if(it->second.type>=0 && it->second.type <= 3)
                         typeStr = types[it->second.type];
-                    Logger::log(LOG_VERBOSE, "  * %d:%d, type:%s status:%d name:'%s'", instance->clients[i]->user.uniqueid, it->first, typeStr, it->second.status, it->second.name);
+                    Logger::Log(LOG_VERBOSE, "  * %d:%d, type:%s status:%d name:'%s'", instance->clients[i]->user.uniqueid, it->first, typeStr, it->second.status, it->second.name);
                 }
         }
     }
@@ -898,7 +898,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
         if(instance->clients[pos]->streams.size() >= Config::getMaxVehicles()+NON_VEHICLE_STREAMS)
         {
             // This user has too many vehicles, we drop the stream and then disconnect the user
-            Logger::log(LOG_INFO, "%s(%d) has too many streams. Stream dropped, user kicked.", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), instance->clients[pos]->user.uniqueid);
+            Logger::Log(LOG_INFO, "%s(%d) has too many streams. Stream dropped, user kicked.", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), instance->clients[pos]->user.uniqueid);
 
             // send a message to the user.
             serverSay("You are now being kicked for having too many vehicles. Please rejoin.",  instance->clients[pos]->user.uniqueid, FROM_SERVER);
@@ -936,7 +936,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                         break;
                     
                     default:
-                        Logger::log(LOG_ERROR, "Stream broadcasting mode not supported.");
+                        Logger::Log(LOG_ERROR, "Stream broadcasting mode not supported.");
                         break;
                 }
             }
@@ -945,7 +945,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
             if(publishMode!=BROADCAST_BLOCK)
             {
                 // Add the stream
-                Logger::log(LOG_VERBOSE, " * new stream registered: %d:%d, type: %d, name: '%s', status: %d", instance->clients[pos]->user.uniqueid, streamid, reg->type, reg->name, reg->status);
+                Logger::Log(LOG_VERBOSE, " * new stream registered: %d:%d, type: %d, name: '%s', status: %d", instance->clients[pos]->user.uniqueid, streamid, reg->type, reg->name, reg->status);
                 for(int i=0;i<128;i++) if(reg->name[i] == ' ') reg->name[i] = 0; // convert spaces to zero's
                 reg->name[127] = 0;
                 instance->clients[pos]->streams[streamid] = *reg;
@@ -990,7 +990,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
         if(origin_pos != UID_NOT_FOUND)
         {
             instance->clients[origin_pos]->broadcaster->queueMessage(type, uid, 0, sizeof(stream_register_t), (char *)reg);
-            Logger::log(LOG_VERBOSE, "stream registration result for stream %03d:%03d from user %03d: %d", reg->origin_sourceid, reg->origin_streamid, uid, reg->status);
+            Logger::Log(LOG_VERBOSE, "stream registration result for stream %03d:%03d from user %03d: %d", reg->origin_sourceid, reg->origin_streamid, uid, reg->status);
         }
         publishMode=BROADCAST_BLOCK;
     }
@@ -999,14 +999,14 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
         // Remove the stream
         if (instance->clients[pos]->streams.erase(streamid) > 0)
         {
-            Logger::log(LOG_VERBOSE, " * stream deregistered: %d:%d", instance->clients[pos]->user.uniqueid, streamid);
+            Logger::Log(LOG_VERBOSE, " * stream deregistered: %d:%d", instance->clients[pos]->user.uniqueid, streamid);
             publishMode=BROADCAST_ALL;
         }
     }
     else if (type==MSG2_USER_LEAVE)
     {
         // from client
-        Logger::log(LOG_INFO, UTFString("user disconnects on request: ") + tryConvertUTF(instance->clients[pos]->user.username));
+        Logger::Log(LOG_INFO, UTFString("user disconnects on request: ") + tryConvertUTF(instance->clients[pos]->user.username));
 
         //char tmp[1024];
         //sprintf(tmp, "user %s disconnects on request", UTF8BuffertoString(instance->clients[pos]->user.username).c_str());
@@ -1018,7 +1018,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
         // get an UTFString from it
         UTFString str = tryConvertUTF(data);
         
-        Logger::log(LOG_INFO, UTFString("CHAT| ") + tryConvertUTF(instance->clients[pos]->user.username) + ": " + str);
+        Logger::Log(LOG_INFO, UTFString("CHAT| ") + tryConvertUTF(instance->clients[pos]->user.username) + ": " + str);
         publishMode=BROADCAST_ALL;
 
         // no broadcast of server commands!
@@ -1422,10 +1422,10 @@ void Sequencer::printStats()
     Sequencer* instance = Instance();
     SWBaseSocket::SWBaseError error;
     {
-        Logger::log(LOG_INFO, "Server occupancy:");
+        Logger::Log(LOG_INFO, "Server occupancy:");
 
-        Logger::log(LOG_INFO, "Slot Status   UID IP                  Colour, Nickname");
-        Logger::log(LOG_INFO, "--------------------------------------------------");
+        Logger::Log(LOG_INFO, "Slot Status   UID IP                  Colour, Nickname");
+        Logger::Log(LOG_INFO, "--------------------------------------------------");
         for (unsigned int i = 0; i < instance->clients.size(); i++)
         {
             // some auth identifiers
@@ -1438,33 +1438,33 @@ void Sequencer::printStats()
 
             // construct screen
             if (instance->clients[i]->status == FREE)
-                Logger::log(LOG_INFO, "%4i Free", i);
+                Logger::Log(LOG_INFO, "%4i Free", i);
             else if (instance->clients[i]->status == BUSY)
-                Logger::log(LOG_INFO, "%4i Busy %5i %-16s % 4s %d, %s", i,
+                Logger::Log(LOG_INFO, "%4i Busy %5i %-16s % 4s %d, %s", i,
                         instance->clients[i]->user.uniqueid, "-",
                         authst,
                         instance->clients[i]->user.colournum,
                         UTF8BuffertoString(instance->clients[i]->user.username).c_str());
             else
-                Logger::log(LOG_INFO, "%4i Used %5i %-16s % 4s %d, %s", i,
+                Logger::Log(LOG_INFO, "%4i Used %5i %-16s % 4s %d, %s", i,
                         instance->clients[i]->user.uniqueid,
                         instance->clients[i]->sock->get_peerAddr(&error).c_str(),
                         authst,
                         instance->clients[i]->user.colournum,
                         UTF8BuffertoString(instance->clients[i]->user.username).c_str());
         }
-        Logger::log(LOG_INFO, "--------------------------------------------------");
+        Logger::Log(LOG_INFO, "--------------------------------------------------");
         int timediff = Messaging::getTime() - instance->startTime;
         int uphours = timediff/60/60;
         int upminutes = (timediff-(uphours*60*60))/60;
         stream_traffic_t traffic = Messaging::getTraffic();
 
-        Logger::log(LOG_INFO, "- traffic statistics (uptime: %d hours, %d "
+        Logger::Log(LOG_INFO, "- traffic statistics (uptime: %d hours, %d "
                 "minutes):", uphours, upminutes);
-        Logger::log(LOG_INFO, "- total: incoming: %0.2fMB , outgoing: %0.2fMB",
+        Logger::Log(LOG_INFO, "- total: incoming: %0.2fMB , outgoing: %0.2fMB",
                 traffic.bandwidthIncoming/1024/1024,
                 traffic.bandwidthOutgoing/1024/1024);
-        Logger::log(LOG_INFO, "- rate (last minute): incoming: %0.1fkB/s , "
+        Logger::Log(LOG_INFO, "- rate (last minute): incoming: %0.1fkB/s , "
                 "outgoing: %0.1fkB/s",
                 traffic.bandwidthIncomingRate/1024,
                 traffic.bandwidthOutgoingRate/1024);
@@ -1481,7 +1481,7 @@ unsigned short Sequencer::getPosfromUid(unsigned int uid)
             return i;
     }
 
-    Logger::log( LOG_DEBUG, "could not find uid %d", uid);
+    Logger::Log( LOG_DEBUG, "could not find uid %d", uid);
     return UID_NOT_FOUND;
 }
 

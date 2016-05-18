@@ -73,7 +73,7 @@ void Listener::signalReady()
 
 void Listener::threadstart()
 {
-    Logger::log(LOG_DEBUG,"Listerer thread starting");
+    Logger::Log(LOG_DEBUG,"Listerer thread starting");
     //here we start
     SWBaseSocket::SWBaseError error;
 
@@ -82,25 +82,25 @@ void Listener::threadstart()
     if (error!=SWBaseSocket::ok)
     {
         //this is an error!
-        Logger::log(LOG_ERROR,"FATAL Listerer: %s", error.get_error().c_str());
+        Logger::Log(LOG_ERROR,"FATAL Listerer: %s", error.get_error().c_str());
         //there is nothing we can do here
         return;
         // exit(1);
     }
     listSocket.listen();
 
-    Logger::log(LOG_VERBOSE,"Listener ready");
+    Logger::Log(LOG_VERBOSE,"Listener ready");
     this->signalReady();
 
     //await connections
     while (running)
     {
-        Logger::log(LOG_VERBOSE,"Listener awaiting connections");
+        Logger::Log(LOG_VERBOSE,"Listener awaiting connections");
         SWInetSocket *ts=(SWInetSocket *)listSocket.accept(&error);
 
         if (error!=SWBaseSocket::ok)
         {
-            Logger::log(LOG_ERROR,"ERROR Listener: %s", error.get_error().c_str());
+            Logger::Log(LOG_ERROR,"ERROR Listener: %s", error.get_error().c_str());
             if( error == SWBaseSocket::notConnected)
                 break;
             else
@@ -108,7 +108,7 @@ void Listener::threadstart()
         }
 
 
-        Logger::log(LOG_VERBOSE,"Listener got a new connection");
+        Logger::Log(LOG_VERBOSE,"Listener got a new connection");
 #ifndef NOTIMEOUT
         ts->set_timeout(600, 0);
 #endif
@@ -136,7 +136,7 @@ void Listener::threadstart()
             // check client version
             if(source == 5000 && (std::string(buffer) == "MasterServer"))
             {
-                Logger::log(LOG_VERBOSE, "Master Server knocked ...");
+                Logger::Log(LOG_VERBOSE, "Master Server knocked ...");
                 // send back some information, then close socket
                 char tmp[2048]="";
                 sprintf(tmp,"protocol:%s\nrev:%s\nbuild_on:%s_%s\n", RORNET_VERSION, VERSION, __DATE__, __TIME__);
@@ -168,7 +168,7 @@ void Listener::threadstart()
                         motd_str += *it + "\n";
             }
 
-            Logger::log(LOG_DEBUG,"Listener sending server settings");
+            Logger::Log(LOG_DEBUG,"Listener sending server settings");
             server_info_t settings;
             memset(&settings, 0, sizeof(server_info_t));
             settings.password = !Config::getPublicPassword().empty();
@@ -195,7 +195,7 @@ void Listener::threadstart()
 
             if (len > sizeof(user_info_t))
                 throw std::runtime_error( "Error: did not receive proper user credentials" );
-            Logger::log(LOG_INFO,"Listener creating a new client...");
+            Logger::Log(LOG_INFO,"Listener creating a new client...");
 
             user_info_t *user = (user_info_t *)buffer;
             user->authstatus = AUTH_NONE;
@@ -216,7 +216,7 @@ void Listener::threadstart()
 
             if( Config::isPublic() )
             {
-                Logger::log(LOG_DEBUG,"password login: %s == %s?",
+                Logger::Log(LOG_DEBUG,"password login: %s == %s?",
                         Config::getPublicPassword().c_str(),
                         user->serverpassword);
                 if(strncmp(Config::getPublicPassword().c_str(), user->serverpassword, 40))
@@ -225,19 +225,19 @@ void Listener::threadstart()
                     throw std::runtime_error( "ERROR Listener: wrong password" );
                 }
 
-                Logger::log(LOG_DEBUG,"user used the correct password, "
+                Logger::Log(LOG_DEBUG,"user used the correct password, "
                         "creating client!");
             } else {
-                Logger::log(LOG_DEBUG,"no password protection, creating client");
+                Logger::Log(LOG_DEBUG,"no password protection, creating client");
             }
 
             //create a new client
             Sequencer::createClient(ts, *user); // copy the user info, since the buffer will be cleared soon
-            Logger::log(LOG_DEBUG,"listener returned!");
+            Logger::Log(LOG_DEBUG,"listener returned!");
         }
         catch(std::runtime_error e)
         {
-            Logger::log(LOG_ERROR, e.what());
+            Logger::Log(LOG_ERROR, e.what());
             ts->disconnect(&error);
             delete ts;
         }

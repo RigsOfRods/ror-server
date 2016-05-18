@@ -198,13 +198,13 @@ bool checkConfig()
     switch ( getServerMode() )
     {
     case SERVER_AUTO:
-        Logger::log(LOG_INFO, "server started in automatic mode.");
+        Logger::Log(LOG_INFO, "server started in automatic mode.");
         break;
     case SERVER_LAN:
-        Logger::log(LOG_INFO, "server started in LAN mode.");
+        Logger::Log(LOG_INFO, "server started in LAN mode.");
         break;
     case SERVER_INET:
-        Logger::log(LOG_INFO, "server started in Internet mode.");
+        Logger::Log(LOG_INFO, "server started in Internet mode.");
         break;
     }
 
@@ -212,86 +212,86 @@ bool checkConfig()
     if( getServerMode() != SERVER_LAN )
     {
 
-        Logger::log( LOG_INFO, "Starting server in INET mode" );
+        Logger::Log( LOG_INFO, "Starting server in INET mode" );
         if( getIPAddr() == "0.0.0.0" )
         {
-            Logger::log( LOG_WARN, "no IP address has been specified, attempting to "
+            Logger::Log( LOG_WARN, "no IP address has been specified, attempting to "
                     "detect.");
             setIPAddr( Messaging::retrievePublicIpFromServer() );
             
             if( getIPAddr().empty() )
-                Logger::log(LOG_ERROR, "could not get public IP automatically!");
+                Logger::Log(LOG_ERROR, "could not get public IP automatically!");
         }
         
         if( getIPAddr().empty() )
         {
-            Logger::log( LOG_ERROR, "IP adddress not specified.");
+            Logger::Log( LOG_ERROR, "IP adddress not specified.");
             return 0;
         }
         else
-            Logger::log( LOG_INFO, "ip address: %s", getIPAddr().c_str() );
+            Logger::Log( LOG_INFO, "ip address: %s", getIPAddr().c_str() );
         
-        Logger::log(LOG_WARN, "app. full load traffic: %ikbit/s upload and "
+        Logger::Log(LOG_WARN, "app. full load traffic: %ikbit/s upload and "
                 "%ikbit/s download", 
                 getMaxClients()*(getMaxClients()-1)*64, getMaxClients()*64);
         
         if( getServerName().empty() )
         {
-            Logger::log( LOG_ERROR, "Server name not specified.");
+            Logger::Log( LOG_ERROR, "Server name not specified.");
             return 0;
         }
         else
-            Logger::log( LOG_INFO, "servername: %s", getServerName().c_str() );		
+            Logger::Log( LOG_INFO, "servername: %s", getServerName().c_str() );		
     }
     if( !getListenPort() )
     {
-        Logger::log( LOG_WARN, "No port supplied, randomly generating one");
+        Logger::Log( LOG_WARN, "No port supplied, randomly generating one");
         setListenPort( Utils::generateRandomPortNumber() );
     }
 
     if( getWebserverEnabled() && !getWebserverPort() )
     {
-        Logger::log( LOG_WARN, "No Webserver port supplied, using listen port + 100: %d", getListenPort() + 100);
+        Logger::Log( LOG_WARN, "No Webserver port supplied, using listen port + 100: %d", getListenPort() + 100);
         setWebserverPort(getListenPort() + 100);
     }
 
-    Logger::log( LOG_INFO, "port:       %d", getListenPort() );
+    Logger::Log( LOG_INFO, "port:       %d", getListenPort() );
     
     if( getTerrainName().empty() )
     {
-        Logger::log( LOG_ERROR, "terrain not specified" );
+        Logger::Log( LOG_ERROR, "terrain not specified" );
         return 0;
     }
     else
-        Logger::log( LOG_INFO, "terrain:    %s", getTerrainName().c_str() );
+        Logger::Log( LOG_INFO, "terrain:    %s", getTerrainName().c_str() );
     
     if( getMaxClients() < 2 || getMaxClients() > 64 )
     {
-        Logger::log( LOG_ERROR, "Max clients need to 2 or more, and 64 or less." );
+        Logger::Log( LOG_ERROR, "Max clients need to 2 or more, and 64 or less." );
         return 0;
     }
     else
-        Logger::log( LOG_INFO, "maxclients: %d", getMaxClients());
+        Logger::Log( LOG_INFO, "maxclients: %d", getMaxClients());
         
     if( getAuthFile().empty() )
     {
-        Logger::log( LOG_ERROR, "Authorizations file not specified. Using default (admins.txt)" );
+        Logger::Log( LOG_ERROR, "Authorizations file not specified. Using default (admins.txt)" );
         setAuthFile("admins.txt");
     }
 
     if( getMOTDFile().empty() )
     {
-        Logger::log( LOG_ERROR, "MOTD file not specified. Using default (motd.txt)." );
+        Logger::Log( LOG_ERROR, "MOTD file not specified. Using default (motd.txt)." );
         setMOTDFile("motd.txt");
     }
 
     if( getMaxVehicles()<1 )
     {
-        Logger::log( LOG_ERROR, "The vehicle-limit cannot be less than 1!" );
+        Logger::Log( LOG_ERROR, "The vehicle-limit cannot be less than 1!" );
         return 0;
     }
 
-    Logger::log( LOG_INFO, "server is%s password protected",
+    Logger::Log( LOG_INFO, "server is%s password protected",
             getPublicPassword().empty() ? " NOT": "" );
 
     return getMaxClients() && getListenPort() && !getIPAddr().empty() && 
@@ -314,7 +314,7 @@ bool fromArgs( int argc, char* argv[] )
                 setServerName( args.OptionArg() );
             break;
             case OPT_LOGFILENAME:
-                Logger::setOutputFile(std::string(args.OptionArg()));
+                Logger::SetOutputFile(std::string(args.OptionArg()));
             break;
             case OPT_SCRIPTNAME:
                 setScriptName(args.OptionArg());
@@ -339,10 +339,10 @@ bool fromArgs( int argc, char* argv[] )
                 setListenPort( atoi(args.OptionArg()) );
             break;
             case OPT_VERBOSITY:
-                Logger::setLogLevel(LOGTYPE_DISPLAY, LogLevel(atoi(args.OptionArg())));
+                Logger::SetLogLevel(LOGTYPE_DISPLAY, LogLevel(atoi(args.OptionArg())));
             break;
             case OPT_LOGVERBOSITY:
-                Logger::setLogLevel(LOGTYPE_FILE, LogLevel(atoi(args.OptionArg())));
+                Logger::SetLogLevel(LOGTYPE_FILE, LogLevel(atoi(args.OptionArg())));
             break;
             case OPT_LAN:
                 setServerMode( SERVER_LAN );
@@ -468,11 +468,11 @@ bool setPublicPass( const std::string& pub_pass )
     if(pub_pass.length() > 0 && pub_pass.size() < 250  &&  
             !SHA1FromString(s_public_password, pub_pass))
     {
-        Logger::log(LOG_ERROR, "could not generate server SHA1 password hash!");
+        Logger::Log(LOG_ERROR, "could not generate server SHA1 password hash!");
         s_public_password = "";
         return false;
     }
-    Logger::log(LOG_DEBUG,"sha1(%s) = %s", pub_pass.c_str(), 
+    Logger::Log(LOG_DEBUG,"sha1(%s) = %s", pub_pass.c_str(), 
             s_public_password.c_str());
     return true;
 }
@@ -518,7 +518,7 @@ void setResourceDir(std::string dir)
 
 void loadConfigFile(const std::string& filename)
 {
-    Logger::log(LOG_INFO, "loading config file %s ...", filename.c_str());
+    Logger::Log(LOG_INFO, "loading config file %s ...", filename.c_str());
     rude::Config config;
     if(config.load(filename.c_str()))
     {
@@ -537,10 +537,10 @@ void loadConfigFile(const std::string& filename)
         if(config.exists("webserverport")) setWebserverPort(config.getIntValue    ("webserverport"));
         if(config.exists("foreground"))    setForeground(config.getBoolValue      ("foreground"));
 
-        if(config.exists("verbosity"))     Logger::setLogLevel(LOGTYPE_DISPLAY,   (LogLevel)config.getIntValue("verbosity"));
-        if(config.exists("logverbosity"))  Logger::setLogLevel(LOGTYPE_FILE,      (LogLevel)config.getIntValue("logverbosity"));
+        if(config.exists("verbosity"))     Logger::SetLogLevel(LOGTYPE_DISPLAY,   (LogLevel)config.getIntValue("verbosity"));
+        if(config.exists("logverbosity"))  Logger::SetLogLevel(LOGTYPE_FILE,      (LogLevel)config.getIntValue("logverbosity"));
         if(config.exists("resdir"))        setResourceDir(config.getStringValue   ("resdir"));
-        if(config.exists("logfilename"))   Logger::setOutputFile(config.getStringValue("logfilename"));
+        if(config.exists("logfilename"))   Logger::SetOutputFile(config.getStringValue("logfilename"));
         if(config.exists("authfile"))      setAuthFile(config.getStringValue      ("authfile"));
         if(config.exists("motdfile"))      setMOTDFile(config.getStringValue      ("motdfile"));
         if(config.exists("rulesfile"))     setRulesFile(config.getStringValue     ("rulesfile"));
@@ -551,7 +551,7 @@ void loadConfigFile(const std::string& filename)
         if(config.exists("voip"))          setVoIP(config.getStringValue          ("voip"));
     } else
     {
-        Logger::log(LOG_ERROR, "could not load config file %s : %s", filename.c_str(), config.getError());
+        Logger::Log(LOG_ERROR, "could not load config file %s : %s", filename.c_str(), config.getError());
     }
 }
 

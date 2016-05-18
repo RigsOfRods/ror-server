@@ -65,38 +65,38 @@ void handler(int signalnum)
 
     if (signalnum == SIGINT)
     {
-        Logger::log(LOG_ERROR,"got interrupt signal, terminating ...");
+        Logger::Log(LOG_ERROR,"got interrupt signal, terminating ...");
         terminate = true;
     }
     else if (signalnum == SIGTERM)
     {
-        Logger::log(LOG_ERROR,"got termiante signal, terminating ...");
+        Logger::Log(LOG_ERROR,"got termiante signal, terminating ...");
         terminate = true;
     }
 #ifndef _WIN32
     else if (signalnum == SIGHUP)
     {
-        Logger::log(LOG_ERROR,"got HUP signal, terminating ...");
+        Logger::Log(LOG_ERROR,"got HUP signal, terminating ...");
         terminate = true;
     }
 #endif // ! _WIN32
     else
     {
-        Logger::log(LOG_ERROR,"got unkown signal: %d", signal);
+        Logger::Log(LOG_ERROR,"got unkown signal: %d", signal);
     }
 
     if(terminate)
     {
         if(Config::getServerMode() == SERVER_LAN)
         {
-            Logger::log(LOG_ERROR,"closing server ... ");
+            Logger::Log(LOG_ERROR,"closing server ... ");
             Sequencer::cleanUp();
         }
         else
         {
-            Logger::log(LOG_ERROR,"closing server ... unregistering ... ");
+            Logger::Log(LOG_ERROR,"closing server ... unregistering ... ");
             Sequencer::unregisterServer();
-            Logger::log(LOG_ERROR," unregistered.");
+            Logger::Log(LOG_ERROR," unregistered.");
             Sequencer::cleanUp();
         }
         exit(0);
@@ -124,7 +124,7 @@ void daemonize()
     // TODO: add flexibility to change the username via cmdline
     if ( getuid() == 0 || geteuid() == 0 )
     {
-        Logger::log(LOG_VERBOSE,"changing user to %s", username);
+        Logger::Log(LOG_VERBOSE,"changing user to %s", username);
             struct passwd *pw = getpwnam(username);
         if (pw)
         {
@@ -137,7 +137,7 @@ void daemonize()
         } else
         {
             //perror("error getting user");
-            Logger::log(LOG_ERROR,"unable to get user %s, Is it existing?", username);
+            Logger::Log(LOG_ERROR,"unable to get user %s, Is it existing?", username);
             printf("unable to get user %s, Is it existing?\n", username);
             exit(1);
         }
@@ -146,7 +146,7 @@ void daemonize()
     pid_t pid = fork();
     if (pid < 0) 
     {
-        Logger::log(LOG_ERROR, "error forking into background");
+        Logger::Log(LOG_ERROR, "error forking into background");
         perror("error forking into background");
         exit(1); /* fork error */
     }
@@ -154,7 +154,7 @@ void daemonize()
     {
         // need both here
         printf("forked into background as pid %d\n", pid);
-        Logger::log(LOG_INFO,"forked into background as pid %d", pid);
+        Logger::Log(LOG_INFO,"forked into background as pid %d", pid);
         exit(0); /* parent exits */
     }
 
@@ -219,9 +219,9 @@ void daemonize()
 int main(int argc, char* argv[])
 {
     // set default verbose levels
-    Logger::setLogLevel(LOGTYPE_DISPLAY, LOG_INFO);
-    Logger::setLogLevel(LOGTYPE_FILE, LOG_VERBOSE);
-    Logger::setOutputFile("server.log");
+    Logger::SetLogLevel(LOGTYPE_DISPLAY, LOG_INFO);
+    Logger::SetLogLevel(LOGTYPE_FILE, LOG_VERBOSE);
+    Logger::SetOutputFile("server.log");
 
     if (!Config::fromArgs(argc, argv))
     {
@@ -236,7 +236,7 @@ int main(int argc, char* argv[])
 
     if(!sha1check())
     {
-        Logger::log(LOG_ERROR,"sha1 malfunction!");
+        Logger::Log(LOG_ERROR,"sha1 malfunction!");
         return -1;
     }
 
@@ -244,7 +244,7 @@ int main(int argc, char* argv[])
     if(!Config::getForeground())
     {
         // no output because of background mode
-        Logger::setLogLevel(LOGTYPE_DISPLAY, LOG_NONE);
+        Logger::SetLogLevel(LOGTYPE_DISPLAY, LOG_NONE);
         daemonize();
     }
 #endif // ! _WIN32
@@ -269,14 +269,14 @@ int main(int argc, char* argv[])
     int mtx_result = pthread_mutex_init(&listener_ready_mtx, nullptr);
     if (mtx_result != 0)
     {
-        Logger::log(LOG_ERROR, "Failed to initialize mutex (listener_ready_mtx), error code: %d", mtx_result);
+        Logger::Log(LOG_ERROR, "Failed to initialize mutex (listener_ready_mtx), error code: %d", mtx_result);
         return -1;
     }
 
     int cond_result = pthread_cond_init(&listener_ready_cond, nullptr);
     if (cond_result != 0)
     {
-        Logger::log(LOG_ERROR, "Failed to initialize condition-variable (listener_ready_cond), error code: %d", cond_result);
+        Logger::Log(LOG_ERROR, "Failed to initialize condition-variable (listener_ready_cond), error code: %d", cond_result);
         return -1;
     }
 
@@ -287,7 +287,7 @@ int main(int argc, char* argv[])
     int lock_result = pthread_mutex_lock(&listener_ready_mtx);
     if (lock_result != 0)
     {
-        Logger::log(LOG_ERROR, "Failed to acquire lock, error code: %d", lock_result);
+        Logger::Log(LOG_ERROR, "Failed to acquire lock, error code: %d", lock_result);
         return -1;
     }
     while (listener_ready_value == 0)
@@ -295,7 +295,7 @@ int main(int argc, char* argv[])
         int wait_result = pthread_cond_wait(&listener_ready_cond, &listener_ready_mtx);
         if (wait_result != 0)
         {
-            Logger::log(LOG_ERROR, "Failed to wait on condition variable, error code: %d", wait_result);
+            Logger::Log(LOG_ERROR, "Failed to wait on condition variable, error code: %d", wait_result);
             pthread_mutex_unlock(&listener_ready_mtx);
             return -1;
         }
@@ -304,7 +304,7 @@ int main(int argc, char* argv[])
 
     if (listener_ready_value < 0)if (listener_ready_value < 0)
     {
-        Logger::log(LOG_ERROR, "Failed to start up listener, error code: %d", listener_ready_value);
+        Logger::Log(LOG_ERROR, "Failed to start up listener, error code: %d", listener_ready_value);
         return -1;
     }
 
@@ -320,7 +320,7 @@ int main(int argc, char* argv[])
     if(Config::getWebserverEnabled())
     {
         int port = Config::getWebserverPort();
-        Logger::log(LOG_INFO, "starting webserver on port %d ...", port);
+        Logger::Log(LOG_INFO, "starting webserver on port %d ...", port);
         startWebserver(port);
     }
 #endif //WITH_WEBSERVER

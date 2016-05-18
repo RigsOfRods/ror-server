@@ -25,8 +25,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "UTFString.h"
 
-#include <string>
-
 enum LogLevel
 {
     LOG_STACK=0,
@@ -44,9 +42,6 @@ enum LogType
     LOGTYPE_DISPLAY
 };
 
-//extern int loglevel;
-void logmsgf(const LogLevel& level, const char* format, ...);
-
 class Logger
 {
 public:
@@ -57,11 +52,7 @@ public:
     
     static void setOutputFile(const UTFString& filename);
     static void setLogLevel(const LogType type, const LogLevel level);
-    static const LogLevel getLogLevel(const LogType type);
 
-    static void setCallback(void (*ptr)(int, UTFString msg, UTFString msgf));
-
-    static const char *getLoglevelName(int i) { return loglevelname[i]; };
 private:
     Logger();
     Logger instance();
@@ -71,6 +62,5 @@ private:
     static const char *loglevelname[];
     static UTFString logfilename;
     static bool compress_file;
-    static void (*callback)(int, UTFString msg, UTFString msgf);
     static Mutex log_mutex;
 };

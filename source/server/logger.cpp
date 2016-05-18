@@ -60,15 +60,6 @@ UTFString format_arg_list(const char *fmt, va_list args)
     return s;
 }
 
-void logmsgf(const LogLevel& level, const char* format, ...)
-{
-    va_list args;
-    va_start(args, format);
-    Logger::log(level, format_arg_list(format, args));
-    va_end(args);
-}
-
-
 // public:
 Logger::~Logger()
 {
@@ -116,13 +107,6 @@ void Logger::log(const LogLevel& level, const UTFString& msg)
         fflush(file);
     }
 
-    if(callback)
-    {
-        char tmp[2048]="";
-        sprintf(tmp, "%s|t%02d|%5s|", time_str, ThreadID::getID(), loglevelname[(int)level]);
-        callback(level, msg, UTFString(tmp) + msg + "\n");
-    }
-
     pthread_mutex_unlock(log_mutex.getRaw());
 }
 
@@ -138,20 +122,6 @@ void Logger::setLogLevel(const LogType type, const LogLevel level)
 {
     log_level[(int)type] = level;
 }
-
-const LogLevel Logger::getLogLevel(const LogType type)
-{
-    return log_level[(int)type];
-}
-
-
-void Logger::setCallback(void (*ptr)(int, UTFString msg, UTFString msgf))
-{
-    callback = ptr;
-}
-
-// private:
-void (*Logger::callback)(int, UTFString msg, UTFString msgf) = 0;
 
 Logger::Logger()
 {

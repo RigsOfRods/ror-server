@@ -25,6 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #include "webserver.h"
 #include "messaging.h"
+#include "listener.h"
 
 #include "sha1_util.h"
 #include "sha1.h"
@@ -221,17 +222,21 @@ int main(int argc, char* argv[])
 	Logger::setLogLevel(LOGTYPE_FILE, LOG_VERBOSE);
 	Logger::setOutputFile("server.log");
 
-
-	if( !Config::fromArgs( argc, argv ) )
+	if (!Config::fromArgs(argc, argv))
+	{
 		return 0;
-	if( !Config::checkConfig() )
-		return 1;
+	}
 
+	// If mode == INET and IP not set, this also queries the server for public IP.
+	if (!Config::checkConfig())
+	{
+		return 1;
+	}
 
 	if(!sha1check())
 	{
 		Logger::log(LOG_ERROR,"sha1 malfunction!");
-		exit(-123);
+		return -1;
 	}
 
 #ifndef _WIN32
@@ -250,7 +255,64 @@ int main(int argc, char* argv[])
 	signal(SIGINT, handler);
 	signal(SIGTERM, handler);
 
-	Sequencer::initilize();
+	// Wait for Listener thread to start before registering on the serverlist
+	//    (which will contact us back for verification).
+
+	// Yay, oldschool pthreads!
+	//    Tutorial: https://computing.llnl.gov/tutorials/pthreads/#ConditionVariables
+
+	pthread_mutex_t listener_ready_mtx;
+	pthread_cond_t  listener_ready_cond;
+	int             listener_ready_value = 0;
+
+	int mtx_result = pthread_mutex_init(&listener_ready_mtx, nullptr);
+	if (mtx_result != 0)
+	{
+		Logger::log(LOG_ERROR, "Failed to initialize mutex (listener_ready_mtx), error code: %d", mtx_result);
+		return -1;
+	}
+
+	int cond_result = pthread_cond_init(&listener_ready_cond, nullptr);
+	if (cond_result != 0)
+	{
+		Logger::log(LOG_ERROR, "Failed to initialize condition-variable (listener_ready_cond), error code: %d", cond_result);
+		return -1;
+	}
+
+	Listener* listener = new Listener(Config::getListenPort(), &listener_ready_mtx, &listener_ready_cond, &listener_ready_value);
+	Sequencer::initialize(listener);
+
+	// Wait for `Listener` to start up.
+	int lock_result = pthread_mutex_lock(&listener_ready_mtx);
+	if (lock_result != 0)
+	{
+		Logger::log(LOG_ERROR, "Failed to acquire lock, error code: %d", lock_result);
+		return -1;
+	}
+	while (listener_ready_value == 0)
+	{
+		int wait_result = pthread_cond_wait(&listener_ready_cond, &listener_ready_mtx);
+		if (wait_result != 0)
+		{
+			Logger::log(LOG_ERROR, "Failed to wait on condition variable, error code: %d", wait_result);
+			pthread_mutex_unlock(&listener_ready_mtx);
+			return -1;
+		}
+	}
+	pthread_mutex_unlock(&listener_ready_mtx);
+
+	if (listener_ready_value < 0)
+	{
+		Logger::log(LOG_ERROR, "Failed to start up listener, error code: %d", listener_ready_value);
+		return -1;
+	}
+
+	// Listener is ready, let's register ourselves on serverlist (which will contact us back to check).
+	if (Config::getServerMode() != SERVER_LAN)
+	{
+		Sequencer::registerServer();
+	}
+	Sequencer::activateUserAuth();
 
 #ifdef WITH_WEBSERVER
 	// start webserver if used

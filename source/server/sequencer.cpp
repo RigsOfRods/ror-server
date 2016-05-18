@@ -72,8 +72,12 @@ unsigned int Sequencer::connCrash = 0;
 unsigned int Sequencer::connCount = 0;
 
 
-Sequencer::Sequencer() :  listener( NULL ), notifier( NULL ), authresolver(NULL),
-fuid( 1 ), botCount( 0 ), startTime ( Messaging::getTime() )
+Sequencer::Sequencer():
+	listener(nullptr),
+	authresolver(nullptr),
+	fuid(1),
+	botCount(0),
+	startTime(Messaging::getTime())
 {
     STACKLOG;
 }
@@ -87,7 +91,7 @@ Sequencer::~Sequencer()
 /**
  * Inililize, needs to be called before the class is used
  */
-void Sequencer::initilize()
+void Sequencer::initialize(Listener* listener)
 {
     STACKLOG;
 
@@ -95,7 +99,7 @@ void Sequencer::initilize()
 		delete mInstance;
     Sequencer* instance  = Instance();
 	instance->clients.reserve( Config::getMaxClients() );
-	instance->listener = new Listener(Config::getListenPort());
+	instance->listener = listener;
 
 	instance->script = 0;
 #ifdef WITH_ANGELSCRIPT
@@ -107,12 +111,19 @@ void Sequencer::initilize()
 #endif //WITH_ANGELSCRIPT
 
 	pthread_create(&instance->killerthread, NULL, s_klthreadstart, &instance);
+	instance->notifier.activate();
+}
 
-	instance->authresolver = 0;
-	instance->notifier = 0;
-	instance->notifier = new Notifier(instance->authresolver);
-	// start userauth
-	instance->authresolver = new UserAuth(instance->notifier->getChallenge(), instance->notifier->getTrustLevel(), Config::getAuthFile());
+void Sequencer::activateUserAuth()
+{
+	Sequencer* instance = Instance();
+	instance->authresolver = new UserAuth(
+		instance->notifier.getChallenge(), instance->notifier.getTrustLevel(), Config::getAuthFile());
+}
+
+void Sequencer::registerServer()
+{
+	Sequencer::Instance()->notifier.registerServer();
 }
 
 /**
@@ -138,11 +149,10 @@ void Sequencer::cleanUp()
 	}
 	Logger::log(LOG_INFO,"all clients disconnected. exiting.");
 
-	if(instance->notifier)
+	if(instance->notifier.isActive())
 	{
-		instance->notifier->unregisterServer();
-		delete instance->notifier;
-		instance->notifier = 0;
+		instance->notifier.unregisterServer();
+		instance->notifier.deactivate();
 	}
 
 #ifdef WITH_ANGELSCRIPT
@@ -174,7 +184,7 @@ void Sequencer::notifyRoutine()
     STACKLOG;
 	//we call the notify loop
     Sequencer* instance = Instance();
-    instance->notifier->loop();
+    instance->notifier.loop();
 }
 
 bool Sequencer::checkNickUnique(UTFString &nick)
@@ -1373,7 +1383,7 @@ Notifier *Sequencer::getNotifier()
 {
     STACKLOG;
     Sequencer* instance = Instance();
-	return instance->notifier;
+	return &instance->notifier;
 }
 
 
@@ -1512,7 +1522,9 @@ unsigned short Sequencer::getPosfromUid(unsigned int uid)
 
 void Sequencer::unregisterServer()
 {
-	if( Instance()->notifier )
-		Instance()->notifier->unregisterServer();
+	if (Instance()->notifier.isActive())
+	{
+		Instance()->notifier.unregisterServer();
+	}
 }
 

@@ -18,12 +18,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #pragma once
-#ifndef __Notifier_H__
-#define __Notifier_H__
 
 #include "HttpMsg.h"
 
-class UserAuth;
 /**
  * The notifier class communicated with the master server, it is called from
  * the sequencer class via Sequencer::notifyRoutine. The loop method is
@@ -40,26 +37,31 @@ private:
 	bool exit;             //!< exit the server 
 	bool wasregistered;    //!< is registered with the master server
 	int error_count;       //!< counter how many failed heartbeats we had 
-	HttpMsg resp;          //!< holds the latest response fromt he master server 
-
-	bool registerServer(); //!< attempt to register with the master server
-	bool sendHearbeat();   //!< send a heart beat message to the master server
+	HttpMsg resp;          //!< holds the latest response fromt he master server
 	bool advertised;
-	
+	bool is_active;
+
+	bool sendHearbeat();   //!< send a heart beat message to the master server
+
 public:
-    
-	Notifier(UserAuth *u);
+	Notifier();
 	
 	~Notifier(void);
+
+	void activate();
+	void deactivate();
+
+	/// attempt to register with the master server
+	bool registerServer();
 	
-	//! main loop for the server?
+	/// main loop for the server?
 	void loop();
 	
 	/**
-	 * perform an HTTPGET
-     * @param[in] master server address
-     * @return the amount of data received, if negative an error occured
-	 */
+	* perform an HTTPGET
+	* @param[in] master server address
+	* @return the amount of data received, if negative an error occured
+	*/
 	int HTTPGET(const char* URL);
 
     /**
@@ -81,5 +83,7 @@ public:
 	std::string getChallenge() { return std::string(challenge); };
 	bool getAdvertised() { return advertised; };
 	int getTrustLevel() { return trustlevel; };
+
+	bool isActive() const { return is_active; }
 };
-#endif
+

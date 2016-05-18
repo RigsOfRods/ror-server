@@ -23,7 +23,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "messaging.h"
 #include "logger.h"
 #include "config.h"
-#include "userauth.h"
 
 #include <stdexcept>
 
@@ -34,14 +33,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <cstdio>
 
 
-Notifier::Notifier(UserAuth *u) : exit(false), wasregistered( false ), error_count( 0 )
+Notifier::Notifier():
+	trustlevel(0),
+	exit(false),
+	wasregistered(false),
+	error_count(0),
+	advertised(false),
+	is_active(false)
 {
-    STACKLOG;
+	STACKLOG;
 	memset( &httpresp, 0, 65536);
-	memset( &challenge, 0, 256); 
-	trustlevel=0;
-
-	advertised = registerServer();
+	memset( &challenge, 0, 256);
 }
 
 Notifier::~Notifier(void)
@@ -50,9 +52,16 @@ Notifier::~Notifier(void)
 	exit = true;
 }
 
-/**
- * @brief
- */
+void Notifier::activate()
+{
+	is_active = true;
+}
+
+void Notifier::deactivate()
+{
+	is_active = false;
+}
+
 bool Notifier::registerServer()
 {
     STACKLOG;
@@ -141,6 +150,7 @@ bool Notifier::registerServer()
 		strncpy( challenge, challenge_response.c_str(), 40 );
 		Logger::log(LOG_INFO,"Server is registered at the Master server.");
 		wasregistered=true;
+		advertised = true;
 		return true;
 	}
 	return false;

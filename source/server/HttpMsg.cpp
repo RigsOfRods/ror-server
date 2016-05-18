@@ -31,31 +31,26 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 HttpMsg::HttpMsg()
 {
-    STACKLOG;
 }
 
 HttpMsg::HttpMsg( const std::string& message )
 {
-    STACKLOG;
     assign( message );
 }
 
 HttpMsg::~HttpMsg()
 {
-    STACKLOG;
 }
 
 
 HttpMsg& HttpMsg::operator=( const std::string& message )
 {
-    STACKLOG;
     assign( message );
     return *this;
 }
 
 HttpMsg& HttpMsg::operator=( const char* message )
 {
-    STACKLOG;
     assign( message );
     return *this;
 }
@@ -67,13 +62,11 @@ bool HttpMsg::operator==( const std::string& message )
 
 const std::string& HttpMsg::getBody()
 {
-    STACKLOG;
     return headermap["body"];
 }
 
 const std::vector<std::string> HttpMsg::getBodyLines()
 {
-    STACKLOG;
     std::vector<std::string> lines;
     strict_tokenize( headermap["body"], lines, "\n" );
     return lines;
@@ -81,13 +74,11 @@ const std::vector<std::string> HttpMsg::getBodyLines()
 
 bool HttpMsg::isChunked()
 {
-    STACKLOG;
     return "chunked" == headermap["Transfer-Encoding"];
 }
 
 void HttpMsg::assign( const std::string& message )
 {
-    STACKLOG;
     std::size_t locHolder;
     locHolder = message.find("\r\n\r\n");
     std::vector<std::string> header;

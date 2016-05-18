@@ -7,7 +7,6 @@ if [ $ANALYZE = "true" ]; then
     if [ "$CXX" = "clang++" ]; then
         scan-build cmake -G "Unix Makefiles" \
           -DCMAKE_INSTALL_PREFIX:STRING=/usr \
-          -DRORSERVER_NO_STACKLOG:BOOL=ON \
           -DRORSERVER_CRASHHANDLER:BOOL=ON \
           -DRORSERVER_GUI:BOOL=ON \
           -DRORSERVER_WITH_ANGELSCRIPT:BOOL=ON \

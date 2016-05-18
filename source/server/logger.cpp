@@ -97,8 +97,9 @@ void Logger::log(const LogLevel& level, const UTFString& msg)
     }
 
     // do not use the class for locking, otherwise you get recursion because of STACKLOG
+    // UPDATE: 2016/05 only_a_ptr: STACKLOG was removed, TODO verify this
     pthread_mutex_lock(log_mutex.getRaw());
-        
+
     if(file && level >= log_level[LOGTYPE_FILE])
     {
 /* FIXME If you need this feature, use copytruncate option for logrotate for now
@@ -189,26 +190,3 @@ const char *Logger::loglevelname[] = {"STACK", "DEBUG", "VERBO", "INFO", "WARN",
 bool Logger::compress_file = false;
 UTFString Logger::logfilename = "server.log";
 
-
-// SCOPELOG
-
-ScopeLog::ScopeLog(const LogLevel& level, const char* format, ...)
-: level(level)
-{
-    va_list args;
-    va_start(args, format);
-    msg = msg + format_arg_list(format, args);
-    va_end(args);
-    
-    Logger::log(level, "ENTER - %s", msg.asUTF8_c_str());
-}
-ScopeLog::ScopeLog(const LogLevel& level, const UTFString& func)
-: msg(func), level(level)
-{
-    Logger::log(level, "ENTER - %s", msg.asUTF8_c_str());
-}
-
-ScopeLog::~ScopeLog()
-{
-    Logger::log(level, "EXIT - %s", msg.asUTF8_c_str());
-}

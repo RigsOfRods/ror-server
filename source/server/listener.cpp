@@ -39,7 +39,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 void *s_lsthreadstart(void* vid)
 {
-    STACKLOG;
     ((Listener*)vid)->threadstart();
     return NULL;
 }
@@ -51,7 +50,6 @@ Listener::Listener(int port, pthread_mutex_t* ready_mtx, pthread_cond_t* ready_c
     m_ready_cond(ready_cond),
     m_ready_value(ready_value)
 {
-    STACKLOG;
     running = true;
     //start a listener thread
     pthread_create(&thread, NULL, s_lsthreadstart, this);
@@ -59,7 +57,6 @@ Listener::Listener(int port, pthread_mutex_t* ready_mtx, pthread_cond_t* ready_c
 
 Listener::~Listener(void)
 {
-    STACKLOG;
     //pthread_join( thread, NULL );
     running = false;
     listSocket.set_timeout(1,0);
@@ -76,7 +73,6 @@ void Listener::signalReady()
 
 void Listener::threadstart()
 {
-    STACKLOG;
     Logger::log(LOG_DEBUG,"Listerer thread starting");
     //here we start
     SWBaseSocket::SWBaseError error;

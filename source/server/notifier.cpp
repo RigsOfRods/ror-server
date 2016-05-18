@@ -42,14 +42,12 @@ Notifier::Notifier():
     advertised(false),
     is_active(false)
 {
-    STACKLOG;
     memset( &httpresp, 0, 65536);
     memset( &challenge, 0, 256);
 }
 
 Notifier::~Notifier(void)
 {
-    STACKLOG;
     exit = true;
 }
 
@@ -65,7 +63,6 @@ void Notifier::deactivate()
 
 bool Notifier::registerServer()
 {
-    STACKLOG;
     char regurl[1024];
     int responseformat = 2;
     sprintf(regurl, "%s/register/?name=%s&description=%s&ip=%s&port=%i&"
@@ -159,7 +156,6 @@ bool Notifier::registerServer()
 
 bool Notifier::unregisterServer()
 {
-    STACKLOG;
     if(!wasregistered || !advertised)
         return false;
     char unregurl[1024];
@@ -173,7 +169,6 @@ bool Notifier::unregisterServer()
 
 bool Notifier::sendHearbeat()
 {
-    STACKLOG;
     char hearbeaturl[1024] = "";
     char hearbeatdata[16384] = "";
     memset(hearbeatdata, 0, 16384);
@@ -190,8 +185,6 @@ bool Notifier::sendHearbeat()
 
 void Notifier::loop()
 {
-    STACKLOG;
-    
     if (!advertised && Config::getServerMode() == SERVER_AUTO)
     {
         Logger::log(LOG_WARN, "using LAN mode, probably no internet users will "
@@ -244,7 +237,6 @@ void Notifier::loop()
 
 int Notifier::HTTPGET(const char* URL)
 {
-    STACKLOG;
     int res=0;
     SWBaseSocket::SWBaseError error;
     SWInetSocket mySocket;
@@ -289,7 +281,6 @@ int Notifier::HTTPGET(const char* URL)
 
 int Notifier::HTTPPOST(const char* URL, const char* data)
 {
-    STACKLOG;
     int res=0;
     SWBaseSocket::SWBaseError error;
     SWInetSocket mySocket;

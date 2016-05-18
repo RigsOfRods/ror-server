@@ -34,7 +34,7 @@ void Mutex::lock()
 {
     // check for deadlock, if this occurs raise an abort signal to stop the
     // debugger
-    STACKLOG;
+
     if( ThreadID::getID() == lock_owner )
         raise( SIGABRT );
     pthread_mutex_lock(&m);
@@ -42,7 +42,6 @@ void Mutex::lock()
 } 
 void Mutex::unlock()
 {
-    STACKLOG;
     pthread_mutex_unlock(&m);
     lock_owner = 0;
 } 

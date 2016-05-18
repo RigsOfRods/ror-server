@@ -195,7 +195,6 @@ namespace Config
 //! runs a check that all the required fields are present
 bool checkConfig()
 {
-    
     switch ( getServerMode() )
     {
     case SERVER_AUTO:

@@ -71,7 +71,6 @@ std::string stream_register_get_name(stream_register_t* reg)
 
 void *s_sethreadstart(void* se)
 {
-    STACKLOG;
     ((ScriptEngine*)se)->timerLoop();
     return NULL;
 }

@@ -64,7 +64,6 @@ void tokenize(const std::string& str,
                 std::vector<std::string>& tokens,
                 const std::string& delimiters)
 {
-    STACKLOG;
     // Skip delimiters at beginning.
     std::string::size_type lastPos = str.find_first_not_of(delimiters, 0);
     // Find first "non-delimiter".
@@ -101,7 +100,6 @@ void strict_tokenize(const std::string& str,
 
 std::string trim(const std::string& str )
 {
-    STACKLOG;
     if(!str.size()) return str;
     return str.substr( str.find_first_not_of(" \t"), str.find_last_not_of(" \t")+1);
 }

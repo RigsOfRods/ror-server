@@ -72,7 +72,6 @@ std::string retrievePublicIpFromServer()
 
 void updateMinuteStats()
 {
-    STACKLOG;
     // normal bandwidth
     s_traffic.bandwidthIncomingRate       = (s_traffic.bandwidthIncoming - s_traffic.bandwidthIncomingLastMinute) / 60;
     s_traffic.bandwidthIncomingLastMinute = s_traffic.bandwidthIncoming;
@@ -96,7 +95,6 @@ void updateMinuteStats()
  */
 int sendmessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len, const char* content)
 {
-    STACKLOG;
     assert(socket != nullptr);
 
     SWBaseSocket::SWBaseError error;
@@ -164,8 +162,6 @@ int receivemessage(
         char* out_payload,
         unsigned int payload_buf_len)
 {
-    STACKLOG;
-
     assert(socket        != nullptr);
     assert(out_type      != nullptr);
     assert(out_source    != nullptr);

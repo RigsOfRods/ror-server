@@ -81,7 +81,6 @@ bool SHA1FromBuffer(char *result, const char *source, int len)
 }
 bool SHA1FromString(std::string &result, const std::string &sourceStr)
 {
-
     // init variables
     char sha1result_bin[20];
     memset(sha1result_bin, 0, 20);

@@ -27,7 +27,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 void *s_brthreadstart(void* vid)
 {
-    STACKLOG;
     Broadcaster* instance = ((Broadcaster*)vid);
     instance->threadstart();
 
@@ -45,15 +44,14 @@ void *s_brthreadstart(void* vid)
 #endif
     return NULL;
 }
+
 Broadcaster::Broadcaster()
 :   id( 0 ), sock( NULL ), running( false )
 {
-    STACKLOG;
 }
 
 Broadcaster::~Broadcaster()
 {
-    STACKLOG;
 }
 
 void Broadcaster::reset(int uid, SWInetSocket *socky,
@@ -61,7 +59,7 @@ void Broadcaster::reset(int uid, SWInetSocket *socky,
         int (*sendmessage_func)(SWInetSocket*, int, int, unsigned int, unsigned int, const char*),
         void (*dropmessage_func)(int) )
 {
-    STACKLOG;
+
     id          = uid;
     sock        = socky;
     running     = true;
@@ -80,7 +78,6 @@ void Broadcaster::reset(int uid, SWInetSocket *socky,
 
 void Broadcaster::stop()
 {
-    STACKLOG;
     queue_mutex.lock();
     running = false;
     queue_cv.signal();
@@ -94,7 +91,6 @@ void Broadcaster::stop()
 
 void Broadcaster::threadstart()
 {
-    STACKLOG;
     queue_entry_t msg;
     Logger::log( LOG_DEBUG, "broadcaster thread %u owned by uid %d", ThreadID::getID(), id);
     while( running )
@@ -136,7 +132,6 @@ void Broadcaster::threadstart()
 //also, this function can be called by threads owning clients_mutex !!!
 void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigned int len, const char* data)
 {
-    STACKLOG;
     if( !running ) return;
     // for now lets just queue msgs in the order received to make things simple
     queue_entry_t msg = { BC_QUEUE_OK, type, uid, streamid, "", len};
@@ -176,7 +171,6 @@ void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigne
         //signal the thread that new data is waiting to be sent
         queue_cv.signal();
     }
-
 }
 
 void Broadcaster::debugMessageQueue()

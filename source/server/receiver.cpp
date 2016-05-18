@@ -28,7 +28,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 void *s_lithreadstart(void* vid)
 {
-    STACKLOG;
     ((Receiver*)vid)->threadstart();
 #ifdef _WIN32	
     Logger::log( LOG_DEBUG, "Receiver thread %u:%u is exiting",
@@ -41,18 +40,16 @@ void *s_lithreadstart(void* vid)
 Receiver::Receiver()
 : id(0), sock(NULL), running( false )
 {
-    STACKLOG;
+
 }
 
 Receiver::~Receiver(void)
 {
-    STACKLOG;
     stop();
 }
 
 void Receiver::reset(int pos, SWInetSocket *socky)
 {
-    STACKLOG;
     id    = pos;
     sock  = socky;
     running = true;
@@ -63,7 +60,6 @@ void Receiver::reset(int pos, SWInetSocket *socky)
 
 void Receiver::stop()
 {
-    STACKLOG;
     if(!running) return; // already called, discard call
     running = false;
 #ifdef _WIN32
@@ -75,7 +71,6 @@ void Receiver::stop()
 
 void Receiver::threadstart()
 {
-    STACKLOG;
     Logger::log( LOG_DEBUG, "receiver thread %d owned by uid %d", ThreadID::getID(), id);
     //get the vehicle description
     int type;

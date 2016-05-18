@@ -38,7 +38,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 UserAuth::UserAuth(std::string _challenge, int _trustlevel, std::string authFile)
 {
-    STACKLOG;
     challenge  = _challenge;
     trustlevel = _trustlevel;
     readConfig(authFile.c_str());
@@ -46,12 +45,10 @@ UserAuth::UserAuth(std::string _challenge, int _trustlevel, std::string authFile
 
 UserAuth::~UserAuth(void)
 {
-    STACKLOG;
 }
 
 int UserAuth::readConfig(const char* authFile)
 {
-    STACKLOG;
     FILE *f = fopen(authFile, "r");
     if (!f)
     {
@@ -137,8 +134,6 @@ int UserAuth::setUserAuth(int flags, UTFString user_nick, std::string token)
 
 int UserAuth::sendUserEvent(std::string user_token, std::string type, std::string arg1, std::string arg2)
 {
-    STACKLOG;
-    
     // Only contact the master server if we are allowed to do so
     if(trustlevel<=1) return 0;
     
@@ -167,8 +162,6 @@ std::string UserAuth::getNewPlayernameByID(int id)
 
 int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid)
 {
-    STACKLOG;
-
     // There's alot of other info in the user token variable, but we don't need it here.
     // We only need the first 40 characters = the actual (encoded) token.
     user_token = user_token.substr(0,40);
@@ -265,8 +258,6 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
 
 int UserAuth::HTTPGET(const char* URL, HttpMsg &resp)
 {
-    STACKLOG;
-    
     if(trustlevel<=1)
     {
         // If this happens, then you did something wrong in the server code

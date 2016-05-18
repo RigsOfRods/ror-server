@@ -85,27 +85,3 @@ private:
     static std::deque <log_save_t> loghistory;
     static Mutex log_mutex;
 };
-
-class ScopeLog
-{
-public:
-    ScopeLog(const LogLevel& level, const char* format, ...);
-    ScopeLog(const LogLevel& level, const UTFString& func);
-    ~ScopeLog();
-private:
-    UTFString msg;
-    const LogLevel level;
-};
-
-
-// macros for crossplatform compiling
-#ifndef __GNUC__
-    #define __PRETTY_FUNCTION__ __FUNCTION__
-#endif
-
-#ifndef NOSTACKLOG
-#define STACKLOG ScopeLog stacklog( LOG_STACK, __PRETTY_FUNCTION__ )
-#else
-#define STACKLOG {}
-#endif
-

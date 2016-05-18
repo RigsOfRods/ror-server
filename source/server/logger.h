@@ -26,7 +26,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "UTFString.h"
 
 #include <string>
-#include <deque>
 
 enum LogLevel
 {
@@ -45,14 +44,6 @@ enum LogType
     LOGTYPE_DISPLAY
 };
 
-typedef struct log_save_t
-{
-    LogLevel level;
-    int threadid;
-    UTFString time;
-    UTFString msg;
-} log_save_t;
-
 //extern int loglevel;
 void logmsgf(const LogLevel& level, const char* format, ...);
 
@@ -70,7 +61,6 @@ public:
 
     static void setCallback(void (*ptr)(int, UTFString msg, UTFString msgf));
 
-    static std::deque <log_save_t> getLogHistory();
     static const char *getLoglevelName(int i) { return loglevelname[i]; };
 private:
     Logger();
@@ -82,6 +72,5 @@ private:
     static UTFString logfilename;
     static bool compress_file;
     static void (*callback)(int, UTFString msg, UTFString msgf);
-    static std::deque <log_save_t> loghistory;
     static Mutex log_mutex;
 };

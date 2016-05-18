@@ -35,7 +35,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <sys/stat.h>
 #endif //_WIN32
 
-std::deque <log_save_t> Logger::loghistory;
 Mutex Logger::log_mutex;
 
 // take care about mutexes: only manual lock in the Logger, otherwise you 
@@ -124,29 +123,7 @@ void Logger::log(const LogLevel& level, const UTFString& msg)
         callback(level, msg, UTFString(tmp) + msg + "\n");
     }
 
-    // save history
-    if(level > LOG_STACK)
-    {
-        if(loghistory.size() > 500)
-            loghistory.pop_front();
-        log_save_t h;
-        h.level = level;
-        h.threadid = ThreadID::getID();
-        h.time = UTFString(time_str);
-        h.msg = msg;
-        loghistory.push_back(h);
-    }
-
     pthread_mutex_unlock(log_mutex.getRaw());
-}
-
-std::deque <log_save_t> Logger::getLogHistory()
-{
-    pthread_mutex_lock(log_mutex.getRaw());
-    // copy history while locked
-    std::deque <log_save_t> history = loghistory;
-    pthread_mutex_unlock(log_mutex.getRaw());
-    return history; // return copied history
 }
 
 void Logger::setOutputFile(const UTFString& filename)

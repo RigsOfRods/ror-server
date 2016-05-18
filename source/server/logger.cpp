@@ -35,12 +35,11 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <sys/stat.h>
 #endif //_WIN32
 
-static FILE *file = nullptr;
-static LogLevel log_level[2] = { LOG_VERBOSE, LOG_INFO };
-static const char *loglevelname[] = { "STACK", "DEBUG", "VERBO", "INFO", "WARN", "ERROR" };
-static UTFString logfilename = "server.log";
-static bool compress_file = false;
-static Mutex log_mutex;
+static FILE*       s_file              = nullptr;
+static LogLevel    s_log_level[2]      = { LOG_VERBOSE, LOG_INFO };
+static const char* s_log_level_names[] = { "STACK", "DEBUG", "VERBO", "INFO", "WARN", "ERROR" };
+static UTFString   s_log_filename      = "server.log";
+static Mutex       s_log_mutex;
 
 // take care about mutexes: only manual lock in the Logger, otherwise you 
 // could possibly start a recursion that ends in a deadlock
@@ -49,12 +48,18 @@ static Mutex log_mutex;
 // http://senzee.blogspot.com/2006/05/c-formatting-stdstring.html
 UTFString format_arg_list(const char *fmt, va_list args)
 {
-    if (!fmt) return "";
+    if (!fmt)
+    {
+        return "";
+    }
     int   result = -1, length = 256;
     char *buffer = 0;
     while (result == -1)
     {
-        if (buffer) delete [] buffer;
+        if (buffer)
+        {
+            delete[] buffer;
+        }
         buffer = new char [length + 1];
         memset(buffer, 0, length + 1);
         result = vsnprintf(buffer, length, fmt, args);
@@ -80,47 +85,50 @@ void Log(const LogLevel& level, const UTFString& msg)
     time_t current_time = time(nullptr);
     char time_str[] = "DD-MM-YYYY hh:mm:ss"; // Placeholder
     strftime(time_str, 20, "%d-%m-%Y %H:%M:%S", localtime(&current_time));
+    const char* level_str = s_log_level_names[(int)level];
 
-    if (level >= log_level[LOGTYPE_DISPLAY])
+    if (level >= s_log_level[LOGTYPE_DISPLAY])
     {
-        printf("%s|t%02d|%5s|%s\n", time_str, ThreadID::getID(), loglevelname[(int)level], msg.asUTF8_c_str());
+        printf("%s|t%02d|%5s|%s\n", time_str, ThreadID::getID(), level_str, msg.asUTF8_c_str());
     }
 
     // do not use the class for locking, otherwise you get recursion because of STACKLOG
     // UPDATE: 2016/05 only_a_ptr: STACKLOG was removed, TODO verify this
-    pthread_mutex_lock(log_mutex.getRaw());
+    pthread_mutex_lock(s_log_mutex.getRaw());
 
-    if(file && level >= log_level[LOGTYPE_FILE])
+    if(s_file && level >= s_log_level[LOGTYPE_FILE])
     {
 /* FIXME If you need this feature, use copytruncate option for logrotate for now
 #ifndef _WIN32
         
-        // check if we need to reopen the file (i.e. moved by logrotate)
+        // check if we need to reopen the s_file (i.e. moved by logrotate)
         struct stat mystat;
-        if (stat(logfilename.asUTF8_c_str(), &mystat))
+        if (stat(s_log_filename.asUTF8_c_str(), &mystat))
         {		
-            freopen(logfilename.asUTF8_c_str(), "a+", file);
+            freopen(s_log_filename.asUTF8_c_str(), "a+", s_file);
         }
 #endif // _WIN32
 */
-        fprintf(file, "%s|t%02d|%5s| %s\n", time_str, ThreadID::getID(), loglevelname[(int)level], msg.asUTF8_c_str());
-        fflush(file);
+        fprintf(s_file, "%s|t%02d|%5s| %s\n", time_str, ThreadID::getID(), level_str, msg.asUTF8_c_str());
+        fflush(s_file);
     }
 
-    pthread_mutex_unlock(log_mutex.getRaw());
+    pthread_mutex_unlock(s_log_mutex.getRaw());
 }
 
 void SetOutputFile(const UTFString& filename)
 {
-    logfilename = filename;
-    if(file)
-        fclose(file);
-    file = fopen(logfilename.asUTF8_c_str(), "a+");
+    s_log_filename = filename;
+    if (s_file)
+    {
+        fclose(s_file);
+    }
+    s_file = fopen(s_log_filename.asUTF8_c_str(), "a+");
 }
 
 void SetLogLevel(const LogType type, const LogLevel level)
 {
-    log_level[(int)type] = level;
+    s_log_level[(int)type] = level;
 }
 
 } // namespace Logger

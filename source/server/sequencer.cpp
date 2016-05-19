@@ -1201,25 +1201,6 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
         {
             sendMOTD(uid);
         }
-
-        // add to chat log
-        {
-            time_t lotime = time(NULL);
-            char timestr[50];
-            memset(timestr, 0, 50);
-            ctime_r(&lotime, timestr);
-            // remove trailing new line
-            timestr[strlen(timestr)-1]=0;
-
-            if(instance->chathistory.size() > 500)
-                instance->chathistory.pop_front();
-            chat_save_t ch;
-            ch.msg    = str;
-            ch.nick   = tryConvertUTF(instance->clients[pos]->user.username);
-            ch.source = instance->clients[pos]->user.uniqueid;
-            ch.time   = std::string(timestr);
-            instance->chathistory.push_back(ch);
-        }
     }
     else if (type==MSG2_UTF_PRIVCHAT)
     {
@@ -1321,13 +1302,6 @@ Notifier *Sequencer::getNotifier()
 {
     Sequencer* instance = Instance();
     return &instance->notifier;
-}
-
-
-std::deque <chat_save_t> Sequencer::getChatHistory()
-{
-    Sequencer* instance = Instance();
-    return instance->chathistory;
 }
 
 std::vector<client_t> Sequencer::getClients()

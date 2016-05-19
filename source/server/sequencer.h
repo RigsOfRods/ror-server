@@ -121,14 +121,6 @@ struct ban_t
     char banmsg[256];           //!< why he got banned
 };
 
-typedef struct chat_save_t
-{
-    int source;
-    std::string time;
-    UTFString nick;
-    UTFString msg;
-} chat_save_t;
-
 class Sequencer
 {
 private:
@@ -146,7 +138,6 @@ private:
                             //!< client connections, it is allocated
     unsigned int fuid;      //!< next userid
     std::queue<client_t*> killqueue; //!< holds pointer for client deletion
-    std::deque <chat_save_t> chathistory;
     int botCount;           //!< Amount of registered bots on the server.
     
     int startTime;
@@ -214,8 +205,6 @@ public:
     static std::vector<client_t> getClients();
     static int getStartTime();
     void broadcastUserInfo(int uid);
-
-    static std::deque <chat_save_t> getChatHistory();
 
     static unsigned int connCrash, connCount;
 

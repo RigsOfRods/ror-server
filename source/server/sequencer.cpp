@@ -175,7 +175,7 @@ void Sequencer::notifyRoutine()
     instance->notifier.loop();
 }
 
-bool Sequencer::checkNickUnique(UTFString &nick)
+bool Sequencer::CheckNickIsUnique(UTFString &nick)
 {
     // WARNING: be sure that this is only called within a clients_mutex lock!
 
@@ -193,7 +193,7 @@ bool Sequencer::checkNickUnique(UTFString &nick)
 }
 
 
-int Sequencer::getFreePlayerColour()
+int Sequencer::GetFreePlayerColour()
 {
     // WARNING: be sure that this is only called within a clients_mutex lock!
 
@@ -222,8 +222,8 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
     MutexLocker scoped_lock(instance->clients_mutex);
     
     UTFString nick = tryConvertUTF(user.username);
-    bool dupeNick = Sequencer::checkNickUnique(nick);
-    int playerColour = Sequencer::getFreePlayerColour();
+    bool dupeNick = Sequencer::CheckNickIsUnique(nick);
+    int playerColour = Sequencer::GetFreePlayerColour();
 
     int dupecounter = 2;
 
@@ -263,7 +263,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 
             newNick = nick + UTFString(buf);
 
-            dupeNick = Sequencer::checkNickUnique(newNick);
+            dupeNick = Sequencer::CheckNickIsUnique(newNick);
         }
         Logger::Log(LOG_WARN, UTFString("chose alternate username: ") + newNick);
 
@@ -413,7 +413,7 @@ int Sequencer::getNumClients()
     return (int)instance->clients.size();
 }
 
-int Sequencer::authNick(std::string token, UTFString &nickname)
+int Sequencer::AuthorizeNick(std::string token, UTFString &nickname)
 {
     Sequencer* instance = Instance();
     MutexLocker scoped_lock(instance->clients_mutex);

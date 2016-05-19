@@ -189,9 +189,9 @@ public:
     static int sendGameCommand(int uid, std::string cmd);
     static void serverSayThreadSave(std::string msg, int notto=-1, int type=0);
     
-    static bool checkNickUnique(UTFString &nick);
-    static int getFreePlayerColour();
-    static int authNick(std::string token, UTFString &nickname);
+    static bool CheckNickIsUnique(UTFString &nick);
+    static int GetFreePlayerColour();
+    static int AuthorizeNick(std::string token, UTFString &nickname);
 
     static bool Kick(int to_kick_uid, int modUID, const char *msg=0);
     static bool Ban(int to_ban_uid, int modUID, const char *msg=0);

@@ -204,7 +204,7 @@ void Listener::threadstart()
             UTFString nickname = tryConvertUTF(user->username);
             
             // authenticate
-            int authflags = Sequencer::authNick(std::string(user->usertoken), nickname);
+            int authflags = Sequencer::AuthorizeNick(std::string(user->usertoken), nickname);
 
             // now copy the resulting nickname over, server enforced
             // and back (WC TO MB)

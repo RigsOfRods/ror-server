@@ -199,13 +199,14 @@ int Sequencer::GetFreePlayerColour()
 
     int col = 0;
     Sequencer* instance = Instance();
-recheck_col:
-    for (unsigned int i = 0; i < instance->clients.size(); i++)
+    for (; col < 50; col++) // TODO: How many colors ARE there?
     {
-        if(instance->clients[i]->user.colournum == col)
+        for (unsigned int i = 0; i < instance->clients.size(); i++)
         {
-            col++;
-            goto recheck_col;
+            if (instance->clients[i]->user.colournum == col)
+            {
+                break;
+            }
         }
     }
     return col;

@@ -1001,13 +1001,13 @@ void ServerScript::kick(int kuid, std::string &msg)
 
 void ServerScript::ban(int buid, std::string &msg)
 {
-    seq->silentBan(buid, msg.c_str(), false);
+    seq->SilentBan(buid, msg.c_str(), false);
     mse->playerDeleted(buid, 0, true);
 }
 
 bool ServerScript::unban(int buid)
 {
-    return seq->unban(buid);
+    return seq->UnBan(buid);
 }
 
 std::string ServerScript::getUserName(int uid)

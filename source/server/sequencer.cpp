@@ -229,7 +229,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 
     // check if banned
     SWBaseSocket::SWBaseError error;
-    if(Sequencer::isbanned(sock->get_peerAddr(&error).c_str()))
+    if(Sequencer::IsBanned(sock->get_peerAddr(&error).c_str()))
     {
         Logger::Log(LOG_VERBOSE,"rejected banned IP %s", sock->get_peerAddr(&error).c_str());
         Messaging::sendmessage(sock, MSG2_BANNED, 0, 0, 0, 0);
@@ -664,7 +664,7 @@ void Sequencer::serverSayThreadSave(std::string msg, int uid, int type)
     instance->serverSay(msg, uid, type);
 }
 
-bool Sequencer::kick(int kuid, int modUID, const char *msg)
+bool Sequencer::Kick(int kuid, int modUID, const char *msg)
 {
     Sequencer* instance = Instance();
     unsigned short pos = instance->getPosfromUid(kuid);
@@ -690,7 +690,7 @@ bool Sequencer::kick(int kuid, int modUID, const char *msg)
     return true;
 }
 
-bool Sequencer::ban(int buid, int modUID, const char *msg)
+bool Sequencer::Ban(int buid, int modUID, const char *msg)
 {
     Sequencer* instance = Instance();
     unsigned short pos = instance->getPosfromUid(buid);
@@ -719,10 +719,10 @@ bool Sequencer::ban(int buid, int modUID, const char *msg)
     }
     strcat(tmp, " (banned)");
 
-    return kick(buid, modUID, tmp);
+    return Kick(buid, modUID, tmp);
 }
 
-void Sequencer::silentBan(int buid, const char *msg, bool doScriptCallback /*= true*/)
+void Sequencer::SilentBan(int buid, const char *msg, bool doScriptCallback /*= true*/)
 {
     Sequencer* instance = Instance();
     unsigned short pos = instance->getPosfromUid(buid);
@@ -754,7 +754,7 @@ void Sequencer::silentBan(int buid, const char *msg, bool doScriptCallback /*= t
         Logger::Log(LOG_ERROR, "void Sequencer::ban(%d, %s) --> uid %d not found!", buid, msg, buid);
 }
 
-bool Sequencer::unban(int buid)
+bool Sequencer::UnBan(int buid)
 {
     Sequencer* instance = Instance();
     for (unsigned int i = 0; i < instance->bans.size(); i++)
@@ -769,7 +769,7 @@ bool Sequencer::unban(int buid)
     return false;
 }
 
-bool Sequencer::isbanned(const char *ip)
+bool Sequencer::IsBanned(const char *ip)
 {
     if(!ip) return false;
 
@@ -1053,7 +1053,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                     serverSay(std::string("example: !unban 3"), uid);
                 } else
                 {
-                    if(unban(buid))
+                    if(UnBan(buid))
                         serverSay(std::string("ban removed"), uid);
                     else
                         serverSay(std::string("ban not removed: error"), uid);
@@ -1079,7 +1079,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                     serverSay(std::string("example: !ban 3 swearing"), uid);
                 } else
                 {
-                    bool banned = ban(buid, uid, narrow(str.asWStr()).substr(6+intlen(buid),256).c_str());
+                    bool banned = Ban(buid, uid, narrow(str.asWStr()).substr(6+intlen(buid),256).c_str());
                     if(!banned)
                         serverSay(std::string("kick + ban not successful: uid not found!"), uid);
                 }
@@ -1104,7 +1104,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                     serverSay(std::string("example: !kick 3 bye!"), uid);
                 } else
                 {
-                    bool kicked  = kick(kuid, uid, narrow(str.asWStr()).substr(7+intlen(kuid),256).c_str());
+                    bool kicked  = Kick(kuid, uid, narrow(str.asWStr()).substr(7+intlen(kuid),256).c_str());
                     if(!kicked)
                         serverSay(std::string("kick not successful: uid not found!"), uid);
                 }
@@ -1304,7 +1304,7 @@ Notifier *Sequencer::getNotifier()
     return &instance->notifier;
 }
 
-std::vector<client_t> Sequencer::getClients()
+std::vector<client_t> Sequencer::GetClientList()
 {
     Sequencer* instance = Instance();
     std::vector<client_t> res;
@@ -1424,12 +1424,3 @@ unsigned short Sequencer::getPosfromUid(unsigned int uid)
     Logger::Log( LOG_DEBUG, "could not find uid %d", uid);
     return UID_NOT_FOUND;
 }
-
-void Sequencer::unregisterServer()
-{
-    if (Instance()->notifier.isActive())
-    {
-        Instance()->notifier.unregisterServer();
-    }
-}
-

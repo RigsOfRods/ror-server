@@ -193,16 +193,14 @@ public:
     static int getFreePlayerColour();
     static int authNick(std::string token, UTFString &nickname);
 
-    static void  unregisterServer();
-
-    static bool kick(int to_kick_uid, int modUID, const char *msg=0);
-    static bool ban(int to_ban_uid, int modUID, const char *msg=0);
-    static void silentBan(int to_ban_uid, const char *msg=0, bool doScriptCallback=true);
-    static bool unban(int buid);
-    static bool isbanned(const char *ip);
+    static bool Kick(int to_kick_uid, int modUID, const char *msg=0);
+    static bool Ban(int to_ban_uid, int modUID, const char *msg=0);
+    static void SilentBan(int to_ban_uid, const char *msg=0, bool doScriptCallback=true);
+    static bool UnBan(int buid);
+    static bool IsBanned(const char *ip);
     static void streamDebug();
 
-    static std::vector<client_t> getClients();
+    static std::vector<client_t> GetClientList();
     static int getStartTime();
     void broadcastUserInfo(int uid);
 

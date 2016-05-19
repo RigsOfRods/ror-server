@@ -95,7 +95,7 @@ void handler(int signalnum)
         else
         {
             Logger::Log(LOG_ERROR,"closing server ... unregistering ... ");
-            Sequencer::unregisterServer();
+            Sequencer::getNotifier()->unregisterServer();
             Logger::Log(LOG_ERROR," unregistered.");
             Sequencer::cleanUp();
         }

@@ -44,11 +44,12 @@ void *s_lsthreadstart(void* vid)
 }
 
 
-Listener::Listener(int port, pthread_mutex_t* ready_mtx, pthread_cond_t* ready_cond, int* ready_value):
+Listener::Listener(Sequencer* sequencer, int port, pthread_mutex_t* ready_mtx, pthread_cond_t* ready_cond, int* ready_value):
     lport(port),
     m_ready_mtx(ready_mtx),
     m_ready_cond(ready_cond),
-    m_ready_value(ready_value)
+    m_ready_value(ready_value),
+    m_sequencer(sequencer)
 {
     running = true;
     //start a listener thread
@@ -204,7 +205,7 @@ void Listener::threadstart()
             UTFString nickname = tryConvertUTF(user->username);
             
             // authenticate
-            int authflags = Sequencer::AuthorizeNick(std::string(user->usertoken), nickname);
+            int authflags = m_sequencer->AuthorizeNick(std::string(user->usertoken), nickname);
 
             // now copy the resulting nickname over, server enforced
             // and back (WC TO MB)
@@ -232,7 +233,7 @@ void Listener::threadstart()
             }
 
             //create a new client
-            Sequencer::createClient(ts, *user); // copy the user info, since the buffer will be cleared soon
+            m_sequencer->createClient(ts, *user); // copy the user info, since the buffer will be cleared soon
             Logger::Log(LOG_DEBUG,"listener returned!");
         }
         catch(std::runtime_error e)

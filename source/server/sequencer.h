@@ -143,65 +143,61 @@ private:
     int startTime;
     unsigned short getPosfromUid(unsigned int uid);
 
-protected:
-    Sequencer();
-    ~Sequencer();
-    //! method to access the singleton instance
-    static Sequencer* Instance();
-    static Sequencer* mInstance;
-
 public:
 
-    static void initialize(Listener* listener);
-    static void activateUserAuth();
-    static void registerServer();
+    Sequencer();
+    ~Sequencer();
+
+    void initialize(Listener* listener);
+    void activateUserAuth();
+    void registerServer();
 
     //! destructor call, used for clean up
-    static void cleanUp();
+    void cleanUp();
     
     //! initilize client information
-    static void createClient(SWInetSocket *sock, user_info_t  user);
+    void createClient(SWInetSocket *sock, user_info_t  user);
     
     //! call to start the thread to disconnect clients from the server.
-    static void killerthreadstart();
+    void killerthreadstart();
     
     //! queue client for disconenct
-    static void disconnect(int pos, const char* error, bool isError=true, bool doScriptCallback=true);
+    void disconnect(int pos, const char* error, bool isError=true, bool doScriptCallback=true);
 
-    static void queueMessage(int pos, int type, unsigned int streamid, char* data, unsigned int len);
-    static void enableFlow(int id);
-    static int sendMOTD(int id);
+    void queueMessage(int pos, int type, unsigned int streamid, char* data, unsigned int len);
+    void enableFlow(int id);
+    int sendMOTD(int id);
     
-    static void notifyRoutine();
-    static void notifyAllVehicles(int id, bool lock=true);
+    void notifyRoutine();
+    void notifyAllVehicles(int id, bool lock=true);
 
-    static UserAuth* getUserAuth();
-    static ScriptEngine* getScriptEngine();
-    static Notifier *getNotifier();
+    UserAuth* getUserAuth();
+    ScriptEngine* getScriptEngine();
+    Notifier *getNotifier();
 
-    static int getNumClients(); //! number of clients connected to this server
-    static client_t *getClient(int uid);
-    static int getHeartbeatData(char *challenge, char *hearbeatdata);
+    int getNumClients(); //! number of clients connected to this server
+    client_t *getClient(int uid);
+    int getHeartbeatData(char *challenge, char *hearbeatdata);
     //! prints the Stats view, of who is connected and what slot they are in
-    static void printStats();
-    static void updateMinuteStats();
-    static void serverSay(std::string msg, int notto=-1, int type=0);
-    static int sendGameCommand(int uid, std::string cmd);
-    static void serverSayThreadSave(std::string msg, int notto=-1, int type=0);
+    void printStats();
+    void updateMinuteStats();
+    void serverSay(std::string msg, int notto=-1, int type=0);
+    int sendGameCommand(int uid, std::string cmd);
+    void serverSayThreadSave(std::string msg, int notto=-1, int type=0);
     
-    static bool CheckNickIsUnique(UTFString &nick);
-    static int GetFreePlayerColour();
-    static int AuthorizeNick(std::string token, UTFString &nickname);
+    bool CheckNickIsUnique(UTFString &nick);
+    int GetFreePlayerColour();
+    int AuthorizeNick(std::string token, UTFString &nickname);
 
-    static bool Kick(int to_kick_uid, int modUID, const char *msg=0);
-    static bool Ban(int to_ban_uid, int modUID, const char *msg=0);
-    static void SilentBan(int to_ban_uid, const char *msg=0, bool doScriptCallback=true);
-    static bool UnBan(int buid);
-    static bool IsBanned(const char *ip);
-    static void streamDebug();
+    bool Kick(int to_kick_uid, int modUID, const char *msg=0);
+    bool Ban(int to_ban_uid, int modUID, const char *msg=0);
+    void SilentBan(int to_ban_uid, const char *msg=0, bool doScriptCallback=true);
+    bool UnBan(int buid);
+    bool IsBanned(const char *ip);
+    void streamDebug();
 
-    static std::vector<client_t> GetClientList();
-    static int getStartTime();
+    std::vector<client_t> GetClientList();
+    int getStartTime();
     void broadcastUserInfo(int uid);
 
     static unsigned int connCrash, connCount;

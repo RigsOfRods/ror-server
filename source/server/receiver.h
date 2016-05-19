@@ -25,6 +25,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <pthread.h>
 
 class SWInetSocket;
+class Sequencer;
 
 class Receiver
 {
@@ -34,8 +35,9 @@ private:
     SWInetSocket *sock;
     char dbuffer[MAX_MESSAGE_LENGTH];
     bool running;
+    Sequencer* m_sequencer;
 public:
-    Receiver();
+    Receiver(Sequencer* sequencer);
     ~Receiver(void);
     void reset(int pos, SWInetSocket *socky);
     void stop();

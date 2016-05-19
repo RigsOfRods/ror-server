@@ -27,6 +27,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <deque>
 
 class SWInetSocket;
+class Sequencer;
 
 enum {BC_QUEUE_OK, BC_QUEUE_DROP};
 
@@ -44,6 +45,7 @@ struct queue_entry_t
 class Broadcaster
 {
 private:
+    Sequencer* m_sequencer;
     pthread_t thread;
     Mutex queue_mutex;
     Condition queue_cv;
@@ -53,7 +55,6 @@ private:
     std::deque<queue_entry_t> msg_queue;
     
     bool running;
-    void (*disconnect)(int, const char*, bool, bool);
     int (*sendmessage)(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len, const char* content);
     void (*dropmessage)(int);
 
@@ -70,7 +71,7 @@ private:
     static const int queue_hard_limit = 300;
 
 public:
-    Broadcaster();
+    Broadcaster(Sequencer* sequencer);
     ~Broadcaster(void);
     /**
      * @param[in] uid   client id whom owns this broadcaster instance
@@ -79,7 +80,6 @@ public:
      * @param[in] sendmessage callback for send a message
      */
     void reset(int uid, SWInetSocket *socky,
-            void (*disconnect)(int uid, const char*, bool, bool),
             int (*sendmessage)(SWInetSocket *socket, int type,
                 int source, unsigned int streamid, unsigned int len, const char* content),
             void (*dropmessage)(int) );

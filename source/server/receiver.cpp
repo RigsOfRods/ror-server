@@ -37,8 +37,11 @@ void *s_lithreadstart(void* vid)
 }
 
 
-Receiver::Receiver()
-: id(0), sock(NULL), running( false )
+Receiver::Receiver(Sequencer* sequencer):
+    id(0),
+    sock(nullptr),
+    running(false),
+    m_sequencer(sequencer)
 {
 
 }
@@ -79,10 +82,10 @@ void Receiver::threadstart()
     unsigned int len;
     SWBaseSocket::SWBaseError error;
     //okay, we are ready, we can receive data frames
-    Sequencer::enableFlow(id);
+    m_sequencer->enableFlow(id);
 
     //send motd
-    Sequencer::sendMOTD(id);
+    m_sequencer->sendMOTD(id);
 
     Logger::Log(LOG_VERBOSE,"UID %d is switching to FLOW", id);
     
@@ -93,7 +96,7 @@ void Receiver::threadstart()
     {
         if (Messaging::receivemessage(sock, &type, &source, &streamid, &len, dbuffer, MAX_MESSAGE_LENGTH))
         {
-            Sequencer::disconnect(id, "Game connection closed");
+            m_sequencer->disconnect(id, "Game connection closed");
             break;
         }
         if( !running ) break;
@@ -103,9 +106,9 @@ void Receiver::threadstart()
         
         if (type < 1000 || type > 1050)
         {
-            Sequencer::disconnect(id, "Protocol error 3");
+            m_sequencer->disconnect(id, "Protocol error 3");
             break;
         }
-        Sequencer::queueMessage(id, type, streamid, dbuffer, len);
+        m_sequencer->queueMessage(id, type, streamid, dbuffer, len);
     }
 }

@@ -47,21 +47,11 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 using namespace std;
 
-void *s_klthreadstart(void* vid)
+void *s_klthreadstart(void* arg)
 {
-    ((Sequencer*)vid)->killerthreadstart();
-    return NULL;
-}
-
-// init the singleton pointer
-Sequencer* Sequencer::mInstance = NULL;
-
-/// retreives the instance of the Sequencer
-Sequencer* Sequencer::Instance()
-{
-    if(!mInstance)
-        mInstance = new Sequencer;
-    return mInstance;
+    Sequencer* sequencer = static_cast<Sequencer*>(arg);
+    sequencer->killerthreadstart();
+    return nullptr;
 }
 
 unsigned int Sequencer::connCrash = 0;
@@ -70,6 +60,7 @@ unsigned int Sequencer::connCount = 0;
 
 Sequencer::Sequencer():
     listener(nullptr),
+    notifier(this),
     authresolver(nullptr),
     fuid(1),
     botCount(0),
@@ -86,9 +77,7 @@ Sequencer::~Sequencer()
  */
 void Sequencer::initialize(Listener* listener)
 {
-    if(mInstance)
-        delete mInstance;
-    Sequencer* instance  = Instance();
+    Sequencer* instance  = this;
     instance->clients.reserve( Config::getMaxClients() );
     instance->listener = listener;
 
@@ -101,20 +90,20 @@ void Sequencer::initialize(Listener* listener)
     }
 #endif //WITH_ANGELSCRIPT
 
-    pthread_create(&instance->killerthread, NULL, s_klthreadstart, &instance);
+    pthread_create(&instance->killerthread, NULL, s_klthreadstart, instance);
     instance->notifier.activate();
 }
 
 void Sequencer::activateUserAuth()
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     instance->authresolver = new UserAuth(
         instance->notifier.getChallenge(), instance->notifier.getTrustLevel(), Config::getAuthFile());
 }
 
 void Sequencer::registerServer()
 {
-    Sequencer::Instance()->notifier.registerServer();
+    this->notifier.registerServer();
 }
 
 /**
@@ -127,7 +116,7 @@ void Sequencer::cleanUp()
     if(cleanup) return;
     cleanup=true;
 
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     Logger::Log(LOG_INFO,"closing. disconnecting clients ...");
     const char *str = "server shutting down (try to reconnect later!)";
     for( unsigned int i = 0; i < instance->clients.size(); i++)
@@ -163,15 +152,13 @@ void Sequencer::cleanUp()
     
     pthread_cancel(instance->killerthread);
     pthread_detach(instance->killerthread);
-    delete instance->mInstance;
-    mInstance = NULL;
     cleanup = false;
 }
 
 void Sequencer::notifyRoutine()
 {
     //we call the notify loop
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     instance->notifier.loop();
 }
 
@@ -180,7 +167,7 @@ bool Sequencer::CheckNickIsUnique(UTFString &nick)
     // WARNING: be sure that this is only called within a clients_mutex lock!
 
     // check for duplicate names
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     for (unsigned int i = 0; i < instance->clients.size(); i++)
     {
         UTFString a = tryConvertUTF(instance->clients[i]->user.username);
@@ -198,7 +185,7 @@ int Sequencer::GetFreePlayerColour()
     // WARNING: be sure that this is only called within a clients_mutex lock!
 
     int col = 0;
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     for (; col < 50; col++) // TODO: How many colors ARE there?
     {
         for (unsigned int i = 0; i < instance->clients.size(); i++)
@@ -215,7 +202,7 @@ int Sequencer::GetFreePlayerColour()
 //this is called by the Listener thread
 void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     //we have a confirmed client that wants to play
     //try to find a place for him
     Logger::Log(LOG_DEBUG,"got instance in createClient()");
@@ -295,8 +282,8 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
     Logger::Log(LOG_INFO, UTFString("New client: ") + tryConvertUTF(user.username) + tryConvertUTF(buf));
 
     // create new class instances for the receiving and sending thread
-    to_add->receiver    = new Receiver();
-    to_add->broadcaster = new Broadcaster();
+    to_add->receiver    = new Receiver(this);
+    to_add->broadcaster = new Broadcaster(this);
 
     // assign unique userid
     to_add->user.uniqueid = instance->fuid;
@@ -313,7 +300,6 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
     // and one for the broadcaster
     to_add->broadcaster->reset(to_add->user.uniqueid, 
                                 sock, 
-                                Sequencer::disconnect,
                                 Messaging::sendmessage,
                                 Messaging::addBandwidthDropOutgoing);
 
@@ -351,7 +337,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 // assuming client lock
 void Sequencer::broadcastUserInfo(int uid)
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
 
     unsigned short pos = instance->getPosfromUid(uid);
     if( UID_NOT_FOUND == pos ) return;
@@ -370,7 +356,7 @@ void Sequencer::broadcastUserInfo(int uid)
 //this is called from the hearbeat notifier thread
 int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     SWBaseSocket::SWBaseError error;
     int clientnum = getNumClients();
     // lock this mutex after getNumClients is called to avoid a deadlock
@@ -409,14 +395,14 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 
 int Sequencer::getNumClients()
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     MutexLocker scoped_lock(instance->clients_mutex);
     return (int)instance->clients.size();
 }
 
 int Sequencer::AuthorizeNick(std::string token, UTFString &nickname)
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     MutexLocker scoped_lock(instance->clients_mutex);
     if(!instance->authresolver)
         return AUTH_NONE;
@@ -425,13 +411,13 @@ int Sequencer::AuthorizeNick(std::string token, UTFString &nickname)
 
 ScriptEngine* Sequencer::getScriptEngine()
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     return instance->script;
 }
 
 void Sequencer::killerthreadstart()
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     Logger::Log(LOG_DEBUG,"Killer thread ready");
     while (1)
     {
@@ -474,7 +460,7 @@ void Sequencer::killerthreadstart()
 
 void Sequencer::disconnect(int uid, const char* errormsg, bool isError, bool doScriptCallback /*= true*/)
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
 
     MutexLocker scoped_lock(instance->killer_mutex);
     unsigned short pos = instance->getPosfromUid(uid);
@@ -525,7 +511,7 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError, bool doS
 //this is called from the listener thread initial handshake
 void Sequencer::enableFlow(int uid)
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
 
     MutexLocker scoped_lock(instance->clients_mutex);
     unsigned short pos = instance->getPosfromUid(uid);
@@ -555,14 +541,14 @@ int Sequencer::sendMOTD(int uid)
 
 UserAuth* Sequencer::getUserAuth()
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     return instance->authresolver;
 }
 
 //this is called from the listener thread initial handshake
 void Sequencer::notifyAllVehicles(int uid, bool lock)
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
 
     if(lock)
         MutexLocker scoped_lock(instance->clients_mutex);
@@ -602,7 +588,7 @@ void Sequencer::notifyAllVehicles(int uid, bool lock)
 
 int Sequencer::sendGameCommand(int uid, std::string cmd)
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
 
     // send
     const char *data = cmd.c_str();
@@ -629,7 +615,7 @@ int Sequencer::sendGameCommand(int uid, std::string cmd)
 // note: uid==-1==TO_ALL = broadcast your message to all players
 void Sequencer::serverSay(std::string msg, int uid, int type)
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
 
     if(type==FROM_SERVER)
         msg = std::string("SERVER: ") + msg;
@@ -660,14 +646,14 @@ void Sequencer::serverSay(std::string msg, int uid, int type)
 
 void Sequencer::serverSayThreadSave(std::string msg, int uid, int type)
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     //MutexLocker scoped_lock(instance->clients_mutex);
     instance->serverSay(msg, uid, type);
 }
 
 bool Sequencer::Kick(int kuid, int modUID, const char *msg)
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     unsigned short pos = instance->getPosfromUid(kuid);
     if( UID_NOT_FOUND == pos ) return false;
     unsigned short posMod = instance->getPosfromUid(modUID);
@@ -693,7 +679,7 @@ bool Sequencer::Kick(int kuid, int modUID, const char *msg)
 
 bool Sequencer::Ban(int buid, int modUID, const char *msg)
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     unsigned short pos = instance->getPosfromUid(buid);
     if( UID_NOT_FOUND == pos ) return false;
     unsigned short posMod = instance->getPosfromUid(modUID);
@@ -725,7 +711,7 @@ bool Sequencer::Ban(int buid, int modUID, const char *msg)
 
 void Sequencer::SilentBan(int buid, const char *msg, bool doScriptCallback /*= true*/)
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     unsigned short pos = instance->getPosfromUid(buid);
     if( UID_NOT_FOUND != pos )
     {
@@ -757,7 +743,7 @@ void Sequencer::SilentBan(int buid, const char *msg, bool doScriptCallback /*= t
 
 bool Sequencer::UnBan(int buid)
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     for (unsigned int i = 0; i < instance->bans.size(); i++)
     {
         if(((int)instance->bans[i]->uid) == buid)
@@ -774,7 +760,7 @@ bool Sequencer::IsBanned(const char *ip)
 {
     if(!ip) return false;
 
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     for (unsigned int i = 0; i < instance->bans.size(); i++)
     {
         if(!strcmp(instance->bans[i]->ip, ip))
@@ -785,7 +771,7 @@ bool Sequencer::IsBanned(const char *ip)
 
 void Sequencer::streamDebug()
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
 
     //MutexLocker scoped_lock(instance->clients_mutex);
 
@@ -812,7 +798,7 @@ void Sequencer::streamDebug()
 //this is called by the receivers threads, like crazy & concurrently
 void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* data, unsigned int len)
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
 
     MutexLocker scoped_lock(instance->clients_mutex);
     unsigned short pos = instance->getPosfromUid(uid);
@@ -1301,13 +1287,13 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 
 Notifier *Sequencer::getNotifier()
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     return &instance->notifier;
 }
 
 std::vector<client_t> Sequencer::GetClientList()
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     std::vector<client_t> res;
     MutexLocker scoped_lock(instance->clients_mutex);
     SWBaseSocket::SWBaseError error;
@@ -1323,14 +1309,14 @@ std::vector<client_t> Sequencer::GetClientList()
 
 int Sequencer::getStartTime()
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     return instance->startTime;
 }
 
 client_t *Sequencer::getClient(int uid)
 {
 
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
 
     unsigned short pos = instance->getPosfromUid(uid);
     if( UID_NOT_FOUND == pos ) return 0;
@@ -1340,7 +1326,7 @@ client_t *Sequencer::getClient(int uid)
 
 void Sequencer::updateMinuteStats()
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     for (unsigned int i=0; i<instance->clients.size(); i++)
     {
         if (instance->clients[i]->status == USED)
@@ -1360,7 +1346,7 @@ void Sequencer::updateMinuteStats()
 void Sequencer::printStats()
 {
     if(!Config::getPrintStats()) return;
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
     SWBaseSocket::SWBaseError error;
     {
         Logger::Log(LOG_INFO, "Server occupancy:");
@@ -1414,7 +1400,7 @@ void Sequencer::printStats()
 // used to access the clients from the array rather than using the array pos it's self.
 unsigned short Sequencer::getPosfromUid(unsigned int uid)
 {
-    Sequencer* instance = Instance();
+    Sequencer* instance = this;
 
     for (unsigned short i = 0; i < instance->clients.size(); i++)
     {

@@ -22,6 +22,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "logger.h"
 #include "SocketW.h"
+#include "sequencer.h"
 
 #include <map>
 
@@ -45,8 +46,11 @@ void *s_brthreadstart(void* vid)
     return NULL;
 }
 
-Broadcaster::Broadcaster()
-:   id( 0 ), sock( NULL ), running( false )
+Broadcaster::Broadcaster(Sequencer* sequencer):
+    m_sequencer(sequencer),
+    id(0),
+    sock(nullptr),
+    running(false)
 {
 }
 
@@ -55,7 +59,6 @@ Broadcaster::~Broadcaster()
 }
 
 void Broadcaster::reset(int uid, SWInetSocket *socky,
-        void (*disconnect_func)(int, const char*, bool, bool),
         int (*sendmessage_func)(SWInetSocket*, int, int, unsigned int, unsigned int, const char*),
         void (*dropmessage_func)(int) )
 {
@@ -63,7 +66,6 @@ void Broadcaster::reset(int uid, SWInetSocket *socky,
     id          = uid;
     sock        = socky;
     running     = true;
-    disconnect  = disconnect_func;
     sendmessage = sendmessage_func;
     dropmessage = dropmessage_func;
     dropstate   = 0;
@@ -114,7 +116,7 @@ void Broadcaster::threadstart()
             // TODO WARNING THE SOCKET IS NOT PROTECTED!!!
             if( sendmessage( sock, msg.type, msg.uid, msg.streamid, msg.datalen, msg.data ) )
             {
-                disconnect(id, "Broadcaster: Send error", true, true);
+                m_sequencer->disconnect(id, "Broadcaster: Send error", true, true);
                 return;
             }
         } else if(msg.process_type == BC_QUEUE_DROP)

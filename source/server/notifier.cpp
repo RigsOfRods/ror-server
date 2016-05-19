@@ -34,13 +34,14 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <stdlib.h>
 #endif
 
-Notifier::Notifier():
+Notifier::Notifier(Sequencer* sequencer):
     trustlevel(0),
     exit(false),
     wasregistered(false),
     error_count(0),
     advertised(false),
-    is_active(false)
+    is_active(false),
+    m_sequencer(sequencer)
 {
     memset( &httpresp, 0, 65536);
     memset( &challenge, 0, 256);
@@ -173,7 +174,7 @@ bool Notifier::sendHearbeat()
     char hearbeatdata[16384] = "";
     memset(hearbeatdata, 0, 16384);
     sprintf(hearbeaturl, "%s/heartbeat/", REPO_URLPREFIX);
-    if(Sequencer::getHeartbeatData(challenge, hearbeatdata))
+    if(m_sequencer->getHeartbeatData(challenge, hearbeatdata))
         return false;
 
     Logger::Log(LOG_DEBUG, "heartbeat data (%d bytes long) sent to master server: >>%s<<", strnlen(hearbeatdata, 16384), hearbeatdata);
@@ -201,7 +202,7 @@ void Notifier::loop()
     {
         // update some statistics (handy to use in here, as we have a minute-timer basically)
         Messaging::updateMinuteStats();
-        Sequencer::updateMinuteStats();
+        m_sequencer->updateMinuteStats();
         //Sequencer::printStats();
 
         //every minute

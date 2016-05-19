@@ -23,6 +23,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <pthread.h>
 #include "SocketW.h"
 
+class Sequencer;
+
 class Listener
 {
 private:
@@ -33,11 +35,12 @@ private:
     pthread_mutex_t* m_ready_mtx;
     pthread_cond_t* m_ready_cond;
     int* m_ready_value;
+    Sequencer* m_sequencer;
 
     /// Signals the main thread that we're ready to listen for connections.
     void signalReady();
 public:
-    Listener(int port, pthread_mutex_t* ready_mtx, pthread_cond_t* ready_cond, int* ready_value);
+    Listener(Sequencer* sequencer, int port, pthread_mutex_t* ready_mtx, pthread_cond_t* ready_cond, int* ready_value);
     ~Listener(void);
     void threadstart();
 };

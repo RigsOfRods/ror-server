@@ -22,6 +22,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "HttpMsg.h"
 
+class Sequencer;
+
 /**
  * The notifier class communicated with the master server, it is called from
  * the sequencer class via Sequencer::notifyRoutine. The loop method is
@@ -41,11 +43,12 @@ private:
     HttpMsg resp;          //!< holds the latest response fromt he master server
     bool advertised;
     bool is_active;
+    Sequencer* m_sequencer;
 
     bool sendHearbeat();   //!< send a heart beat message to the master server
 
 public:
-    Notifier();
+    Notifier(Sequencer* sequencer);
     
     ~Notifier(void);
 

@@ -54,6 +54,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 int terminate_triggered = 0;
 
+static Sequencer s_sequencer;
+
 void handler(int signalnum)
 {
     if(terminate_triggered) return;
@@ -90,14 +92,14 @@ void handler(int signalnum)
         if(Config::getServerMode() == SERVER_LAN)
         {
             Logger::Log(LOG_ERROR,"closing server ... ");
-            Sequencer::cleanUp();
+            s_sequencer.cleanUp();
         }
         else
         {
             Logger::Log(LOG_ERROR,"closing server ... unregistering ... ");
-            Sequencer::getNotifier()->unregisterServer();
+            s_sequencer.getNotifier()->unregisterServer();
             Logger::Log(LOG_ERROR," unregistered.");
-            Sequencer::cleanUp();
+            s_sequencer.cleanUp();
         }
         exit(0);
     }
@@ -280,8 +282,8 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    Listener* listener = new Listener(Config::getListenPort(), &listener_ready_mtx, &listener_ready_cond, &listener_ready_value);
-    Sequencer::initialize(listener);
+    Listener* listener = new Listener(&s_sequencer, Config::getListenPort(), &listener_ready_mtx, &listener_ready_cond, &listener_ready_value);
+    s_sequencer.initialize(listener);
 
     // Wait for `Listener` to start up.
     int lock_result = pthread_mutex_lock(&listener_ready_mtx);
@@ -311,9 +313,9 @@ int main(int argc, char* argv[])
     // Listener is ready, let's register ourselves on serverlist (which will contact us back to check).
     if (Config::getServerMode() != SERVER_LAN)
     {
-        Sequencer::registerServer();
+        s_sequencer.registerServer();
     }
-    Sequencer::activateUserAuth();
+    s_sequencer.activateUserAuth();
 
 #ifdef WITH_WEBSERVER
     // start webserver if used
@@ -331,7 +333,7 @@ int main(int argc, char* argv[])
     {
         //the main thread is used by the notifier
         //this should not return untill the server shuts down
-        Sequencer::notifyRoutine();
+        s_sequencer.notifyRoutine();
     }
     else
     {
@@ -341,7 +343,7 @@ int main(int argc, char* argv[])
         {
             // update some statistics (handy to use in here, as we have a minute-timer basically)
             Messaging::updateMinuteStats();
-            Sequencer::updateMinuteStats();
+            s_sequencer.updateMinuteStats();
 
             // broadcast our "i'm here" signal
             Messaging::broadcastLAN();
@@ -357,7 +359,7 @@ int main(int argc, char* argv[])
 
     // delete all (needed in here, if not shutdown due to signal)
     // stick in destructor perhaps?
-    Sequencer::cleanUp();
+    s_sequencer.cleanUp();
     return 0;
 }
 

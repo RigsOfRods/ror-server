@@ -32,6 +32,8 @@ namespace Utils
 
 int generateRandomPortNumber();
 
+int ReadLinesFromFile(std::string filename, std::vector<std::string> &lines);
+
 }
 
 void tokenize(const std::string& str,

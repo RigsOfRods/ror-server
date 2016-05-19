@@ -540,7 +540,7 @@ void Sequencer::enableFlow(int uid)
 int Sequencer::sendMOTD(int uid)
 {
     std::vector<std::string> lines;
-    int res = readFile(Config::getMOTDFile(), lines);
+    int res = Utils::ReadLinesFromFile(Config::getMOTDFile(), lines);
     if(res)
         return res;
 
@@ -551,40 +551,6 @@ int Sequencer::sendMOTD(int uid)
     }
     return 0;
 }
-
-int Sequencer::readFile(std::string filename, std::vector<std::string> &lines)
-{
-    FILE *f = fopen(filename.c_str(), "r");
-    if (!f)
-        return -1;
-    int linecounter=0;
-    while(!feof(f))
-    {
-        char line[2048] = "";
-        memset(line, 0, 2048);
-        fgets (line, 2048, f);
-        linecounter++;
-
-        if(strnlen(line, 2048) <= 2)
-            continue;
-
-        // strip line (newline char)
-        char *ptr = line;
-        while(*ptr)
-        {
-            if(*ptr == '\n')
-            {
-                *ptr=0;
-                break;
-            }
-            ptr++;
-        }
-        lines.push_back(std::string(line));
-    }
-    fclose (f);
-    return 0;
-}
-
 
 UserAuth* Sequencer::getUserAuth()
 {
@@ -1220,7 +1186,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
             if(!Config::getRulesFile().empty())
             {
                 std::vector<std::string> lines;
-                int res = readFile(Config::getRulesFile(), lines);
+                int res = Utils::ReadLinesFromFile(Config::getRulesFile(), lines);
                 if(!res)
                 {
                     std::vector<std::string>::iterator it;

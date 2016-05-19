@@ -162,7 +162,7 @@ void Listener::threadstart()
             std::string motd_str;
             {
                 std::vector<std::string> lines;
-                int res = Sequencer::readFile(Config::getMOTDFile(), lines);
+                int res = Utils::ReadLinesFromFile(Config::getMOTDFile(), lines);
                 if(!res)
                     for(std::vector<std::string>::iterator it=lines.begin(); it!=lines.end(); it++)
                         motd_str += *it + "\n";

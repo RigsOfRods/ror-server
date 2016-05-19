@@ -25,6 +25,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <vector>
 
 #include <stdlib.h>
+#include <string.h>
 #include <cstdio>
 #include <iostream>
 #include <locale>
@@ -54,6 +55,39 @@ int generateRandomPortNumber()
     // init the random number generator
     srand(tick_count);
     return 12000 + (rand() % 1000);
+}
+
+int ReadLinesFromFile(std::string filename, std::vector<std::string> &lines)
+{
+    FILE *f = fopen(filename.c_str(), "r");
+    if (!f)
+        return -1;
+    int linecounter = 0;
+    while (!feof(f))
+    {
+        char line[2048] = "";
+        memset(line, 0, 2048);
+        fgets(line, 2048, f);
+        linecounter++;
+
+        if (strnlen(line, 2048) <= 2)
+            continue;
+
+        // strip line (newline char)
+        char *ptr = line;
+        while (*ptr)
+        {
+            if (*ptr == '\n')
+            {
+                *ptr = 0;
+                break;
+            }
+            ptr++;
+        }
+        lines.push_back(std::string(line));
+    }
+    fclose(f);
+    return 0;
 }
 
 } // namespace Utils

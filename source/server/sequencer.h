@@ -219,7 +219,5 @@ public:
 
     static unsigned int connCrash, connCount;
 
-    static int readFile(std::string filename, std::vector<std::string> &lines); //!< reads lines of a file
-
 };
 

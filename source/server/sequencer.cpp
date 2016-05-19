@@ -1031,6 +1031,15 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 		}
 		publishMode=BROADCAST_BLOCK;
 	}
+	else if (type==MSG2_STREAM_UNREGISTER)
+	{
+		// Remove the stream
+		if (instance->clients[pos]->streams.erase(streamid) > 0)
+		{
+			Logger::log(LOG_VERBOSE, " * stream deregistered: %d:%d", instance->clients[pos]->user.uniqueid, streamid);
+			publishMode=BROADCAST_ALL;
+		}
+	}
 	else if (type==MSG2_USER_LEAVE)
 	{
 		// from client

@@ -29,11 +29,9 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 class SWInetSocket;
 class Sequencer;
 
-enum {BC_QUEUE_OK, BC_QUEUE_DROP};
-
 struct queue_entry_t
 {
-    int process_type;
+    bool is_dropping;
     int type;
     int uid;
     unsigned int streamid;
@@ -41,56 +39,33 @@ struct queue_entry_t
     unsigned int datalen;
 };
 
-///TODO: Documents the broadcaster class
+void* StartBroadcasterThread(void*);
+
 class Broadcaster
 {
-private:
-    Sequencer* m_sequencer;
-    pthread_t thread;
-    Mutex queue_mutex;
-    Condition queue_cv;
-    
-    int id;
-    SWInetSocket *sock; // this needs to go away
-    std::deque<queue_entry_t> msg_queue;
-    
-    bool running;
-    int (*sendmessage)(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len, const char* content);
-    void (*dropmessage)(int);
-
-    void threadstart();
-    friend void* s_brthreadstart(void* vid);
-
-    void debugMessageQueue();
-
-    int getMessageQueueSize();
-
-    int dropstate;
-
-    static const int queue_soft_limit = 100;
-    static const int queue_hard_limit = 300;
-
+    friend void* StartBroadcasterThread(void*);
 public:
-    Broadcaster(Sequencer* sequencer);
-    ~Broadcaster(void);
-    /**
-     * @param[in] uid   client id whom owns this broadcaster instance
-     * @param[in] socky clients sockets pointer
-     * @param[in] disconnect callback for disconnecting the client
-     * @param[in] sendmessage callback for send a message
-     */
-    void reset(int uid, SWInetSocket *socky,
-            int (*sendmessage)(SWInetSocket *socket, int type,
-                int source, unsigned int streamid, unsigned int len, const char* content),
-            void (*dropmessage)(int) );
-    void stop();
-    /**
-     * @param[in] uid  uid of the client sending the data??
-     * @param[in] type Type of message being sent
-     * @param[in] data the actually message being sent
-     * @param[in] len  length of data in bytes
-     */
-    void queueMessage(int type, int uid, unsigned int streamid, unsigned int len, const char* data);
+    static const int QUEUE_SOFT_LIMIT = 100;
+    static const int QUEUE_HARD_LIMIT = 300;
 
-    int getDropState() { return dropstate; };
+    Broadcaster(Sequencer* sequencer);
+
+    void Start(int client_id, SWInetSocket *socket);
+    void Stop();
+    void QueueMessage(int msg_type, int client_id, unsigned int streamid, unsigned int payload_len, const char* payload);
+    bool IsDroppingPackets() const { return m_is_dropping_packets; }
+
+private:
+    void Thread();
+
+    Sequencer*    m_sequencer;
+    pthread_t     m_thread;
+    Mutex         m_queue_mutex;
+    Condition     m_queue_cond;
+    int           m_client_id;
+    SWInetSocket* m_socket;
+    bool          m_is_running;
+    bool          m_is_dropping_packets;
+
+    std::deque<queue_entry_t> m_msg_queue;
 };

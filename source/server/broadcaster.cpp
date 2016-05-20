@@ -21,110 +21,92 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "broadcaster.h"
 
 #include "logger.h"
+#include "messaging.h"
 #include "SocketW.h"
 #include "sequencer.h"
 
 #include <map>
 
-void *s_brthreadstart(void* vid)
+void* StartBroadcasterThread(void* data)
 {
-    Broadcaster* instance = ((Broadcaster*)vid);
-    instance->threadstart();
-
-    // check if are expecting to exit, if not running will still be true
-    // if so wait for the join request
-    if( instance->running )
-    {
-        MutexLocker scoped_lock( instance->queue_mutex );
-        instance->running = false;
-        instance->queue_mutex.wait( instance->queue_cv );
-    }
-#ifdef _WIN32
-    Logger::Log( LOG_DEBUG, "broadcaster thread %u:%u is exiting",
-        (unsigned int) &pthread_self().p, ThreadID::getID() );
-#endif
-    return NULL;
+    Broadcaster* broadcaster = static_cast<Broadcaster*>(data);
+    broadcaster->Thread();
+    return nullptr;
 }
 
 Broadcaster::Broadcaster(Sequencer* sequencer):
     m_sequencer(sequencer),
-    id(0),
-    sock(nullptr),
-    running(false)
+    m_client_id(0),
+    m_socket(nullptr),
+    m_is_running(false),
+    m_is_dropping_packets(false)
 {
 }
 
-Broadcaster::~Broadcaster()
+void Broadcaster::Start(int client_id, SWInetSocket *socket)
 {
+    m_client_id = client_id;
+    m_socket = socket;
+    m_is_running = true;
+    m_is_dropping_packets = false;
+
+    m_msg_queue.clear();
+
+    pthread_create(&m_thread, nullptr, StartBroadcasterThread, this);
 }
 
-void Broadcaster::reset(int uid, SWInetSocket *socky,
-        int (*sendmessage_func)(SWInetSocket*, int, int, unsigned int, unsigned int, const char*),
-        void (*dropmessage_func)(int) )
+void Broadcaster::Stop()
 {
+    m_queue_mutex.lock();
+    m_is_running = false;
+    m_queue_cond.signal();
+    m_queue_mutex.unlock();
 
-    id          = uid;
-    sock        = socky;
-    running     = true;
-    sendmessage = sendmessage_func;
-    dropmessage = dropmessage_func;
-    dropstate   = 0;
-
-    // always clear to free up memory
-    msg_queue.clear();
-
-    // we've got a new client, release the signal
-    //start a listener thread
-    pthread_create(&thread, NULL, s_brthreadstart, this);
+    pthread_join(m_thread, nullptr);
 }
 
-void Broadcaster::stop()
+void Broadcaster::Thread()
 {
-    queue_mutex.lock();
-    running = false;
-    queue_cv.signal();
-    queue_mutex.unlock();
-#ifdef _WIN32
-    Logger::Log( LOG_DEBUG, "joining with broadcaster thread: %u",
-            (unsigned int) &thread.p);
-#endif
-    pthread_join( thread, NULL );
-}
-
-void Broadcaster::threadstart()
-{
-    queue_entry_t msg;
-    Logger::Log( LOG_DEBUG, "broadcaster thread %u owned by uid %d", ThreadID::getID(), id);
-    while( running )
+    Logger::Log(LOG_DEBUG, "broadcaster m_thread %u owned by client_id %d", ThreadID::getID(), m_client_id);
+    while( m_is_running )
     {
-        {   // define a new scope and use a scope lock
-            MutexLocker scoped_lock( queue_mutex );
-            while( msg_queue.empty() && running)
-            {
-                queue_mutex.wait( queue_cv );
-            }
-            if( !running ) return;
-
-            //pop stuff
-            msg = msg_queue.front();
-            msg_queue.pop_front();
-        }   // unlock the mutex
-
-        if(msg.process_type == BC_QUEUE_OK)
+        queue_entry_t msg;
+        // define a new scope and use a scope lock
         {
-            //Send message
-            // TODO WARNING THE SOCKET IS NOT PROTECTED!!!
-            if( sendmessage( sock, msg.type, msg.uid, msg.streamid, msg.datalen, msg.data ) )
+            MutexLocker scoped_lock( m_queue_mutex );
+            while( m_msg_queue.empty() && m_is_running)
             {
-                m_sequencer->disconnect(id, "Broadcaster: Send error", true, true);
-                return;
+                m_queue_mutex.wait( m_queue_cond );
             }
-        } else if(msg.process_type == BC_QUEUE_DROP)
-        {
-            // add it to the stats, so we know
-            dropmessage(sizeof(header_t) + msg.datalen);
+            if (!m_is_running)
+            {
+                break;
+            }
 
+            msg = m_msg_queue.front();
+            m_msg_queue.pop_front();
         }
+
+        if (msg.is_dropping)
+        {
+            Messaging::addBandwidthDropOutgoing(sizeof(header_t) + msg.datalen); // Statistics
+        }
+        else
+        {
+            // TODO WARNING THE SOCKET IS NOT PROTECTED!!!
+            if (Messaging::sendmessage(m_socket, msg.type, msg.uid, msg.streamid, msg.datalen, msg.data) != 0)
+            {
+                m_sequencer->disconnect(m_client_id, "Broadcaster: Send error", true, true);
+                break;
+            }
+        }
+    }
+
+    if (m_is_running)
+    {
+        MutexLocker scoped_lock(m_queue_mutex);
+        m_is_running = false;
+        m_queue_mutex.wait(m_queue_cond);
     }
 }
 
@@ -132,71 +114,51 @@ void Broadcaster::threadstart()
 //and keep in mind that it is called crazily and concurently from lots of threads
 //we MUST copy the data too
 //also, this function can be called by threads owning clients_mutex !!!
-void Broadcaster::queueMessage(int type, int uid, unsigned int streamid, unsigned int len, const char* data)
+void Broadcaster::QueueMessage(int type, int uid, unsigned int streamid, unsigned int len, const char* data)
 {
-    if( !running ) return;
+    if (!m_is_running)
+    {
+        return;
+    }
     // for now lets just queue msgs in the order received to make things simple
-    queue_entry_t msg = { BC_QUEUE_OK, type, uid, streamid, "", len};
+    queue_entry_t msg = { false, type, uid, streamid, "", len};
     memset( msg.data, 0, MAX_MESSAGE_LENGTH );
     memcpy( msg.data, data, len );
 
-    MutexLocker scoped_lock( queue_mutex );
+    MutexLocker scoped_lock( m_queue_mutex );
 
     // we will limit the entries in this queue
     
     // soft limit: we start dropping data packages
-    if(msg_queue.size() > (size_t)queue_soft_limit && type == MSG2_STREAM_DATA)
+    if((m_msg_queue.size() > (size_t)QUEUE_SOFT_LIMIT) && (type == MSG2_STREAM_DATA))
     {
-        Logger::Log( LOG_DEBUG, "broadcaster queue soft full: thread %u owned by uid %d", ThreadID::getID(), id);
-        msg.process_type = BC_QUEUE_DROP;
-        dropstate = 1;
-    } else if (msg_queue.size() < (size_t)queue_soft_limit - 20) // - 20 to prevent border problems
+        Logger::Log(LOG_DEBUG, "broadcaster queue soft full: m_thread %u owned by uid %d", ThreadID::getID(), m_client_id);
+        msg.is_dropping = true;
+        m_is_dropping_packets = true;
+    }
+    else if (m_msg_queue.size() < (size_t)QUEUE_SOFT_LIMIT - 20) // - 20 to prevent border problems
     {
-        dropstate = 0;
+        m_is_dropping_packets = false;
     }
 
     // hard limit drop anything, otherwise we would need to run through the queue and search and remove
     // data packages, which is not really feasible
-    if(msg_queue.size() > (size_t)queue_hard_limit)
+    if(m_msg_queue.size() > (size_t)QUEUE_HARD_LIMIT)
     {
-        Logger::Log( LOG_DEBUG, "broadcaster queue hard full: thread %u owned by uid %d", ThreadID::getID(), id);
-        // Commented out to decrease CPU usage. Uncomment if you wish to debug the message queue.
-        //debugMessageQueue();
-        msg.process_type = BC_QUEUE_DROP;
+        Logger::Log(LOG_DEBUG, "broadcaster queue hard full: m_thread %u owned by uid %d", ThreadID::getID(), m_client_id);
+        msg.is_dropping = true;
     }
     
-    if(msg.process_type==BC_QUEUE_DROP)
-        dropmessage(sizeof(header_t) + msg.datalen);
+    if (msg.is_dropping)
+    {
+        Messaging::addBandwidthDropOutgoing(sizeof(header_t) + msg.datalen); // Statistics
+    }
     else
     {
-        msg_queue.push_back( msg );
+        m_msg_queue.push_back( msg );
         //signal the thread that new data is waiting to be sent
-        queue_cv.signal();
+        m_queue_cond.signal();
     }
 }
 
-void Broadcaster::debugMessageQueue()
-{
-    // IMPORTANT: assumes we are still locked
-    int msgsize = msg_queue.size();
-    std::map < int, int > types;
-    std::map < int, int >::iterator it;
-    for(int i = 0; i < msgsize; i++)
-    {
-        int type = msg_queue.at(i).type;
-        if(types.find(type) == types.end())
-            types[type] = 0;
-        
-        types[type] += 1;
-    }
-    Logger::Log( LOG_DEBUG, "broadcaster queue debug (thread %u owned by uid %d)", ThreadID::getID(), id);
-    
-    for(it = types.begin(); it != types.end() ; it++)
-        Logger::Log( LOG_DEBUG, " * message type %03d : %03d times out of %03d ( %0.2f %%)", it->first, it->second, msgsize, ((float)it->second / (float)msgsize) * 100.0f);
 
-}
-
-int Broadcaster::getMessageQueueSize()
-{
-    return msg_queue.size();
-}

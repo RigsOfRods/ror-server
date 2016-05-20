@@ -298,10 +298,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
     // create one thread for the receiver
     to_add->receiver->Start(to_add->user.uniqueid, sock);
     // and one for the broadcaster
-    to_add->broadcaster->reset(to_add->user.uniqueid, 
-                                sock, 
-                                Messaging::sendmessage,
-                                Messaging::addBandwidthDropOutgoing);
+    to_add->broadcaster->Start(to_add->user.uniqueid, sock);
 
     // process slot infos
     int npos = instance->getPosfromUid(to_add->user.uniqueid);
@@ -327,7 +324,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
     memset(info_for_others.clientGUID, 0, 40);
     for(unsigned int i = 0; i < instance->clients.size(); i++)
     {
-        instance->clients[i]->broadcaster->queueMessage(MSG2_USER_JOIN, instance->clients[npos]->user.uniqueid, 0, sizeof(user_info_t), (char*)&info_for_others);
+        instance->clients[i]->broadcaster->QueueMessage(MSG2_USER_JOIN, instance->clients[npos]->user.uniqueid, 0, sizeof(user_info_t), (char*)&info_for_others);
     }
 
     // done!
@@ -349,7 +346,7 @@ void Sequencer::broadcastUserInfo(int uid)
     memset(info_for_others.clientGUID, 0, 40);
     for(unsigned int i = 0; i < instance->clients.size(); i++)
     {
-        instance->clients[i]->broadcaster->queueMessage(MSG2_USER_INFO, instance->clients[pos]->user.uniqueid, 0, sizeof(user_info_t), (char*)&info_for_others);
+        instance->clients[i]->broadcaster->QueueMessage(MSG2_USER_INFO, instance->clients[pos]->user.uniqueid, 0, sizeof(user_info_t), (char*)&info_for_others);
     }
 }
     
@@ -442,7 +439,7 @@ void Sequencer::killerthreadstart()
         // which makes the socket invalid) and the actual time of stoping
         // the bradcaster
 
-        to_del->broadcaster->stop();
+        to_del->broadcaster->Stop();
         to_del->receiver->Stop();
         to_del->sock->disconnect(&error);
         // END CRITICAL ORDER OF EVENTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -493,7 +490,7 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError, bool doS
     //notify the others
     for( unsigned int i = 0; i < instance->clients.size(); i++)
     {
-        instance->clients[i]->broadcaster->queueMessage(MSG2_USER_LEAVE, instance->clients[pos]->user.uniqueid, 0, (int)strlen(errormsg), errormsg);
+        instance->clients[i]->broadcaster->QueueMessage(MSG2_USER_LEAVE, instance->clients[pos]->user.uniqueid, 0, (int)strlen(errormsg), errormsg);
     }
     instance->clients.erase( instance->clients.begin() + pos );
 
@@ -567,19 +564,19 @@ void Sequencer::notifyAllVehicles(int uid, bool lock)
             // send user infos
 
             // new user to all others
-            instance->clients[i]->broadcaster->queueMessage(MSG2_USER_INFO, instance->clients[pos]->user.uniqueid, 0, sizeof(user_info_t), (char*)&info_for_others);
+            instance->clients[i]->broadcaster->QueueMessage(MSG2_USER_INFO, instance->clients[pos]->user.uniqueid, 0, sizeof(user_info_t), (char*)&info_for_others);
 
             // all others to new user
             user_info_t info_for_others2 = instance->clients[i]->user;
             memset(info_for_others2.usertoken, 0, 40);
             memset(info_for_others2.clientGUID, 0, 40);
-            instance->clients[pos]->broadcaster->queueMessage(MSG2_USER_INFO, instance->clients[i]->user.uniqueid, 0, sizeof(user_info_t), (char*)&info_for_others2);
+            instance->clients[pos]->broadcaster->QueueMessage(MSG2_USER_INFO, instance->clients[i]->user.uniqueid, 0, sizeof(user_info_t), (char*)&info_for_others2);
 
             Logger::Log(LOG_VERBOSE, " * %d streams registered for user %d", instance->clients[i]->streams.size(), instance->clients[i]->user.uniqueid);
             for(std::map<unsigned int, stream_register_t>::iterator it = instance->clients[i]->streams.begin(); it!=instance->clients[i]->streams.end(); it++)
             {
                 Logger::Log(LOG_VERBOSE, "sending stream registration %d:%d to user %d", instance->clients[i]->user.uniqueid, it->first, uid);
-                instance->clients[pos]->broadcaster->queueMessage(MSG2_STREAM_REGISTER, instance->clients[i]->user.uniqueid, it->first, sizeof(stream_register_t), (char*)&it->second);
+                instance->clients[pos]->broadcaster->QueueMessage(MSG2_STREAM_REGISTER, instance->clients[i]->user.uniqueid, it->first, sizeof(stream_register_t), (char*)&it->second);
             }
 
         }
@@ -598,7 +595,7 @@ int Sequencer::sendGameCommand(int uid, std::string cmd)
     {
         for (int i = 0; i < (int)instance->clients.size(); i++)
         {
-            instance->clients[i]->broadcaster->queueMessage(MSG2_GAME_CMD, -1, 0, size, data);
+            instance->clients[i]->broadcaster->QueueMessage(MSG2_GAME_CMD, -1, 0, size, data);
         }
     }
     else
@@ -606,7 +603,7 @@ int Sequencer::sendGameCommand(int uid, std::string cmd)
         unsigned short pos = instance->getPosfromUid(uid);
         if( UID_NOT_FOUND == pos ) return -1;
         // -1 = comes from the server
-        instance->clients[pos]->broadcaster->queueMessage(MSG2_GAME_CMD, -1, 0, size, data);
+        instance->clients[pos]->broadcaster->QueueMessage(MSG2_GAME_CMD, -1, 0, size, data);
     }
     return 0;
 }
@@ -639,7 +636,7 @@ void Sequencer::serverSay(std::string msg, int uid, int type)
 
             UTFString s = tryConvertUTF(msg.c_str());
             const char *str = s.asUTF8_c_str();
-            instance->clients[i]->broadcaster->queueMessage(MSG2_UTF_CHAT, -1, -1, strlen(str), (char *)str );
+            instance->clients[i]->broadcaster->QueueMessage(MSG2_UTF_CHAT, -1, -1, strlen(str), (char *)str );
         }
     }
 }
@@ -806,20 +803,22 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 
     // check for full broadcaster queue
     {
-        int dropstate = instance->clients[pos]->broadcaster->getDropState();
-        if(dropstate == 1 && instance->clients[pos]->drop_state == 0)
+        bool is_dropping = instance->clients[pos]->broadcaster->IsDroppingPackets();
+        if(is_dropping && instance->clients[pos]->drop_state == 0)
         {
             // queue full, inform client
-            instance->clients[pos]->drop_state = dropstate;
-            instance->clients[pos]->broadcaster->queueMessage(MSG2_NETQUALITY, -1, 0, sizeof(int), (char *)&dropstate);
-        } else if(dropstate == 0 && instance->clients[pos]->drop_state == 1)
+            int drop_state = 1;
+            instance->clients[pos]->drop_state = drop_state;
+            instance->clients[pos]->broadcaster->QueueMessage(MSG2_NETQUALITY, -1, 0, sizeof(int), (char *)&drop_state);
+        }
+        else if(!is_dropping && instance->clients[pos]->drop_state == 1)
         {
             // queue working better again, inform client
-            instance->clients[pos]->drop_state = dropstate;
-            instance->clients[pos]->broadcaster->queueMessage(MSG2_NETQUALITY, -1, 0, sizeof(int), (char *)&dropstate);
+            int drop_state = 0;
+            instance->clients[pos]->drop_state = drop_state;
+            instance->clients[pos]->broadcaster->QueueMessage(MSG2_NETQUALITY, -1, 0, sizeof(int), (char *)&drop_state);
         }
     }
-
 
     int publishMode=BROADCAST_BLOCK;
 
@@ -942,7 +941,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
         int origin_pos = instance->getPosfromUid(reg->origin_sourceid);
         if(origin_pos != UID_NOT_FOUND)
         {
-            instance->clients[origin_pos]->broadcaster->queueMessage(type, uid, 0, sizeof(stream_register_t), (char *)reg);
+            instance->clients[origin_pos]->broadcaster->QueueMessage(type, uid, 0, sizeof(stream_register_t), (char *)reg);
             Logger::Log(LOG_VERBOSE, "stream registration result for stream %03d:%03d from user %03d: %d", reg->origin_sourceid, reg->origin_streamid, uid, reg->status);
         }
         publishMode=BROADCAST_BLOCK;
@@ -1198,7 +1197,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
         {
             char *chatmsg = data + sizeof(int);
             int chatlen = len - sizeof(int);
-            instance->clients[destpos]->broadcaster->queueMessage(MSG2_UTF_PRIVCHAT, uid, streamid, chatlen, chatmsg);
+            instance->clients[destpos]->broadcaster->QueueMessage(MSG2_UTF_PRIVCHAT, uid, streamid, chatlen, chatmsg);
             publishMode=BROADCAST_BLOCK;
         }
     }
@@ -1265,7 +1264,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                 if (instance->clients[i]->status == client_t::STATUS_USED && instance->clients[i]->flow && (i!=pos || toAll))
                 {
                     instance->clients[i]->streams_traffic[streamid].bandwidthOutgoing += len;
-                    instance->clients[i]->broadcaster->queueMessage(type, instance->clients[pos]->user.uniqueid, streamid, len, data);
+                    instance->clients[i]->broadcaster->QueueMessage(type, instance->clients[pos]->user.uniqueid, streamid, len, data);
                 }
             }
         } else if(publishMode == BROADCAST_AUTHED)
@@ -1278,7 +1277,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                 if (instance->clients[i]->status == client_t::STATUS_USED && instance->clients[i]->flow && i!=pos && (instance->clients[i]->user.authstatus & AUTH_ADMIN))
                 {
                     instance->clients[i]->streams_traffic[streamid].bandwidthOutgoing += len;
-                    instance->clients[i]->broadcaster->queueMessage(type, instance->clients[pos]->user.uniqueid, streamid, len, data);
+                    instance->clients[i]->broadcaster->QueueMessage(type, instance->clients[pos]->user.uniqueid, streamid, len, data);
                 }
             }
         }

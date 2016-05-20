@@ -24,6 +24,31 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #define USE_THREADID
 
+namespace Threading {
+
+class SimpleCondition
+{
+public:
+    static const int INACTIVE = 0xFEFEFEFE;
+
+    SimpleCondition() : m_value(INACTIVE) {}
+
+    bool Initialize();
+    bool Destroy();
+    bool Wait(int* out_value);
+    bool Signal(int value);
+
+private:
+    bool Lock(const char* log_location);
+    bool Unlock(const char* log_location);
+
+    pthread_cond_t  m_cond;
+    pthread_mutex_t m_mutex;
+    int             m_value;
+};
+
+}
+
 class Condition
 {
     friend class Mutex;

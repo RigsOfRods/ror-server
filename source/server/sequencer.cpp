@@ -296,7 +296,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
     // add the client to the vector
     instance->clients.push_back( to_add );
     // create one thread for the receiver
-    to_add->receiver->reset(to_add->user.uniqueid, sock);
+    to_add->receiver->Start(to_add->user.uniqueid, sock);
     // and one for the broadcaster
     to_add->broadcaster->reset(to_add->user.uniqueid, 
                                 sock, 
@@ -443,7 +443,7 @@ void Sequencer::killerthreadstart()
         // the bradcaster
 
         to_del->broadcaster->stop();
-        to_del->receiver->stop();
+        to_del->receiver->Stop();
         to_del->sock->disconnect(&error);
         // END CRITICAL ORDER OF EVENTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         delete to_del->broadcaster;

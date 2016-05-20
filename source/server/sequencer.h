@@ -115,7 +115,6 @@ public:
     Status status;              //!< current status of the client
     bool flow;                  //!< flag to see if the client should be sent data?
     bool initialized;
-    char ip_addr[16];           // do not use directly
 
     int drop_state;             // dropping outgoing packets?
 

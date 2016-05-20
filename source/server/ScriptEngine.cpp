@@ -1012,7 +1012,7 @@ bool ServerScript::unban(int buid)
 
 std::string ServerScript::getUserName(int uid)
 {
-    client_t *c = seq->getClient(uid);
+    Client *c = seq->getClient(uid);
     if(!c) return "";
 
     
@@ -1021,14 +1021,14 @@ std::string ServerScript::getUserName(int uid)
 
 void ServerScript::setUserName(int uid, const string& username)
 {
-    client_t *c = seq->getClient(uid);
+    Client *c = seq->getClient(uid);
     if(!c) return;
     strncpy(c->user.username, UTFString(username).asUTF8_c_str(), MAX_USERNAME_LEN);
 }
 
 std::string ServerScript::getUserAuth(int uid)
 {
-    client_t *c = seq->getClient(uid);
+    Client *c = seq->getClient(uid);
     if(!c) return "none";
     if(c->user.authstatus & AUTH_ADMIN) return "admin";
     else if(c->user.authstatus & AUTH_MOD) return "moderator";
@@ -1040,52 +1040,54 @@ std::string ServerScript::getUserAuth(int uid)
 
 int ServerScript::getUserAuthRaw(int uid)
 {
-    client_t *c = seq->getClient(uid);
+    Client *c = seq->getClient(uid);
     if(!c) return AUTH_NONE;
     return c->user.authstatus;
 }
 
 void ServerScript::setUserAuthRaw(int uid, int authmode)
 {
-    client_t *c = seq->getClient(uid);
+    Client *c = seq->getClient(uid);
     if(!c) return;
     c->user.authstatus = authmode & ~(AUTH_RANKED|AUTH_BANNED);
 }
 
 int ServerScript::getUserColourNum(int uid)
 {
-    client_t *c = seq->getClient(uid);
+    Client *c = seq->getClient(uid);
     if(!c) return 0;
     return c->user.colournum;
 }
 
 void ServerScript::setUserColourNum(int uid, int num)
 {
-    client_t *c = seq->getClient(uid);
+    Client *c = seq->getClient(uid);
     if(!c) return;
     c->user.colournum = num;
 }
 
 std::string ServerScript::getUserToken(int uid)
 {
-    client_t *c = seq->getClient(uid);
+    Client *c = seq->getClient(uid);
     if(!c) return 0;
     return std::string(c->user.usertoken, 40);
 }
 
 std::string ServerScript::getUserVersion(int uid)
 {
-    client_t *c = seq->getClient(uid);
+    Client *c = seq->getClient(uid);
     if(!c) return 0;
     return std::string(c->user.clientversion, 25);
 }
 
 std::string ServerScript::getUserIPAddress(int uid)
 {
-    client_t *c = seq->getClient(uid);
-    if(!c) return std::string("");
-    SWBaseSocket::SWBaseError error;
-    return c->sock->get_peerAddr(&error);
+    Client* client = seq->getClient(uid);
+    if (client != nullptr)
+    {
+        return client->GetIpAddress();
+    }
+    return "";
 }
 
 std::string ServerScript::getServerTerrain()

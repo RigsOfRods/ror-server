@@ -281,9 +281,9 @@ static void data_players(struct mg_connection *conn, const struct mg_request_inf
 {
     Json::Value rows;
 
-    std::vector<client_t> clients = Sequencer::GetClientList();
+    std::vector<Client> clients = Sequencer::GetClientList();
     int row_counter=0;
-    for(std::vector<client_t>::iterator it = clients.begin(); it != clients.end(); it++,row_counter++)
+    for(std::vector<Client>::iterator it = clients.begin(); it != clients.end(); it++,row_counter++)
     {
         Json::Value row;
 

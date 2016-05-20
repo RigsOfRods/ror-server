@@ -23,6 +23,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h"
 #include "notifier.h"
 #include "mutexutils.h"
+#include "broadcaster.h"
+#include "receiver.h"
 #include "UTFString.h"
 #ifdef WITH_ANGELSCRIPT
 #include "scriptmath3d/scriptmath3d.h" // angelscript addon
@@ -89,9 +91,9 @@ typedef struct stream_traffic_t
     double bandwidthDropOutgoingRate;
 } stream_traffic_t;
 
-//! A struct to hold information about a client
-struct client_t
+class Client
 {
+public:
     enum Status
     {
         STATUS_FREE = 0,
@@ -99,13 +101,19 @@ struct client_t
         STATUS_USED = 2
     };
 
+    Client(Sequencer* sequencer, SWInetSocket* socket);
+
+    void          StartThreads();
+    void          Disconnect();
+    void          QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len, const char* payload);
+    SWInetSocket* GetSocket() { return m_socket; }
+    std::string   GetIpAddress();
+    bool          IsBroadcasterDroppingPackets() const { return m_broadcaster.IsDroppingPackets(); }
+
+
     user_info_t user;  //!< user information
     Status status;              //!< current status of the client
-    Receiver* receiver;         //!< pointer to a receiver class, this
-    Broadcaster* broadcaster;   //!< pointer to a broadcaster class
-    SWInetSocket* sock;         //!< socket used to communicate with the client
-    bool flow;                  //!< flag to see if the client should be sent
-                                //!< data?
+    bool flow;                  //!< flag to see if the client should be sent data?
     bool initialized;
     char ip_addr[16];           // do not use directly
 
@@ -114,6 +122,11 @@ struct client_t
     //things for the communication with the webserver below, not used in the main server code
     std::map<unsigned int, stream_register_t> streams;
     std::map<unsigned int, stream_traffic_t> streams_traffic;
+
+private:
+    SWInetSocket* m_socket;
+    Receiver      m_receiver;
+    Broadcaster   m_broadcaster;
 };
 
 struct ban_t
@@ -137,11 +150,11 @@ private:
     ScriptEngine* script;     //!< listens for incoming connections
     Notifier notifier;     //!< registers and handles the master server
     UserAuth* authresolver; //!< authenticates users
-    std::vector<client_t*> clients; //!< clients is a list of all the available 
+    std::vector<Client*> clients; //!< clients is a list of all the available 
     std::vector<ban_t*> bans; //!< list of bans
                             //!< client connections, it is allocated
     unsigned int fuid;      //!< next userid
-    std::queue<client_t*> killqueue; //!< holds pointer for client deletion
+    std::queue<Client*> killqueue; //!< holds pointer for client deletion
     int botCount;           //!< Amount of registered bots on the server.
     
     int startTime;
@@ -180,7 +193,7 @@ public:
     Notifier *getNotifier();
 
     int getNumClients(); //! number of clients connected to this server
-    client_t *getClient(int uid);
+    Client *getClient(int uid);
     int getHeartbeatData(char *challenge, char *hearbeatdata);
     //! prints the Stats view, of who is connected and what slot they are in
     void printStats();
@@ -200,7 +213,6 @@ public:
     bool IsBanned(const char *ip);
     void streamDebug();
 
-    std::vector<client_t> GetClientList();
     int getStartTime();
     void broadcastUserInfo(int uid);
 

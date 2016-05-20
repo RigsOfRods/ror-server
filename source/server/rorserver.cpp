@@ -282,8 +282,12 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    Listener* listener = new Listener(&s_sequencer, Config::getListenPort(), &listener_ready_mtx, &listener_ready_cond, &listener_ready_value);
-    s_sequencer.initialize(listener);
+    Listener listener(&s_sequencer, Config::getListenPort(), &listener_ready_mtx, &listener_ready_cond, &listener_ready_value);
+    if (!listener.Initialize())
+    {
+        return -1;
+    }
+    s_sequencer.initialize(&listener);
 
     // Wait for `Listener` to start up.
     int lock_result = pthread_mutex_lock(&listener_ready_mtx);

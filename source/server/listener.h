@@ -43,5 +43,6 @@ public:
     Listener(Sequencer* sequencer, int port, pthread_mutex_t* ready_mtx, pthread_cond_t* ready_cond, int* ready_value);
     ~Listener(void);
     void threadstart();
+    bool Initialize();
 };
 

@@ -51,9 +51,6 @@ Listener::Listener(Sequencer* sequencer, int port, pthread_mutex_t* ready_mtx, p
     m_ready_value(ready_value),
     m_sequencer(sequencer)
 {
-    running = true;
-    //start a listener thread
-    pthread_create(&thread, NULL, s_lsthreadstart, this);
 }
 
 Listener::~Listener(void)
@@ -62,6 +59,14 @@ Listener::~Listener(void)
     running = false;
     listSocket.set_timeout(1,0);
     pthread_cancel(thread);
+}
+
+bool Listener::Initialize()
+{
+    running = true;
+    //start a listener thread
+    int result = pthread_create(&thread, NULL, s_lsthreadstart, this);
+    return (result == 0);
 }
 
 void Listener::signalReady()

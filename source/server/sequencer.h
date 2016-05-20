@@ -106,15 +106,16 @@ public:
     void          StartThreads();
     void          Disconnect();
     void          QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len, const char* payload);
-    SWInetSocket* GetSocket() { return m_socket; }
+    void          NotifyAllVehicles(Sequencer* sequencer);
     std::string   GetIpAddress();
-    bool          IsBroadcasterDroppingPackets() const { return m_broadcaster.IsDroppingPackets(); }
 
+    SWInetSocket* GetSocket()                          { return m_socket; }
+    bool          IsBroadcasterDroppingPackets() const { return m_broadcaster.IsDroppingPackets(); }
+    void          SetReceiveData(bool val)             { m_is_receiving_data = val; }
+    bool          IsReceivingData() const              { return m_is_receiving_data; }
+    Status        GetStatus() const                    { return m_status; }
 
     user_info_t user;  //!< user information
-    Status status;              //!< current status of the client
-    bool flow;                  //!< flag to see if the client should be sent data?
-    bool initialized;
 
     int drop_state;             // dropping outgoing packets?
 
@@ -126,6 +127,9 @@ private:
     SWInetSocket* m_socket;
     Receiver      m_receiver;
     Broadcaster   m_broadcaster;
+    Status        m_status;
+    bool          m_is_receiving_data;
+    bool          m_is_initialized;
 };
 
 struct ban_t

@@ -60,7 +60,10 @@ unsigned int Sequencer::connCount = 0;
 Client::Client(Sequencer* sequencer, SWInetSocket* socket):
     m_socket(socket),
     m_receiver(sequencer),
-    m_broadcaster(sequencer)
+    m_broadcaster(sequencer),
+    m_status(Client::STATUS_USED),
+    m_is_receiving_data(false),
+    m_is_initialized(false)
 {
 }
 
@@ -111,6 +114,16 @@ std::string Client::GetIpAddress()
 void Client::QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len, const char* payload)
 {
     m_broadcaster.QueueMessage(msg_type, client_id, stream_id, payload_len, payload);
+}
+
+// Yes, this is weird. To be refactored.
+void Client::NotifyAllVehicles(Sequencer* sequencer)
+{
+    if (!m_is_initialized)
+    {
+        sequencer->notifyAllVehicles(user.uniqueid, false);
+        m_is_initialized = true;
+    }
 }
 
 Sequencer::Sequencer():
@@ -322,9 +335,6 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
     //okay, create the client slot
     Client* to_add = new Client(this, sock);
     to_add->user            = user;
-    to_add->flow            = false;
-    to_add->status          = Client::STATUS_USED;
-    to_add->initialized     = false;
     to_add->user.colournum  = playerColour;
     to_add->user.authstatus = user.authstatus;
     
@@ -543,7 +553,7 @@ void Sequencer::enableFlow(int uid)
     unsigned short pos = instance->getPosfromUid(uid);
     if( UID_NOT_FOUND == pos ) return;
 
-    instance->clients[pos]->flow=true;
+    instance->clients[pos]->SetReceiveData(true);
     // now they are a bonified part of the server, show the new stats
     printStats();
 }
@@ -588,7 +598,7 @@ void Sequencer::notifyAllVehicles(int uid, bool lock)
 
     for (unsigned int i=0; i<instance->clients.size(); i++)
     {
-        if (instance->clients[i]->status == Client::STATUS_USED)
+        if (instance->clients[i]->GetStatus() == Client::STATUS_USED)
         {
             // send user infos
 
@@ -658,14 +668,14 @@ void Sequencer::serverSay(std::string msg, int uid, int type)
 
     for (int i = 0; i < (int)instance->clients.size(); i++)
     {
-        if (instance->clients[i]->status == Client::STATUS_USED &&
-                instance->clients[i]->flow &&
-                (uid==TO_ALL || ((int)instance->clients[i]->user.uniqueid) == uid))
+        Client* client = clients[i];
+        if ((client->GetStatus() == Client::STATUS_USED) &&
+            client->IsReceivingData() &&
+            (uid == TO_ALL || ((int)client->user.uniqueid) == uid))
         {
-
             UTFString s = tryConvertUTF(msg.c_str());
             const char *str = s.asUTF8_c_str();
-            instance->clients[i]->QueueMessage(MSG2_UTF_CHAT, -1, -1, strlen(str), (char *)str );
+            instance->clients[i]->QueueMessage(MSG2_UTF_CHAT, -1, -1, strlen(str), (char *)str);
         }
     }
 }
@@ -800,7 +810,7 @@ void Sequencer::streamDebug()
 
     for (unsigned int i=0; i<instance->clients.size(); i++)
     {
-        if (instance->clients[i]->status == Client::STATUS_USED)
+        if (instance->clients[i]->GetStatus() == Client::STATUS_USED)
         {
             Logger::Log(LOG_VERBOSE, " * %d %s (slot %d):", instance->clients[i]->user.uniqueid, UTF8BuffertoString(instance->clients[i]->user.username).c_str(), i);
             if(!instance->clients[i]->streams.size())
@@ -825,6 +835,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 
     MutexLocker scoped_lock(instance->clients_mutex);
     unsigned short pos = instance->getPosfromUid(uid);
+    Client* client = clients[pos];
     if( UID_NOT_FOUND == pos ) return;
 
     // check for full broadcaster queue
@@ -850,11 +861,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 
     if(type==MSG2_STREAM_DATA)
     {
-        if(!instance->clients[pos]->initialized)
-        {
-            notifyAllVehicles(instance->clients[pos]->user.uniqueid, false);
-            instance->clients[pos]->initialized=true;
-        }
+        client->NotifyAllVehicles(this);
 
         publishMode = BROADCAST_NORMAL;
         
@@ -1278,32 +1285,30 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
     {
         instance->clients[pos]->streams_traffic[streamid].bandwidthIncoming += len;
 
-        
         if(publishMode == BROADCAST_NORMAL || publishMode == BROADCAST_ALL)
         {
             bool toAll = (publishMode == BROADCAST_ALL);
             // just push to all the present clients
             for (unsigned int i = 0; i < instance->clients.size(); i++)
             {
-                if(i >= instance->clients.size())
-                    break;
-                if (instance->clients[i]->status == Client::STATUS_USED && instance->clients[i]->flow && (i!=pos || toAll))
+                Client* client = clients[i];
+                if (client->GetStatus() == Client::STATUS_USED && client->IsReceivingData() && (i!=pos || toAll))
                 {
-                    instance->clients[i]->streams_traffic[streamid].bandwidthOutgoing += len;
-                    instance->clients[i]->QueueMessage(type, instance->clients[pos]->user.uniqueid, streamid, len, data);
+                    client->streams_traffic[streamid].bandwidthOutgoing += len;
+                    client->QueueMessage(type, client->user.uniqueid, streamid, len, data);
                 }
             }
-        } else if(publishMode == BROADCAST_AUTHED)
+        }
+        else if(publishMode == BROADCAST_AUTHED)
         {
             // push to all bots and authed users above auth level 1
             for (unsigned int i = 0; i < instance->clients.size(); i++)
             {
-                if(i >= instance->clients.size())
-                    break;
-                if (instance->clients[i]->status == Client::STATUS_USED && instance->clients[i]->flow && i!=pos && (instance->clients[i]->user.authstatus & AUTH_ADMIN))
+                Client* client = clients[i];
+                if (client->GetStatus() == Client::STATUS_USED && client->IsReceivingData() && i!=pos && (client->user.authstatus & AUTH_ADMIN))
                 {
-                    instance->clients[i]->streams_traffic[streamid].bandwidthOutgoing += len;
-                    instance->clients[i]->QueueMessage(type, instance->clients[pos]->user.uniqueid, streamid, len, data);
+                    client->streams_traffic[streamid].bandwidthOutgoing += len;
+                    client->QueueMessage(type, client->user.uniqueid, streamid, len, data);
                 }
             }
         }
@@ -1338,7 +1343,7 @@ void Sequencer::updateMinuteStats()
     Sequencer* instance = this;
     for (unsigned int i=0; i<instance->clients.size(); i++)
     {
-        if (instance->clients[i]->status == Client::STATUS_USED)
+        if (instance->clients[i]->GetStatus() == Client::STATUS_USED)
         {
             for(std::map<unsigned int, stream_traffic_t>::iterator it = instance->clients[i]->streams_traffic.begin(); it!=instance->clients[i]->streams_traffic.end(); it++)
             {
@@ -1372,9 +1377,9 @@ void Sequencer::printStats()
             if(instance->clients[i]->user.authstatus & AUTH_BANNED) strcat(authst, "X");
 
             // construct screen
-            if (instance->clients[i]->status == Client::STATUS_USED)
+            if (instance->clients[i]->GetStatus() == Client::STATUS_USED)
                 Logger::Log(LOG_INFO, "%4i Free", i);
-            else if (instance->clients[i]->status == Client::STATUS_USED)
+            else if (instance->clients[i]->GetStatus() == Client::STATUS_USED)
                 Logger::Log(LOG_INFO, "%4i Busy %5i %-16s % 4s %d, %s", i,
                         instance->clients[i]->user.uniqueid, "-",
                         authst,

@@ -268,7 +268,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
     client_t* to_add = new client_t;
     to_add->user            = user;
     to_add->flow            = false;
-    to_add->status          = USED;
+    to_add->status          = client_t::STATUS_USED;
     to_add->initialized     = false;
     to_add->user.colournum  = playerColour;
     to_add->user.authstatus = user.authstatus;
@@ -562,7 +562,7 @@ void Sequencer::notifyAllVehicles(int uid, bool lock)
 
     for (unsigned int i=0; i<instance->clients.size(); i++)
     {
-        if (instance->clients[i]->status == USED)
+        if (instance->clients[i]->status == client_t::STATUS_USED)
         {
             // send user infos
 
@@ -632,7 +632,7 @@ void Sequencer::serverSay(std::string msg, int uid, int type)
 
     for (int i = 0; i < (int)instance->clients.size(); i++)
     {
-        if (instance->clients[i]->status == USED &&
+        if (instance->clients[i]->status == client_t::STATUS_USED &&
                 instance->clients[i]->flow &&
                 (uid==TO_ALL || ((int)instance->clients[i]->user.uniqueid) == uid))
         {
@@ -777,7 +777,7 @@ void Sequencer::streamDebug()
 
     for (unsigned int i=0; i<instance->clients.size(); i++)
     {
-        if (instance->clients[i]->status == USED)
+        if (instance->clients[i]->status == client_t::STATUS_USED)
         {
             Logger::Log(LOG_VERBOSE, " * %d %s (slot %d):", instance->clients[i]->user.uniqueid, UTF8BuffertoString(instance->clients[i]->user.username).c_str(), i);
             if(!instance->clients[i]->streams.size())
@@ -1262,7 +1262,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
             {
                 if(i >= instance->clients.size())
                     break;
-                if (instance->clients[i]->status == USED && instance->clients[i]->flow && (i!=pos || toAll))
+                if (instance->clients[i]->status == client_t::STATUS_USED && instance->clients[i]->flow && (i!=pos || toAll))
                 {
                     instance->clients[i]->streams_traffic[streamid].bandwidthOutgoing += len;
                     instance->clients[i]->broadcaster->queueMessage(type, instance->clients[pos]->user.uniqueid, streamid, len, data);
@@ -1275,7 +1275,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
             {
                 if(i >= instance->clients.size())
                     break;
-                if (instance->clients[i]->status == USED && instance->clients[i]->flow && i!=pos && (instance->clients[i]->user.authstatus & AUTH_ADMIN))
+                if (instance->clients[i]->status == client_t::STATUS_USED && instance->clients[i]->flow && i!=pos && (instance->clients[i]->user.authstatus & AUTH_ADMIN))
                 {
                     instance->clients[i]->streams_traffic[streamid].bandwidthOutgoing += len;
                     instance->clients[i]->broadcaster->queueMessage(type, instance->clients[pos]->user.uniqueid, streamid, len, data);
@@ -1329,7 +1329,7 @@ void Sequencer::updateMinuteStats()
     Sequencer* instance = this;
     for (unsigned int i=0; i<instance->clients.size(); i++)
     {
-        if (instance->clients[i]->status == USED)
+        if (instance->clients[i]->status == client_t::STATUS_USED)
         {
             for(std::map<unsigned int, stream_traffic_t>::iterator it = instance->clients[i]->streams_traffic.begin(); it!=instance->clients[i]->streams_traffic.end(); it++)
             {
@@ -1364,9 +1364,9 @@ void Sequencer::printStats()
             if(instance->clients[i]->user.authstatus & AUTH_BANNED) strcat(authst, "X");
 
             // construct screen
-            if (instance->clients[i]->status == FREE)
+            if (instance->clients[i]->status == client_t::STATUS_USED)
                 Logger::Log(LOG_INFO, "%4i Free", i);
-            else if (instance->clients[i]->status == BUSY)
+            else if (instance->clients[i]->status == client_t::STATUS_USED)
                 Logger::Log(LOG_INFO, "%4i Busy %5i %-16s % 4s %d, %s", i,
                         instance->clients[i]->user.uniqueid, "-",
                         authst,

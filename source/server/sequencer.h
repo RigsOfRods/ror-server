@@ -40,9 +40,7 @@ class UserAuth;
 class SWInetSocket;
 class ScriptEngine;
 
-#define FREE 0
-#define BUSY 1
-#define USED 2
+
 
 // How many not-vehicles streams has every user by default? (e.g.: "default" and "chat" are not-vehicles streams)
 // This is used for the vehicle-limit
@@ -94,9 +92,15 @@ typedef struct stream_traffic_t
 //! A struct to hold information about a client
 struct client_t
 {
+    enum Status
+    {
+        STATUS_FREE = 0,
+        STATUS_BUSY = 1,
+        STATUS_USED = 2
+    };
+
     user_info_t user;  //!< user information
-    int status;                 //!< current status of the client, options are
-                                //!< FREE, BUSY or USED
+    Status status;              //!< current status of the client
     Receiver* receiver;         //!< pointer to a receiver class, this
     Broadcaster* broadcaster;   //!< pointer to a broadcaster class
     SWInetSocket* sock;         //!< socket used to communicate with the client

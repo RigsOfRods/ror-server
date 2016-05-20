@@ -37,18 +37,16 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <stdlib.h>
 #endif
 
-void *s_lsthreadstart(void* vid)
+void *s_lsthreadstart(void* arg)
 {
-    ((Listener*)vid)->threadstart();
-    return NULL;
+    Listener* listener = static_cast<Listener*>(arg);
+    listener->threadstart();
+    return nullptr;
 }
 
 
-Listener::Listener(Sequencer* sequencer, int port, pthread_mutex_t* ready_mtx, pthread_cond_t* ready_cond, int* ready_value):
+Listener::Listener(Sequencer* sequencer, int port):
     lport(port),
-    m_ready_mtx(ready_mtx),
-    m_ready_cond(ready_cond),
-    m_ready_value(ready_value),
     m_sequencer(sequencer)
 {
 }
@@ -63,18 +61,34 @@ Listener::~Listener(void)
 
 bool Listener::Initialize()
 {
-    running = true;
+    if (!m_ready_cond.Initialize())
+    {
+        return false;
+    }
     //start a listener thread
     int result = pthread_create(&thread, NULL, s_lsthreadstart, this);
-    return (result == 0);
+    if (result == 0)
+    {
+        running = true;
+        return true;
+    }
+    return false;
 }
 
-void Listener::signalReady()
+bool Listener::WaitUntilReady()
 {
-    pthread_mutex_lock(m_ready_mtx);
-    *m_ready_value = 1;
-    pthread_cond_signal(m_ready_cond);
-    pthread_mutex_unlock(m_ready_mtx);
+    int result = 0;
+    if (!m_ready_cond.Wait(&result))
+    {
+        Logger::Log(LOG_ERROR, "Internal: Error while starting listener thread");
+        return false;
+    }
+    if (result < 0)
+    {
+        Logger::Log(LOG_ERROR, "Internal: Listerer thread failed to start");
+        return false;
+    }
+    return true;
 }
 
 void Listener::threadstart()
@@ -96,7 +110,7 @@ void Listener::threadstart()
     listSocket.listen();
 
     Logger::Log(LOG_VERBOSE,"Listener ready");
-    this->signalReady();
+    m_ready_cond.Signal(1);
 
     //await connections
     while (running)

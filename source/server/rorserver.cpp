@@ -258,60 +258,16 @@ int main(int argc, char* argv[])
     signal(SIGINT, handler);
     signal(SIGTERM, handler);
 
-    // Wait for Listener thread to start before registering on the serverlist
-    //    (which will contact us back for verification).
-
-    // Yay, oldschool pthreads!
-    //    Tutorial: https://computing.llnl.gov/tutorials/pthreads/#ConditionVariables
-
-    pthread_mutex_t listener_ready_mtx;
-    pthread_cond_t  listener_ready_cond;
-    int             listener_ready_value = 0;
-
-    int mtx_result = pthread_mutex_init(&listener_ready_mtx, nullptr);
-    if (mtx_result != 0)
-    {
-        Logger::Log(LOG_ERROR, "Failed to initialize mutex (listener_ready_mtx), error code: %d", mtx_result);
-        return -1;
-    }
-
-    int cond_result = pthread_cond_init(&listener_ready_cond, nullptr);
-    if (cond_result != 0)
-    {
-        Logger::Log(LOG_ERROR, "Failed to initialize condition-variable (listener_ready_cond), error code: %d", cond_result);
-        return -1;
-    }
-
-    Listener listener(&s_sequencer, Config::getListenPort(), &listener_ready_mtx, &listener_ready_cond, &listener_ready_value);
+    Listener listener(&s_sequencer, Config::getListenPort());
     if (!listener.Initialize())
     {
         return -1;
     }
     s_sequencer.initialize(&listener);
 
-    // Wait for `Listener` to start up.
-    int lock_result = pthread_mutex_lock(&listener_ready_mtx);
-    if (lock_result != 0)
+    if (!listener.WaitUntilReady())
     {
-        Logger::Log(LOG_ERROR, "Failed to acquire lock, error code: %d", lock_result);
-        return -1;
-    }
-    while (listener_ready_value == 0)
-    {
-        int wait_result = pthread_cond_wait(&listener_ready_cond, &listener_ready_mtx);
-        if (wait_result != 0)
-        {
-            Logger::Log(LOG_ERROR, "Failed to wait on condition variable, error code: %d", wait_result);
-            pthread_mutex_unlock(&listener_ready_mtx);
-            return -1;
-        }
-    }
-    pthread_mutex_unlock(&listener_ready_mtx);
-
-    if (listener_ready_value < 0)if (listener_ready_value < 0)
-    {
-        Logger::Log(LOG_ERROR, "Failed to start up listener, error code: %d", listener_ready_value);
-        return -1;
+        return -1; // Error already logged
     }
 
     // Listener is ready, let's register ourselves on serverlist (which will contact us back to check).

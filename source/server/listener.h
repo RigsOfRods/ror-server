@@ -20,8 +20,10 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include <pthread.h>
 #include "SocketW.h"
+#include "mutexutils.h"
+
+#include <pthread.h>
 
 class Sequencer;
 
@@ -32,17 +34,13 @@ private:
     int lport;
     bool running;
     SWInetSocket listSocket;
-    pthread_mutex_t* m_ready_mtx;
-    pthread_cond_t* m_ready_cond;
-    int* m_ready_value;
+    Threading::SimpleCondition m_ready_cond;
     Sequencer* m_sequencer;
-
-    /// Signals the main thread that we're ready to listen for connections.
-    void signalReady();
 public:
-    Listener(Sequencer* sequencer, int port, pthread_mutex_t* ready_mtx, pthread_cond_t* ready_cond, int* ready_value);
+    Listener(Sequencer* sequencer, int port);
     ~Listener(void);
     void threadstart();
     bool Initialize();
+    bool WaitUntilReady();
 };
 

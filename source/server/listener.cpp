@@ -143,13 +143,13 @@ void Listener::threadstart()
         try
         {
             // this is the start of it all, it all starts with a simple hello
-            if (Messaging::receivemessage(ts, &type, &source, &streamid, &len, buffer, 256))
+            if (Messaging::ReceiveMessage(ts, &type, &source, &streamid, &len, buffer, 256))
                 throw std::runtime_error("ERROR Listener: receiving first message");
 
             // make sure our first message is a hello message
             if (type != MSG2_HELLO)
             {
-                Messaging::sendmessage(ts, MSG2_WRONG_VER, 0, 0, 0, 0);
+                Messaging::SendMessage(ts, MSG2_WRONG_VER, 0, 0, 0, 0);
                 throw std::runtime_error("ERROR Listener: protocol error");
             }
 
@@ -160,7 +160,7 @@ void Listener::threadstart()
                 // send back some information, then close socket
                 char tmp[2048]="";
                 sprintf(tmp,"protocol:%s\nrev:%s\nbuild_on:%s_%s\n", RORNET_VERSION, VERSION, __DATE__, __TIME__);
-                if (Messaging::sendmessage(ts, MSG2_MASTERINFO, 0, 0, (unsigned int) strlen(tmp), tmp))
+                if (Messaging::SendMessage(ts, MSG2_MASTERINFO, 0, 0, (unsigned int) strlen(tmp), tmp))
                 {
                     throw std::runtime_error("ERROR Listener: sending master info");
                 }
@@ -174,7 +174,7 @@ void Listener::threadstart()
             if(strncmp(buffer, RORNET_VERSION, strlen(RORNET_VERSION)))
             {
                 // not compatible
-                Messaging::sendmessage(ts, MSG2_WRONG_VER, 0, 0, 0, 0);
+                Messaging::SendMessage(ts, MSG2_WRONG_VER, 0, 0, 0, 0);
                 throw std::runtime_error("ERROR Listener: bad version: "+std::string(buffer)+". rejecting ...");
             }
 
@@ -197,11 +197,11 @@ void Listener::threadstart()
             strncpy(settings.servername, Config::getServerName().c_str(), Config::getServerName().size());
             strncpy(settings.terrain, Config::getTerrainName().c_str(), Config::getTerrainName().size());
 
-            if (Messaging::sendmessage(ts, MSG2_HELLO, 0, 0, (unsigned int) sizeof(server_info_t), (char*)&settings))
+            if (Messaging::SendMessage(ts, MSG2_HELLO, 0, 0, (unsigned int) sizeof(server_info_t), (char*)&settings))
                 throw std::runtime_error("ERROR Listener: sending version");
 
             //receive user infos
-            if (Messaging::receivemessage(ts, &type, &source, &streamid, &len, buffer, 256))
+            if (Messaging::ReceiveMessage(ts, &type, &source, &streamid, &len, buffer, 256))
             {
                 std::stringstream error_msg;
                 error_msg << "ERROR Listener: receiving user infos\n"
@@ -241,7 +241,7 @@ void Listener::threadstart()
                         user->serverpassword);
                 if(strncmp(Config::getPublicPassword().c_str(), user->serverpassword, 40))
                 {
-                    Messaging::sendmessage(ts, MSG2_WRONG_PW, 0, 0, 0, 0);
+                    Messaging::SendMessage(ts, MSG2_WRONG_PW, 0, 0, 0, 0);
                     throw std::runtime_error( "ERROR Listener: wrong password" );
                 }
 

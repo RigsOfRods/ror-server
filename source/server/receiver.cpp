@@ -88,7 +88,7 @@ void Receiver::Thread()
     m_socket->set_timeout(60, 0);
     while( m_is_running )
     {
-        if (Messaging::receivemessage(m_socket, &type, &source, &streamid, &len, m_dbuffer, MAX_MESSAGE_LENGTH))
+        if (Messaging::ReceiveMessage(m_socket, &type, &source, &streamid, &len, m_dbuffer, MAX_MESSAGE_LENGTH))
         {
             m_sequencer->disconnect(m_id, "Game connection closed");
             break;

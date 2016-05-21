@@ -181,7 +181,7 @@ void Sequencer::Close()
     {
         // HACK-ISH override all thread stuff and directly send it!
         Client* client = m_clients[i];
-        Messaging::sendmessage(client->GetSocket(), MSG2_USER_LEAVE, client->user.uniqueid, 0, strlen(str), str);
+        Messaging::SendMessage(client->GetSocket(), MSG2_USER_LEAVE, client->user.uniqueid, 0, strlen(str), str);
     }
     Logger::Log(LOG_INFO,"all clients disconnected. exiting.");
 
@@ -276,7 +276,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
     if(Sequencer::IsBanned(sock->get_peerAddr(&error).c_str()))
     {
         Logger::Log(LOG_VERBOSE,"rejected banned IP %s", sock->get_peerAddr(&error).c_str());
-        Messaging::sendmessage(sock, MSG2_BANNED, 0, 0, 0, 0);
+        Messaging::SendMessage(sock, MSG2_BANNED, 0, 0, 0, 0);
         return;
     }
 
@@ -288,7 +288,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
         // set a low time out because we don't want to cause a back up of
         // connecting clients
         sock->set_timeout( 10, 0 );
-        Messaging::sendmessage(sock, MSG2_FULL, 0, 0, 0, 0);
+        Messaging::SendMessage(sock, MSG2_FULL, 0, 0, 0, 0);
         throw std::runtime_error("Server is full");
     }
 
@@ -348,7 +348,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
     to_add->StartThreads();
 
     Logger::Log(LOG_VERBOSE,"Sending welcome message to uid %i", client_id);
-    if( Messaging::sendmessage(sock, MSG2_WELCOME, client_id, 0, sizeof(user_info_t), (char *)&to_add->user) )
+    if( Messaging::SendMessage(sock, MSG2_WELCOME, client_id, 0, sizeof(user_info_t), (char *)&to_add->user) )
     {
         Sequencer::disconnect(client_id, "error sending welcome message");
         return;

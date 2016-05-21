@@ -93,7 +93,7 @@ void updateMinuteStats()
  * @param content message to send
  * @return dunno
  */
-int sendmessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len, const char* content)
+int SendMessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len, const char* content)
 {
     assert(socket != nullptr);
 
@@ -153,7 +153,7 @@ void addBandwidthDropOutgoing(int bytes)
  * @param out_source      Magic. Value 5000 used by serverlist to check this server.
  * @return                0 on success, negative number on error.
  */
-int receivemessage(
+int ReceiveMessage(
         SWInetSocket *socket,
         int* out_type,
         int* out_source,
@@ -193,7 +193,7 @@ int receivemessage(
     
     if((int)head.size >= MAX_MESSAGE_LENGTH)
     {
-        Logger::Log(LOG_ERROR, "receivemessage(): payload too long: %d b (max. is %d b)", head.size, MAX_MESSAGE_LENGTH);
+        Logger::Log(LOG_ERROR, "ReceiveMessage(): payload too long: %d b (max. is %d b)", head.size, MAX_MESSAGE_LENGTH);
         return -3;
     }
 

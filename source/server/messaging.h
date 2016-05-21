@@ -25,9 +25,23 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 class SWInetSocket;
 
 namespace Messaging {
-    
-int sendmessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len, const char* content);
-int receivemessage(SWInetSocket *socket, int *type, int *source, unsigned int *streamid, unsigned int *wrotelen, char* content, unsigned int bufferlen);
+
+int SendMessage(
+    SWInetSocket* socket,
+    int           msg_type,
+    int           msg_client_id,
+    unsigned int  msg_stream_id,
+    unsigned int  payload_len,
+    const char*   payload);
+
+int ReceiveMessage(
+    SWInetSocket* socket,
+    int*          out_msg_type,
+    int*          out_client_id,
+    unsigned int* out_stream_id,
+    unsigned int* out_payload_len,
+    char*         out_payload,
+    unsigned int  payload_buf_len);
 
 int broadcastLAN();
 

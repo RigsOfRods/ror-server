@@ -141,39 +141,21 @@ struct ban_t
     char banmsg[256];           //!< why he got banned
 };
 
+void* LaunchKillerThread(void*);
+
 class Sequencer
 {
-private:
-    pthread_t killerthread; //!< thread to handle the killing of clients
-    Condition killer_cv;    //!< wait condition that there are clients to kill
-    Mutex killer_mutex;     //!< mutex used for locking access to the killqueue
-    Mutex clients_mutex;    //!< mutex used for locking access to the clients array
-    
-    Listener* listener;     //!< listens for incoming connections
-    ScriptEngine* script;     //!< listens for incoming connections
-    Notifier notifier;     //!< registers and handles the master server
-    UserAuth* authresolver; //!< authenticates users
-    std::vector<Client*> clients; //!< clients is a list of all the available 
-    std::vector<ban_t*> bans; //!< list of bans
-                            //!< client connections, it is allocated
-    unsigned int fuid;      //!< next userid
-    std::queue<Client*> killqueue; //!< holds pointer for client deletion
-    int botCount;           //!< Amount of registered bots on the server.
-    
-    int startTime;
-    unsigned short getPosfromUid(unsigned int uid);
-
+    friend void* LaunchKillerThread(void*);
 public:
 
     Sequencer();
-    ~Sequencer();
 
-    void initialize(Listener* listener);
-    void activateUserAuth();
-    void registerServer();
+    void Initialize(Listener* listener);
+    void ActivateUserAuth();
+    void RegisterServer();
 
     //! destructor call, used for clean up
-    void cleanUp();
+    void Close();
     
     //! initilize client information
     void createClient(SWInetSocket *sock, user_info_t  user);
@@ -189,10 +171,9 @@ public:
     int sendMOTD(int id);
     
     void notifyRoutine();
-    void notifyAllVehicles(int id, bool lock=true);
+    void IntroduceNewClientToAllVehicles(Client* client);
 
     UserAuth* getUserAuth();
-    ScriptEngine* getScriptEngine();
     Notifier *getNotifier();
 
     int getNumClients(); //! number of clients connected to this server
@@ -221,5 +202,23 @@ public:
 
     static unsigned int connCrash, connCount;
 
+private:
+    pthread_t     m_killer_thread;  //!< thread to handle the killing of clients
+    Condition     m_killer_cond;    //!< wait condition that there are clients to kill
+    Mutex         m_killer_mutex;   //!< mutex used for locking access to the killqueue
+    Mutex         m_clients_mutex;  //!< mutex used for locking access to the clients array
+    Listener*     m_listener;
+    ScriptEngine* m_script_engine;
+    Notifier      m_notifier;       //!< registers and handles the online serverlist
+    UserAuth*     m_auth_resolver;
+    int           m_bot_count;      //!< Amount of registered bots on the server.
+    unsigned int  m_free_user_id;
+    int           m_start_time;
+
+    std::queue<Client*>  m_kill_queue; //!< holds pointer for client deletion
+    std::vector<Client*> m_clients;
+    std::vector<ban_t*>  m_bans;
+
+    Client* FindClientById(unsigned int client_id);
 };
 

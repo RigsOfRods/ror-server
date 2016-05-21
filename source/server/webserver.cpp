@@ -289,12 +289,12 @@ static void data_players(struct mg_connection *conn, const struct mg_request_inf
 
         if (it->status == FREE)
         {
-            row["slot"] = it->user.slotnum;
+            row["slot"] = -1;
             row["status"] = "FREE";
             rows.append(row);
         } else if (it->status == BUSY)
         {
-            row["slot"] = it->user.slotnum;
+            row["slot"] = -1;
             row["status"] = "BUSY";
             rows.append(row);
         } else if (it->status == USED)
@@ -310,7 +310,7 @@ static void data_players(struct mg_connection *conn, const struct mg_request_inf
             char playerColour[128] = "";
             getPlayerColour(it->user.colournum, playerColour);
 
-            row["slot"]     = it->user.slotnum;
+            row["slot"]     = -1;
             row["status"]   = "USED";
             row["uid"]      = it->user.uniqueid;
             row["ip"]       = it->GetIpAddress();

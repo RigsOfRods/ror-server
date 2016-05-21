@@ -33,7 +33,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "utils.h"
 #include "ScriptEngine.h"
 
-#include <cstdio>
+#include <stdio.h>
+#include <time.h>
 #include <string>
 #include <iostream>
 #include <stdexcept>
@@ -42,17 +43,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #ifdef __GNUC__
 #include <stdlib.h>
 #endif
-
-#define UID_NOT_FOUND 0xFFFF
-
-using namespace std;
-
-void *s_klthreadstart(void* arg)
-{
-    Sequencer* sequencer = static_cast<Sequencer*>(arg);
-    sequencer->killerthreadstart();
-    return nullptr;
-}
 
 unsigned int Sequencer::connCrash = 0;
 unsigned int Sequencer::connCount = 0;
@@ -121,113 +111,114 @@ void Client::NotifyAllVehicles(Sequencer* sequencer)
 {
     if (!m_is_initialized)
     {
-        sequencer->notifyAllVehicles(user.uniqueid, false);
+        sequencer->IntroduceNewClientToAllVehicles(this);
         m_is_initialized = true;
     }
 }
 
-Sequencer::Sequencer():
-    listener(nullptr),
-    notifier(this),
-    authresolver(nullptr),
-    fuid(1),
-    botCount(0),
-    startTime(Messaging::getTime())
+void* LaunchKillerThread(void* data)
 {
+    Sequencer* sequencer = static_cast<Sequencer*>(data);
+    sequencer->killerthreadstart();
+    return nullptr;
 }
 
-Sequencer::~Sequencer()
+Sequencer::Sequencer():
+    m_listener(nullptr),
+    m_script_engine(nullptr),
+    m_notifier(this),
+    m_auth_resolver(nullptr),
+    m_bot_count(0),
+    m_free_user_id(1)
 {
+    m_start_time = static_cast<int>(time(nullptr));
 }
 
 /**
  * Inililize, needs to be called before the class is used
  */
-void Sequencer::initialize(Listener* listener)
+void Sequencer::Initialize(Listener* listener)
 {
-    Sequencer* instance  = this;
-    instance->clients.reserve( Config::getMaxClients() );
-    instance->listener = listener;
+    m_listener = listener;
+    m_clients.reserve( Config::getMaxClients() );
 
-    instance->script = 0;
 #ifdef WITH_ANGELSCRIPT
     if(Config::getEnableScripting())
     {
-        instance->script = new ScriptEngine(instance);
-        instance->script->loadScript(Config::getScriptName());
+        m_script_engine = new ScriptEngine(this);
+        m_script_engine->loadScript(Config::getScriptName());
     }
 #endif //WITH_ANGELSCRIPT
 
-    pthread_create(&instance->killerthread, NULL, s_klthreadstart, instance);
-    instance->notifier.activate();
+    pthread_create(&m_killer_thread, NULL, LaunchKillerThread, this);
+    m_notifier.activate();
 }
 
-void Sequencer::activateUserAuth()
+void Sequencer::ActivateUserAuth()
 {
-    Sequencer* instance = this;
-    instance->authresolver = new UserAuth(
-        instance->notifier.getChallenge(), instance->notifier.getTrustLevel(), Config::getAuthFile());
+    m_auth_resolver = new UserAuth(m_notifier.getChallenge(), m_notifier.getTrustLevel(), Config::getAuthFile());
 }
 
-void Sequencer::registerServer()
+void Sequencer::RegisterServer()
 {
-    this->notifier.registerServer();
+    m_notifier.registerServer();
 }
 
 /**
  * Cleanup function is to be called when the Sequencer is done being used
  * this is in place of the destructor.
  */
-void Sequencer::cleanUp()
+void Sequencer::Close()
 {
     static bool cleanup = false;
-    if(cleanup) return;
-    cleanup=true;
+    if (cleanup) return;
+    cleanup = true; // WTF?? ~ only_a_ptr, 05/2016
 
-    Sequencer* instance = this;
-    Logger::Log(LOG_INFO,"closing. disconnecting clients ...");
+    Logger::Log(LOG_INFO, "closing. disconnecting clients ...");
+
     const char *str = "server shutting down (try to reconnect later!)";
-    for( unsigned int i = 0; i < instance->clients.size(); i++)
+    for( unsigned int i = 0; i < m_clients.size(); i++)
     {
         // HACK-ISH override all thread stuff and directly send it!
-        Messaging::sendmessage(instance->clients[i]->GetSocket(), MSG2_USER_LEAVE, instance->clients[i]->user.uniqueid, 0, strlen(str), str);
-        //disconnect(instance->clients[i]->user.uniqueid, );
+        Client* client = m_clients[i];
+        Messaging::sendmessage(client->GetSocket(), MSG2_USER_LEAVE, client->user.uniqueid, 0, strlen(str), str);
     }
     Logger::Log(LOG_INFO,"all clients disconnected. exiting.");
 
-    if(instance->notifier.isActive())
+    if(m_notifier.isActive())
     {
-        instance->notifier.unregisterServer();
-        instance->notifier.deactivate();
+        m_notifier.unregisterServer();
+        m_notifier.deactivate();
     }
 
 #ifdef WITH_ANGELSCRIPT
-    if(instance->script)
+    if (m_script_engine != nullptr)
     {
-        delete instance->script;
-        instance->script = 0;
+        delete m_script_engine;
+        m_script_engine = nullptr;
     }
 #endif //WITH_ANGELSCRIPT
 
-    if(instance->authresolver)
-        delete instance->authresolver;
-    
-    if(instance->listener)
+    if (m_auth_resolver != nullptr)
     {
-        delete instance->listener;
-        instance->listener = 0;
+        delete m_auth_resolver;
+        m_auth_resolver = nullptr;
     }
     
-    pthread_cancel(instance->killerthread);
-    pthread_detach(instance->killerthread);
-    cleanup = false;
+    if (m_listener != nullptr)
+    {
+        delete m_listener;
+        m_listener = nullptr;
+    }
+    
+    pthread_cancel(m_killer_thread);
+    pthread_detach(m_killer_thread);
+    cleanup = false; // WTF?? ~ only_a_ptr, 05/2016
 }
 
 void Sequencer::notifyRoutine()
 {
-    //we call the notify loop
-    Sequencer* instance = this;
-    instance->notifier.loop();
+    m_notifier.loop();
 }
 
 bool Sequencer::CheckNickIsUnique(UTFString &nick)
@@ -235,10 +226,9 @@ bool Sequencer::CheckNickIsUnique(UTFString &nick)
     // WARNING: be sure that this is only called within a clients_mutex lock!
 
     // check for duplicate names
-    Sequencer* instance = this;
-    for (unsigned int i = 0; i < instance->clients.size(); i++)
+    for (unsigned int i = 0; i < m_clients.size(); i++)
     {
-        UTFString a = tryConvertUTF(instance->clients[i]->user.username);
+        UTFString a = tryConvertUTF(m_clients[i]->user.username);
         if (nick == a)
         {
             return true;
@@ -253,12 +243,11 @@ int Sequencer::GetFreePlayerColour()
     // WARNING: be sure that this is only called within a clients_mutex lock!
 
     int col = 0;
-    Sequencer* instance = this;
     for (; col < 50; col++) // TODO: How many colors ARE there?
     {
-        for (unsigned int i = 0; i < instance->clients.size(); i++)
+        for (unsigned int i = 0; i < m_clients.size(); i++)
         {
-            if (instance->clients[i]->user.colournum == col)
+            if (m_clients[i]->user.colournum == col)
             {
                 break;
             }
@@ -270,12 +259,11 @@ int Sequencer::GetFreePlayerColour()
 //this is called by the Listener thread
 void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 {
-    Sequencer* instance = this;
     //we have a confirmed client that wants to play
     //try to find a place for him
     Logger::Log(LOG_DEBUG,"got instance in createClient()");
 
-    MutexLocker scoped_lock(instance->clients_mutex);
+    MutexLocker scoped_lock(m_clients_mutex);
     
     UTFString nick = tryConvertUTF(user.username);
     bool dupeNick = Sequencer::CheckNickIsUnique(nick);
@@ -294,7 +282,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 
     // check if server is full
     Logger::Log(LOG_DEBUG,"searching free slot for new client...");
-    if( instance->clients.size() >= (Config::getMaxClients() + instance->botCount) )
+    if( m_clients.size() >= (Config::getMaxClients() + m_bot_count) )
     {
         Logger::Log(LOG_WARN,"join request from '%s' on full server: rejecting!", UTF8BuffertoString(user.username).c_str());
         // set a low time out because we don't want to cause a back up of
@@ -330,7 +318,7 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
     
     // Increase the botcount if this is a bot
     if((user.authstatus & AUTH_BOT)>0)
-        instance->botCount++;
+        m_bot_count++;
 
     //okay, create the client slot
     Client* to_add = new Client(this, sock);
@@ -347,32 +335,31 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
     Logger::Log(LOG_INFO, UTFString("New client: ") + tryConvertUTF(user.username) + tryConvertUTF(buf));
 
     // assign unique userid
-    to_add->user.uniqueid = instance->fuid;
+    unsigned int client_id = m_free_user_id;
+    to_add->user.uniqueid = client_id;
 
     // count up unique id
-    instance->fuid++;
+    m_free_user_id++;
 
     // add the client to the vector
-    instance->clients.push_back( to_add );
+    m_clients.push_back( to_add );
     // create one thread for the receiver
     // and one for the broadcaster
     to_add->StartThreads();
 
-    // process slot infos
-    int npos = instance->getPosfromUid(to_add->user.uniqueid);
-    instance->clients[npos]->user.slotnum = npos;
-
-    Logger::Log(LOG_VERBOSE,"Sending welcome message to uid %i, slotpos: %i", instance->clients[npos]->user.uniqueid, npos);
-    if( Messaging::sendmessage(sock, MSG2_WELCOME, instance->clients[npos]->user.uniqueid, 0, sizeof(user_info_t), (char *)&to_add->user) )
+    Logger::Log(LOG_VERBOSE,"Sending welcome message to uid %i", client_id);
+    if( Messaging::sendmessage(sock, MSG2_WELCOME, client_id, 0, sizeof(user_info_t), (char *)&to_add->user) )
     {
-        Sequencer::disconnect(instance->clients[npos]->user.uniqueid, "error sending welcome message" );
+        Sequencer::disconnect(client_id, "error sending welcome message");
         return;
     }
     
     // Do script callback
 #ifdef WITH_ANGELSCRIPT
-    if(instance->script)
-        instance->script->playerAdded(instance->clients[npos]->user.uniqueid);
+    if (m_script_engine != nullptr)
+    {
+        m_script_engine->playerAdded(client_id);
+    }
 #endif //WITH_ANGELSCRIPT
 
     // notify everyone of the new client
@@ -380,9 +367,9 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
     user_info_t info_for_others = to_add->user;
     memset(info_for_others.usertoken, 0, 40);
     memset(info_for_others.clientGUID, 0, 40);
-    for(unsigned int i = 0; i < instance->clients.size(); i++)
+    for(unsigned int i = 0; i < m_clients.size(); i++)
     {
-        instance->clients[i]->QueueMessage(MSG2_USER_JOIN, instance->clients[npos]->user.uniqueid, 0, sizeof(user_info_t), (char*)&info_for_others);
+        m_clients[i]->QueueMessage(MSG2_USER_JOIN, client_id, 0, sizeof(user_info_t), (char*)&info_for_others);
     }
 
     // done!
@@ -390,56 +377,56 @@ void Sequencer::createClient(SWInetSocket *sock, user_info_t user)
 }
 
 // assuming client lock
-void Sequencer::broadcastUserInfo(int uid)
+void Sequencer::broadcastUserInfo(int client_id)
 {
-    Sequencer* instance = this;
-
-    unsigned short pos = instance->getPosfromUid(uid);
-    if( UID_NOT_FOUND == pos ) return;
+    Client* client = this->FindClientById(static_cast<unsigned int>(client_id));
+    if (client == nullptr)
+    {
+        return;
+    }
 
     // notify everyone of the client
     // but blank out the user token and GUID
-    user_info_t info_for_others = instance->clients[pos]->user;
+    user_info_t info_for_others = client->user;
     memset(info_for_others.usertoken, 0, 40);
     memset(info_for_others.clientGUID, 0, 40);
-    for(unsigned int i = 0; i < instance->clients.size(); i++)
+    for(unsigned int i = 0; i < m_clients.size(); i++)
     {
-        instance->clients[i]->QueueMessage(MSG2_USER_INFO, instance->clients[pos]->user.uniqueid, 0, sizeof(user_info_t), (char*)&info_for_others);
+        m_clients[i]->QueueMessage(MSG2_USER_INFO, info_for_others.uniqueid, 0, sizeof(user_info_t), (char*)&info_for_others);
     }
 }
-    
+
 //this is called from the hearbeat notifier thread
 int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 {
-    Sequencer* instance = this;
     int clientnum = getNumClients();
     // lock this mutex after getNumClients is called to avoid a deadlock
-    MutexLocker scoped_lock(instance->clients_mutex);
+    MutexLocker scoped_lock(m_clients_mutex);
 
     sprintf(hearbeatdata, "%s\n" \
                           "version5\n" \
-                          "%i\n", challenge, clientnum - instance->botCount);
+                          "%i\n", challenge, clientnum - m_bot_count);
     if(clientnum > 0)
     {
         int fakeslot = 0;
-        for( unsigned int i = 0; i < instance->clients.size(); i++)
+        for( unsigned int i = 0; i < m_clients.size(); i++)
         {
             // ignore bots
-            if(instance->clients[i]->user.authstatus & AUTH_BOT) continue;
+            if(m_clients[i]->user.authstatus & AUTH_BOT) continue;
 
             char authst[10] = "";
-            if(instance->clients[i]->user.authstatus & AUTH_ADMIN) strcat(authst, "A");
-            if(instance->clients[i]->user.authstatus & AUTH_MOD) strcat(authst, "M");
-            if(instance->clients[i]->user.authstatus & AUTH_RANKED) strcat(authst, "R");
-            if(instance->clients[i]->user.authstatus & AUTH_BOT) strcat(authst, "B");
+            if(m_clients[i]->user.authstatus & AUTH_ADMIN) strcat(authst, "A");
+            if(m_clients[i]->user.authstatus & AUTH_MOD) strcat(authst, "M");
+            if(m_clients[i]->user.authstatus & AUTH_RANKED) strcat(authst, "R");
+            if(m_clients[i]->user.authstatus & AUTH_BOT) strcat(authst, "B");
 
             char playerdata[1024] = "";
             sprintf(playerdata, "%d;%s;%s;%s;%d\n",
                     fakeslot++,
-                    UTF8BuffertoString(instance->clients[i]->user.username).c_str(),
-                    instance->clients[i]->GetIpAddress().c_str(),
+                    UTF8BuffertoString(m_clients[i]->user.username).c_str(),
+                    m_clients[i]->GetIpAddress().c_str(),
                     authst,
-                    (int)instance->clients[i]->user.uniqueid
+                    (int)m_clients[i]->user.uniqueid
                     );
             strcat(hearbeatdata, playerdata);
         }
@@ -449,42 +436,37 @@ int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
 
 int Sequencer::getNumClients()
 {
-    Sequencer* instance = this;
-    MutexLocker scoped_lock(instance->clients_mutex);
-    return (int)instance->clients.size();
+    MutexLocker scoped_lock(m_clients_mutex);
+    return (int)m_clients.size();
 }
 
 int Sequencer::AuthorizeNick(std::string token, UTFString &nickname)
 {
-    Sequencer* instance = this;
-    MutexLocker scoped_lock(instance->clients_mutex);
-    if(!instance->authresolver)
+    MutexLocker scoped_lock(m_clients_mutex);
+    if (m_auth_resolver == nullptr)
+    {
         return AUTH_NONE;
-    return instance->authresolver->resolve(token, nickname, instance->fuid);
-}
-
-ScriptEngine* Sequencer::getScriptEngine()
-{
-    Sequencer* instance = this;
-    return instance->script;
+    }
+    return m_auth_resolver->resolve(token, nickname, m_free_user_id);
 }
 
 void Sequencer::killerthreadstart()
 {
-    Sequencer* instance = this;
     Logger::Log(LOG_DEBUG,"Killer thread ready");
     while (1)
     {
         Logger::Log(LOG_DEBUG,"Killer entering cycle");
 
-        instance->killer_mutex.lock();
-        while( instance->killqueue.empty() )
-            instance->killer_mutex.wait(instance->killer_cv);
+        m_killer_mutex.lock();
+        while (m_kill_queue.empty())
+        {
+            m_killer_mutex.wait(m_killer_cond);
+        }
 
         //pop the kill queue
-        Client* to_del = instance->killqueue.front();
-        instance->killqueue.pop();
-        instance->killer_mutex.unlock();
+        Client* to_del = m_kill_queue.front();
+        m_kill_queue.pop();
+        m_killer_mutex.unlock();
 
         Logger::Log(LOG_DEBUG, UTFString("Killer called to kill ") + tryConvertUTF(to_del->user.username) );
         to_del->Disconnect();
@@ -496,50 +478,58 @@ void Sequencer::killerthreadstart()
 
 void Sequencer::disconnect(int uid, const char* errormsg, bool isError, bool doScriptCallback /*= true*/)
 {
-    Sequencer* instance = this;
-
-    MutexLocker scoped_lock(instance->killer_mutex);
-    unsigned short pos = instance->getPosfromUid(uid);
-    if( UID_NOT_FOUND == pos ) return;
+    MutexLocker scoped_lock(m_killer_mutex);
+    Client* client = this->FindClientById(static_cast<unsigned int>(uid));
+    if (client == nullptr)
+    {
+        return;
+    }
 
     // send an event if user is rankend and if we are a official server
-    if(instance->authresolver && (instance->clients[pos]->user.authstatus & AUTH_RANKED))
+    if (m_auth_resolver && (client->user.authstatus & AUTH_RANKED))
     {
-        instance->authresolver->sendUserEvent(instance->clients[pos]->user.usertoken, (isError?"crash":"leave"), UTF8BuffertoString(instance->clients[pos]->user.username), "");
+        m_auth_resolver->sendUserEvent(client->user.usertoken, (isError?"crash":"leave"), UTF8BuffertoString(client->user.username), "");
     }
 
 #ifdef WITH_ANGELSCRIPT
-    if(instance->script && doScriptCallback)
-        instance->script->playerDeleted(instance->clients[pos]->user.uniqueid, isError?1:0);
+    if (m_script_engine != nullptr && doScriptCallback)
+    {
+        m_script_engine->playerDeleted(client->user.uniqueid, isError ? 1 : 0);
+    }
 #endif //WITH_ANGELSCRIPT
 
     // Update the botCount value
-    if((instance->clients[pos]->user.authstatus & AUTH_BOT)>0)
-        instance->botCount--;
+    if ((client->user.authstatus & AUTH_BOT) > 0)
+    {
+        m_bot_count--;
+    }
 
     //this routine is a potential trouble maker as it can be called from many thread contexts
     //so we use a killer thread
-    Logger::Log(LOG_VERBOSE, "Disconnecting Slot %d: %s", pos, errormsg);
-
-    Client *c = instance->clients[pos];
-
-    Logger::Log(LOG_DEBUG, "adding client to kill queue, size: %d", instance->killqueue.size());
-    instance->killqueue.push(c);
+    Logger::Log(LOG_VERBOSE, "Disconnecting client ID %d: %s", uid, errormsg);
+    Logger::Log(LOG_DEBUG, "adding client to kill queue, size: %d", m_kill_queue.size());
+    m_kill_queue.push(client);
 
     //notify the others
-    for( unsigned int i = 0; i < instance->clients.size(); i++)
+    int pos = 0;
+    for( unsigned int i = 0; i < m_clients.size(); i++)
     {
-        instance->clients[i]->QueueMessage(MSG2_USER_LEAVE, instance->clients[pos]->user.uniqueid, 0, (int)strlen(errormsg), errormsg);
+        m_clients[i]->QueueMessage(MSG2_USER_LEAVE, client->user.uniqueid, 0, (int)strlen(errormsg), errormsg);
+        if (m_clients[i]->user.uniqueid == uid)
+        {
+            pos = i;
+        }
     }
-    instance->clients.erase( instance->clients.begin() + pos );
+    m_clients.erase( m_clients.begin() + pos );
 
-    instance->killer_cv.signal();
+    m_killer_cond.signal();
 
-
-    instance->connCount++;
-    if(isError)
-        instance->connCrash++;
-    Logger::Log(LOG_INFO, "crash statistic: %d of %d deletes crashed", instance->connCrash, instance->connCount);
+    this->connCount++;
+    if (isError)
+    {
+        this->connCrash++;
+    }
+    Logger::Log(LOG_INFO, "crash statistic: %d of %d deletes crashed", this->connCrash, this->connCount);
 
     printStats();
 }
@@ -547,13 +537,15 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError, bool doS
 //this is called from the listener thread initial handshake
 void Sequencer::enableFlow(int uid)
 {
-    Sequencer* instance = this;
+    MutexLocker scoped_lock(m_clients_mutex);
 
-    MutexLocker scoped_lock(instance->clients_mutex);
-    unsigned short pos = instance->getPosfromUid(uid);
-    if( UID_NOT_FOUND == pos ) return;
+    Client* client = this->FindClientById(static_cast<unsigned int>(uid));
+    if (client == nullptr)
+    {
+        return;
+    }
 
-    instance->clients[pos]->SetReceiveData(true);
+    client->SetReceiveData(true);
     // now they are a bonified part of the server, show the new stats
     printStats();
 }
@@ -577,72 +569,62 @@ int Sequencer::sendMOTD(int uid)
 
 UserAuth* Sequencer::getUserAuth()
 {
-    Sequencer* instance = this;
-    return instance->authresolver;
+    return m_auth_resolver;
 }
 
 //this is called from the listener thread initial handshake
-void Sequencer::notifyAllVehicles(int uid, bool lock)
+void Sequencer::IntroduceNewClientToAllVehicles(Client* new_client)
 {
-    Sequencer* instance = this;
-
-    if(lock)
-        MutexLocker scoped_lock(instance->clients_mutex);
-
-    unsigned short pos = instance->getPosfromUid(uid);
-    if( UID_NOT_FOUND == pos ) return;
-
-    user_info_t info_for_others = instance->clients[pos]->user;
+    user_info_t info_for_others = new_client->user;
     memset(info_for_others.usertoken, 0, 40);
     memset(info_for_others.clientGUID, 0, 40);
 
-    for (unsigned int i=0; i<instance->clients.size(); i++)
+    for (unsigned int i=0; i<m_clients.size(); i++)
     {
-        if (instance->clients[i]->GetStatus() == Client::STATUS_USED)
+        Client* client = m_clients[i];
+        if (client->GetStatus() == Client::STATUS_USED)
         {
-            // send user infos
-
             // new user to all others
-            instance->clients[i]->QueueMessage(MSG2_USER_INFO, instance->clients[pos]->user.uniqueid, 0, sizeof(user_info_t), (char*)&info_for_others);
+            client->QueueMessage(MSG2_USER_INFO, new_client->user.uniqueid, 0, sizeof(user_info_t), (char*)&info_for_others);
 
             // all others to new user
-            user_info_t info_for_others2 = instance->clients[i]->user;
-            memset(info_for_others2.usertoken, 0, 40);
-            memset(info_for_others2.clientGUID, 0, 40);
-            instance->clients[pos]->QueueMessage(MSG2_USER_INFO, instance->clients[i]->user.uniqueid, 0, sizeof(user_info_t), (char*)&info_for_others2);
+            user_info_t info_for_newcomer = m_clients[i]->user;
+            memset(info_for_newcomer.usertoken, 0, 40);
+            memset(info_for_newcomer.clientGUID, 0, 40);
+            new_client->QueueMessage(MSG2_USER_INFO, client->user.uniqueid, 0, sizeof(user_info_t), (char*)&info_for_newcomer);
 
-            Logger::Log(LOG_VERBOSE, " * %d streams registered for user %d", instance->clients[i]->streams.size(), instance->clients[i]->user.uniqueid);
-            for(std::map<unsigned int, stream_register_t>::iterator it = instance->clients[i]->streams.begin(); it!=instance->clients[i]->streams.end(); it++)
+            Logger::Log(LOG_VERBOSE, " * %d streams registered for user %d", m_clients[i]->streams.size(), m_clients[i]->user.uniqueid);
+
+            auto itor = client->streams.begin();
+            auto endi = client->streams.end();
+            for (; itor != endi; ++itor)
             {
-                Logger::Log(LOG_VERBOSE, "sending stream registration %d:%d to user %d", instance->clients[i]->user.uniqueid, it->first, uid);
-                instance->clients[pos]->QueueMessage(MSG2_STREAM_REGISTER, instance->clients[i]->user.uniqueid, it->first, sizeof(stream_register_t), (char*)&it->second);
+                Logger::Log(LOG_VERBOSE, "sending stream registration %d:%d to user %d", client->user.uniqueid, itor->first, new_client->user.uniqueid);
+                new_client->QueueMessage(MSG2_STREAM_REGISTER, client->user.uniqueid, itor->first, sizeof(stream_register_t), (char*)&itor->second);
             }
-
         }
     }
 }
 
 int Sequencer::sendGameCommand(int uid, std::string cmd)
 {
-    Sequencer* instance = this;
-
-    // send
     const char *data = cmd.c_str();
     int size = cmd.size();
     
     if(uid==TO_ALL)
     {
-        for (int i = 0; i < (int)instance->clients.size(); i++)
+        for (int i = 0; i < (int)m_clients.size(); i++)
         {
-            instance->clients[i]->QueueMessage(MSG2_GAME_CMD, -1, 0, size, data);
+            m_clients[i]->QueueMessage(MSG2_GAME_CMD, -1, 0, size, data);
         }
     }
     else
     {
-        unsigned short pos = instance->getPosfromUid(uid);
-        if( UID_NOT_FOUND == pos ) return -1;
-        // -1 = comes from the server
-        instance->clients[pos]->QueueMessage(MSG2_GAME_CMD, -1, 0, size, data);
+        Client* client = this->FindClientById(static_cast<unsigned int>(uid));
+        if (client != nullptr)
+        {
+            client->QueueMessage(MSG2_GAME_CMD, -1, 0, size, data); // ClientId -1: comes from the server
+        }
     }
     return 0;
 }
@@ -651,53 +633,69 @@ int Sequencer::sendGameCommand(int uid, std::string cmd)
 // note: uid==-1==TO_ALL = broadcast your message to all players
 void Sequencer::serverSay(std::string msg, int uid, int type)
 {
-    Sequencer* instance = this;
-
-    if(type==FROM_SERVER)
-        msg = std::string("SERVER: ") + msg;
-    if(type==FROM_HOST) {
-        if(uid==-1)
-            msg = std::string("Host(general): ") + msg;
-        else
-            msg = std::string("Host(private): ") + msg;
-    }
-    if(type==FROM_RULES)
-        msg = std::string("Rules: ") + msg;
-    if(type==FROM_MOTD)
-        msg = std::string("MOTD: ") + msg;
-
-    for (int i = 0; i < (int)instance->clients.size(); i++)
+    switch (type)
     {
-        Client* client = clients[i];
+    case FROM_SERVER:
+        msg = std::string("SERVER: ") + msg;
+        break;
+
+    case FROM_HOST:
+        if (uid == -1)
+        {
+            msg = std::string("Host(general): ") + msg;
+        }
+        else
+        {
+            msg = std::string("Host(private): ") + msg;
+        }
+        break;
+
+    case FROM_RULES:
+        msg = std::string("Rules: ") + msg;
+        break;
+
+    case FROM_MOTD:
+        msg = std::string("MOTD: ") + msg;
+        break;
+    }
+
+    auto itor = m_clients.begin();
+    auto endi = m_clients.end();
+    for (; itor != endi; ++itor)
+    {
+        Client* client = *itor;
         if ((client->GetStatus() == Client::STATUS_USED) &&
             client->IsReceivingData() &&
             (uid == TO_ALL || ((int)client->user.uniqueid) == uid))
         {
             UTFString s = tryConvertUTF(msg.c_str());
             const char *str = s.asUTF8_c_str();
-            instance->clients[i]->QueueMessage(MSG2_UTF_CHAT, -1, -1, strlen(str), (char *)str);
+            client->QueueMessage(MSG2_UTF_CHAT, -1, -1, strlen(str), (char *)str);
         }
     }
 }
 
 void Sequencer::serverSayThreadSave(std::string msg, int uid, int type)
 {
-    Sequencer* instance = this;
-    //MutexLocker scoped_lock(instance->clients_mutex);
-    instance->serverSay(msg, uid, type);
+    this->serverSay(msg, uid, type);
 }
 
 bool Sequencer::Kick(int kuid, int modUID, const char *msg)
 {
-    Sequencer* instance = this;
-    unsigned short pos = instance->getPosfromUid(kuid);
-    if( UID_NOT_FOUND == pos ) return false;
-    unsigned short posMod = instance->getPosfromUid(modUID);
-    if( UID_NOT_FOUND == posMod ) return false;
+    Client* kicked_client = this->FindClientById(static_cast<unsigned int>(kuid));
+    if (kicked_client == nullptr)
+    {
+        return false;
+    }
+    Client* mod_client = this->FindClientById(static_cast<unsigned int>(modUID));
+    if (mod_client == nullptr)
+    {
+        return false;
+    }
 
     char kickmsg[1024] = "";
     strcat(kickmsg, "kicked by ");
-    strcat(kickmsg, UTF8BuffertoString(instance->clients[posMod]->user.username).c_str());
+    strcat(kickmsg, UTF8BuffertoString(mod_client->user.username).c_str());
     if(msg)
     {
         strcat(kickmsg, " for ");
@@ -705,21 +703,31 @@ bool Sequencer::Kick(int kuid, int modUID, const char *msg)
     }
     
     char kickmsg2[1024] = "";
-    sprintf(kickmsg2, "player %s was %s", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), kickmsg);
+    sprintf(kickmsg2, "player %s was %s", UTF8BuffertoString(kicked_client->user.username).c_str(), kickmsg);
     serverSay(kickmsg2, TO_ALL, FROM_SERVER);
-    
-    Logger::Log(LOG_VERBOSE, "player '%s' kicked by '%s'", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), UTF8BuffertoString(instance->clients[posMod]->user.username).c_str());
-    disconnect(instance->clients[pos]->user.uniqueid, kickmsg);
+
+    Logger::Log(
+        LOG_VERBOSE,
+        "player '%s' kicked by '%s'",
+        UTF8BuffertoString(kicked_client->user.username).c_str(),
+        UTF8BuffertoString(mod_client->user.username).c_str());
+
+    disconnect(kicked_client->user.uniqueid, kickmsg);
     return true;
 }
 
 bool Sequencer::Ban(int buid, int modUID, const char *msg)
 {
-    Sequencer* instance = this;
-    unsigned short pos = instance->getPosfromUid(buid);
-    if( UID_NOT_FOUND == pos ) return false;
-    unsigned short posMod = instance->getPosfromUid(modUID);
-    if( UID_NOT_FOUND == posMod ) return false;
+    Client* banned_client = this->FindClientById(static_cast<unsigned int>(buid));
+    if (banned_client == nullptr)
+    {
+        return false;
+    }
+    Client* mod_client = this->FindClientById(static_cast<unsigned int>(modUID));
+    if (mod_client == nullptr)
+    {
+        return false;
+    }
 
     // construct ban data and add it to the list
     ban_t* b = new ban_t;
@@ -727,12 +735,14 @@ bool Sequencer::Ban(int buid, int modUID, const char *msg)
 
     b->uid = buid;
     if(msg) strncpy(b->banmsg, msg, 256);
-    strncpy(b->bannedby_nick, UTF8BuffertoString(instance->clients[posMod]->user.username).c_str(), MAX_USERNAME_LEN);
-    strncpy(b->ip, instance->clients[pos]->GetIpAddress().c_str(), 16);
-    strncpy(b->nickname, UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), MAX_USERNAME_LEN);
-    Logger::Log(LOG_DEBUG, "adding ban, size: %d", instance->bans.size());
-    instance->bans.push_back(b);
-    Logger::Log(LOG_VERBOSE, "new ban added '%s' by '%s'", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), UTF8BuffertoString(instance->clients[posMod]->user.username).c_str());
+    std::string mod_nickname = UTF8BuffertoString(mod_client->user.username);
+    strncpy(b->bannedby_nick, mod_nickname.c_str(), MAX_USERNAME_LEN);
+    strncpy(b->ip, banned_client->GetIpAddress().c_str(), 16);
+    std::string banned_nickname = UTF8BuffertoString(banned_client->user.username);
+    strncpy(b->nickname, banned_nickname.c_str(), MAX_USERNAME_LEN);
+    Logger::Log(LOG_DEBUG, "adding ban, size: %d", m_bans.size());
+    m_bans.push_back(b);
+    Logger::Log(LOG_VERBOSE, "new ban added: '%s' by '%s'", banned_nickname.c_str(), mod_nickname.c_str());
 
     char tmp[1024]="";
     if(msg)
@@ -746,42 +756,44 @@ bool Sequencer::Ban(int buid, int modUID, const char *msg)
 
 void Sequencer::SilentBan(int buid, const char *msg, bool doScriptCallback /*= true*/)
 {
-    Sequencer* instance = this;
-    unsigned short pos = instance->getPosfromUid(buid);
-    if( UID_NOT_FOUND != pos )
+    Client* banned_client = this->FindClientById(static_cast<unsigned int>(buid));
+    if (banned_client == nullptr)
     {
-        // construct ban data and add it to the list
-        ban_t* b = new ban_t;
-        memset(b, 0, sizeof(ban_t));
-
-        b->uid = buid;
-        if(msg) strncpy(b->banmsg, msg, 256);
-        strncpy(b->bannedby_nick, "rorserver", MAX_USERNAME_LEN);
-        strncpy(b->ip, instance->clients[pos]->GetIpAddress().c_str(), 16);
-        strncpy(b->nickname, UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), MAX_USERNAME_LEN);
-        Logger::Log(LOG_DEBUG, "adding ban, size: %d", instance->bans.size());
-        instance->bans.push_back(b);
-        Logger::Log(LOG_VERBOSE, "new ban added '%s' by rorserver", UTF8BuffertoString(instance->clients[pos]->user.username).c_str());
-
-        char tmp[1024]="";
-        if(msg)
-            strcat(tmp, msg);
-        strcat(tmp, " (banned)");
-
-        disconnect(instance->clients[pos]->user.uniqueid, tmp, false, doScriptCallback);
-    }
-    else
         Logger::Log(LOG_ERROR, "void Sequencer::ban(%d, %s) --> uid %d not found!", buid, msg, buid);
+        return;
+    }
+
+    // construct ban data and add it to the list
+    ban_t* b = new ban_t;
+    memset(b, 0, sizeof(ban_t));
+
+    b->uid = buid;
+    if(msg) strncpy(b->banmsg, msg, 256);
+    strncpy(b->bannedby_nick, "rorserver", MAX_USERNAME_LEN);
+    strncpy(b->ip, banned_client->GetIpAddress().c_str(), 16);
+    std::string banned_nickname = UTF8BuffertoString(banned_client->user.username);
+    strncpy(b->nickname, banned_nickname.c_str(), MAX_USERNAME_LEN);
+    Logger::Log(LOG_DEBUG, "adding ban, size: %d", m_bans.size());
+    m_bans.push_back(b);
+    Logger::Log(LOG_VERBOSE, "new ban added '%s' by rorserver", banned_nickname.c_str());
+
+    char tmp[1024]="";
+    if (msg)
+    {
+        strcat(tmp, msg);
+    }
+    strcat(tmp, " (banned)");
+
+    disconnect(banned_client->user.uniqueid, tmp, false, doScriptCallback);
 }
 
 bool Sequencer::UnBan(int buid)
 {
-    Sequencer* instance = this;
-    for (unsigned int i = 0; i < instance->bans.size(); i++)
+    for (unsigned int i = 0; i < m_bans.size(); i++)
     {
-        if(((int)instance->bans[i]->uid) == buid)
+        if(((int)m_bans[i]->uid) == buid)
         {
-            instance->bans.erase(instance->bans.begin() + i);
+            m_bans.erase(m_bans.begin() + i);
             Logger::Log(LOG_VERBOSE, "uid unbanned: %d", buid);
             return true;
         }
@@ -791,12 +803,14 @@ bool Sequencer::UnBan(int buid)
 
 bool Sequencer::IsBanned(const char *ip)
 {
-    if(!ip) return false;
-
-    Sequencer* instance = this;
-    for (unsigned int i = 0; i < instance->bans.size(); i++)
+    if (ip == nullptr)
     {
-        if(!strcmp(instance->bans[i]->ip, ip))
+        return false;
+    }
+
+    for (unsigned int i = 0; i < m_bans.size(); i++)
+    {
+        if(!strcmp(m_bans[i]->ip, ip))
             return true;
     }
     return false;
@@ -804,25 +818,21 @@ bool Sequencer::IsBanned(const char *ip)
 
 void Sequencer::streamDebug()
 {
-    Sequencer* instance = this;
-
-    //MutexLocker scoped_lock(instance->clients_mutex);
-
-    for (unsigned int i=0; i<instance->clients.size(); i++)
+    for (unsigned int i=0; i<m_clients.size(); i++)
     {
-        if (instance->clients[i]->GetStatus() == Client::STATUS_USED)
+        if (m_clients[i]->GetStatus() == Client::STATUS_USED)
         {
-            Logger::Log(LOG_VERBOSE, " * %d %s (slot %d):", instance->clients[i]->user.uniqueid, UTF8BuffertoString(instance->clients[i]->user.username).c_str(), i);
-            if(!instance->clients[i]->streams.size())
-                Logger::Log(LOG_VERBOSE, "  * no streams registered for user %d", instance->clients[i]->user.uniqueid);
+            Logger::Log(LOG_VERBOSE, " * %d %s (slot %d):", m_clients[i]->user.uniqueid, UTF8BuffertoString(m_clients[i]->user.username).c_str(), i);
+            if(!m_clients[i]->streams.size())
+                Logger::Log(LOG_VERBOSE, "  * no streams registered for user %d", m_clients[i]->user.uniqueid);
             else
-                for(std::map<unsigned int, stream_register_t>::iterator it = instance->clients[i]->streams.begin(); it!=instance->clients[i]->streams.end(); it++)
+                for(std::map<unsigned int, stream_register_t>::iterator it = m_clients[i]->streams.begin(); it!=m_clients[i]->streams.end(); it++)
                 {
                     char *types[] = {(char *)"truck", (char *)"character", (char *)"aitraffic", (char *)"chat"};
                     char *typeStr = (char *)"unkown";
                     if(it->second.type>=0 && it->second.type <= 3)
                         typeStr = types[it->second.type];
-                    Logger::Log(LOG_VERBOSE, "  * %d:%d, type:%s status:%d name:'%s'", instance->clients[i]->user.uniqueid, it->first, typeStr, it->second.status, it->second.name);
+                    Logger::Log(LOG_VERBOSE, "  * %d:%d, type:%s status:%d name:'%s'", m_clients[i]->user.uniqueid, it->first, typeStr, it->second.status, it->second.name);
                 }
         }
     }
@@ -831,29 +841,30 @@ void Sequencer::streamDebug()
 //this is called by the receivers threads, like crazy & concurrently
 void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* data, unsigned int len)
 {
-    Sequencer* instance = this;
+    MutexLocker scoped_lock(m_clients_mutex);
 
-    MutexLocker scoped_lock(instance->clients_mutex);
-    unsigned short pos = instance->getPosfromUid(uid);
-    Client* client = clients[pos];
-    if( UID_NOT_FOUND == pos ) return;
+    Client* client = this->FindClientById(static_cast<unsigned int>(uid));
+    if (client == nullptr)
+    {
+        return;
+    }
 
     // check for full broadcaster queue
     {
-        bool is_dropping = instance->clients[pos]->IsBroadcasterDroppingPackets();
-        if(is_dropping && instance->clients[pos]->drop_state == 0)
+        bool is_dropping = client->IsBroadcasterDroppingPackets();
+        if(is_dropping && client->drop_state == 0)
         {
             // queue full, inform client
             int drop_state = 1;
-            instance->clients[pos]->drop_state = drop_state;
-            instance->clients[pos]->QueueMessage(MSG2_NETQUALITY, -1, 0, sizeof(int), (char *)&drop_state);
+            client->drop_state = drop_state;
+            client->QueueMessage(MSG2_NETQUALITY, -1, 0, sizeof(int), (char *)&drop_state);
         }
-        else if(!is_dropping && instance->clients[pos]->drop_state == 1)
+        else if(!is_dropping && client->drop_state == 1)
         {
             // queue working better again, inform client
             int drop_state = 0;
-            instance->clients[pos]->drop_state = drop_state;
-            instance->clients[pos]->QueueMessage(MSG2_NETQUALITY, -1, 0, sizeof(int), (char *)&drop_state);
+            client->drop_state = drop_state;
+            client->QueueMessage(MSG2_NETQUALITY, -1, 0, sizeof(int), (char *)&drop_state);
         }
     }
 
@@ -867,8 +878,8 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
         
         // Simple data validation (needed due to bug in RoR 0.38)
         {
-            std::map<unsigned int, stream_register_t>::iterator it = instance->clients[pos]->streams.find(streamid);
-            if(it==instance->clients[pos]->streams.end())
+            std::map<unsigned int, stream_register_t>::iterator it = client->streams.find(streamid);
+            if(it==client->streams.end())
                 publishMode = BROADCAST_BLOCK;
             else if(it->second.type==0)
             {
@@ -880,19 +891,19 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
     }
     else if (type==MSG2_STREAM_REGISTER)
     {
-        if(instance->clients[pos]->streams.size() >= Config::getMaxVehicles()+NON_VEHICLE_STREAMS)
+        if(client->streams.size() >= Config::getMaxVehicles()+NON_VEHICLE_STREAMS)
         {
             // This user has too many vehicles, we drop the stream and then disconnect the user
-            Logger::Log(LOG_INFO, "%s(%d) has too many streams. Stream dropped, user kicked.", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), instance->clients[pos]->user.uniqueid);
+            Logger::Log(LOG_INFO, "%s(%d) has too many streams. Stream dropped, user kicked.", UTF8BuffertoString(client->user.username).c_str(), client->user.uniqueid);
 
             // send a message to the user.
-            serverSay("You are now being kicked for having too many vehicles. Please rejoin.",  instance->clients[pos]->user.uniqueid, FROM_SERVER);
+            serverSay("You are now being kicked for having too many vehicles. Please rejoin.",  client->user.uniqueid, FROM_SERVER);
 
             // broadcast a general message that this user was auto-kicked
             char sayMsg[128] = "";
-            sprintf(sayMsg, "%s was auto-kicked for having too many vehicles (limit: %d)", UTF8BuffertoString(instance->clients[pos]->user.username).c_str(), Config::getMaxVehicles());
+            sprintf(sayMsg, "%s was auto-kicked for having too many vehicles (limit: %d)", UTF8BuffertoString(client->user.username).c_str(), Config::getMaxVehicles());
             serverSay(sayMsg, TO_ALL, FROM_SERVER);
-            disconnect(instance->clients[pos]->user.uniqueid, "You have too many vehicles. Please rejoin.", false);
+            disconnect(client->user.uniqueid, "You have too many vehicles. Please rejoin.", false);
             publishMode = BROADCAST_BLOCK; // drop
         }
         else
@@ -902,9 +913,9 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 
 #ifdef WITH_ANGELSCRIPT
             // Do a script callback
-            if(instance->script)
+            if(m_script_engine)
             {
-                int scriptpub = instance->script->streamAdded(instance->clients[pos]->user.uniqueid, reg);
+                int scriptpub = m_script_engine->streamAdded(client->user.uniqueid, reg);
                 
                 // We only support blocking and normal at the moment. Other modes are not supported.
                 switch(scriptpub)
@@ -930,40 +941,40 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
             if(publishMode!=BROADCAST_BLOCK)
             {
                 // Add the stream
-                Logger::Log(LOG_VERBOSE, " * new stream registered: %d:%d, type: %d, name: '%s', status: %d", instance->clients[pos]->user.uniqueid, streamid, reg->type, reg->name, reg->status);
+                Logger::Log(LOG_VERBOSE, " * new stream registered: %d:%d, type: %d, name: '%s', status: %d", client->user.uniqueid, streamid, reg->type, reg->name, reg->status);
                 for(int i=0;i<128;i++) if(reg->name[i] == ' ') reg->name[i] = 0; // convert spaces to zero's
                 reg->name[127] = 0;
-                instance->clients[pos]->streams[streamid] = *reg;
+                client->streams[streamid] = *reg;
 
                 // send an event if user is rankend and if we are a official server
-                if(instance->authresolver && (instance->clients[pos]->user.authstatus & AUTH_RANKED))
-                    instance->authresolver->sendUserEvent(instance->clients[pos]->user.usertoken, std::string("newvehicle"), std::string(reg->name), std::string());
+                if(m_auth_resolver && (client->user.authstatus & AUTH_RANKED))
+                    m_auth_resolver->sendUserEvent(client->user.usertoken, std::string("newvehicle"), std::string(reg->name), std::string());
 
                 // Notify the user about the vehicle limit
-                if( (instance->clients[pos]->streams.size() >= Config::getMaxVehicles()+NON_VEHICLE_STREAMS-3) && (instance->clients[pos]->streams.size() > NON_VEHICLE_STREAMS) )
+                if( (client->streams.size() >= Config::getMaxVehicles()+NON_VEHICLE_STREAMS-3) && (client->streams.size() > NON_VEHICLE_STREAMS) )
                 {
                     // we start warning the user as soon as he has only 3 vehicles left before he will get kicked (that's why we do minus three in the 'if' statement above).
                     char sayMsg[128] = "";
                     
                     // special case if the user has exactly 1 vehicle
-                    if(instance->clients[pos]->streams.size() == NON_VEHICLE_STREAMS+1)
+                    if(client->streams.size() == NON_VEHICLE_STREAMS+1)
                         sprintf(sayMsg, "You now have 1 vehicle. The vehicle limit on this server is set to %d.", Config::getMaxVehicles());
                     else
-                        sprintf(sayMsg, "You now have %lu vehicles. The vehicle limit on this server is set to %d.", (instance->clients[pos]->streams.size()-NON_VEHICLE_STREAMS), Config::getMaxVehicles());
+                        sprintf(sayMsg, "You now have %lu vehicles. The vehicle limit on this server is set to %d.", (client->streams.size()-NON_VEHICLE_STREAMS), Config::getMaxVehicles());
                     
-                    serverSay(sayMsg, instance->clients[pos]->user.uniqueid, FROM_SERVER);
+                    serverSay(sayMsg, client->user.uniqueid, FROM_SERVER);
                 }
                     
-                instance->streamDebug();
+                this->streamDebug();
 
                 // reset some stats
                 // streams_traffic limited through streams map
-                instance->clients[pos]->streams_traffic[streamid].bandwidthIncoming=0;
-                instance->clients[pos]->streams_traffic[streamid].bandwidthIncomingLastMinute=0;
-                instance->clients[pos]->streams_traffic[streamid].bandwidthIncomingRate=0;
-                instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoing=0;
-                instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoingLastMinute=0;
-                instance->clients[pos]->streams_traffic[streamid].bandwidthOutgoingRate=0;
+                client->streams_traffic[streamid].bandwidthIncoming=0;
+                client->streams_traffic[streamid].bandwidthIncomingLastMinute=0;
+                client->streams_traffic[streamid].bandwidthIncomingRate=0;
+                client->streams_traffic[streamid].bandwidthOutgoing=0;
+                client->streams_traffic[streamid].bandwidthOutgoingLastMinute=0;
+                client->streams_traffic[streamid].bandwidthOutgoingRate=0;
             }
         }
     }
@@ -971,10 +982,10 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
     {
         // forward message to the stream origin
         stream_register_t *reg = (stream_register_t *)data;
-        int origin_pos = instance->getPosfromUid(reg->origin_sourceid);
-        if(origin_pos != UID_NOT_FOUND)
+        Client* origin_client = this->FindClientById(reg->origin_sourceid);
+        if (origin_client != nullptr)
         {
-            instance->clients[origin_pos]->QueueMessage(type, uid, 0, sizeof(stream_register_t), (char *)reg);
+            origin_client->QueueMessage(type, uid, 0, sizeof(stream_register_t), (char *)reg);
             Logger::Log(LOG_VERBOSE, "stream registration result for stream %03d:%03d from user %03d: %d", reg->origin_sourceid, reg->origin_streamid, uid, reg->status);
         }
         publishMode=BROADCAST_BLOCK;
@@ -982,37 +993,37 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
     else if (type==MSG2_STREAM_UNREGISTER)
     {
         // Remove the stream
-        if (instance->clients[pos]->streams.erase(streamid) > 0)
+        if (client->streams.erase(streamid) > 0)
         {
-            Logger::Log(LOG_VERBOSE, " * stream deregistered: %d:%d", instance->clients[pos]->user.uniqueid, streamid);
+            Logger::Log(LOG_VERBOSE, " * stream deregistered: %d:%d", client->user.uniqueid, streamid);
             publishMode=BROADCAST_ALL;
         }
     }
     else if (type==MSG2_USER_LEAVE)
     {
         // from client
-        Logger::Log(LOG_INFO, UTFString("user disconnects on request: ") + tryConvertUTF(instance->clients[pos]->user.username));
+        Logger::Log(LOG_INFO, UTFString("user disconnects on request: ") + tryConvertUTF(client->user.username));
 
         //char tmp[1024];
-        //sprintf(tmp, "user %s disconnects on request", UTF8BuffertoString(instance->clients[pos]->user.username).c_str());
+        //sprintf(tmp, "user %s disconnects on request", UTF8BuffertoString(client->user.username).c_str());
         //serverSay(std::string(tmp), -1);
-        disconnect(instance->clients[pos]->user.uniqueid, "disconnected on request", false);
+        disconnect(client->user.uniqueid, "disconnected on request", false);
     }
     else if (type == MSG2_UTF_CHAT)
     {
         // get an UTFString from it
         UTFString str = tryConvertUTF(data);
         
-        Logger::Log(LOG_INFO, UTFString("CHAT| ") + tryConvertUTF(instance->clients[pos]->user.username) + ": " + str);
+        Logger::Log(LOG_INFO, UTFString("CHAT| ") + tryConvertUTF(client->user.username) + ": " + str);
         publishMode=BROADCAST_ALL;
 
         // no broadcast of server commands!
         if(str[0] == '!') publishMode=BROADCAST_BLOCK;
 
 #ifdef WITH_ANGELSCRIPT
-        if(instance->script)
+        if(m_script_engine)
         {
-            int scriptpub = instance->script->playerChat(instance->clients[pos]->user.uniqueid, str);
+            int scriptpub = m_script_engine->playerChat(client->user.uniqueid, str);
             if(scriptpub!=BROADCAST_AUTO) publishMode = scriptpub;
         }
 #endif //WITH_ANGELSCRIPT
@@ -1030,39 +1041,39 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
         else if(str == UTFString("!list"))
         {
             serverSay(std::string(" uid | auth   | nick"), uid);
-            for (unsigned int i = 0; i < instance->clients.size(); i++)
+            for (unsigned int i = 0; i < m_clients.size(); i++)
             {
-                if(i >= instance->clients.size())
+                if(i >= m_clients.size())
                     break;
                 char authst[10] = "";
-                if(instance->clients[i]->user.authstatus & AUTH_ADMIN) strcat(authst, "A");
-                if(instance->clients[i]->user.authstatus & AUTH_MOD) strcat(authst, "M");
-                if(instance->clients[i]->user.authstatus & AUTH_RANKED) strcat(authst, "R");
-                if(instance->clients[i]->user.authstatus & AUTH_BOT) strcat(authst, "B");
-                if(instance->clients[i]->user.authstatus & AUTH_BANNED) strcat(authst, "X");\
+                if(m_clients[i]->user.authstatus & AUTH_ADMIN) strcat(authst, "A");
+                if(m_clients[i]->user.authstatus & AUTH_MOD) strcat(authst, "M");
+                if(m_clients[i]->user.authstatus & AUTH_RANKED) strcat(authst, "R");
+                if(m_clients[i]->user.authstatus & AUTH_BOT) strcat(authst, "B");
+                if(m_clients[i]->user.authstatus & AUTH_BANNED) strcat(authst, "X");\
 
                 char tmp2[256]="";
-                sprintf(tmp2, "% 3d | %-6s | %-20s", instance->clients[i]->user.uniqueid, authst, UTF8BuffertoString(instance->clients[i]->user.username).c_str());
+                sprintf(tmp2, "% 3d | %-6s | %-20s", m_clients[i]->user.uniqueid, authst, UTF8BuffertoString(m_clients[i]->user.username).c_str());
                 serverSay(std::string(tmp2), uid);
             }
         }
         else if(str.substr(0, 5) == UTFString("!bans"))
         {
             serverSay(std::string("uid | IP              | nickname             | banned by"), uid);
-            for (unsigned int i = 0; i < instance->bans.size(); i++)
+            for (unsigned int i = 0; i < m_bans.size(); i++)
             {
                 char tmp[256]="";
                 sprintf(tmp, "% 3d | %-15s | %-20s | %-20s", 
-                    instance->bans[i]->uid, 
-                    instance->bans[i]->ip, 
-                    instance->bans[i]->nickname, 
-                    instance->bans[i]->bannedby_nick);
+                    m_bans[i]->uid, 
+                    m_bans[i]->ip, 
+                    m_bans[i]->nickname, 
+                    m_bans[i]->bannedby_nick);
                 serverSay(std::string(tmp), uid);
             }
         }
         else if(str.substr(0, 7) == UTFString("!unban "))
         {
-            if(instance->clients[pos]->user.authstatus & AUTH_MOD || instance->clients[pos]->user.authstatus & AUTH_ADMIN)
+            if(client->user.authstatus & AUTH_MOD || client->user.authstatus & AUTH_ADMIN)
             {
                 int buid=-1;
                 int res = sscanf(str.substr(7).asUTF8_c_str(), "%d", &buid);
@@ -1085,7 +1096,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
         }
         else if(str.substr(0, 5) == UTFString("!ban "))
         {
-            if(instance->clients[pos]->user.authstatus & AUTH_MOD || instance->clients[pos]->user.authstatus & AUTH_ADMIN)
+            if(client->user.authstatus & AUTH_MOD || client->user.authstatus & AUTH_ADMIN)
             {
                 int buid=-1;
                 char banmsg_tmp[256]="";
@@ -1110,7 +1121,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
         }
         else if(str.substr(0, 6) == UTFString("!kick "))
         {
-            if(instance->clients[pos]->user.authstatus & AUTH_MOD || instance->clients[pos]->user.authstatus & AUTH_ADMIN)
+            if(client->user.authstatus & AUTH_MOD || client->user.authstatus & AUTH_ADMIN)
             {
                 int kuid=-1;
                 char kickmsg_tmp[256]="";
@@ -1141,7 +1152,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
         }
         else if(str.substr(0, 5) == UTFString("!say "))
         {
-            if(instance->clients[pos]->user.authstatus & AUTH_MOD || instance->clients[pos]->user.authstatus & AUTH_ADMIN)
+            if(client->user.authstatus & AUTH_MOD || client->user.authstatus & AUTH_ADMIN)
             {
                 int kuid=-2;
                 char saymsg_tmp[256]="";
@@ -1225,13 +1236,13 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
     {
         // private chat message
         int destuid = *(int*)data;
-        int destpos = instance->getPosfromUid(destuid);
-        if(destpos != UID_NOT_FOUND)
+        Client* dest_client = this->FindClientById(static_cast<unsigned int>(uid));
+        if (dest_client != nullptr)
         {
             char *chatmsg = data + sizeof(int);
             int chatlen = len - sizeof(int);
-            instance->clients[destpos]->QueueMessage(MSG2_UTF_PRIVCHAT, uid, streamid, chatlen, chatmsg);
-            publishMode=BROADCAST_BLOCK;
+            dest_client->QueueMessage(MSG2_UTF_PRIVCHAT, uid, streamid, chatlen, chatmsg);
+            publishMode = BROADCAST_BLOCK;
         }
     }
 
@@ -1239,7 +1250,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
     {
         // script message
 #ifdef WITH_ANGELSCRIPT
-        if(instance->script) instance->script->gameCmd(instance->clients[pos]->user.uniqueid, std::string(data));
+        if(m_script_engine) m_script_engine->gameCmd(client->user.uniqueid, std::string(data));
 #endif //WITH_ANGELSCRIPT
         publishMode=BROADCAST_BLOCK;
     }
@@ -1249,7 +1260,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
     {
 #ifdef WITH_ANGELSCRIPT
         float* fpt=(float*)(data+sizeof(oob_t));
-        instance->clients[pos]->position=Vector3(fpt[0], fpt[1], fpt[2]);
+        client->position=Vector3(fpt[0], fpt[1], fpt[2]);
 #endif //WITH_ANGELSCRIPT
         /*
         char hex[255]="";
@@ -1268,47 +1279,47 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
     {
         //this message is to be sent to only one destination
         unsigned int destuid=((netforce_t*)data)->target_uid;
-        for ( unsigned int i = 0; i < instance->clients.size(); i++)
+        for ( unsigned int i = 0; i < m_clients.size(); i++)
         {
-            if(i >= instance->clients.size())
+            if(i >= m_clients.size())
                 break;
-            if (instance->clients[i]->status == USED &&
-                instance->clients[i]->flow &&
-                instance->clients[i]->user.uniqueid==destuid)
-                instance->clients[i]->queueMessage(
-                        instance->clients[pos]->user.uniqueid, type, len, data);
+            if (m_clients[i]->status == USED &&
+                m_clients[i]->flow &&
+                m_clients[i]->user.uniqueid==destuid)
+                m_clients[i]->queueMessage(
+                        client->user.uniqueid, type, len, data);
         }
         publishMode=BROADCAST_BLOCK;
     }
 #endif //0
     if(publishMode<BROADCAST_BLOCK)
     {
-        instance->clients[pos]->streams_traffic[streamid].bandwidthIncoming += len;
+        client->streams_traffic[streamid].bandwidthIncoming += len;
 
         if(publishMode == BROADCAST_NORMAL || publishMode == BROADCAST_ALL)
         {
             bool toAll = (publishMode == BROADCAST_ALL);
             // just push to all the present clients
-            for (unsigned int i = 0; i < instance->clients.size(); i++)
+            for (unsigned int i = 0; i < m_clients.size(); i++)
             {
-                Client* client = clients[i];
-                if (client->GetStatus() == Client::STATUS_USED && client->IsReceivingData() && (i!=pos || toAll))
+                Client* curr_client = m_clients[i];
+                if (curr_client->GetStatus() == Client::STATUS_USED && curr_client->IsReceivingData() && (curr_client != client || toAll))
                 {
-                    client->streams_traffic[streamid].bandwidthOutgoing += len;
-                    client->QueueMessage(type, client->user.uniqueid, streamid, len, data);
+                    curr_client->streams_traffic[streamid].bandwidthOutgoing += len;
+                    curr_client->QueueMessage(type, curr_client->user.uniqueid, streamid, len, data);
                 }
             }
         }
         else if(publishMode == BROADCAST_AUTHED)
         {
             // push to all bots and authed users above auth level 1
-            for (unsigned int i = 0; i < instance->clients.size(); i++)
+            for (unsigned int i = 0; i < m_clients.size(); i++)
             {
-                Client* client = clients[i];
-                if (client->GetStatus() == Client::STATUS_USED && client->IsReceivingData() && i!=pos && (client->user.authstatus & AUTH_ADMIN))
+                Client* curr_client = m_clients[i];
+                if (curr_client->GetStatus() == Client::STATUS_USED && curr_client->IsReceivingData() && (curr_client != client) && (client->user.authstatus & AUTH_ADMIN))
                 {
-                    client->streams_traffic[streamid].bandwidthOutgoing += len;
-                    client->QueueMessage(type, client->user.uniqueid, streamid, len, data);
+                    curr_client->streams_traffic[streamid].bandwidthOutgoing += len;
+                    curr_client->QueueMessage(type, curr_client->user.uniqueid, streamid, len, data);
                 }
             }
         }
@@ -1317,35 +1328,26 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
 
 Notifier *Sequencer::getNotifier()
 {
-    Sequencer* instance = this;
-    return &instance->notifier;
+    return &m_notifier;
 }
 
 int Sequencer::getStartTime()
 {
-    Sequencer* instance = this;
-    return instance->startTime;
+    return m_start_time;
 }
 
 Client *Sequencer::getClient(int uid)
 {
-
-    Sequencer* instance = this;
-
-    unsigned short pos = instance->getPosfromUid(uid);
-    if( UID_NOT_FOUND == pos ) return 0;
-
-    return instance->clients[pos];
+    return this->FindClientById(static_cast<unsigned int>(uid));
 }
 
 void Sequencer::updateMinuteStats()
 {
-    Sequencer* instance = this;
-    for (unsigned int i=0; i<instance->clients.size(); i++)
+    for (unsigned int i=0; i<m_clients.size(); i++)
     {
-        if (instance->clients[i]->GetStatus() == Client::STATUS_USED)
+        if (m_clients[i]->GetStatus() == Client::STATUS_USED)
         {
-            for(std::map<unsigned int, stream_traffic_t>::iterator it = instance->clients[i]->streams_traffic.begin(); it!=instance->clients[i]->streams_traffic.end(); it++)
+            for(std::map<unsigned int, stream_traffic_t>::iterator it = m_clients[i]->streams_traffic.begin(); it!=m_clients[i]->streams_traffic.end(); it++)
             {
                 it->second.bandwidthIncomingRate = (it->second.bandwidthIncoming - it->second.bandwidthIncomingLastMinute)/60;
                 it->second.bandwidthIncomingLastMinute = it->second.bandwidthIncoming;
@@ -1359,42 +1361,45 @@ void Sequencer::updateMinuteStats()
 // clients_mutex needs to be locked wen calling this method
 void Sequencer::printStats()
 {
-    if(!Config::getPrintStats()) return;
-    Sequencer* instance = this;
+    if (!Config::getPrintStats())
+    {
+        return;
+    }
+
     {
         Logger::Log(LOG_INFO, "Server occupancy:");
 
         Logger::Log(LOG_INFO, "Slot Status   UID IP                  Colour, Nickname");
         Logger::Log(LOG_INFO, "--------------------------------------------------");
-        for (unsigned int i = 0; i < instance->clients.size(); i++)
+        for (unsigned int i = 0; i < m_clients.size(); i++)
         {
             // some auth identifiers
             char authst[10] = "";
-            if(instance->clients[i]->user.authstatus & AUTH_ADMIN) strcat(authst, "A");
-            if(instance->clients[i]->user.authstatus & AUTH_MOD) strcat(authst, "M");
-            if(instance->clients[i]->user.authstatus & AUTH_RANKED) strcat(authst, "R");
-            if(instance->clients[i]->user.authstatus & AUTH_BOT) strcat(authst, "B");
-            if(instance->clients[i]->user.authstatus & AUTH_BANNED) strcat(authst, "X");
+            if(m_clients[i]->user.authstatus & AUTH_ADMIN) strcat(authst, "A");
+            if(m_clients[i]->user.authstatus & AUTH_MOD) strcat(authst, "M");
+            if(m_clients[i]->user.authstatus & AUTH_RANKED) strcat(authst, "R");
+            if(m_clients[i]->user.authstatus & AUTH_BOT) strcat(authst, "B");
+            if(m_clients[i]->user.authstatus & AUTH_BANNED) strcat(authst, "X");
 
             // construct screen
-            if (instance->clients[i]->GetStatus() == Client::STATUS_USED)
+            if (m_clients[i]->GetStatus() == Client::STATUS_USED)
                 Logger::Log(LOG_INFO, "%4i Free", i);
-            else if (instance->clients[i]->GetStatus() == Client::STATUS_USED)
+            else if (m_clients[i]->GetStatus() == Client::STATUS_USED)
                 Logger::Log(LOG_INFO, "%4i Busy %5i %-16s % 4s %d, %s", i,
-                        instance->clients[i]->user.uniqueid, "-",
+                        m_clients[i]->user.uniqueid, "-",
                         authst,
-                        instance->clients[i]->user.colournum,
-                        UTF8BuffertoString(instance->clients[i]->user.username).c_str());
+                        m_clients[i]->user.colournum,
+                        UTF8BuffertoString(m_clients[i]->user.username).c_str());
             else
                 Logger::Log(LOG_INFO, "%4i Used %5i %-16s % 4s %d, %s", i,
-                        instance->clients[i]->user.uniqueid,
-                        instance->clients[i]->GetIpAddress().c_str(),
+                        m_clients[i]->user.uniqueid,
+                        m_clients[i]->GetIpAddress().c_str(),
                         authst,
-                        instance->clients[i]->user.colournum,
-                        UTF8BuffertoString(instance->clients[i]->user.username).c_str());
+                        m_clients[i]->user.colournum,
+                        UTF8BuffertoString(m_clients[i]->user.username).c_str());
         }
         Logger::Log(LOG_INFO, "--------------------------------------------------");
-        int timediff = Messaging::getTime() - instance->startTime;
+        int timediff = Messaging::getTime() - m_start_time;
         int uphours = timediff/60/60;
         int upminutes = (timediff-(uphours*60*60))/60;
         stream_traffic_t traffic = Messaging::getTraffic();
@@ -1410,17 +1415,19 @@ void Sequencer::printStats()
                 traffic.bandwidthOutgoingRate/1024);
     }
 }
-// used to access the clients from the array rather than using the array pos it's self.
-unsigned short Sequencer::getPosfromUid(unsigned int uid)
+
+Client* Sequencer::FindClientById(unsigned int client_id)
 {
-    Sequencer* instance = this;
-
-    for (unsigned short i = 0; i < instance->clients.size(); i++)
+    auto itor = m_clients.begin();
+    auto endi = m_clients.end();
+    for (; itor != endi; ++itor)
     {
-        if(instance->clients[i]->user.uniqueid == uid)
-            return i;
+        Client* client = *itor;
+        if (client->user.uniqueid == client_id)
+        {
+            return client;
+        }
     }
-
-    Logger::Log( LOG_DEBUG, "could not find uid %d", uid);
-    return UID_NOT_FOUND;
+    return nullptr;
 }
+

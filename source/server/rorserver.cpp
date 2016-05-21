@@ -92,14 +92,14 @@ void handler(int signalnum)
         if(Config::getServerMode() == SERVER_LAN)
         {
             Logger::Log(LOG_ERROR,"closing server ... ");
-            s_sequencer.cleanUp();
+            s_sequencer.Close();
         }
         else
         {
             Logger::Log(LOG_ERROR,"closing server ... unregistering ... ");
             s_sequencer.getNotifier()->unregisterServer();
             Logger::Log(LOG_ERROR," unregistered.");
-            s_sequencer.cleanUp();
+            s_sequencer.Close();
         }
         exit(0);
     }
@@ -263,7 +263,7 @@ int main(int argc, char* argv[])
     {
         return -1;
     }
-    s_sequencer.initialize(&listener);
+    s_sequencer.Initialize(&listener);
 
     if (!listener.WaitUntilReady())
     {
@@ -273,9 +273,9 @@ int main(int argc, char* argv[])
     // Listener is ready, let's register ourselves on serverlist (which will contact us back to check).
     if (Config::getServerMode() != SERVER_LAN)
     {
-        s_sequencer.registerServer();
+        s_sequencer.RegisterServer();
     }
-    s_sequencer.activateUserAuth();
+    s_sequencer.ActivateUserAuth();
 
 #ifdef WITH_WEBSERVER
     // start webserver if used
@@ -319,7 +319,7 @@ int main(int argc, char* argv[])
 
     // delete all (needed in here, if not shutdown due to signal)
     // stick in destructor perhaps?
-    s_sequencer.cleanUp();
+    s_sequencer.Close();
     return 0;
 }
 

@@ -25,7 +25,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "logger.h"
 #include "SocketW.h"
 #include "config.h"
-#include "HttpMsg.h"
+#include "http.h"
 
 #include <stdarg.h>
 #include <time.h>

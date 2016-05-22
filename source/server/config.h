@@ -35,7 +35,9 @@ namespace Config
 
 //! runs a check that all the required fields are present
 bool checkConfig();
-bool fromArgs( int argc, char* argv[] );
+bool ProcessArgs( int argc, char* argv[] );
+void ShowHelp();
+void ShowVersion();
 
 //! checks if a password has been set for server access
 bool isPublic();
@@ -67,6 +69,8 @@ const std::string& getVoIP();
 const std::string& GetServerlistHost();
 unsigned int       GetHeartbeatRetryCount();
 unsigned int       GetHeartbeatRetrySeconds();
+bool               GetShowHelp();
+bool               GetShowVersion();
 //!@}
 
 //! setter functions

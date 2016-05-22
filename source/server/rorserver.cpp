@@ -233,8 +233,18 @@ int main(int argc, char* argv[])
     Logger::SetLogLevel(LOGTYPE_FILE, LOG_VERBOSE);
     Logger::SetOutputFile("server.log");
 
-    if (!Config::fromArgs(argc, argv))
+    if (!Config::ProcessArgs(argc, argv))
     {
+        return -1;
+    }
+    if (Config::GetShowHelp())
+    {
+        Config::ShowHelp();
+        return 0;
+    }
+    if (Config::GetShowVersion())
+    {
+        Config::ShowVersion();
         return 0;
     }
 

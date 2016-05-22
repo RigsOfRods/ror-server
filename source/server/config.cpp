@@ -25,9 +25,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "sha1_util.h"
 #include "utils.h"
 
-// simpleopt by http://code.jellycan.com/simpleopt/
-// license: MIT
-#include "SimpleOpt.h"
 #include <rudeconfig/config.h>
 #include <cmath>
 #ifdef __GNUC__
@@ -35,81 +32,11 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <stdlib.h>
 #endif
 
-// ============================== Constants ===================================
-
-#ifndef NOCMDLINE
-
-// option identifiers
-enum
-{
-    OPT_HELP,
-    OPT_IP,
-    OPT_PORT,
-    OPT_NAME,
-    OPT_TERRAIN,
-    OPT_MAXCLIENTS,
-    OPT_LAN,
-    OPT_VERBOSITY,
-    OPT_LOGVERBOSITY,
-    OPT_PASS,
-    OPT_INET,
-    OPT_LOGFILENAME,
-    OPT_SCRIPTNAME,
-    OPT_WEBSERVER,
-    OPT_WEBSERVER_PORT,
-    OPT_VERSION,
-    OPT_FOREGROUND,
-    OPT_CONFIGFILE,
-    OPT_RESDIR,
-    OPT_AUTHFILE,
-    OPT_MOTDFILE,
-    OPT_RULESFILE,
-    OPT_VEHICLELIMIT,
-    OPT_OWNER,
-    OPT_WEBSITE,
-    OPT_IRC,
-    OPT_VOIP 
-};
-
-// option array
-static CSimpleOpt::SOption cmdline_options[] = {
-    { OPT_IP,             ((char *)"-ip"),            SO_REQ_SEP },
-    { OPT_PORT,           ((char *)"-port"),          SO_REQ_SEP },
-    { OPT_NAME,           ((char *)"-name"),          SO_REQ_SEP },
-    { OPT_PASS,           ((char *)"-password"),      SO_REQ_SEP },
-    { OPT_TERRAIN,        ((char *)"-terrain"),       SO_REQ_SEP },
-    { OPT_MAXCLIENTS,     ((char *)"-maxclients"),    SO_REQ_SEP },
-    { OPT_LAN,            ((char *)"-lan"),           SO_NONE    },
-    { OPT_INET,           ((char *)"-inet"),          SO_NONE    },
-    { OPT_VERBOSITY,      ((char *)"-verbosity"),     SO_REQ_SEP },
-    { OPT_LOGVERBOSITY,   ((char *)"-logverbosity"),  SO_REQ_SEP },
-    { OPT_LOGFILENAME,    ((char *)"-logfilename"),   SO_REQ_SEP },
-    { OPT_SCRIPTNAME,     ((char *)"-script"),        SO_REQ_SEP },
-    { OPT_WEBSERVER,      ((char *)"-webserver"),     SO_NONE    },
-    { OPT_WEBSERVER_PORT, ((char *)"-webserverport"), SO_REQ_SEP },
-    { OPT_VERSION,        ((char *)"-version"),       SO_NONE    },
-    { OPT_HELP,           ((char *)"-?"),             SO_NONE    },
-    { OPT_HELP,           ((char *)"-h"),             SO_NONE    },
-    { OPT_HELP,           ((char *)"-help"),          SO_NONE    },
-    { OPT_HELP,           ((char *)"--help"),         SO_NONE    },
-    { OPT_HELP,           ((char *)"/\?"),            SO_NONE    },
-    { OPT_HELP,           ((char *)"/help"),          SO_NONE    },
-    { OPT_HELP,           ((char *)"/h"),             SO_NONE    },
-    { OPT_FOREGROUND,     ((char *)"-fg"),            SO_NONE    },
-    { OPT_CONFIGFILE,     ((char *)"-c"),             SO_REQ_SEP },
-    { OPT_CONFIGFILE,     ((char *)"-config"),        SO_REQ_SEP },
-    { OPT_RESDIR,         ((char *)"-resdir"),        SO_REQ_SEP },
-    { OPT_AUTHFILE,       ((char *)"-authfile"),      SO_REQ_SEP },
-    { OPT_MOTDFILE,       ((char *)"-motdfile"),      SO_REQ_SEP },
-    { OPT_RULESFILE,      ((char *)"-rulesfile"),     SO_REQ_SEP },
-    { OPT_VEHICLELIMIT,   ((char *)"-vehiclelimit"),  SO_REQ_SEP },
-    { OPT_OWNER,          ((char *)"-owner"),         SO_REQ_SEP },
-    { OPT_WEBSITE,        ((char *)"-website"),       SO_REQ_SEP },
-    { OPT_IRC,            ((char *)"-irc"),           SO_REQ_SEP },
-    { OPT_VOIP,           ((char *)"-voip"),          SO_REQ_SEP },
-    SO_END_OF_OPTIONS
-};
-#endif //NOCMDLINE
+#ifdef _WIN32
+#   define RESOURCE_DIR ""
+#else // _WIN32 ~ trailing slash important
+#   define RESOURCE_DIR "/usr/share/rorserver/"
+#endif // _WIN32
 
 // ============================== Variables ===================================
 
@@ -126,12 +53,7 @@ static std::string s_website;
 static std::string s_irc;
 static std::string s_voip;
 static std::string s_serverlist_host("multiplayer.rigsofrods.org");
-
-#ifdef _WIN32
-static std::string s_resourcedir;
-#else // _WIN32
-static std::string s_resourcedir("/usr/share/rorserver/"); // trailing slash important
-#endif // _WIN32
+static std::string s_resourcedir(RESOURCE_DIR);
 
 static unsigned int s_max_vehicles(20);
 static unsigned int s_webserver_port(0);
@@ -143,56 +65,69 @@ static unsigned int s_heatbeat_retry_seconds(15);
 static bool s_print_stats(false);
 static bool s_webserver_enabled(false);
 static bool s_foreground(false);
+static bool s_show_version(false);
+static bool s_show_help(false);
 
 static ServerType s_server_mode(SERVER_AUTO);
 
 // ============================== Functions ===================================
 
-void showUsage()
-{
-    printf("\n" \
-"Usage: rorserver [OPTIONS] <paramaters>\n" \
-" Where [OPTIONS] and <parameters>\n" \
-" -c (-config) <config file>   Loads the configuration from a file rather than from the commandline\n"
-" -name <name>                 Name of the server, no spaces, only \n"
-"                              [a-z,0-9,A-Z]\n"
-" -terrain <mapname>           Map name (defaults to 'any')\n"
-" -maxclients|speed <clients>  Maximum clients allowed \n"
-" -lan|inet                    Private or public server (defaults to inet)\n"
-"\n"
-" -password <password>         Private server password\n"
-" -ip <ip>                     Public IP address to register with.\n"
-" -port <port>                 Port to use (defaults to random 12000-12500)\n"
-" -verbosity {0-5}             Sets displayed log verbosity\n"
-" -logverbosity {0-5}          Sets file log verbositylog verbosity\n"
-"                              levels available to verbosity and logverbosity:\n"
-"                                  0 = stack\n"
-"                                  1 = debug\n"
-"                                  2 = verbosity\n"
-"                                  3 = info\n"
-"                                  4 = warn\n"
-"                                  5 = error\n" \
-" -logfilename <server.log>    Sets the filename of the log\n" \
-" -script <script.as>          server script to execute\n" \
-" -webserver                   enables the built-in webserver\n" \
-" -webserver-port <number>     sets up the port for the webserver, default is game port + 100\n" \
-" -script <script.as>          server script to execute\n" \
-" -version                     prints the server version numbers\n" \
-" -fg                          starts the server in the foreground (background by default)\n" \
-" -resdir <path>               sets the path to the resource directory\n" \
-" -authfile <server.auth>      Sets the filename of the file that contains authorization info\n" \
-" -motdfile <server.motd>      Sets the filename of the file that contains the message of the day\n" \
-" -rulesfile <server.rules>    Sets the filename of the file that contains rules for this server\n" \
-" -vehiclelimit {0-...}        Sets the maximum number of vehicles that a user is allowed to have\n" \
-" -owner <name|organisation>   Sets the owner of this server (for the !owner command) (optional)\n" \
-" -website <URL>               Sets the website of this server (for the !website command) (optional)\n" \
-" -irc <URL>                   Sets the IRC url for this server (for the !irc command) (optional)\n" \
-" -voip <URL>                  Sets the voip url for this server (for the !voip command) (optional)\n" \
-" -help                        Show this list\n");
-}
-
 namespace Config
 {
+
+void ShowHelp()
+{
+    printf(
+        " -c (-config) <config file>   Loads the configuration from a file rather than from the commandline\n"
+        "Usage: rorserver [OPTIONS]\n"
+        "[OPTIONS] can be in Un*x `--help` or windows `/help` notation\n"
+        "\n"
+        " ~config-file (-c) <JSON file> Loads the configuration from a file\n"
+        " ~name <name>                 Name of the server, no spaces, only\n"
+        "                              [a-z,0-9,A-Z]\n"
+        " ~terrain <mapname>           Map name (defaults to 'any')\n"
+        " ~max-clients|speed <clients> Maximum clients allowed\n"
+        " ~lan|inet                    Private or public server (defaults to inet)\n"
+        "\n"
+        " ~password <password>         Private server password\n"
+        " ~ip <ip>                     Public IP address to register with.\n"
+        " ~port <port>                 Port to use (defaults to random 12000-12500)\n"
+        " ~verbosity {0-5}             Sets displayed log verbosity\n"
+        " ~log-verbosity {0-5}         Sets file log verbositylog verbosity\n"
+        "                              levels available to verbosity and logverbosity:\n"
+        "                                  0 = stack\n"
+        "                                  1 = debug\n"
+        "                                  2 = verbosity\n"
+        "                                  3 = info\n"
+        "                                  4 = warn\n"
+        "                                  5 = error\n"
+        " ~log-file <server.log>       Sets the filename of the log\n"
+        " ~script-file <script.as>     server script to execute\n"
+        " ~use-webserver               enables the built-in webserver\n"
+        " ~webserver-port <number>     sets up the port for the webserver, default is game port + 100\n"
+        " ~version                     prints the server version numbers\n"
+        " ~fg                          starts the server in the foreground (background by default)\n"
+        " ~resource-dir <path>         sets the path to the resource directory\n"
+        " ~auth-file <server.auth>     Sets the filename of the file that contains authorization info\n"
+        " ~motdf-ile <server.motd>     Sets the filename of the file that contains the message of the day\n"
+        " ~rules-file <server.rules>   Sets the filename of the file that contains rules for this server\n"
+        " ~vehicle-limit {0-...}       Sets the maximum number of vehicles that a user is allowed to have\n"
+        " ~owner <name|organisation>   Sets the owner of this server (for the !owner command) (optional)\n"
+        " ~website <URL>               Sets the website of this server (for the !website command) (optional)\n"
+        " ~irc <URL>                   Sets the IRC url for this server (for the !irc command) (optional)\n"
+        " ~voip <URL>                  Sets the voip url for this server (for the !voip command) (optional)\n"
+        " ~help                        Show this list\n");
+}
+
+void ShowVersion()
+{
+    printf("Rigs of Rods Server\n");
+    printf(" * using Protocol %s\n", RORNET_VERSION);
+    printf(" * built on %s, %s\n", __DATE__, __TIME__);
+#ifdef __GNUC__
+    printf(" * built with gcc %d.%d.%d\n", __GNUC_MINOR__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
+#endif //__GNUC__
+}
 
 //! runs a check that all the required fields are present
 bool checkConfig()
@@ -265,113 +200,100 @@ bool checkConfig()
             !getTerrainName().empty();
 }
 
-bool fromArgs( int argc, char* argv[] )
+#define HANDLE_ARG_VALUE(_NAME_, _BLOCK_)           \
+{                                                   \
+    if(strcmp(arg, _NAME_) == 0)                    \
+    {                                               \
+        if (pos + 1 < argc)                         \
+        {                                           \
+            const char* value = argv[pos + 1];      \
+            { _BLOCK_ }                             \
+            pos += 2;                               \
+            continue;                               \
+        }                                           \
+        else                                        \
+        {                                           \
+            Logger::Log(LOG_WARN,                   \
+                "Command line error: argument `%s`" \
+                "at position %d without value",     \
+                arg, pos);                          \
+            return false;                           \
+        }                                           \
+    }                                               \
+}
+
+#define HANDLE_ARG_FLAG(_NAME_, _BLOCK_)            \
+{                                                   \
+    if(strcmp(arg, _NAME_) == 0)                    \
+    {                                               \
+        _BLOCK_                                     \
+        pos += 1;                                   \
+        continue;                                   \
+    }                                               \
+}
+
+bool ProcessArgs( int argc, char* argv[] )
 {
 #ifndef NOCMDLINE
-    // parse arguments
-    CSimpleOpt args(argc, argv, cmdline_options);
-    while (args.Next()) {
-        if (args.LastError() == SO_SUCCESS) {
-            switch( args.OptionId() ) 
-            {
-            case OPT_IP:
-                setIPAddr( args.OptionArg() );
-                break;
-            case OPT_NAME:
-                setServerName( args.OptionArg() );
-            break;
-            case OPT_LOGFILENAME:
-                Logger::SetOutputFile(std::string(args.OptionArg()));
-            break;
-            case OPT_SCRIPTNAME:
-                setScriptName(args.OptionArg());
-            break;
-            case OPT_TERRAIN:
-                setTerrain( args.OptionArg() );
-            break;
-            case OPT_PASS:
-                setPublicPass( args.OptionArg() );
-            break;
-            case OPT_VERSION:
-                printf("Rigs of Rods Server\n");
-                printf(" * using Protocol %s\n", RORNET_VERSION);
-                printf(" * Revision %s\n", VERSION);
-                printf(" * built on %s, %s\n", __DATE__, __TIME__);
-#ifdef __GNUC__
-                printf(" * built with gcc %d.%d.%d\n", __GNUC_MINOR__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
-#endif //__GNUC__
-                exit(0);
-            break;
-            case OPT_PORT:
-                setListenPort( atoi(args.OptionArg()) );
-            break;
-            case OPT_VERBOSITY:
-                Logger::SetLogLevel(LOGTYPE_DISPLAY, LogLevel(atoi(args.OptionArg())));
-            break;
-            case OPT_LOGVERBOSITY:
-                Logger::SetLogLevel(LOGTYPE_FILE, LogLevel(atoi(args.OptionArg())));
-            break;
-            case OPT_LAN:
-                setServerMode( SERVER_LAN );
-            break;
-            case OPT_INET:
-                setServerMode( SERVER_INET );
-            break;
-            case OPT_WEBSERVER:
-                setWebserverEnabled(true);
-            break;
-            case OPT_WEBSERVER_PORT:
-                setWebserverPort(atoi(args.OptionArg()));
-            break;
-            case OPT_MAXCLIENTS:
-                setMaxClients( atoi(args.OptionArg()) );
-            break;
-            case OPT_FOREGROUND:
-                setForeground(true);
-            break;
-            case OPT_RESDIR:
-                setResourceDir(args.OptionArg());
-            break;
-            case OPT_AUTHFILE:
-                setAuthFile(args.OptionArg());
-            break;
-            case OPT_MOTDFILE:
-                setMOTDFile(args.OptionArg());
-            break;
-            case OPT_RULESFILE:
-                setRulesFile(args.OptionArg());
-            break;
-            case OPT_VEHICLELIMIT:
-                setMaxVehicles( atoi(args.OptionArg()) );
-            break;
-            case OPT_OWNER:
-                setOwner(args.OptionArg());
-            break;
-            case OPT_WEBSITE:
-                setWebsite(args.OptionArg());
-            break;
-            case OPT_IRC:
-                setIRC(args.OptionArg());
-            break;
-            case OPT_VOIP:
-                setVoIP(args.OptionArg());
-            break;
-            case OPT_CONFIGFILE:
-                loadConfigFile(args.OptionArg());
-            break;
-            case OPT_HELP: 
-            default:
-                showUsage();
-                return false;
-            }
-        }
-    }
-    if(getForeground() && !getWebserverEnabled() && !getPrintStats())
+    int pos = 1;
+    const char* config_file = nullptr;
+    while (pos < argc)
     {
-        // add console overview printing when the webserver is not enabled
-        setPrintStats(true);
+        // Cut off the leading `-`, `--` or `/` (windows)
+        char* arg = argv[pos];
+        if ((*arg != '-') && (*arg != '/'))
+        {
+            Logger::Log(LOG_WARN, "Invalid command line argument `%s` at position %d", arg, pos);
+            pos += 1;
+            continue;
+        }
+        arg += (*(arg + 1) == '-') ? 2 : 1;
+
+        HANDLE_ARG_VALUE("name",           { setServerName(value);         });
+        HANDLE_ARG_VALUE("script-file",    { setScriptName(value);         });
+        HANDLE_ARG_VALUE("terrain",        { setTerrain(value);            });
+        HANDLE_ARG_VALUE("password",       { setPublicPass(value);         });
+        HANDLE_ARG_VALUE("ip",             { setIPAddr(value);             });
+        HANDLE_ARG_VALUE("resource-dir",   { setResourceDir(value);        });
+        HANDLE_ARG_VALUE("auth-file",      { setAuthFile(value);           });
+        HANDLE_ARG_VALUE("motd-file",      { setMOTDFile(value);           });
+        HANDLE_ARG_VALUE("rules-file",     { setRulesFile(value);          });
+        HANDLE_ARG_VALUE("owner",          { setOwner(value);              });
+        HANDLE_ARG_VALUE("website",        { setWebsite(value);            });
+        HANDLE_ARG_VALUE("irc",            { setIRC(value);                });
+        HANDLE_ARG_VALUE("voip",           { setVoIP(value);               });
+        HANDLE_ARG_VALUE("config-file",    { config_file = value;          });
+        HANDLE_ARG_VALUE("c",              { config_file = value;          });
+
+        HANDLE_ARG_VALUE("max-clients",    { setMaxClients(atoi(value));   });
+        HANDLE_ARG_VALUE("webserver-port", { setWebserverPort(atoi(value));});
+        HANDLE_ARG_VALUE("vehicle-limit",  { setMaxVehicles(atoi(value));  });
+        HANDLE_ARG_VALUE("port",           { setListenPort(atoi(value));   });
+
+        HANDLE_ARG_FLAG ("print-stats",    { setPrintStats(true);          });
+        HANDLE_ARG_FLAG ("use-webserver",  { setWebserverEnabled(true);    });
+        HANDLE_ARG_FLAG ("foreground",     { setForeground(true);          });
+        HANDLE_ARG_FLAG ("fg",             { setForeground(true);          });
+        HANDLE_ARG_FLAG ("inet",           { setServerMode(SERVER_INET);   });
+        HANDLE_ARG_FLAG ("lan",            { setServerMode(SERVER_LAN);    });
+        HANDLE_ARG_FLAG ("version",        { s_show_version = true;        });
+        HANDLE_ARG_FLAG ("help",           { s_show_help = true;           });
+        HANDLE_ARG_FLAG ("h",              { s_show_help = true;           });
+        HANDLE_ARG_FLAG ("?",              { s_show_help = true;           });
+
+        // Logging
+        HANDLE_ARG_VALUE("log-file",      { Logger::SetOutputFile(value);                                });
+        HANDLE_ARG_VALUE("verbosity",     { Logger::SetLogLevel(LOGTYPE_DISPLAY, (LogLevel)atoi(value)); });
+        HANDLE_ARG_VALUE("log-verbosity", { Logger::SetLogLevel(LOGTYPE_FILE,    (LogLevel)atoi(value)); });
+
+        Logger::Log(LOG_WARN, "Unrecognized argument `%s` at position %d", arg, pos);
+        pos += 1;
     }
 
+    if (config_file != nullptr)
+    {
+        loadConfigFile(config_file);
+    }
 #endif //NOCMDLINE
     return true;
 }
@@ -401,6 +323,8 @@ const std::string& getWebsite()         { return s_website;            }
 const std::string& getIRC()             { return s_irc;                }
 const std::string& getVoIP()            { return s_voip;               }
 const std::string& GetServerlistHost()  { return s_serverlist_host;    }
+bool               GetShowVersion()     { return s_show_version;       }
+bool               GetShowHelp()        { return s_show_help;          }
 
 unsigned int       GetHeartbeatRetryCount()   { return s_heartbeat_retry_count;  }
 unsigned int       GetHeartbeatRetrySeconds() { return s_heatbeat_retry_seconds; }

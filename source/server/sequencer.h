@@ -21,11 +21,11 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #pragma once
 
 #include "rornet.h"
-#include "notifier.h"
 #include "mutexutils.h"
 #include "broadcaster.h"
 #include "receiver.h"
 #include "UTFString.h"
+#include "json.h"
 #ifdef WITH_ANGELSCRIPT
 #include "scriptmath3d/scriptmath3d.h" // angelscript addon
 #endif //WITH_ANGELSCRIPT
@@ -151,8 +151,6 @@ public:
     Sequencer();
 
     void Initialize(Listener* listener);
-    void ActivateUserAuth();
-    void RegisterServer();
 
     //! destructor call, used for clean up
     void Close();
@@ -170,15 +168,13 @@ public:
     void enableFlow(int id);
     int sendMOTD(int id);
     
-    void notifyRoutine();
     void IntroduceNewClientToAllVehicles(Client* client);
 
     UserAuth* getUserAuth();
-    Notifier *getNotifier();
 
     int getNumClients(); //! number of clients connected to this server
     Client *getClient(int uid);
-    int getHeartbeatData(char *challenge, char *hearbeatdata);
+    void GetHeartbeatUserList(Json::Value* out_array);
     //! prints the Stats view, of who is connected and what slot they are in
     void printStats();
     void updateMinuteStats();
@@ -209,7 +205,6 @@ private:
     Mutex         m_clients_mutex;  //!< mutex used for locking access to the clients array
     Listener*     m_listener;
     ScriptEngine* m_script_engine;
-    Notifier      m_notifier;       //!< registers and handles the online serverlist
     UserAuth*     m_auth_resolver;
     int           m_bot_count;      //!< Amount of registered bots on the server.
     unsigned int  m_free_user_id;

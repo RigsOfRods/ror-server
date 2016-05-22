@@ -64,6 +64,9 @@ const std::string& getOwner();
 const std::string& getWebsite();
 const std::string& getIRC();
 const std::string& getVoIP();
+const std::string& GetServerlistHost();
+unsigned int       GetHeartbeatRetryCount();
+unsigned int       GetHeartbeatRetrySeconds();
 //!@}
 
 //! setter functions

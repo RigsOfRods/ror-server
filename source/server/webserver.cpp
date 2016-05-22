@@ -64,7 +64,7 @@ struct mg_context	*ctx;
 #include <string.h>
 
 #include <ctemplate/template.h>
-#include <json/json.h>
+#include <json.h>
 
 #include "mongoose.h"
 

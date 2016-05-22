@@ -126,6 +126,7 @@ static std::string s_owner;
 static std::string s_website;
 static std::string s_irc;
 static std::string s_voip;
+static std::string s_serverlist_host("multiplayer.rigsofrods.org");
 
 #ifdef _WIN32
 static std::string s_resourcedir;
@@ -137,6 +138,8 @@ static unsigned int s_max_vehicles(20);
 static unsigned int s_webserver_port(0);
 static unsigned int s_listen_port(0);
 static unsigned int s_max_clients(16);
+static unsigned int s_heartbeat_retry_count(5);
+static unsigned int s_heatbeat_retry_seconds(15);
 
 static bool s_print_stats(false);
 static bool s_webserver_enabled(false);
@@ -433,6 +436,10 @@ const std::string& getOwner()           { return s_owner;              }
 const std::string& getWebsite()         { return s_website;            }
 const std::string& getIRC()             { return s_irc;                }
 const std::string& getVoIP()            { return s_voip;               }
+const std::string& GetServerlistHost()  { return s_serverlist_host;    }
+
+unsigned int       GetHeartbeatRetryCount()   { return s_heartbeat_retry_count;  }
+unsigned int       GetHeartbeatRetrySeconds() { return s_heatbeat_retry_seconds; }
 
 
 bool setScriptName(const std::string& name )

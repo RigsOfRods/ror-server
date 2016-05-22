@@ -27,14 +27,15 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <vector>
 #include <stdexcept>
 
-namespace Utils
-{
+namespace Utils {
 
 int generateRandomPortNumber();
 
-int ReadLinesFromFile(std::string filename, std::vector<std::string> &lines);
+int ReadLinesFromFile(::std::string filename, std::vector<std::string> &lines);
 
-}
+void SleepSeconds(unsigned int seconds);
+
+} // namespace Utils
 
 void tokenize(const std::string& str,
                 std::vector<std::string>& tokens,

@@ -25,7 +25,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "listener.h"
 #include "receiver.h"
 #include "broadcaster.h"
-#include "notifier.h"
 #include "userauth.h"
 #include "SocketW.h"
 #include "logger.h"
@@ -126,7 +125,6 @@ void* LaunchKillerThread(void* data)
 Sequencer::Sequencer():
     m_listener(nullptr),
     m_script_engine(nullptr),
-    m_notifier(this),
     m_auth_resolver(nullptr),
     m_bot_count(0),
     m_free_user_id(1)
@@ -151,17 +149,6 @@ void Sequencer::Initialize(Listener* listener)
 #endif //WITH_ANGELSCRIPT
 
     pthread_create(&m_killer_thread, NULL, LaunchKillerThread, this);
-    m_notifier.activate();
-}
-
-void Sequencer::ActivateUserAuth()
-{
-    m_auth_resolver = new UserAuth(m_notifier.getChallenge(), m_notifier.getTrustLevel(), Config::getAuthFile());
-}
-
-void Sequencer::RegisterServer()
-{
-    m_notifier.registerServer();
 }
 
 /**
@@ -184,12 +171,6 @@ void Sequencer::Close()
         Messaging::SendMessage(client->GetSocket(), MSG2_USER_LEAVE, client->user.uniqueid, 0, strlen(str), str);
     }
     Logger::Log(LOG_INFO,"all clients disconnected. exiting.");
-
-    if(m_notifier.isActive())
-    {
-        m_notifier.unregisterServer();
-        m_notifier.deactivate();
-    }
 
 #ifdef WITH_ANGELSCRIPT
     if (m_script_engine != nullptr)
@@ -214,11 +195,6 @@ void Sequencer::Close()
     pthread_cancel(m_killer_thread);
     pthread_detach(m_killer_thread);
     cleanup = false; // WTF?? ~ only_a_ptr, 05/2016
-}
-
-void Sequencer::notifyRoutine()
-{
-    m_notifier.loop();
 }
 
 bool Sequencer::CheckNickIsUnique(UTFString &nick)
@@ -396,42 +372,26 @@ void Sequencer::broadcastUserInfo(int client_id)
     }
 }
 
-//this is called from the hearbeat notifier thread
-int Sequencer::getHeartbeatData(char *challenge, char *hearbeatdata)
+void Sequencer::GetHeartbeatUserList(Json::Value* out_array)
 {
-    int clientnum = getNumClients();
-    // lock this mutex after getNumClients is called to avoid a deadlock
     MutexLocker scoped_lock(m_clients_mutex);
 
-    sprintf(hearbeatdata, "%s\n" \
-                          "version5\n" \
-                          "%i\n", challenge, clientnum - m_bot_count);
-    if(clientnum > 0)
+    auto itor = m_clients.begin();
+    auto endi = m_clients.end();
+    for (; itor != endi; ++itor)
     {
-        int fakeslot = 0;
-        for( unsigned int i = 0; i < m_clients.size(); i++)
-        {
-            // ignore bots
-            if(m_clients[i]->user.authstatus & AUTH_BOT) continue;
+        Client* client = *itor;
+        Json::Value user_data(Json::objectValue);
+        user_data["is_admin"]   = (client->user.authstatus & AUTH_ADMIN);
+        user_data["is_mod"]     = (client->user.authstatus & AUTH_MOD);
+        user_data["is_ranked"]  = (client->user.authstatus & AUTH_RANKED);
+        user_data["is_bot"]     = (client->user.authstatus & AUTH_BOT);
+        user_data["username"]   = client->user.username;
+        user_data["ip_address"] = client->GetIpAddress();
+        user_data["client_id"]  = client->user.uniqueid;
 
-            char authst[10] = "";
-            if(m_clients[i]->user.authstatus & AUTH_ADMIN) strcat(authst, "A");
-            if(m_clients[i]->user.authstatus & AUTH_MOD) strcat(authst, "M");
-            if(m_clients[i]->user.authstatus & AUTH_RANKED) strcat(authst, "R");
-            if(m_clients[i]->user.authstatus & AUTH_BOT) strcat(authst, "B");
-
-            char playerdata[1024] = "";
-            sprintf(playerdata, "%d;%s;%s;%s;%d\n",
-                    fakeslot++,
-                    UTF8BuffertoString(m_clients[i]->user.username).c_str(),
-                    m_clients[i]->GetIpAddress().c_str(),
-                    authst,
-                    (int)m_clients[i]->user.uniqueid
-                    );
-            strcat(hearbeatdata, playerdata);
-        }
+        out_array->append(user_data);
     }
-    return 0;
 }
 
 int Sequencer::getNumClients()
@@ -1324,11 +1284,6 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
             }
         }
     }
-}
-
-Notifier *Sequencer::getNotifier()
-{
-    return &m_notifier;
 }
 
 int Sequencer::getStartTime()

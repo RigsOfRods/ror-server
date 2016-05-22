@@ -90,6 +90,15 @@ int ReadLinesFromFile(std::string filename, std::vector<std::string> &lines)
     return 0;
 }
 
+void SleepSeconds(unsigned int seconds)
+{
+#ifndef _WIN32
+    sleep(seconds);
+#else
+    Sleep(seconds * 1000);
+#endif
+}
+
 } // namespace Utils
 
 using namespace std;

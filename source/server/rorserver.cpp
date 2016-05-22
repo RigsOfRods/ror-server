@@ -27,6 +27,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "webserver.h"
 #include "messaging.h"
 #include "listener.h"
+#include "master-server.h"
+#include "utils.h"
 
 #include "sha1_util.h"
 #include "sha1.h"
@@ -52,14 +54,18 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 # include <sys/stat.h>
 #endif // _WIN32
 
-int terminate_triggered = 0;
 
-static Sequencer s_sequencer;
+static Sequencer            s_sequencer;
+static MasterServer::Client s_master_server;
+static bool                 s_exit_requested = false;
 
 void handler(int signalnum)
 {
-    if(terminate_triggered) return;
-    terminate_triggered++;
+    if (s_exit_requested)
+    {
+        return;
+    }
+    s_exit_requested = true;
     // reject handler
     signal(signalnum, handler);
 
@@ -72,7 +78,7 @@ void handler(int signalnum)
     }
     else if (signalnum == SIGTERM)
     {
-        Logger::Log(LOG_ERROR,"got termiante signal, terminating ...");
+        Logger::Log(LOG_ERROR,"got terminate signal, terminating ...");
         terminate = true;
     }
 #ifndef _WIN32
@@ -96,9 +102,11 @@ void handler(int signalnum)
         }
         else
         {
-            Logger::Log(LOG_ERROR,"closing server ... unregistering ... ");
-            s_sequencer.getNotifier()->unregisterServer();
-            Logger::Log(LOG_ERROR," unregistered.");
+            Logger::Log(LOG_INFO,"closing server ... unregistering ... ");
+            if (s_master_server.IsRegistered())
+            {
+                s_master_server.UnRegister();
+            }
             s_sequencer.Close();
         }
         exit(0);
@@ -271,11 +279,20 @@ int main(int argc, char* argv[])
     }
 
     // Listener is ready, let's register ourselves on serverlist (which will contact us back to check).
-    if (Config::getServerMode() != SERVER_LAN)
+    ServerType server_mode = Config::getServerMode();
+    if (server_mode != SERVER_LAN)
     {
-        s_sequencer.RegisterServer();
+        bool registered = s_master_server.Register();
+        if (!registered && (server_mode == SERVER_INET))
+        {
+            Logger::Log(LOG_ERROR, "Failed to register on serverlist. Exit");
+            return -1;
+        }
+        else // server_mode == SERVER_AUTO
+        {
+            Logger::Log(LOG_WARN, "Failed to register on serverlist");
+        }
     }
-    s_sequencer.ActivateUserAuth();
 
 #ifdef WITH_WEBSERVER
     // start webserver if used
@@ -291,17 +308,53 @@ int main(int argc, char* argv[])
     // if we need to communiate to the master user the notifier routine
     if(Config::getServerMode() != SERVER_LAN )
     {
-        //the main thread is used by the notifier
-        //this should not return untill the server shuts down
-        s_sequencer.notifyRoutine();
+        //heartbeat
+        while (!s_exit_requested)
+        {
+            Messaging::updateMinuteStats();
+            s_sequencer.updateMinuteStats();
+
+            //every minute
+            Utils::SleepSeconds(60);
+
+            Json::Value user_list;
+            s_sequencer.GetHeartbeatUserList(&user_list);
+            if (!s_master_server.SendHeatbeat(user_list))
+            {
+                unsigned int timeout = Config::GetHeartbeatRetrySeconds();
+                unsigned int max_retries = Config::GetHeartbeatRetryCount();
+                Logger::Log(LOG_WARN, "A heartbeat failed! Retry in %d seconds.", timeout);
+                bool success = false;
+                for (unsigned int i = 0; i < max_retries; ++i)
+                {
+                    Utils::SleepSeconds(timeout);
+                    success = s_master_server.SendHeatbeat(user_list);
+
+                    LogLevel log_level = (success ? LOG_INFO : LOG_ERROR);
+                    const char* log_result = (success ? "successful." : "failed.");
+                    Logger::Log(log_level, "Heartbeat retry %d/%d %s", i+1, max_retries, log_result);
+                    if (success)
+                    {
+                        break;
+                    }
+                }
+                if (!success)
+                {
+                    Logger::Log(LOG_ERROR, "Unable to send heartbeats, exit");
+                    s_exit_requested = true;
+                }
+            }
+        }
+
+        if (s_master_server.IsRegistered())
+        {
+            s_master_server.UnRegister();
+        }
     }
     else
     {
-        // if not just idle... forever
-        //or by some stupid sleep method in LAN mode
-        while (true)
+        while (!s_exit_requested)
         {
-            // update some statistics (handy to use in here, as we have a minute-timer basically)
             Messaging::updateMinuteStats();
             s_sequencer.updateMinuteStats();
 
@@ -309,16 +362,10 @@ int main(int argc, char* argv[])
             Messaging::broadcastLAN();
 
             // sleep a minute
-#ifndef _WIN32
-            sleep(60);
-#else
-            Sleep(60*1000);
-#endif
+            Utils::SleepSeconds(60);
         }
     }
 
-    // delete all (needed in here, if not shutdown due to signal)
-    // stick in destructor perhaps?
     s_sequencer.Close();
     return 0;
 }

@@ -24,6 +24,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "logger.h"
 #include "SocketW.h"
 
+#include <assert.h>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -32,7 +33,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 namespace Http {
 
-bool Request(
+bool RequestRaw(
     const char* method,
     const char* host,
     const char* url,
@@ -84,66 +85,66 @@ bool Request(
     return true;
 }
 
-} // namespace Http
+int Request(
+    const char* method,
+    const char* host,
+    const char* url,
+    const char* content_type,
+    const char* payload,
+    Response*   response)
+{
+    assert(response != nullptr);
 
-HttpMsg::HttpMsg()
+    char response_buf[5000] = {0};
+    if (!RequestRaw(method, host, url, content_type, payload, response_buf, 5000))
+    {
+        return -1;
+    }
+
+    std::string response_str(response_buf);
+    if (!response->FromBuffer(response_str))
+    {
+        return -2;
+    }
+
+    return response->GetCode();
+}
+
+Response::Response():
+    m_response_code(0)
 {
 }
 
-HttpMsg::HttpMsg( const std::string& message )
+const std::string& Response::GetBody()
 {
-    assign( message );
+    return m_headermap["body"];
 }
 
-HttpMsg::~HttpMsg()
-{
-}
-
-
-HttpMsg& HttpMsg::operator=( const std::string& message )
-{
-    assign( message );
-    return *this;
-}
-
-HttpMsg& HttpMsg::operator=( const char* message )
-{
-    assign( message );
-    return *this;
-}
-
-bool HttpMsg::operator==( const std::string& message )
-{
-    return getBody() == message;
-}
-
-const std::string& HttpMsg::getBody()
-{
-    return headermap["body"];
-}
-
-const std::vector<std::string> HttpMsg::getBodyLines()
+const std::vector<std::string> Response::GetBodyLines()
 {
     std::vector<std::string> lines;
-    strict_tokenize( headermap["body"], lines, "\n" );
+    strict_tokenize( m_headermap["body"], lines, "\n" );
     return lines;
 }
 
-bool HttpMsg::isChunked()
+bool Response::IsChunked()
 {
-    return "chunked" == headermap["Transfer-Encoding"];
+    return "chunked" == m_headermap["Transfer-Encoding"];
 }
 
-void HttpMsg::assign( const std::string& message )
+bool Response::FromBuffer(std::string& message)
 {
+    m_response_code = -1;
+    m_headermap.clear();
+
     std::size_t locHolder;
     locHolder = message.find("\r\n\r\n");
     std::vector<std::string> header;
     std::vector<std::string> tmp;
-    
+
     strict_tokenize( message.substr( 0, locHolder ), header, "\r\n" );
-    
-    headermap["httpcode"] = header[0];
+
+    m_response_code = atoi(header[0].c_str());
     for( unsigned short index = 1; index < header.size(); index++ )
     {
         tmp.clear();
@@ -152,34 +153,27 @@ void HttpMsg::assign( const std::string& message )
         {
             continue;
         }
-        headermap[ trim( tmp[0] ) ] = trim( tmp[1] );
+        m_headermap[ trim( tmp[0] ) ] = trim( tmp[1] );
     }
-    
+
     tmp.clear();
     locHolder = message.find_first_not_of("\r\n", locHolder);
     if( std::string::npos == locHolder )
     {
-        std::string error_msg("Message does not appear to contain a body: \n");
-        error_msg +=message;
-        throw std::runtime_error( error_msg );
+        Logger::Log(LOG_ERROR, "Internal: HTTP message does not appear to contain a body: \n%s", message.c_str());
+        return false;
     }
-    
+
     strict_tokenize( message.substr( locHolder ), tmp, "\r\n" );
-    if( isChunked() )
-        headermap["body"] = tmp[1];
-    else
-        headermap["body"] = tmp[0];
-    
-#if 0
-    // debuging stuff
-    std::cout << "headermap contents " << headermap.size() << ": \n"; 
-    for( std::map<std::string,std::string>::iterator it = headermap.begin();
-        it != headermap.end();
-        it++)
+    if (IsChunked())
     {
-        std::cout << "headermap[\"" << (*it).first << "\"]: "
-                << (*it).second << std::endl;
-        
+        m_headermap["body"] = tmp[1];
     }
-#endif
+    else
+    {
+        m_headermap["body"] = tmp[0];
+    }
 }
+
+} // namespace Http
+

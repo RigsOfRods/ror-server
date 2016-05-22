@@ -31,7 +31,7 @@ class UserAuth
 {
 private:
     std::map< std::string, user_auth_pair_t > cache;
-    int HTTPGET(const char* URL, HttpMsg &resp);
+    int HTTPGET(const char* URL, Http::Response &resp);
     std::string challenge;
     int trustlevel;
     std::map< std::string, user_auth_pair_t > local_auth;

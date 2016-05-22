@@ -40,7 +40,7 @@ private:
     bool exit;             //!< exit the server 
     bool wasregistered;    //!< is registered with the master server
     int error_count;       //!< counter how many failed heartbeats we had 
-    HttpMsg resp;          //!< holds the latest response fromt he master server
+    Http::Response resp;          //!< holds the latest response fromt he master server
     bool advertised;
     bool is_active;
     Sequencer* m_sequencer;
@@ -79,7 +79,7 @@ public:
     /**
      * @return the respond from the last HTTP{GET,POST} method call
      */
-    HttpMsg getResponse() { return resp; }
+    Http::Response getResponse() { return resp; }
 
     //! notify the master server that this server is shutting down 
     bool unregisterServer();

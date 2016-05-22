@@ -62,8 +62,10 @@ std::string retrievePublicIpFromServer()
     }
     Logger::Log(LOG_DEBUG, "Response from public IP request :'%s'", retval.c_str());
 
-    HttpMsg msg(retval);
-    retval = msg.getBody();
+    Http::Response response;
+    response.FromBuffer(retval);
+
+    retval = response.GetBody();
 
     // disconnect
     mySocket.disconnect();

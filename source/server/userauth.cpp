@@ -140,14 +140,14 @@ int UserAuth::sendUserEvent(std::string user_token, std::string type, std::strin
     char url[2048];
     sprintf(url, "%s/userevent_utf8/?v=0&sh=%s&h=%s&t=%s&a1=%s&a2=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), type.c_str(), arg1.c_str(), arg2.c_str());
     Logger::Log(LOG_DEBUG, "UserAuth event to server: " + std::string(url));
-    HttpMsg resp;
+    Http::Response resp;
     if (HTTPGET(url, resp) < 0)
     {
         Logger::Log(LOG_ERROR, "UserAuth event query result empty");
         return -1;
     }
 
-    std::string body = resp.getBody();
+    std::string body = resp.GetBody();
     Logger::Log(LOG_DEBUG,"UserEvent reply: " + body);
 
     return (body!="ok");
@@ -187,14 +187,14 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
         char url[2048];
         sprintf(url, "%s/authuser_utf8/?c=%s&t=%s&u=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), user_nick.asUTF8_c_str());
         Logger::Log(LOG_DEBUG, "UserAuth query to server: " + std::string(url));
-        HttpMsg resp;
+        Http::Response resp;
         if (HTTPGET(url, resp) < 0)
         {
             Logger::Log(LOG_ERROR, "UserAuth resolve query result empty");
             return AUTH_NONE;
         }
 
-        std::string body = resp.getBody();
+        std::string body = resp.GetBody();
         Logger::Log(LOG_DEBUG,"UserAuth reply: " + body);
         
         std::vector<std::string> args;
@@ -256,7 +256,7 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
     return authlevel;
 }
 
-int UserAuth::HTTPGET(const char* URL, HttpMsg &resp)
+int UserAuth::HTTPGET(const char* URL, Http::Response &resp)
 {
     if(trustlevel<=1)
     {
@@ -290,7 +290,7 @@ int UserAuth::HTTPGET(const char* URL, HttpMsg &resp)
         Logger::Log(LOG_DEBUG,"Response from Master server:'%s'", httpresp);
         try
         {
-            resp = HttpMsg(httpresp);
+            resp.FromBuffer(std::string(httpresp));
         }
         catch( std::runtime_error e)
         {

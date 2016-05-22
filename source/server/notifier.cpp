@@ -90,7 +90,7 @@ bool Notifier::registerServer()
     if(responseformat==1)
     {
         // old format
-        std::string body = getResponse().getBody();
+        std::string body = getResponse().GetBody();
         if(body.find("error") != std::string::npos || body.length() < 40)
         {
             // print out the error.
@@ -112,7 +112,7 @@ bool Notifier::registerServer()
     } else if (responseformat == 2)
     {
         // new format
-        std::vector<std::string> lines = getResponse().getBodyLines();
+        std::vector<std::string> lines = getResponse().GetBodyLines();
         if(lines.size() < 2)
         {
             Logger::Log(LOG_ERROR, "got wrong server response upon registration: only %d lines instead of minimal 2", lines.size());
@@ -165,7 +165,7 @@ bool Notifier::unregisterServer()
         return false;
     advertised = false;
 
-    return getResponse() == "ok";
+    return getResponse().GetBody() == "ok";
 }
 
 bool Notifier::sendHearbeat()
@@ -181,7 +181,7 @@ bool Notifier::sendHearbeat()
     if (HTTPPOST(hearbeaturl, hearbeatdata) < 0)
         return false;
     // the server gives back "failed" or "ok"	
-    return getResponse() == "ok";
+    return getResponse().GetBody() == "ok";
 }
 
 void Notifier::loop()
@@ -262,7 +262,8 @@ int Notifier::HTTPGET(const char* URL)
         Logger::Log(LOG_DEBUG,"Response from Master server:'%s'", httpresp);
         try
         {
-            resp = HttpMsg(httpresp);
+            std::string response_str(httpresp);
+            resp.FromBuffer(response_str);
         }
         catch( std::runtime_error e)
         {
@@ -316,7 +317,7 @@ int Notifier::HTTPPOST(const char* URL, const char* data)
         Logger::Log(LOG_DEBUG,"Response from Master server:'%s'", httpresp);
         try
         {
-            resp = HttpMsg(httpresp);
+            resp.FromBuffer(std::string(httpresp));
         }
         catch( std::runtime_error e)
         {

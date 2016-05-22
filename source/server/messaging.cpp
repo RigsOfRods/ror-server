@@ -37,41 +37,6 @@ static stream_traffic_t s_traffic = {0,0,0,0,0,0,0,0,0,0,0,0};
 
 namespace Messaging {
 
-std::string retrievePublicIpFromServer()
-{
-    SWBaseSocket::SWBaseError error;
-    SWInetSocket mySocket;
-
-    if (!mySocket.connect(80, REPO_SERVER, &error))
-    {
-        return "";
-    }
-
-    char query[2048] = { 0 };
-    sprintf(query, "GET /getpublicip/ HTTP/1.1\r\nHost: %s\r\n\r\n", REPO_SERVER);
-    Logger::Log(LOG_DEBUG, "Query to get public IP: %s\n", query);
-    if (mySocket.sendmsg(query, &error) < 0)
-    {
-        return "";
-    }
-
-    std::string retval = mySocket.recvmsg(250, &error);
-    if (error != SWBaseSocket::ok)
-    {
-        return "";
-    }
-    Logger::Log(LOG_DEBUG, "Response from public IP request :'%s'", retval.c_str());
-
-    Http::Response response;
-    response.FromBuffer(retval);
-
-    retval = response.GetBody();
-
-    // disconnect
-    mySocket.disconnect();
-    return retval;
-}
-
 void updateMinuteStats()
 {
     // normal bandwidth

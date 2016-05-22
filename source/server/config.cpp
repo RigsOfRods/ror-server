@@ -24,7 +24,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "sequencer.h"
 #include "sha1_util.h"
 #include "utils.h"
-#include "messaging.h"
 
 // simpleopt by http://code.jellycan.com/simpleopt/
 // license: MIT
@@ -211,41 +210,6 @@ bool checkConfig()
         break;
     }
 
-    // settings required by INET mode
-    if( getServerMode() != SERVER_LAN )
-    {
-
-        Logger::Log( LOG_INFO, "Starting server in INET mode" );
-        if( getIPAddr() == "0.0.0.0" )
-        {
-            Logger::Log( LOG_WARN, "no IP address has been specified, attempting to "
-                    "detect.");
-            setIPAddr( Messaging::retrievePublicIpFromServer() );
-            
-            if( getIPAddr().empty() )
-                Logger::Log(LOG_ERROR, "could not get public IP automatically!");
-        }
-        
-        if( getIPAddr().empty() )
-        {
-            Logger::Log( LOG_ERROR, "IP adddress not specified.");
-            return 0;
-        }
-        else
-            Logger::Log( LOG_INFO, "ip address: %s", getIPAddr().c_str() );
-        
-        Logger::Log(LOG_WARN, "app. full load traffic: %ikbit/s upload and "
-                "%ikbit/s download", 
-                getMaxClients()*(getMaxClients()-1)*64, getMaxClients()*64);
-        
-        if( getServerName().empty() )
-        {
-            Logger::Log( LOG_ERROR, "Server name not specified.");
-            return 0;
-        }
-        else
-            Logger::Log( LOG_INFO, "servername: %s", getServerName().c_str() );		
-    }
     if( !getListenPort() )
     {
         Logger::Log( LOG_WARN, "No port supplied, randomly generating one");

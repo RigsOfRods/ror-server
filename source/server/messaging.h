@@ -52,6 +52,4 @@ stream_traffic_t getTraffic();
 void updateMinuteStats();
 int getTime();
 
-std::string retrievePublicIpFromServer();
-
 } // namespace Messaging

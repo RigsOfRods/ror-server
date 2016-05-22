@@ -130,5 +130,22 @@ bool Client::UnRegister()
     return true;
 }
 
+bool RetrievePublicIp(std::string* out_ip)
+{
+    const char* host = Config::GetServerlistHost().c_str();
+    char url[300] = { 0 };
+    sprintf(url, "%s/get-public-ip", host);
+
+    Http::Response response;
+    int result_code = Http::Request(Http::METHOD_GET, host, url, "application/json", "", &response);
+    if (result_code < 0)
+    {
+        Logger::Log(LOG_ERROR, "Failed to retrieve public IP address");
+        return false;
+    }
+    *out_ip = response.GetBody();
+    return true;
+}
+
 } // namespace MasterServer
 

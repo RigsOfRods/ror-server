@@ -238,7 +238,35 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    // If mode == INET and IP not set, this also queries the server for public IP.
+    // Check configuration
+    ServerType server_mode = Config::getServerMode();
+    if (server_mode != SERVER_LAN)
+    {
+        Logger::Log(LOG_INFO, "Starting server in INET mode");
+        std::string ip_addr = Config::getIPAddr();
+        if (ip_addr.empty() || (ip_addr == "0.0.0.0"))
+        {
+            Logger::Log(LOG_WARN, "No IP given, detecting...");
+            if (!MasterServer::RetrievePublicIp(&ip_addr))
+            {
+                Logger::Log(LOG_ERROR, "Failed to auto-detect public IP, exit.");
+                return -1;
+            }
+        }
+        Logger::Log(LOG_INFO, "IP address: %s", ip_addr.c_str());
+
+        unsigned int max_clients = Config::getMaxClients();
+        Logger::Log(LOG_INFO, "Maximum required upload: %ikbit/s", max_clients*(max_clients - 1) * 64);
+        Logger::Log(LOG_INFO, "Maximum required download: %ikbit/s", max_clients * 64);
+
+        if (Config::getServerName().empty())
+        {
+            Logger::Log(LOG_ERROR, "Server name not specified, exit.");
+            return -1;
+        }
+        Logger::Log(LOG_INFO, "Server name: %s", Config::getServerName().c_str());
+    }
+
     if (!Config::checkConfig())
     {
         return 1;
@@ -279,7 +307,6 @@ int main(int argc, char* argv[])
     }
 
     // Listener is ready, let's register ourselves on serverlist (which will contact us back to check).
-    ServerType server_mode = Config::getServerMode();
     if (server_mode != SERVER_LAN)
     {
         bool registered = s_master_server.Register();

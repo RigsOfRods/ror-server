@@ -1195,7 +1195,6 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
     else if (type==MSG2_UTF_PRIVCHAT)
     {
         // private chat message
-        int destuid = *(int*)data;
         Client* dest_client = this->FindClientById(static_cast<unsigned int>(uid));
         if (dest_client != nullptr)
         {

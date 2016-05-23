@@ -138,7 +138,7 @@ bool Response::IsChunked()
     return "chunked" == m_headermap["Transfer-Encoding"];
 }
 
-bool Response::FromBuffer(std::string& message)
+bool Response::FromBuffer(const std::string& message)
 {
     m_response_code = -1;
     m_headermap.clear();

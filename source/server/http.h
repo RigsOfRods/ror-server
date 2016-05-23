@@ -39,7 +39,7 @@ public:
     const std::string& GetBody();
     const std::vector<std::string> GetBodyLines();
     bool IsChunked();
-    bool FromBuffer(std::string& message);
+    bool FromBuffer(const std::string& message);
     int GetCode() { return m_response_code; }
 
 private:

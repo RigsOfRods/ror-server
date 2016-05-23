@@ -59,7 +59,7 @@ bool RequestRaw(
     query_pos += sprintf(query_pos, "%s %s HTTP/1.1"     "\r\n", method, url);
     query_pos += sprintf(query_pos, "Host: %s"           "\r\n", host);
     query_pos += sprintf(query_pos, "Content-Type: %s"   "\r\n", content_type);
-    query_pos += sprintf(query_pos, "Content-Length: %d" "\r\n", strnlen(payload, 16000));
+    query_pos += sprintf(query_pos, "Content-Length: %lu" "\r\n", static_cast<unsigned long>(strnlen(payload, 16000)));
 
     sprintf(query_pos, "\r\n%s", payload);
 

@@ -475,7 +475,7 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError, bool doS
     for( unsigned int i = 0; i < m_clients.size(); i++)
     {
         m_clients[i]->QueueMessage(MSG2_USER_LEAVE, client->user.uniqueid, 0, (int)strlen(errormsg), errormsg);
-        if (m_clients[i]->user.uniqueid == uid)
+        if (m_clients[i]->user.uniqueid == static_cast<unsigned int>(uid))
         {
             pos = i;
         }

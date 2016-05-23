@@ -24,7 +24,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h"
 #include "logger.h"
 #include "http.h"
-#include "json.h"
+#include "json/json.h"
 
 #include <assert.h>
 

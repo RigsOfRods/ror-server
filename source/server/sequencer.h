@@ -25,7 +25,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "broadcaster.h"
 #include "receiver.h"
 #include "UTFString.h"
-#include "json.h"
+#include "json/json.h"
 #ifdef WITH_ANGELSCRIPT
 #include "scriptmath3d/scriptmath3d.h" // angelscript addon
 #endif //WITH_ANGELSCRIPT

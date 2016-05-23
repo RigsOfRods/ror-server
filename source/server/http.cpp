@@ -33,6 +33,12 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 namespace Http {
 
+const char* METHOD_GET    = "GET";
+const char* METHOD_POST   = "POST";
+const char* METHOD_PUT    = "PUT";
+const char* METHOD_DELETE = "DELETE";
+
+
 bool RequestRaw(
     const char* method,
     const char* host,

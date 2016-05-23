@@ -26,10 +26,10 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 namespace Http {
 
-static const char* METHOD_GET    = "GET";
-static const char* METHOD_POST   = "POST";
-static const char* METHOD_PUT    = "PUT";
-static const char* METHOD_DELETE = "DELETE";
+extern const char* METHOD_GET;
+extern const char* METHOD_POST;
+extern const char* METHOD_PUT;
+extern const char* METHOD_DELETE;
 
 class Response
 {

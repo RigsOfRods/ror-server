@@ -173,6 +173,7 @@ bool Response::FromBuffer(std::string& message)
     {
         m_headermap["body"] = tmp[0];
     }
+    return true;
 }
 
 } // namespace Http

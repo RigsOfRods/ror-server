@@ -27,6 +27,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include <rudeconfig/config.h>
 #include <cmath>
+#include <cstring>
 #ifdef __GNUC__
 #include <unistd.h>
 #include <stdlib.h>

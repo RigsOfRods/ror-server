@@ -6,9 +6,20 @@ compiler:
 
 env:
   - ANALYZE=false
-  - ANALYZE=true
+  #- ANALYZE=true
+
+addons:
+  # The following updates are needed for Travis VM running Ubuntu 12.04 and should be removed when Travis updates their OS
+  # update gcc for C++11 support
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+
+    packages:
+      - g++-4.8
 
 before_install:
+  - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
   - chmod +x ./tools/travis/linux/travis.sh
   - chmod +x ./tools/travis/linux/build.sh
 

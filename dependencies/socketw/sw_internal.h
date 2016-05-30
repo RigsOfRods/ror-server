@@ -30,6 +30,12 @@
   
   #define F_SETFL FIONBIO
   #define O_NONBLOCK 1
+
+  // Rigs of Rods HACK by `only_a_ptr`, 2016/05
+  // This macro blocks us from having a `Messaging::SendMessage` function.
+  #ifdef SendMessage
+    #undef SendMessage
+  #endif
 #endif
 
 #ifndef _SDL_H

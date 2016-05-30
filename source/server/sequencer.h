@@ -1,42 +1,36 @@
 /*
 This file is part of "Rigs of Rods Server" (Relay mode)
-Copyright 2007 Pierre-Michel Ricordel
-Contact: pricorde@rigsofrods.com
-"Rigs of Rods Server" is distributed under the terms of the GNU General Public License.
 
-"Rigs of Rods Server" is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; version 3 of the License.
+Copyright 2007   Pierre-Michel Ricordel
+Copyright 2014+  Rigs of Rods Community
 
-"Rigs of Rods Server" is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+"Rigs of Rods Server" is free software: you can redistribute it
+and/or modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation, either version 3
+of the License, or (at your option) any later version.
+
+"Rigs of Rods Server" is distributed in the hope that it will
+be useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
+along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 */
 
-// $LastChangedDate: 2010-07-08 02:10:14 +0200 (Thu, 08 Jul 2010) $
-// $LastChangedRevision$
-// $LastChangedBy: rorthomas $
-// $HeadURL: https://rorserver.svn.sourceforge.net/svnroot/rorserver/trunk/source/sequencer.h $
-// $Id: sequencer.h 419 2010-07-08 00:10:14Z rorthomas $
-// $Rev$
-
 #pragma once
-#ifndef __Sequencer_H__
-#define __Sequencer_H__
 
 #include "rornet.h"
-#include "notifier.h"
+#include "mutexutils.h"
+#include "broadcaster.h"
+#include "receiver.h"
+#include "UTFString.h"
+#include "json/json.h"
 #ifdef WITH_ANGELSCRIPT
 #include "scriptmath3d/scriptmath3d.h" // angelscript addon
 #endif //WITH_ANGELSCRIPT
-#include "mutexutils.h"
-#include "UTFString.h"
-#include <string>
 
+#include <string>
 #include <queue>
 #include <vector>
 #include <map>
@@ -48,9 +42,7 @@ class UserAuth;
 class SWInetSocket;
 class ScriptEngine;
 
-#define FREE 0
-#define BUSY 1
-#define USED 2
+
 
 // How many not-vehicles streams has every user by default? (e.g.: "default" and "chat" are not-vehicles streams)
 // This is used for the vehicle-limit
@@ -62,19 +54,19 @@ class ScriptEngine;
 
 // This is used to define who says it, when the server says something
 enum serverSayType {
-	FROM_SERVER = 0,
-	FROM_HOST,
-	FROM_MOTD,
-	FROM_RULES 
+    FROM_SERVER = 0,
+    FROM_HOST,
+    FROM_MOTD,
+    FROM_RULES 
 };
 
 enum broadcastType {
 // order: least restrictive to most restrictive!
-	BROADCAST_AUTO = -1,  // Do not edit the publishmode (for scripts only)
-	BROADCAST_ALL,        // broadcast to all clients including sender
-	BROADCAST_NORMAL,     // broadcast to all clients except sender
-	BROADCAST_AUTHED,     // broadcast to authed users (bots)
-	BROADCAST_BLOCK       // no broadcast
+    BROADCAST_AUTO = -1,  // Do not edit the publishmode (for scripts only)
+    BROADCAST_ALL,        // broadcast to all clients including sender
+    BROADCAST_NORMAL,     // broadcast to all clients except sender
+    BROADCAST_AUTHED,     // broadcast to authed users (bots)
+    BROADCAST_BLOCK       // no broadcast
 };
 
 // constant for functions that receive an uid for sending something
@@ -82,42 +74,62 @@ static const int TO_ALL = -1;
 
 typedef struct stream_traffic_t
 {
-	// normal bandwidth
-	double bandwidthIncoming;
-	double bandwidthOutgoing;
-	double bandwidthIncomingLastMinute;
-	double bandwidthOutgoingLastMinute;
-	double bandwidthIncomingRate;
-	double bandwidthOutgoingRate;
+    // normal bandwidth
+    double bandwidthIncoming;
+    double bandwidthOutgoing;
+    double bandwidthIncomingLastMinute;
+    double bandwidthOutgoingLastMinute;
+    double bandwidthIncomingRate;
+    double bandwidthOutgoingRate;
 
-	// drop bandwidth
-	double bandwidthDropIncoming;
-	double bandwidthDropOutgoing;
-	double bandwidthDropIncomingLastMinute;
-	double bandwidthDropOutgoingLastMinute;
-	double bandwidthDropIncomingRate;
-	double bandwidthDropOutgoingRate;
+    // drop bandwidth
+    double bandwidthDropIncoming;
+    double bandwidthDropOutgoing;
+    double bandwidthDropIncomingLastMinute;
+    double bandwidthDropOutgoingLastMinute;
+    double bandwidthDropIncomingRate;
+    double bandwidthDropOutgoingRate;
 } stream_traffic_t;
 
-//! A struct to hold information about a client
-struct client_t
+class Client
 {
-	user_info_t user;  //!< user information
-    int status;                 //!< current status of the client, options are
-                                //!< FREE, BUSY or USED
-    Receiver* receiver;         //!< pointer to a receiver class, this
-    Broadcaster* broadcaster;   //!< pointer to a broadcaster class
-    SWInetSocket* sock;         //!< socket used to communicate with the client
-    bool flow;                  //!< flag to see if the client should be sent
-                                //!< data?
-	bool initialized;
-	char ip_addr[16];           // do not use directly
+public:
+    enum Status
+    {
+        STATUS_FREE = 0,
+        STATUS_BUSY = 1,
+        STATUS_USED = 2
+    };
 
-	int drop_state;             // dropping outgoing packets?
+    Client(Sequencer* sequencer, SWInetSocket* socket);
 
-	//things for the communication with the webserver below, not used in the main server code
-	std::map<unsigned int, stream_register_t> streams;
-	std::map<unsigned int, stream_traffic_t> streams_traffic;
+    void          StartThreads();
+    void          Disconnect();
+    void          QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len, const char* payload);
+    void          NotifyAllVehicles(Sequencer* sequencer);
+    std::string   GetIpAddress();
+
+    SWInetSocket* GetSocket()                          { return m_socket; }
+    bool          IsBroadcasterDroppingPackets() const { return m_broadcaster.IsDroppingPackets(); }
+    void          SetReceiveData(bool val)             { m_is_receiving_data = val; }
+    bool          IsReceivingData() const              { return m_is_receiving_data; }
+    Status        GetStatus() const                    { return m_status; }
+
+    user_info_t user;  //!< user information
+
+    int drop_state;             // dropping outgoing packets?
+
+    //things for the communication with the webserver below, not used in the main server code
+    std::map<unsigned int, stream_register_t> streams;
+    std::map<unsigned int, stream_traffic_t> streams_traffic;
+
+private:
+    SWInetSocket* m_socket;
+    Receiver      m_receiver;
+    Broadcaster   m_broadcaster;
+    Status        m_status;
+    bool          m_is_receiving_data;
+    bool          m_is_initialized;
 };
 
 struct ban_t
@@ -129,106 +141,79 @@ struct ban_t
     char banmsg[256];           //!< why he got banned
 };
 
-typedef struct chat_save_t
-{
-	int source;
-	std::string time;
-	UTFString nick;
-	UTFString msg;
-} chat_save_t;
+void* LaunchKillerThread(void*);
 
 class Sequencer
 {
-private:
-    pthread_t killerthread; //!< thread to handle the killing of clients
-    Condition killer_cv;    //!< wait condition that there are clients to kill
-    Mutex killer_mutex;     //!< mutex used for locking access to the killqueue
-    Mutex clients_mutex;    //!< mutex used for locking access to the clients array
-    
-    Listener* listener;     //!< listens for incoming connections
-    ScriptEngine* script;     //!< listens for incoming connections
-    Notifier notifier;     //!< registers and handles the master server
-	UserAuth* authresolver; //!< authenticates users
-    std::vector<client_t*> clients; //!< clients is a list of all the available 
-    std::vector<ban_t*> bans; //!< list of bans
-                            //!< client connections, it is allocated
-    unsigned int fuid;      //!< next userid
-    std::queue<client_t*> killqueue; //!< holds pointer for client deletion
-    std::deque <chat_save_t> chathistory;
-	int botCount;           //!< Amount of registered bots on the server.
-	
-    int startTime;
-    unsigned short getPosfromUid(unsigned int uid);
-
-protected:
-    Sequencer();
-    ~Sequencer();
-    //! method to access the singleton instance
-    static Sequencer* Instance();
-    static Sequencer* mInstance;
-
+    friend void* LaunchKillerThread(void*);
 public:
 
-    static void initialize(Listener* listener);
-    static void activateUserAuth();
-    static void registerServer();
+    Sequencer();
+
+    void Initialize(Listener* listener);
 
     //! destructor call, used for clean up
-    static void cleanUp();
+    void Close();
     
     //! initilize client information
-    static void createClient(SWInetSocket *sock, user_info_t  user);
+    void createClient(SWInetSocket *sock, user_info_t  user);
     
     //! call to start the thread to disconnect clients from the server.
-    static void killerthreadstart();
+    void killerthreadstart();
     
     //! queue client for disconenct
-    static void disconnect(int pos, const char* error, bool isError=true, bool doScriptCallback=true);
+    void disconnect(int pos, const char* error, bool isError=true, bool doScriptCallback=true);
 
-	static void queueMessage(int pos, int type, unsigned int streamid, char* data, unsigned int len);
-    static void enableFlow(int id);
-    static int sendMOTD(int id);
+    void queueMessage(int pos, int type, unsigned int streamid, char* data, unsigned int len);
+    void enableFlow(int id);
+    int sendMOTD(int id);
     
-    static void notifyRoutine();
-    static void notifyAllVehicles(int id, bool lock=true);
+    void IntroduceNewClientToAllVehicles(Client* client);
 
-	static UserAuth* getUserAuth();
-	static ScriptEngine* getScriptEngine();
-	static Notifier *getNotifier();
+    UserAuth* getUserAuth();
 
-    static int getNumClients(); //! number of clients connected to this server
-	static client_t *getClient(int uid);
-	static int getHeartbeatData(char *challenge, char *hearbeatdata);
+    int getNumClients(); //! number of clients connected to this server
+    Client *getClient(int uid);
+    void GetHeartbeatUserList(Json::Value* out_array);
     //! prints the Stats view, of who is connected and what slot they are in
-    static void printStats();
-	static void updateMinuteStats();
-    static void serverSay(std::string msg, int notto=-1, int type=0);
-    static int sendGameCommand(int uid, std::string cmd);
-    static void serverSayThreadSave(std::string msg, int notto=-1, int type=0);
-	
-	static bool checkNickUnique(UTFString &nick);
-	static int getFreePlayerColour();
-	static int authNick(std::string token, UTFString &nickname);
+    void printStats();
+    void updateMinuteStats();
+    void serverSay(std::string msg, int notto=-1, int type=0);
+    int sendGameCommand(int uid, std::string cmd);
+    void serverSayThreadSave(std::string msg, int notto=-1, int type=0);
+    
+    bool CheckNickIsUnique(UTFString &nick);
+    int GetFreePlayerColour();
+    int AuthorizeNick(std::string token, UTFString &nickname);
 
-    static void  unregisterServer();
+    bool Kick(int to_kick_uid, int modUID, const char *msg=0);
+    bool Ban(int to_ban_uid, int modUID, const char *msg=0);
+    void SilentBan(int to_ban_uid, const char *msg=0, bool doScriptCallback=true);
+    bool UnBan(int buid);
+    bool IsBanned(const char *ip);
+    void streamDebug();
 
-	static bool kick(int to_kick_uid, int modUID, const char *msg=0);
-	static bool ban(int to_ban_uid, int modUID, const char *msg=0);
-	static void silentBan(int to_ban_uid, const char *msg=0, bool doScriptCallback=true);
-	static bool unban(int buid);
-	static bool isbanned(const char *ip);
-	static void streamDebug();
+    int getStartTime();
+    void broadcastUserInfo(int uid);
 
-	static std::vector<client_t> getClients();
-	static int getStartTime();
-	void broadcastUserInfo(int uid);
+    static unsigned int connCrash, connCount;
 
-    static std::deque <chat_save_t> getChatHistory();
+private:
+    pthread_t     m_killer_thread;  //!< thread to handle the killing of clients
+    Condition     m_killer_cond;    //!< wait condition that there are clients to kill
+    Mutex         m_killer_mutex;   //!< mutex used for locking access to the killqueue
+    Mutex         m_clients_mutex;  //!< mutex used for locking access to the clients array
+    Listener*     m_listener;
+    ScriptEngine* m_script_engine;
+    UserAuth*     m_auth_resolver;
+    int           m_bot_count;      //!< Amount of registered bots on the server.
+    unsigned int  m_free_user_id;
+    int           m_start_time;
 
-	static unsigned int connCrash, connCount;
+    std::queue<Client*>  m_kill_queue; //!< holds pointer for client deletion
+    std::vector<Client*> m_clients;
+    std::vector<ban_t*>  m_bans;
 
-	static int readFile(std::string filename, std::vector<std::string> &lines); //!< reads lines of a file
-
+    Client* FindClientById(unsigned int client_id);
 };
 
-#endif

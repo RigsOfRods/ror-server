@@ -1,113 +1,114 @@
 /*
 This file is part of "Rigs of Rods Server" (Relay mode)
-Copyright 2007 Pierre-Michel Ricordel
-Contact: pricorde@rigsofrods.com
-"Rigs of Rods Server" is distributed under the terms of the GNU General Public License.
 
-"Rigs of Rods Server" is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; version 3 of the License.
+Copyright 2007   Pierre-Michel Ricordel
+Copyright 2014+  Rigs of Rods Community
 
-"Rigs of Rods Server" is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+"Rigs of Rods Server" is free software: you can redistribute it
+and/or modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation, either version 3
+of the License, or (at your option) any later version.
+
+"Rigs of Rods Server" is distributed in the hope that it will
+be useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
+along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 */
+
 #include "receiver.h"
+
 #include "SocketW.h"
 #include "sequencer.h"
 #include "messaging.h"
 #include "ScriptEngine.h"
 #include "logger.h"
 
-void *s_lithreadstart(void* vid)
+void* LaunchReceiverThread(void* data)
 {
-    STACKLOG;
-	((Receiver*)vid)->threadstart();
-#ifdef _WIN32	
-	Logger::log( LOG_DEBUG, "Receiver thread %u:%u is exiting",
-	        (unsigned int) pthread_self().p, ThreadID::getID() );
-#endif
-	return NULL;
+    Receiver* receiver = static_cast<Receiver*>(data);
+    receiver->Thread();
+    return nullptr;
 }
 
-
-Receiver::Receiver()
-: id(0), sock(NULL), running( false )
+Receiver::Receiver(Sequencer* sequencer):
+    m_id(0),
+    m_socket(nullptr),
+    m_is_running(false),
+    m_sequencer(sequencer)
 {
-    STACKLOG;
 }
 
 Receiver::~Receiver(void)
 {
-    STACKLOG;
-	stop();
+    Stop();
 }
 
-void Receiver::reset(int pos, SWInetSocket *socky)
+void Receiver::Start(int pos, SWInetSocket *socky)
 {
-    STACKLOG;
-	id    = pos;
-	sock  = socky;
-	running = true;
-	
-	//start a listener thread
-	pthread_create(&thread, NULL, s_lithreadstart, this);
+    m_id = pos;
+    m_socket = socky;
+    m_is_running = true;
+
+    pthread_create(&m_thread, nullptr, LaunchReceiverThread, this);
 }
 
-void Receiver::stop()
+void Receiver::Stop()
 {
-    STACKLOG;
-	if(!running) return; // already called, discard call
-    running = false;
-#ifdef _WIN32
-    Logger::log( LOG_DEBUG, "joining with receiver thread: %u",
-            (unsigned int) &thread.p);
-#endif
-	pthread_join(thread, NULL);
+    if (!m_is_running)
+    {
+        return;
+    }
+    m_is_running = false;
+
+    pthread_join(m_thread, nullptr);
 }
 
-void Receiver::threadstart()
+void Receiver::Thread()
 {
-    STACKLOG;
-	Logger::log( LOG_DEBUG, "receiver thread %d owned by uid %d", ThreadID::getID(), id);
-	//get the vehicle description
-	int type;
-	int source;
-	unsigned int streamid;
-	unsigned int len;
-	SWBaseSocket::SWBaseError error;
-	//okay, we are ready, we can receive data frames
-	Sequencer::enableFlow(id);
+    Logger::Log( LOG_DEBUG, "receiver thread %d owned by uid %d", ThreadID::getID(), m_id);
+    //get the vehicle description
+    int type;
+    int source;
+    unsigned int streamid;
+    unsigned int len;
+    SWBaseSocket::SWBaseError error;
+    //okay, we are ready, we can receive data frames
+    m_sequencer->enableFlow(m_id);
 
-	//send motd
-	Sequencer::sendMOTD(id);
+    //send motd
+    m_sequencer->sendMOTD(m_id);
 
-	Logger::log(LOG_VERBOSE,"UID %d is switching to FLOW", id);
-	
-	// this prevents the socket from hangingwhen sending data
-	// which is the cause of threads getting blocked
-	sock->set_timeout(60, 0);
-	while( running )
-	{
-		if (Messaging::receivemessage(sock, &type, &source, &streamid, &len, dbuffer, MAX_MESSAGE_LENGTH))
-		{
-			Sequencer::disconnect(id, "Game connection closed");
-			break;
-		}
-		if( !running ) break;
-		
-		if(type != MSG2_STREAM_DATA)
-			Logger::log(LOG_VERBOSE,"got message: type: %d, source: %d:%d, len: %d", type, source, streamid, len);
-		
-		if (type < 1000 || type > 1050)
-		{
-			Sequencer::disconnect(id, "Protocol error 3");
-			break;
-		}
-		Sequencer::queueMessage(id, type, streamid, dbuffer, len);
-	}
+    Logger::Log(LOG_VERBOSE,"UID %d is switching to FLOW", m_id);
+    
+    // this prevents the socket from hangingwhen sending data
+    // which is the cause of threads getting blocked
+    m_socket->set_timeout(60, 0);
+    while( m_is_running )
+    {
+        if (Messaging::ReceiveMessage(m_socket, &type, &source, &streamid, &len, m_dbuffer, MAX_MESSAGE_LENGTH))
+        {
+            m_sequencer->disconnect(m_id, "Game connection closed");
+            break;
+        }
+
+        if (!m_is_running)
+        {
+            break;
+        }
+        
+        if (type != MSG2_STREAM_DATA)
+        {
+            Logger::Log(LOG_VERBOSE, "got message: type: %d, source: %d:%d, len: %d", type, source, streamid, len);
+        }
+        
+        if (type < 1000 || type > 1050)
+        {
+            m_sequencer->disconnect(m_id, "Protocol error 3");
+            break;
+        }
+        m_sequencer->queueMessage(m_id, type, streamid, m_dbuffer, len);
+    }
 }

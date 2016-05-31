@@ -1,4 +1,5 @@
 language: cpp
+sudo: false
 
 compiler:
   - gcc
@@ -6,7 +7,6 @@ compiler:
 
 env:
   - ANALYZE=false
-  #- ANALYZE=true
 
 addons:
   # The following updates are needed for Travis VM running Ubuntu 12.04 and should be removed when Travis updates their OS
@@ -16,17 +16,16 @@ addons:
       - ubuntu-toolchain-r-test
 
     packages:
-      - g++-4.8
+      - gcc-6
+      - g++-6
 
 before_install:
-  - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
+  # show some information about the build host
+  - cat /proc/cpuinfo | grep -m1 "model name"  # CPU model
+  # use specific compiler version
+  - if [ "$CXX" = "g++" ]; then export CXX="g++-6" CC="gcc-6"; fi
   - chmod +x ./tools/travis/linux/travis.sh
   - chmod +x ./tools/travis/linux/build.sh
-
-install:
-  # only install clang/cppcheck if necessary
-  - if [ "$CXX" = "clang++" ]; then sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y; sudo apt-get -qq update; sudo apt-get install clang; fi
-  - if [ $ANALYZE = "true" ] && [ "$CXX" = "g++" ]; then sudo apt-get install -qq cppcheck; fi
 
 script:
   - ./tools/travis/linux/travis.sh

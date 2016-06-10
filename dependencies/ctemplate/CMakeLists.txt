@@ -205,3 +205,6 @@ add_definitions( -DNO_THREADS )
 include_directories(
   ${CMAKE_CURRENT_BINARY_DIR}
   ${CTEMPLATE_SOURCE_ROOT}/src )
+
+# ignore warnings
+set_target_properties(ctemplate PROPERTIES COMPILE_FLAGS "-w")

@@ -9,6 +9,9 @@ include_directories (include)
 # the final lib
 add_library(rudeconfig STATIC ${rudeconfig_src})
 
+# ignore warnings
+set_target_properties(rudeconfig PROPERTIES COMPILE_FLAGS "-w")
+
 # install the library
 INSTALL(TARGETS rudeconfig
 	RUNTIME DESTINATION bin

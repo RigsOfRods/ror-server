@@ -6,6 +6,9 @@ include_directories (include)
 # the final lib
 add_library(jsoncpp STATIC ${jsoncpp_src})
 
+# ignore warnings
+set_target_properties(jsoncpp PROPERTIES COMPILE_FLAGS "-w")
+
 # install the library
 INSTALL(TARGETS jsoncpp
 	RUNTIME DESTINATION bin

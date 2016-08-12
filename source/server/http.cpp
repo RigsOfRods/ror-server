@@ -62,9 +62,9 @@ bool RequestRaw(
     char query[2000] = {0};
     char* query_pos = query;
 
-    query_pos += sprintf(query_pos, "%s %s HTTP/1.1"     "\r\n", method, url);
-    query_pos += sprintf(query_pos, "Host: %s"           "\r\n", host);
-    query_pos += sprintf(query_pos, "Content-Type: %s"   "\r\n", content_type);
+    query_pos += sprintf(query_pos, "%s %s HTTP/1.1"      "\r\n", method, url);
+    query_pos += sprintf(query_pos, "Host: %s"            "\r\n", host);
+    query_pos += sprintf(query_pos, "Content-Type: %s"    "\r\n", content_type);
     query_pos += sprintf(query_pos, "Content-Length: %lu" "\r\n", static_cast<unsigned long>(strnlen(payload, 16000)));
 
     sprintf(query_pos, "\r\n%s", payload);
@@ -85,7 +85,6 @@ bool RequestRaw(
             method, host, url, result.get_error().c_str());
         return false;
     }
-    out_response_buffer[response_len] = 0;
 
     socket.disconnect();
     return true;

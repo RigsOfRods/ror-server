@@ -5,16 +5,6 @@
 | Linux:        	| [![Build Status](https://travis-ci.org/RigsOfRods/ror-server.png?branch=master)](https://travis-ci.org/RigsOfRods/ror-server)                                           	|
 | Windows:      	| [![appveyor build Status](https://ci.appveyor.com/api/projects/status/github/RigsOfRods/ror-server?svg=true)](https://ci.appveyor.com/project/AnotherFoxGuy/ror-server) 	|
 
-Copyright 2007 Pierre-Michel Ricordel and Thomas Fischer  
-Contact: pricorde@rigsofrods.com  
-"Rigs of Rods Server" is distributed under the terms of the GNU General Public License.  
-
-```
-"Rigs of Rods Server" is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; version 3 of the License.
-```
-
 ## DESCRIPTION
 
 The Rigs of Rods Server is a game server for Rigs of Rods (http://www.rigsofrods.com/).
@@ -63,9 +53,16 @@ That translates into:
 -4 clients: 256kbit/s download, 768kbit/s upload <= will nearly saturate most ADSL links  
 -8 clients: 512kbit/s download, 3.5Mbit/s upload  
 -16 clients:  1Mbit/s download,  15Mbit/s upload  
--32 clients:  2Mbit/s download,  64Mbit/s upload <= will nearly saturate a 100Mbit/s LAN!  
+-32 clients:  2Mbit/s download,  64Mbit/s upload <= will nearly saturate a 100Mbit/s LAN!
 
+## LICENSE AND CREDITS
 
-## BUGS
-The server is relatively stable now. But it can crash or stop accepting new clients after very long periods of high workload.
-A security issue detected by Luigi Auriemma has been resolved.
+Copyright 2007  Pierre-Michel Ricordel and Thomas Fischer
+Copyright 2016+ Rigs of Rods community
+
+```
+"Rigs of Rods Server" is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; version 3 of the License.
+```
+

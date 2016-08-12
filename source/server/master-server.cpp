@@ -37,25 +37,22 @@ Client::Client():
 
 bool Client::Register()
 {
-    const char* host = Config::GetServerlistHost().c_str();
-
-    char url[1000] = { 0 };
-    char* url_pos = url;
-    url_pos += sprintf(url,
-        "%s/server-list/?ip=%s&port=%d&name=%s&terrain-name=%s&max-clients=%d&version=%s&pw=%d",
-        host,
-        Config::getIPAddr().c_str(),
-        Config::getListenPort(),
-        Config::getServerName().c_str(),
-        Config::getTerrainName().c_str(),
-        Config::getMaxClients(),
-        RORNET_VERSION,
-        Config::isPublic());
-
     Logger::Log(LOG_INFO, "Attempting to register on serverlist...");
 
+    Json::Value data(Json::objectValue);
+    data["ip"]           = Config::getIPAddr();
+    data["port"]         = Config::getListenPort();
+    data["name"]         = Config::getServerName();
+    data["terrain-name"] = Config::getTerrainName();
+    data["max-clients"]  = Config::getMaxClients();
+    data["version"]      = RORNET_VERSION;
+    data["use-password"] = Config::isPublic();
+
+    char url[200];
+    sprintf(url, "/%s/server-list", Config::GetServerlistPathC());
     Http::Response response;
-    int result_code = Http::Request(Http::METHOD_POST, host, url, "application/json", "", &response);
+    int result_code = Http::Request(Http::METHOD_POST, Config::GetServerlistHostC(), url,
+        "application/json", data.toStyledString().c_str(), &response);
     if (result_code < 0)
     {
         Logger::Log(LOG_ERROR, "Registration failed");

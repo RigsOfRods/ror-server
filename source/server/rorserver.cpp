@@ -326,9 +326,13 @@ int main(int argc, char* argv[])
             listener.Shutdown();
             return -1;
         }
-        else // server_mode == SERVER_AUTO
+        else if (!registered) // server_mode == SERVER_AUTO
         {
-            Logger::Log(LOG_WARN, "Failed to register on serverlist");
+            Logger::Log(LOG_WARN, "Failed to register on serverlist, continuing in LAN mode");
+        }
+        else
+        {
+            Logger::Log(LOG_INFO, "Registration successful");
         }
     }
 

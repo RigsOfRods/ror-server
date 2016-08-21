@@ -55,12 +55,12 @@ bool Client::Register()
         "application/json", data.toStyledString().c_str(), &response);
     if (result_code < 0)
     {
-        Logger::Log(LOG_ERROR, "Registration failed");
+        Logger::Log(LOG_ERROR, "Registration failed, response code: HTTP %d", response.GetCode());
         return false;
     }
     else if (result_code != 200)
     {
-        Logger::Log(LOG_INFO, "Registration failed, response: %s", response.GetBody().c_str());
+        Logger::Log(LOG_INFO, "Registration failed, response code: HTTP %d, body: %s", response.GetCode(), response.GetBody().c_str());
         return false;
     }
 

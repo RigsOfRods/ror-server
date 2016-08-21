@@ -41,7 +41,7 @@ private:
     bool          m_is_registered;
 };
 
-bool RetrievePublicIp(std::string* out_ip);
+bool RetrievePublicIp();
 
 } // namespace MasterServer
 

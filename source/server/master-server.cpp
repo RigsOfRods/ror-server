@@ -127,7 +127,7 @@ bool Client::UnRegister()
     return true;
 }
 
-bool RetrievePublicIp(std::string* out_ip)
+bool RetrievePublicIp()
 {
     char url[300] = "";
     sprintf(url, "/%s/get-public-ip", Config::GetServerlistPathC());
@@ -140,7 +140,7 @@ bool RetrievePublicIp(std::string* out_ip)
         Logger::Log(LOG_ERROR, "Failed to retrieve public IP address");
         return false;
     }
-    *out_ip = response.GetBody();
+    Config::setIPAddr(response.GetBody());
     return true;
 }
 

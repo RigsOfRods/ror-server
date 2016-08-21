@@ -323,6 +323,7 @@ int main(int argc, char* argv[])
         if (!registered && (server_mode == SERVER_INET))
         {
             Logger::Log(LOG_ERROR, "Failed to register on serverlist. Exit");
+            listener.Shutdown();
             return -1;
         }
         else // server_mode == SERVER_AUTO

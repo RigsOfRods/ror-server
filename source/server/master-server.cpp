@@ -37,8 +37,6 @@ Client::Client():
 
 bool Client::Register()
 {
-    Logger::Log(LOG_INFO, "Attempting to register on serverlist...");
-
     Json::Value data(Json::objectValue);
     data["ip"]           = Config::getIPAddr();
     data["port"]         = Config::getListenPort();
@@ -50,6 +48,8 @@ bool Client::Register()
 
     char url[200];
     sprintf(url, "/%s/server-list", Config::GetServerlistPathC());
+
+    Logger::Log(LOG_INFO, "Attempting to register on serverlist (%s)", url);
     Http::Response response;
     int result_code = Http::Request(Http::METHOD_POST, Config::GetServerlistHostC(), url,
         "application/json", data.toStyledString().c_str(), &response);

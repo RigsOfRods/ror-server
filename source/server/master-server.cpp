@@ -46,12 +46,11 @@ bool Client::Register()
     data["version"]      = RORNET_VERSION;
     data["use-password"] = Config::isPublic();
 
-    char url[200];
-    sprintf(url, "/%s/server-list", Config::GetServerlistPathC());
+    m_server_path = "/" + Config::GetServerlistPath() + "/server-list";
 
-    Logger::Log(LOG_INFO, "Attempting to register on serverlist (%s)", url);
+    Logger::Log(LOG_INFO, "Attempting to register on serverlist (%s)", m_server_path.c_str());
     Http::Response response;
-    int result_code = Http::Request(Http::METHOD_POST, Config::GetServerlistHostC(), url,
+    int result_code = Http::Request(Http::METHOD_POST, Config::GetServerlistHostC(), m_server_path.c_str(),
         "application/json", data.toStyledString().c_str(), &response);
     if (result_code < 0)
     {
@@ -88,20 +87,18 @@ bool Client::Register()
 
 bool Client::SendHeatbeat(Json::Value user_list)
 {
-    const char* host = Config::GetServerlistHost().c_str();
-
-    char url[200] = { 0 };
-    sprintf(url, "%s/server-list/", host);
-
     Json::Value data(Json::objectValue);
     data["challenge"] = m_token;
     data["users"] = user_list;
+    std::string json_str = data.toStyledString();
+    Logger::Log(LOG_DEBUG, "Heartbeat JSON:\n%s", json_str.c_str());
 
     Http::Response response;
-    int result_code = Http::Request(Http::METHOD_PUT, host, url, "application/json", data.asCString(), &response);
-    if (result_code < 0)
+    int result_code = Http::Request(Http::METHOD_PUT, Config::GetServerlistHostC(), m_server_path.c_str(), "application/json", json_str.c_str(), &response);
+    if (result_code != 200)
     {
-        Logger::Log(LOG_ERROR, "Heatbeat failed");
+        const char* type = (result_code < 0) ? "result code" : "HTTP code";
+        Logger::Log(LOG_ERROR, "Heatbeat failed, %s: %d", type, result_code);
         return false;
     }
     return true;
@@ -130,7 +127,7 @@ bool Client::UnRegister()
 bool RetrievePublicIp()
 {
     char url[300] = "";
-    sprintf(url, "/%s/get-public-ip", Config::GetServerlistPathC());
+    sprintf(url, "/%s/get-public-ip", Config::GetServerlistPath().c_str());
 
     Http::Response response;
     int result_code = Http::Request(Http::METHOD_GET,

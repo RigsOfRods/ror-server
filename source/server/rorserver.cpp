@@ -357,9 +357,10 @@ int main(int argc, char* argv[])
             s_sequencer.updateMinuteStats();
 
             //every minute
-            Utils::SleepSeconds(60);
+            Utils::SleepSeconds(Config::GetHeartbeatIntervalSec());
 
-            Json::Value user_list;
+            Logger::Log(LOG_VERBOSE, "Sending heartbeat...");
+            Json::Value user_list(Json::arrayValue);
             s_sequencer.GetHeartbeatUserList(&user_list);
             if (!s_master_server.SendHeatbeat(user_list))
             {
@@ -385,6 +386,10 @@ int main(int argc, char* argv[])
                     Logger::Log(LOG_ERROR, "Unable to send heartbeats, exit");
                     s_exit_requested = true;
                 }
+            }
+            else
+            {
+                Logger::Log(LOG_VERBOSE, "Heartbeat sent OK");
             }
         }
 

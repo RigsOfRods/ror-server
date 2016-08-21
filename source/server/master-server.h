@@ -39,6 +39,7 @@ private:
     ::std::string m_token;
     int           m_trust_level;
     bool          m_is_registered;
+    std::string   m_server_path;
 };
 
 bool RetrievePublicIp();

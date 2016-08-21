@@ -20,6 +20,7 @@ to start a server:
 rorserver (-ip <public IP>) (-port <port>) (-name <server name>) (-terrain <terrain name>) (-maxclients <max number of clients>) (-debug) (-lan) (-inet)
 
 ## CLI arguments:
+
 ```
 -lan
 	Force LAN mode: will not try to connect to the central repository to register the server.
@@ -38,8 +39,13 @@ rorserver (-ip <public IP>) (-port <port>) (-name <server name>) (-terrain <terr
 	Example: -terrain nhelens
 -maxclients <max number of clients>
 	The maximum number of clients handled by this server. Values below 16 are preferable. See the bandwidth note below.
--debug
-	Verbose output
+```
+
+## Config file params:
+
+```
+heartbeat-interval       
+    Time in seconds, default 60. For debugging purposes.
 ```
 
 Notes:

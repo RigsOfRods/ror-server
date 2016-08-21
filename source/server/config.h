@@ -69,9 +69,9 @@ const std::string& getVoIP();
 const std::string& GetServerlistHost();
 const char*        GetServerlistHostC();
 const std::string& GetServerlistPath();
-const char*        GetServerlistPathC();
 unsigned int       GetHeartbeatRetryCount();
 unsigned int       GetHeartbeatRetrySeconds();
+unsigned int       GetHeartbeatIntervalSec();
 bool               GetShowHelp();
 bool               GetShowVersion();
 //!@}
@@ -89,6 +89,7 @@ bool setServerMode( ServerType mode);
 void setPrintStats(bool value);
 void setWebserverEnabled(bool value);
 void setWebserverPort( unsigned int port );
+void setHeartbeatIntervalSec(unsigned sec);
 void setForeground(bool value);
 void loadConfigFile(const std::string& filename);
 void setResourceDir(std::string dir);

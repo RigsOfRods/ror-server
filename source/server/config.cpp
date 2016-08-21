@@ -62,7 +62,8 @@ static unsigned int s_webserver_port(0);
 static unsigned int s_listen_port(0);
 static unsigned int s_max_clients(16);
 static unsigned int s_heartbeat_retry_count(5);
-static unsigned int s_heatbeat_retry_seconds(15);
+static unsigned int s_heartbeat_retry_seconds(15);
+static unsigned int s_heartbeat_interval_sec(60);
 
 static bool s_print_stats(false);
 static bool s_webserver_enabled(false);
@@ -327,11 +328,11 @@ const std::string&        getVoIP()                        { return s_voip;     
 const std::string&        GetServerlistHost()              { return s_serverlist_host;          }
 const char*               GetServerlistHostC()             { return s_serverlist_host.c_str();  }
 const std::string&        GetServerlistPath()              { return s_serverlist_path;          }
-const char*               GetServerlistPathC()             { return s_serverlist_path.c_str();  }
 bool                      GetShowVersion()                 { return s_show_version;             }
 bool                      GetShowHelp()                    { return s_show_help;                }
 unsigned int              GetHeartbeatRetryCount()         { return s_heartbeat_retry_count;    }
-unsigned int              GetHeartbeatRetrySeconds()       { return s_heatbeat_retry_seconds;   }
+unsigned int              GetHeartbeatRetrySeconds()       { return s_heartbeat_retry_seconds;  }
+unsigned int              GetHeartbeatIntervalSec()        { return s_heartbeat_interval_sec;   }
 
 
 bool setScriptName(const std::string& name )
@@ -402,6 +403,12 @@ void setWebsite(const std::string& website) { s_website = website;             }
 void setIRC(const std::string& irc)         { s_irc = irc;                     }
 void setVoIP(const std::string& voip)       { s_voip = voip;                   }
 
+void setHeartbeatIntervalSec(unsigned sec)
+{
+    s_heartbeat_interval_sec = sec;
+    Logger::Log(LOG_VERBOSE, "Hearbeat interval is %d seconds", sec);
+}
+
 bool setServerMode( ServerType mode)
 {
     s_server_mode = mode;
@@ -448,6 +455,8 @@ void loadConfigFile(const std::string& filename)
         if(config.exists("website"))       setWebsite(config.getStringValue       ("website"));
         if(config.exists("irc"))           setIRC(config.getStringValue           ("irc"));
         if(config.exists("voip"))          setVoIP(config.getStringValue          ("voip"));
+
+        if(config.exists("heartbeat-interval")) setHeartbeatIntervalSec(config.getIntValue("heartbeat-interval"));
 
         if (config.exists("serverlist-host"))       { s_serverlist_host       = config.getStringValue("serverlist-host"); }
         if (config.exists("serverlist-path"))       { s_serverlist_path       = config.getStringValue("serverlist-path"); }

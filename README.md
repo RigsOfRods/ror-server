@@ -1,6 +1,10 @@
 # Rigs of Rods Server 
-[![Build Status](https://travis-ci.org/RigsOfRods/ror-server.png?branch=master)](https://travis-ci.org/RigsOfRods/ror-server)
-  
+
+|  Build status 	|                                                                                                                                                                         	|
+|---------------	|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|
+| Linux:        	| [![Build Status](https://travis-ci.org/RigsOfRods/ror-server.png?branch=master)](https://travis-ci.org/RigsOfRods/ror-server)                                           	|
+| Windows:      	| [![appveyor build Status](https://ci.appveyor.com/api/projects/status/github/RigsOfRods/ror-server?svg=true)](https://ci.appveyor.com/project/AnotherFoxGuy/ror-server) 	|
+
 Copyright 2007 Pierre-Michel Ricordel and Thomas Fischer  
 Contact: pricorde@rigsofrods.com  
 "Rigs of Rods Server" is distributed under the terms of the GNU General Public License.  

@@ -219,17 +219,23 @@ int Sequencer::GetFreePlayerColour()
     // WARNING: be sure that this is only called within a clients_mutex lock!
 
     int col = 0;
-    for (; col < 50; col++) // TODO: How many colors ARE there?
+    for(;;) // TODO: How many colors ARE there?
     {
+        bool collision = false;
         for (unsigned int i = 0; i < m_clients.size(); i++)
         {
             if (m_clients[i]->user.colournum == col)
             {
+                collision = true;
                 break;
             }
         }
+        if (!collision)
+        {
+            return col;
+        }
+        col++;
     }
-    return col;
 }
 
 //this is called by the Listener thread

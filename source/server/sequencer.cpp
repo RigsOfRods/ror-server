@@ -1265,7 +1265,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                 if (curr_client->GetStatus() == Client::STATUS_USED && curr_client->IsReceivingData() && (curr_client != client || toAll))
                 {
                     curr_client->streams_traffic[streamid].bandwidthOutgoing += len;
-                    curr_client->QueueMessage(type, curr_client->user.uniqueid, streamid, len, data);
+                    curr_client->QueueMessage(type, client->user.uniqueid, streamid, len, data);
                 }
             }
         }
@@ -1278,7 +1278,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                 if (curr_client->GetStatus() == Client::STATUS_USED && curr_client->IsReceivingData() && (curr_client != client) && (client->user.authstatus & AUTH_ADMIN))
                 {
                     curr_client->streams_traffic[streamid].bandwidthOutgoing += len;
-                    curr_client->QueueMessage(type, curr_client->user.uniqueid, streamid, len, data);
+                    curr_client->QueueMessage(type, client->user.uniqueid, streamid, len, data);
                 }
             }
         }

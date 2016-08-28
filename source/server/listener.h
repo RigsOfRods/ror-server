@@ -22,11 +22,10 @@
 
 #include "SocketW.h"
 #include "mutexutils.h"
+#include "prerequisites.h"
 
 #include <pthread.h>
 #include <atomic>
-
-class Sequencer;
 
 class Listener
 {

@@ -20,6 +20,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
+#include "prerequisites.h"
+
 #include "json/json.h"
 #include <string>
 
@@ -36,7 +38,9 @@ public:
     bool IsRegistered() const { return m_is_registered; }
 
 private:
-    ::std::string m_token;
+    int HttpRequest(const char* method, const char* payload, Http::Response* out_response); ///< Helper
+
+    std::string   m_token;
     int           m_trust_level;
     bool          m_is_registered;
     std::string   m_server_path;

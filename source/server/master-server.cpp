@@ -50,8 +50,7 @@ bool Client::Register()
 
     Logger::Log(LOG_INFO, "Attempting to register on serverlist (%s)", m_server_path.c_str());
     Http::Response response;
-    int result_code = Http::Request(Http::METHOD_POST, Config::GetServerlistHostC(), m_server_path.c_str(),
-        "application/json", data.toStyledString().c_str(), &response);
+    int result_code = this->HttpRequest(Http::METHOD_POST, data.toStyledString().c_str(), &response);
     if (result_code < 0)
     {
         Logger::Log(LOG_ERROR, "Registration failed, response code: HTTP %d", response.GetCode());
@@ -94,7 +93,7 @@ bool Client::SendHeatbeat(Json::Value user_list)
     Logger::Log(LOG_DEBUG, "Heartbeat JSON:\n%s", json_str.c_str());
 
     Http::Response response;
-    int result_code = Http::Request(Http::METHOD_PUT, Config::GetServerlistHostC(), m_server_path.c_str(), "application/json", json_str.c_str(), &response);
+    int result_code = this->HttpRequest(Http::METHOD_PUT, json_str.c_str(), &response);
     if (result_code != 200)
     {
         const char* type = (result_code < 0) ? "result code" : "HTTP code";
@@ -108,20 +107,27 @@ bool Client::UnRegister()
 {
     assert(m_is_registered == true);
 
-    const char* host = Config::GetServerlistHost().c_str();
-
-    char url[200] = { 0 };
-    sprintf(url, "%s/server-list/?challenge=%s", host, m_token.c_str());
+    Json::Value data(Json::objectValue);
+    data["challenge"] = m_token;
+    std::string json_str = data.toStyledString();
+    Logger::Log(LOG_DEBUG, "UnRegister JSON:\n%s", json_str.c_str());
 
     Http::Response response;
-    int result_code = Http::Request(Http::METHOD_DELETE, host, url, "application/json", "", &response);
+    int result_code = this->HttpRequest(Http::METHOD_DELETE, json_str.c_str(), &response);
     if (result_code < 0)
     {
-        Logger::Log(LOG_ERROR, "Failed to unregister server");
+        const char* type = (result_code < 0) ? "result code" : "HTTP code";
+        Logger::Log(LOG_ERROR, "Failed to un-register server, %s: %d", type, result_code);
         return false;
     }
     m_is_registered = false;
     return true;
+}
+
+// Helper
+int Client::HttpRequest(const char* method, const char* payload, Http::Response* out_response)
+{
+    return Http::Request(method, Config::GetServerlistHostC(), m_server_path.c_str(), "application/json", payload, out_response);
 }
 
 bool RetrievePublicIp()

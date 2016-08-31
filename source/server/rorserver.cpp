@@ -263,7 +263,7 @@ int main(int argc, char* argv[])
                 return -1;
             }
         }
-        Logger::Log(LOG_INFO, "IP address: %s", Config::getIPAddr());
+        Logger::Log(LOG_INFO, "IP address: %s", Config::getIPAddr().c_str());
 
         unsigned int max_clients = Config::getMaxClients();
         Logger::Log(LOG_INFO, "Maximum required upload: %ikbit/s", max_clients*(max_clients - 1) * 64);

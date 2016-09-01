@@ -53,12 +53,12 @@ bool Client::Register()
     int result_code = this->HttpRequest(Http::METHOD_POST, data.toStyledString().c_str(), &response);
     if (result_code < 0)
     {
-        Logger::Log(LOG_ERROR, "Registration failed, response code: HTTP %d", response.GetCode());
+        Logger::Log(LOG_ERROR, "Registration failed, result code: %d", result_code);
         return false;
     }
     else if (result_code != 200)
     {
-        Logger::Log(LOG_INFO, "Registration failed, response code: HTTP %d, body: %s", response.GetCode(), response.GetBody().c_str());
+        Logger::Log(LOG_INFO, "Registration failed, response code: HTTP %d, body: %s", result_code, response.GetBody().c_str());
         return false;
     }
 

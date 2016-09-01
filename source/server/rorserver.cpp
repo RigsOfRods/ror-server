@@ -329,6 +329,7 @@ int main(int argc, char* argv[])
         else if (!registered) // server_mode == SERVER_AUTO
         {
             Logger::Log(LOG_WARN, "Failed to register on serverlist, continuing in LAN mode");
+            server_mode = SERVER_LAN;
         }
         else
         {
@@ -348,7 +349,7 @@ int main(int argc, char* argv[])
 
     // start the main program loop
     // if we need to communiate to the master user the notifier routine
-    if(Config::getServerMode() != SERVER_LAN )
+    if(server_mode != SERVER_LAN )
     {
         //heartbeat
         while (!s_exit_requested)

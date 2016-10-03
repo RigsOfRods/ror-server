@@ -10,7 +10,7 @@ if [ $ANALYZE = "true" ]; then
           -DRORSERVER_CRASHHANDLER:BOOL=ON \
           -DRORSERVER_GUI:BOOL=ON \
           -DRORSERVER_WITH_ANGELSCRIPT:BOOL=ON \
-          -DRORSERVER_WITH_WEBSERVER:BOOL=OFF \
+          -DRORSERVER_WITH_WEBSERVER:BOOL=ON \
           .
         scan-build \
           -enable-checker core \

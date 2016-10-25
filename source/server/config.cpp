@@ -54,6 +54,7 @@ static std::string s_website;
 static std::string s_irc;
 static std::string s_voip;
 static std::string s_serverlist_host("multiplayer.rigsofrods.org");
+static std::string s_serverlist_path("");
 static std::string s_resourcedir(RESOURCE_DIR);
 
 static unsigned int s_max_vehicles(20);
@@ -61,7 +62,8 @@ static unsigned int s_webserver_port(0);
 static unsigned int s_listen_port(0);
 static unsigned int s_max_clients(16);
 static unsigned int s_heartbeat_retry_count(5);
-static unsigned int s_heatbeat_retry_seconds(15);
+static unsigned int s_heartbeat_retry_seconds(15);
+static unsigned int s_heartbeat_interval_sec(60);
 
 static bool s_print_stats(false);
 static bool s_webserver_enabled(false);
@@ -301,34 +303,36 @@ bool ProcessArgs( int argc, char* argv[] )
 
 bool isPublic() { return !getPublicPassword().empty(); }
 
-unsigned int       getMaxClients()      { return s_max_clients;        }
-const std::string& getServerName()      { return s_server_name;        }
-const std::string& getTerrainName()     { return s_terrain_name;       }
-const std::string& getPublicPassword()  { return s_public_password;    }
-const std::string& getIPAddr()          { return s_ip_addr;            }
-const std::string& getScriptName()      { return s_scriptname;         }
-bool               getEnableScripting() { return (s_scriptname != ""); }
-unsigned int       getListenPort()      { return s_listen_port;        }
-ServerType         getServerMode()      { return s_server_mode;        }
-bool               getPrintStats()      { return s_print_stats;        }
-bool               getWebserverEnabled(){ return s_webserver_enabled;  }
-unsigned int       getWebserverPort()   { return s_webserver_port;     }
-bool               getForeground()      { return s_foreground;         }
-const std::string& getResourceDir()     { return s_resourcedir;        }
-const std::string& getAuthFile()        { return s_authfile;           }
-const std::string& getMOTDFile()        { return s_motdfile;           }
-const std::string& getRulesFile()       { return s_rulesfile;          }
-unsigned int       getMaxVehicles()     { return s_max_vehicles;       }
-const std::string& getOwner()           { return s_owner;              }
-const std::string& getWebsite()         { return s_website;            }
-const std::string& getIRC()             { return s_irc;                }
-const std::string& getVoIP()            { return s_voip;               }
-const std::string& GetServerlistHost()  { return s_serverlist_host;    }
-bool               GetShowVersion()     { return s_show_version;       }
-bool               GetShowHelp()        { return s_show_help;          }
-
-unsigned int       GetHeartbeatRetryCount()   { return s_heartbeat_retry_count;  }
-unsigned int       GetHeartbeatRetrySeconds() { return s_heatbeat_retry_seconds; }
+unsigned int              getMaxClients()                  { return s_max_clients;              }
+const std::string&        getServerName()                  { return s_server_name;              }
+const std::string&        getTerrainName()                 { return s_terrain_name;             }
+const std::string&        getPublicPassword()              { return s_public_password;          }
+const std::string&        getIPAddr()                      { return s_ip_addr;                  }
+const std::string&        getScriptName()                  { return s_scriptname;               }
+bool                      getEnableScripting()             { return (s_scriptname != "");       }
+unsigned int              getListenPort()                  { return s_listen_port;              }
+ServerType                getServerMode()                  { return s_server_mode;              }
+bool                      getPrintStats()                  { return s_print_stats;              }
+bool                      getWebserverEnabled()            { return s_webserver_enabled;        }
+unsigned int              getWebserverPort()               { return s_webserver_port;           }
+bool                      getForeground()                  { return s_foreground;               }
+const std::string&        getResourceDir()                 { return s_resourcedir;              }
+const std::string&        getAuthFile()                    { return s_authfile;                 }
+const std::string&        getMOTDFile()                    { return s_motdfile;                 }
+const std::string&        getRulesFile()                   { return s_rulesfile;                }
+unsigned int              getMaxVehicles()                 { return s_max_vehicles;             }
+const std::string&        getOwner()                       { return s_owner;                    }
+const std::string&        getWebsite()                     { return s_website;                  }
+const std::string&        getIRC()                         { return s_irc;                      }
+const std::string&        getVoIP()                        { return s_voip;                     }
+const std::string&        GetServerlistHost()              { return s_serverlist_host;          }
+const char*               GetServerlistHostC()             { return s_serverlist_host.c_str();  }
+const std::string&        GetServerlistPath()              { return s_serverlist_path;          }
+bool                      GetShowVersion()                 { return s_show_version;             }
+bool                      GetShowHelp()                    { return s_show_help;                }
+unsigned int              GetHeartbeatRetryCount()         { return s_heartbeat_retry_count;    }
+unsigned int              GetHeartbeatRetrySeconds()       { return s_heartbeat_retry_seconds;  }
+unsigned int              GetHeartbeatIntervalSec()        { return s_heartbeat_interval_sec;   }
 
 
 bool setScriptName(const std::string& name )
@@ -399,6 +403,12 @@ void setWebsite(const std::string& website) { s_website = website;             }
 void setIRC(const std::string& irc)         { s_irc = irc;                     }
 void setVoIP(const std::string& voip)       { s_voip = voip;                   }
 
+void setHeartbeatIntervalSec(unsigned sec)
+{
+    s_heartbeat_interval_sec = sec;
+    Logger::Log(LOG_VERBOSE, "Hearbeat interval is %d seconds", sec);
+}
+
 bool setServerMode( ServerType mode)
 {
     s_server_mode = mode;
@@ -445,7 +455,13 @@ void loadConfigFile(const std::string& filename)
         if(config.exists("website"))       setWebsite(config.getStringValue       ("website"));
         if(config.exists("irc"))           setIRC(config.getStringValue           ("irc"));
         if(config.exists("voip"))          setVoIP(config.getStringValue          ("voip"));
-    } else
+
+        if(config.exists("heartbeat-interval")) setHeartbeatIntervalSec(config.getIntValue("heartbeat-interval"));
+
+        if (config.exists("serverlist-host"))       { s_serverlist_host       = config.getStringValue("serverlist-host"); }
+        if (config.exists("serverlist-path"))       { s_serverlist_path       = config.getStringValue("serverlist-path"); }
+    }
+    else
     {
         Logger::Log(LOG_ERROR, "could not load config file %s : %s", filename.c_str(), config.getError());
     }

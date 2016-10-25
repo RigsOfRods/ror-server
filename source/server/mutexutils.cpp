@@ -75,51 +75,51 @@ void ThreadID::make_key() { pthread_key_create(&key, NULL); }
 
 namespace Threading {
 
-bool SimpleCondition::Initialize()
+bool SimpleCond::Initialize()
 {
     assert(m_value == INACTIVE);
 
     int result = pthread_mutex_init(&m_mutex, nullptr);
     if (result != 0)
     {
-        Logger::Log(LOG_ERROR, "Internal error: Failed to initialize mutex, error code: %d [in SimpleCondition::Initialize()]", result);
+        Logger::Log(LOG_ERROR, "Internal error: Failed to initialize mutex, error code: %d [in SimpleCond::Initialize()]", result);
         return false;
     }
     int cond_result = pthread_cond_init(&m_cond, nullptr);
     if (cond_result != 0)
     {
-        Logger::Log(LOG_ERROR, "Internal error: Failed to initialize condition variable, error code: %d [in SimpleCondition::Initialize()]", cond_result);
+        Logger::Log(LOG_ERROR, "Internal error: Failed to initialize condition variable, error code: %d [in SimpleCond::Initialize()]", cond_result);
         return false;
     }
     m_value = 0;
     return true;
 }
 
-bool SimpleCondition::Destroy()
+bool SimpleCond::Destroy()
 {
     assert(m_value != INACTIVE);
 
     int result = pthread_mutex_destroy(&m_mutex);
     if (result != 0)
     {
-        Logger::Log(LOG_WARN, "Internal: Failed to destroy mutex, error code: %d [in SimpleCondition::Destroy()]", result);
+        Logger::Log(LOG_WARN, "Internal: Failed to destroy mutex, error code: %d [in SimpleCond::Destroy()]", result);
         return false;
     }
     int cond_result = pthread_cond_destroy(&m_cond);
     if (cond_result != 0)
     {
-        Logger::Log(LOG_WARN, "Internal: Failed to destroy condition variable, error code: %d [in SimpleCondition::Destroy()]", cond_result);
+        Logger::Log(LOG_WARN, "Internal: Failed to destroy condition variable, error code: %d [in SimpleCond::Destroy()]", cond_result);
         return false;
     }
     m_value = INACTIVE;
     return true;
 }
 
-bool SimpleCondition::Wait(int* out_value)
+bool SimpleCond::Wait(int* out_value)
 {
     assert(out_value != nullptr);
 
-    if (!this->Lock("SimpleCondition::Wait()"))
+    if (!this->Lock("SimpleCond::Wait()"))
     {
         return false;
     }
@@ -129,25 +129,25 @@ bool SimpleCondition::Wait(int* out_value)
         int wait_result = pthread_cond_wait(&m_cond, &m_mutex);
         if (wait_result != 0)
         {
-            Logger::Log(LOG_ERROR, "Internal error: Failed to wait on condition variable, error code: %d [in SimpleCondition::Wait()]", wait_result);
+            Logger::Log(LOG_ERROR, "Internal error: Failed to wait on condition variable, error code: %d [in SimpleCond::Wait()]", wait_result);
             pthread_mutex_unlock(&m_mutex);
             return false;
         }
     }
     *out_value = m_value;
     
-    if (!this->Unlock("SimpleCondition::Wait()"))
+    if (!this->Unlock("SimpleCond::Wait()"))
     {
         return false;
     }
     return true;
 }
 
-bool SimpleCondition::Signal(int value)
+bool SimpleCond::Signal(int value)
 {
     assert(m_value != INACTIVE);
 
-    if (!this->Lock("SimpleCondition::Signal()"))
+    if (!this->Lock("SimpleCond::Signal()"))
     {
         return false;
     }
@@ -156,19 +156,19 @@ bool SimpleCondition::Signal(int value)
     int signal_result = pthread_cond_signal(&m_cond);
     if (signal_result != 0)
     {
-        Logger::Log(LOG_ERROR, "Internal error: Failed to signal condition variable, error code: %d [in SimpleCondition::Signal()]", signal_result);
+        Logger::Log(LOG_ERROR, "Internal error: Failed to signal condition variable, error code: %d [in SimpleCond::Signal()]", signal_result);
         pthread_mutex_unlock(&m_mutex);
         return false;
     }
 
-    if (!this->Unlock("SimpleCondition::Signal()"))
+    if (!this->Unlock("SimpleCond::Signal()"))
     {
         return false;
     }
     return true;
 }
 
-bool SimpleCondition::Lock(const char* log_location)
+bool SimpleCond::Lock(const char* log_location)
 {
     int lock_result = pthread_mutex_lock(&m_mutex);
     if (lock_result != 0)
@@ -179,7 +179,7 @@ bool SimpleCondition::Lock(const char* log_location)
     return true;
 }
 
-bool SimpleCondition::Unlock(const char* log_location)
+bool SimpleCond::Unlock(const char* log_location)
 {
     int unlock_result = pthread_mutex_unlock(&m_mutex);
     if (unlock_result != 0)

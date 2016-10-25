@@ -26,12 +26,12 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 namespace Threading {
 
-class SimpleCondition
+class SimpleCond
 {
 public:
     static const int INACTIVE = 0xFEFEFEFE;
 
-    SimpleCondition() : m_value(INACTIVE) {}
+    SimpleCond() : m_value(INACTIVE) {}
 
     bool Initialize();
     bool Destroy();

@@ -20,6 +20,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
+#include "prerequisites.h"
 #include "rornet.h"
 #include "mutexutils.h"
 #include "broadcaster.h"
@@ -34,13 +35,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <queue>
 #include <vector>
 #include <map>
-
-class Broadcaster;
-class Receiver;
-class Listener;
-class UserAuth;
-class SWInetSocket;
-class ScriptEngine;
 
 
 

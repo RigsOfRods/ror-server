@@ -257,13 +257,13 @@ int main(int argc, char* argv[])
         if (ip_addr.empty() || (ip_addr == "0.0.0.0"))
         {
             Logger::Log(LOG_WARN, "No IP given, detecting...");
-            if (!MasterServer::RetrievePublicIp(&ip_addr))
+            if (!MasterServer::RetrievePublicIp())
             {
                 Logger::Log(LOG_ERROR, "Failed to auto-detect public IP, exit.");
                 return -1;
             }
         }
-        Logger::Log(LOG_INFO, "IP address: %s", ip_addr.c_str());
+        Logger::Log(LOG_INFO, "IP address: %s", Config::getIPAddr().c_str());
 
         unsigned int max_clients = Config::getMaxClients();
         Logger::Log(LOG_INFO, "Maximum required upload: %ikbit/s", max_clients*(max_clients - 1) * 64);
@@ -323,11 +323,17 @@ int main(int argc, char* argv[])
         if (!registered && (server_mode == SERVER_INET))
         {
             Logger::Log(LOG_ERROR, "Failed to register on serverlist. Exit");
+            listener.Shutdown();
             return -1;
         }
-        else // server_mode == SERVER_AUTO
+        else if (!registered) // server_mode == SERVER_AUTO
         {
-            Logger::Log(LOG_WARN, "Failed to register on serverlist");
+            Logger::Log(LOG_WARN, "Failed to register on serverlist, continuing in LAN mode");
+            server_mode = SERVER_LAN;
+        }
+        else
+        {
+            Logger::Log(LOG_INFO, "Registration successful");
         }
     }
 
@@ -343,7 +349,7 @@ int main(int argc, char* argv[])
 
     // start the main program loop
     // if we need to communiate to the master user the notifier routine
-    if(Config::getServerMode() != SERVER_LAN )
+    if(server_mode != SERVER_LAN )
     {
         //heartbeat
         while (!s_exit_requested)
@@ -352,9 +358,10 @@ int main(int argc, char* argv[])
             s_sequencer.updateMinuteStats();
 
             //every minute
-            Utils::SleepSeconds(60);
+            Utils::SleepSeconds(Config::GetHeartbeatIntervalSec());
 
-            Json::Value user_list;
+            Logger::Log(LOG_VERBOSE, "Sending heartbeat...");
+            Json::Value user_list(Json::arrayValue);
             s_sequencer.GetHeartbeatUserList(&user_list);
             if (!s_master_server.SendHeatbeat(user_list))
             {
@@ -380,6 +387,10 @@ int main(int argc, char* argv[])
                     Logger::Log(LOG_ERROR, "Unable to send heartbeats, exit");
                     s_exit_requested = true;
                 }
+            }
+            else
+            {
+                Logger::Log(LOG_VERBOSE, "Heartbeat sent OK");
             }
         }
 

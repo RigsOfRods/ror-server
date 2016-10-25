@@ -46,17 +46,18 @@ void *s_lsthreadstart(void* arg)
 
 
 Listener::Listener(Sequencer* sequencer, int port):
-    lport(port),
-    m_sequencer(sequencer)
+    m_listen_port(port),
+    m_sequencer(sequencer),
+    m_thread_shutdown(false)
 {
 }
 
 Listener::~Listener(void)
 {
-    //pthread_join( thread, NULL );
-    running = false;
-    listSocket.set_timeout(1,0);
-    pthread_cancel(thread);
+    if (!m_thread_shutdown)
+    {
+        this->Shutdown();
+    }
 }
 
 bool Listener::Initialize()
@@ -65,14 +66,16 @@ bool Listener::Initialize()
     {
         return false;
     }
-    //start a listener thread
-    int result = pthread_create(&thread, NULL, s_lsthreadstart, this);
-    if (result == 0)
-    {
-        running = true;
-        return true;
-    }
-    return false;
+    return (0 == pthread_create(&m_thread, NULL, s_lsthreadstart, this));
+}
+
+void Listener::Shutdown()
+{
+    Logger::Log(LOG_VERBOSE, "Stopping listener thread...");
+    m_thread_shutdown = true;
+    m_listen_socket.disconnect();
+    pthread_join(m_thread, nullptr);
+    Logger::Log(LOG_VERBOSE, "Listener thread stopped");
 }
 
 bool Listener::WaitUntilReady()
@@ -98,7 +101,7 @@ void Listener::threadstart()
     SWBaseSocket::SWBaseError error;
 
     //manage the listening socket
-    listSocket.bind(lport, &error);
+    m_listen_socket.bind(m_listen_port, &error);
     if (error!=SWBaseSocket::ok)
     {
         //this is an error!
@@ -107,24 +110,27 @@ void Listener::threadstart()
         return;
         // exit(1);
     }
-    listSocket.listen();
+    m_listen_socket.listen();
 
     Logger::Log(LOG_VERBOSE,"Listener ready");
     m_ready_cond.Signal(1);
 
     //await connections
-    while (running)
+    while (!m_thread_shutdown)
     {
         Logger::Log(LOG_VERBOSE,"Listener awaiting connections");
-        SWInetSocket *ts=(SWInetSocket *)listSocket.accept(&error);
+        SWInetSocket *ts=(SWInetSocket *)m_listen_socket.accept(&error);
 
         if (error!=SWBaseSocket::ok)
         {
-            Logger::Log(LOG_ERROR,"ERROR Listener: %s", error.get_error().c_str());
-            if( error == SWBaseSocket::notConnected)
-                break;
+            if (m_thread_shutdown)
+            {
+                Logger::Log(LOG_ERROR, "INFO Listener shutting down");
+            }
             else
-                continue;
+            {
+                Logger::Log(LOG_ERROR, "ERROR Listener: %s", error.get_error().c_str());
+            }
         }
 
 

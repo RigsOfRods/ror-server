@@ -21,8 +21,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #pragma once
 
 #include "sequencer.h"
-
-class SWInetSocket;
+#include "prerequisites.h"
 
 namespace Messaging {
 

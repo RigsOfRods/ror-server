@@ -66,7 +66,8 @@ bool Client::Register()
     Json::Reader reader;
     if (!reader.parse(response.GetBody().c_str(), root))
     {
-        Logger::Log(LOG_ERROR, "Registration failed, couldn't parse response");
+        Logger::Log(LOG_ERROR, "Registration failed, invalid server response (JSON parsing failed)");
+        Logger::Log(LOG_DEBUG, "Raw response: %s", response.GetBody().c_str());
         return false;
     }
 
@@ -75,6 +76,7 @@ bool Client::Register()
     if (!root.isObject() || !trust_level.isNumeric() || !challenge.isString())
     {
         Logger::Log(LOG_ERROR, "Registration failed, incorrect response from server");
+        Logger::Log(LOG_DEBUG, "Raw response: %s", response.GetBody().c_str());
         return false;
     }
 

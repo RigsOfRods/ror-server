@@ -81,11 +81,10 @@ namespace Config
 void ShowHelp()
 {
     printf(
-        " -c (-config) <config file>   Loads the configuration from a file rather than from the commandline\n"
         "Usage: rorserver [OPTIONS]\n"
         "[OPTIONS] can be in Un*x `--help` or windows `/help` notation\n"
         "\n"
-        " ~config-file (-c) <JSON file> Loads the configuration from a file\n"
+        " ~config-file (-c) <INI file> Loads the configuration from a file\n"
         " ~name <name>                 Name of the server, no spaces, only\n"
         "                              [a-z,0-9,A-Z]\n"
         " ~terrain <mapname>           Map name (defaults to 'any')\n"
@@ -217,8 +216,8 @@ bool checkConfig()
         else                                        \
         {                                           \
             Logger::Log(LOG_WARN,                   \
-                "Command line error: argument `%s`" \
-                "at position %d without value",     \
+                "Command line error: argument `%s` "\
+                "at position %d has no value",      \
                 arg, pos);                          \
             return false;                           \
         }                                           \

@@ -355,7 +355,7 @@ int main(int argc, char* argv[])
         while (!s_exit_requested)
         {
             Messaging::UpdateMinuteStats();
-            s_sequencer.updateMinuteStats();
+            s_sequencer.UpdateMinuteStats();
 
             //every minute
             Utils::SleepSeconds(Config::GetHeartbeatIntervalSec());
@@ -404,7 +404,7 @@ int main(int argc, char* argv[])
         while (!s_exit_requested)
         {
             Messaging::UpdateMinuteStats();
-            s_sequencer.updateMinuteStats();
+            s_sequencer.UpdateMinuteStats();
 
             // broadcast our "i'm here" signal
             Messaging::broadcastLAN();

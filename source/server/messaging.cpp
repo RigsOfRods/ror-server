@@ -15,7 +15,8 @@ warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Foobar. If not, see <http://www.gnu.org/licenses/>.
+along with "Rigs of Rods Server". 
+If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "messaging.h"
@@ -33,12 +34,17 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <errno.h>
 #include <assert.h>
 
-static stream_traffic_t s_traffic = {0,0,0,0,0,0,0,0,0,0,0,0};
+#include <mutex>
+
+static stream_traffic_t s_traffic = {0,0,0,0,0,0, 0,0,0,0,0,0};
+static std::mutex       s_traffic_mutex;
 
 namespace Messaging {
 
-void updateMinuteStats()
+void UpdateMinuteStats()
 {
+    std::unique_lock<std::mutex> lock(s_traffic_mutex);
+
     // normal bandwidth
     s_traffic.bandwidthIncomingRate       = (s_traffic.bandwidthIncoming - s_traffic.bandwidthIncomingLastMinute) / 60;
     s_traffic.bandwidthIncomingLastMinute = s_traffic.bandwidthIncoming;
@@ -52,13 +58,43 @@ void updateMinuteStats()
     s_traffic.bandwidthDropOutgoingLastMinute = s_traffic.bandwidthDropOutgoing;
 }
 
+void StatsAddIncoming(int bytes)
+{
+    std::unique_lock<std::mutex> lock(s_traffic_mutex);
+    s_traffic.bandwidthIncoming += static_cast<double>(bytes);
+}
+
+void StatsAddOutgoing(int bytes)
+{
+    std::unique_lock<std::mutex> lock(s_traffic_mutex);
+    s_traffic.bandwidthOutgoing += static_cast<double>(bytes);
+}
+
+void StatsAddIncomingDrop(int bytes)
+{
+    std::unique_lock<std::mutex> lock(s_traffic_mutex);
+    s_traffic.bandwidthDropIncoming += static_cast<double>(bytes);
+}
+
+void StatsAddOutgoingDrop(int bytes)
+{
+    std::unique_lock<std::mutex> lock(s_traffic_mutex);
+    s_traffic.bandwidthDropOutgoing += static_cast<double>(bytes);
+}
+
+stream_traffic_t GetTrafficStats()
+{
+    std::unique_lock<std::mutex> lock(s_traffic_mutex);
+    return s_traffic;
+}
+
 /**
- * @param socket socket to communicate over
- * @param type a type... dunno
- * @param source who is sending the message
- * @param len length of the content being sent
- * @param content message to send
- * @return dunno
+ * @param socket  Socket to communicate over
+ * @param type    Command ID
+ * @param source  Source ID
+ * @param len     Data length
+ * @param content Payload
+ * @return 0 on success
  */
 int SendMessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len, const char* content)
 {
@@ -101,18 +137,8 @@ int SendMessage(SWInetSocket *socket, int type, int source, unsigned int streami
         }
         rlen += sendnum;
     }
-    s_traffic.bandwidthOutgoing += msgsize;
+    StatsAddOutgoing(msgsize);
     return 0;
-}
-
-void addBandwidthDropIncoming(int bytes)
-{
-    s_traffic.bandwidthDropIncoming += bytes;
-}
-
-void addBandwidthDropOutgoing(int bytes)
-{
-    s_traffic.bandwidthDropOutgoing += bytes;
 }
 
 /**
@@ -181,12 +207,10 @@ int ReceiveMessage(
         }
     }
 
-    s_traffic.bandwidthIncoming += (int)sizeof(header_t)+(int)head.size;
+    StatsAddIncoming((int)sizeof(header_t)+(int)head.size);
     memcpy(out_payload, buffer+sizeof(header_t), payload_buf_len);
     return 0;
 }
-
-stream_traffic_t getTraffic() { return s_traffic; }
 
 int getTime() { return (int)time(NULL); }
 

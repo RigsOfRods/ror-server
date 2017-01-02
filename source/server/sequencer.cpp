@@ -1362,7 +1362,7 @@ void Sequencer::printStats()
         int timediff = Messaging::getTime() - m_start_time;
         int uphours = timediff/60/60;
         int upminutes = (timediff-(uphours*60*60))/60;
-        stream_traffic_t traffic = Messaging::getTraffic();
+        stream_traffic_t traffic = Messaging::GetTrafficStats();
 
         Logger::Log(LOG_INFO, "- traffic statistics (uptime: %d hours, %d "
                 "minutes):", uphours, upminutes);

@@ -354,7 +354,7 @@ int main(int argc, char* argv[])
         //heartbeat
         while (!s_exit_requested)
         {
-            Messaging::updateMinuteStats();
+            Messaging::UpdateMinuteStats();
             s_sequencer.updateMinuteStats();
 
             //every minute
@@ -403,7 +403,7 @@ int main(int argc, char* argv[])
     {
         while (!s_exit_requested)
         {
-            Messaging::updateMinuteStats();
+            Messaging::UpdateMinuteStats();
             s_sequencer.updateMinuteStats();
 
             // broadcast our "i'm here" signal

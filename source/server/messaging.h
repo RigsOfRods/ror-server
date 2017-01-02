@@ -15,7 +15,8 @@ warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Foobar. If not, see <http://www.gnu.org/licenses/>.
+along with "Rigs of Rods Server". 
+If not, see <http://www.gnu.org/licenses/>.
 */
 
 #pragma once
@@ -44,11 +45,11 @@ int ReceiveMessage(
 
 int broadcastLAN();
 
-void addBandwidthDropIncoming(int bytes);
-void addBandwidthDropOutgoing(int bytes);
-stream_traffic_t getTraffic();
+void StatsAddIncomingDrop(int bytes);
+void StatsAddOutgoingDrop(int bytes);
+stream_traffic_t GetTrafficStats();
 
-void updateMinuteStats();
+void UpdateMinuteStats();
 int getTime();
 
 } // namespace Messaging

@@ -66,7 +66,7 @@ enum broadcastType {
 // constant for functions that receive an uid for sending something
 static const int TO_ALL = -1;
 
-typedef struct stream_traffic_t
+struct stream_traffic_t
 {
     // normal bandwidth
     double bandwidthIncoming;
@@ -83,7 +83,7 @@ typedef struct stream_traffic_t
     double bandwidthDropOutgoingLastMinute;
     double bandwidthDropIncomingRate;
     double bandwidthDropOutgoingRate;
-} stream_traffic_t;
+};
 
 class Client
 {
@@ -171,7 +171,7 @@ public:
     void GetHeartbeatUserList(Json::Value* out_array);
     //! prints the Stats view, of who is connected and what slot they are in
     void printStats();
-    void updateMinuteStats();
+    void UpdateMinuteStats();
     void serverSay(std::string msg, int notto=-1, int type=0);
     int sendGameCommand(int uid, std::string cmd);
     void serverSayThreadSave(std::string msg, int notto=-1, int type=0);

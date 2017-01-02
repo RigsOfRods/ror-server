@@ -1301,8 +1301,10 @@ Client *Sequencer::getClient(int uid)
     return this->FindClientById(static_cast<unsigned int>(uid));
 }
 
-void Sequencer::updateMinuteStats()
+void Sequencer::UpdateMinuteStats()
 {
+    MutexLocker scoped_lock(m_clients_mutex);
+
     for (unsigned int i=0; i<m_clients.size(); i++)
     {
         if (m_clients[i]->GetStatus() == Client::STATUS_USED)

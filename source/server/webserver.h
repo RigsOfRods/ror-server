@@ -1,5 +1,5 @@
 #pragma once
 
-int startWebserver(int port);
-int stopWebserver();
+int StartWebserver(int port, bool is_advertised, int trust_level);
+int StopWebserver();
 

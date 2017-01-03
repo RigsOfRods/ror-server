@@ -15,15 +15,16 @@ warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Foobar. If not, see <http://www.gnu.org/licenses/>.
+along with "Rigs of Rods Server". 
+If not, see <http://www.gnu.org/licenses/>.
 */
 
 #ifdef WITH_WEBSERVER
 #include "webserver.h"
 
 #include "sequencer.h"
+#include "master-server.h"
 #include "messaging.h"
-#include "notifier.h"
 #include "userauth.h"
 #include "logger.h"
 #include "config.h"
@@ -68,13 +69,13 @@ struct mg_context	*ctx;
 
 #include "mongoose.h"
 
-typedef struct colour_t
+struct colour_t
 {
     double r, g, b;
-} colour_t;
+};
 
 // some colours with a good contrast inbetween
-colour_t cvals[] =
+static colour_t s_colors[] =
 {
     {0.0,0.8,0.0},
     {0.0,0.4,0.701960784314},
@@ -107,12 +108,17 @@ colour_t cvals[] =
     {0.6,0.6,0.0},
 };
 
+static bool s_is_advertised;
+static int  s_trust_level;
+
 int getPlayerColour(int num, char *res)
 {
-    int numColours = sizeof(cvals) / sizeof(colour_t);
-    if(num<0 || num > numColours) return 1;
+    int numColours = sizeof(s_colors) / sizeof(colour_t);
+
+    if(num<0 || num > numColours)
+        return 1;
     
-    sprintf(res, "rgb(%d,%d,%d)", (int)(cvals[num].r * 255.0f), (int)(cvals[num].g * 255.0f), (int)(cvals[num].b * 255.0f));
+    sprintf(res, "rgb(%d,%d,%d)", (int)(s_colors[num].r * 255.0f), (int)(s_colors[num].g * 255.0f), (int)(s_colors[num].b * 255.0f));
     return 0;
 }
 
@@ -199,7 +205,7 @@ static void data_stats_traffic(struct mg_connection *conn, const struct mg_reque
     mg_write(conn, output.c_str(), output.size());
 }
 
-static Json::Value getConfValue(std::string name, std::string value)
+static Json::Value ConfToJson(std::string name, std::string value)
 {
     Json::Value result;
     result["name"]  = name;
@@ -207,7 +213,7 @@ static Json::Value getConfValue(std::string name, std::string value)
     return result;
 }
 
-static Json::Value getConfValue(std::string name, int value)
+static Json::Value ConfToJson(std::string name, int value)
 {
     Json::Value result;
     result["name"]  = name;
@@ -217,50 +223,50 @@ static Json::Value getConfValue(std::string name, int value)
 
 static void data_configuration(struct mg_connection *conn, const struct mg_request_info *request_info, void *data)
 {
-    Json::Value root;   // will contains the root value after parsing.
     Json::Value results;
-    results.append(getConfValue("Max Clients", Config::getMaxClients()));
-    results.append(getConfValue("Server Name", Config::getServerName()));
-    results.append(getConfValue("Terrain Name", Config::getTerrainName()));
-    results.append(getConfValue("Password Protected", Config::getPublicPassword().empty()?"No":"Yes"));
-    results.append(getConfValue("IP Address", Config::getIPAddr()=="0.0.0.0"?"0.0.0.0 (Any)":Config::getIPAddr()));
-    results.append(getConfValue("Listening Port", Config::getListenPort()));
-    results.append(getConfValue("Protocol Version", std::string(RORNET_VERSION)));
-
-    bool advertised = false;
-    if( Config::getServerMode() != SERVER_LAN )
-        advertised = Sequencer::getNotifier()->getAdvertised();
+    results.append(ConfToJson("Max Clients", Config::getMaxClients()));
+    results.append(ConfToJson("Server Name", Config::getServerName()));
+    results.append(ConfToJson("Terrain Name", Config::getTerrainName()));
+    results.append(ConfToJson("Password Protected", Config::getPublicPassword().empty()?"No":"Yes"));
+    results.append(ConfToJson("IP Address", Config::getIPAddr()=="0.0.0.0"?"0.0.0.0 (Any)":Config::getIPAddr()));
+    results.append(ConfToJson("Listening Port", Config::getListenPort()));
+    results.append(ConfToJson("Protocol Version", std::string(RORNET_VERSION)));
         
     std::string serverMode = "AUTO";
-    if(Config::getServerMode() == SERVER_LAN)
-        serverMode = "LAN";
-    else if(Config::getServerMode() == SERVER_INET && advertised)
-        serverMode = "Public, Internet";
-    else if(Config::getServerMode() == SERVER_INET && !advertised)
-        serverMode = "Private, Internet";
-
-    results.append(getConfValue("Advertized on Master Server", advertised?"Yes":"No"));
-    results.append(getConfValue("Server Mode", serverMode));
-    
-    if(Config::getServerMode() == SERVER_INET && advertised)
+    if (Config::getServerMode() == SERVER_LAN)
     {
-        int trustlevel = Sequencer::getNotifier()->getTrustLevel();
-        results.append(getConfValue("Server Trust Level", trustlevel));
+        results.append(ConfToJson("Server Mode", "LAN"));
+    }
+    else if (Config::getServerMode() == SERVER_INET)
+    {
+        if (s_is_advertised)
+        {
+            results.append(ConfToJson("Server Mode", "Public, Internet"));
+            results.append(ConfToJson("Server Trust Level", s_trust_level));
+        }
+        else
+        {
+            results.append(ConfToJson("Server Mode", "Private, Internet"));
+        }
+        if (s_is_advertised) ? "Public, Internet" : ;
     }
 
-    results.append(getConfValue("Print Console Stats", Config::getPrintStats()?"Yes":"No"));
+    results.append(ConfToJson("Advertized on Master Server", s_is_advertised?"Yes":"No"));
+
+    results.append(ConfToJson("Print Console Stats", Config::getPrintStats()?"Yes":"No"));
 
 #ifdef WITH_ANGELSCRIPT
-    results.append(getConfValue("Scripting support", "Yes"));
-    results.append(getConfValue("Scripting enabled", Config::getEnableScripting()?"Yes":"No"));
+    results.append(ConfToJson("Scripting support", "Yes"));
+    results.append(ConfToJson("Scripting enabled", Config::getEnableScripting()?"Yes":"No"));
     if(Config::getEnableScripting())
-        results.append(getConfValue("Script Name in use", Config::getScriptName()));
+        results.append(ConfToJson("Script Name in use", Config::getScriptName()));
 #else // WITH_ANGELSCRIPT
-    results.append(getConfValue("Scripting support", "No"));
+    results.append(ConfToJson("Scripting support", "No"));
 #endif // WITH_ANGELSCRIPT
 
-    results.append(getConfValue("Webserver Port", Config::getWebserverPort()));
+    results.append(ConfToJson("Webserver Port", Config::getWebserverPort()));
 
+    Json::Value root;
     root["ResultSet"]["Result"] = results;
     root["ResultSet"]["totalResultsAvailable"] = results.size();
     root["ResultSet"]["totalResultsReturned"] = results.size();
@@ -425,8 +431,11 @@ static void signal_handler(int sig_num)
     }
 }
 
-int startWebserver(int port)
+int StartWebserver(int port, bool is_advertised, int trust_level)
 {
+    s_is_advertised = is_advertised;
+    s_trust_level = trust_level;
+
 #ifndef _WIN32
     signal(SIGPIPE, SIG_IGN);
     signal(SIGCHLD, &signal_handler);
@@ -439,19 +448,17 @@ int startWebserver(int port)
     mg_set_option(ctx, "ports", portStr);
     mg_set_option(ctx, "dir_list", "no");
     
-
-    /* Register an index page under two URIs */
-    mg_set_uri_callback(ctx, "/", &show_index, NULL);
-    mg_set_uri_callback(ctx, "/data/players/", &data_players, NULL);
-    mg_set_uri_callback(ctx, "/data/stats/traffic", &data_stats_traffic, NULL);
+    mg_set_uri_callback(ctx, "/",                    &show_index,         NULL);
+    mg_set_uri_callback(ctx, "/data/players/",       &data_players,       NULL);
+    mg_set_uri_callback(ctx, "/data/stats/traffic",  &data_stats_traffic, NULL);
     mg_set_uri_callback(ctx, "/data/configuration/", &data_configuration, NULL);
+    mg_set_uri_callback(ctx, "/debug/",              &debug_client_list,  NULL);
 
-    mg_set_uri_callback(ctx, "/debug/", &debug_client_list, NULL);
     mg_set_error_callback(ctx, 404, show_404, NULL);
     return 0;
 }
 
-int stopWebserver()
+int StopWebserver()
 {
     mg_stop(ctx);
     return 0;

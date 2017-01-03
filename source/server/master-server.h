@@ -36,6 +36,7 @@ public:
     bool SendHeatbeat(Json::Value user_list);
     bool UnRegister();
     bool IsRegistered() const { return m_is_registered; }
+    int  GetTrustLevel() const { return m_trust_level; }
 
 private:
     int HttpRequest(const char* method, const char* payload, Http::Response* out_response); ///< Helper

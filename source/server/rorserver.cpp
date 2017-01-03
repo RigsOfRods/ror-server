@@ -380,7 +380,7 @@ int main(int argc, char* argv[])
     {
         int port = Config::getWebserverPort();
         Logger::Log(LOG_INFO, "starting webserver on port %d ...", port);
-        startWebserver(port);
+        StartWebserver(port, &s_sequencer, s_master_server.IsRegistered(), s_master_server.GetTrustLevel());
     }
 #endif //WITH_WEBSERVER
 

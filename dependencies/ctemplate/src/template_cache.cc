@@ -40,7 +40,7 @@
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif      // for getcwd()
-#include HASH_MAP_H      // for hash_map<>::iterator, hash_map<>, etc
+#include <unordered_map>
 #include <utility>       // for pair<>, make_pair()
 #include <vector>        // for vector<>::size_type, vector<>, etc
 #include "base/thread_annotations.h"  // for GUARDED_BY
@@ -65,13 +65,7 @@ using std::string;
 using std::vector;
 using std::pair;
 using std::make_pair;
-#ifdef HAVE_UNORDERED_MAP
-using HASH_NAMESPACE::unordered_map;
-// This is totally cheap, but minimizes the need for #ifdef's below...
-#define hash_map unordered_map
-#else
-using HASH_NAMESPACE::hash_map;
-#endif
+
 
 static int kVerbosity = 0;   // you can change this by hand to get vlogs
 #define LOG(level)   std::cerr << #level ": "

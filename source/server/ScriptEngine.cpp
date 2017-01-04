@@ -64,7 +64,7 @@ _CRTIMP void __cdecl _wassert(_In_z_ const wchar_t * _Message, _In_z_ const wcha
 
 
 // Stream_register_t wrapper
-std::string stream_register_get_name(stream_register_t* reg)
+std::string stream_register_get_name(RoRnet::StreamRegister* reg)
 {
     return std::string(reg->name);
 }
@@ -200,7 +200,7 @@ int ScriptEngine::loadScript(std::string scriptname)
     func = mod->GetFunctionByDecl("void playerAdded(int)");
     if(func) addCallback("playerAdded", func, NULL);
     
-    func = mod->GetFunctionByDecl("int streamAdded(int, stream_register_t@)");
+    func = mod->GetFunctionByDecl("int streamAdded(int, RoRnet::StreamRegister@)");
     if(func) addCallback("streamAdded", func, NULL);
     
     func = mod->GetFunctionByDecl("int playerChat(int, string msg)");
@@ -420,13 +420,13 @@ void ScriptEngine::init()
     ServerScript *serverscript = new ServerScript(this, seq);
     result = engine->RegisterGlobalProperty("ServerScriptClass server", serverscript); assert_net(result>=0);
     
-    // Register stream_register_t class
-    result = engine->RegisterObjectType("stream_register_t", sizeof(stream_register_t), asOBJ_REF | asOBJ_NOCOUNT); assert_net(result>=0);
-    result = engine->RegisterObjectMethod("stream_register_t", "string getName()", asFUNCTION(stream_register_get_name), asCALL_CDECL_OBJFIRST); assert_net(result>=0); // (No property accessor on purpose)
-    result = engine-> RegisterObjectProperty("stream_register_t", "int type", offsetof(stream_register_t, type)); assert_net(result>=0);
-    result = engine-> RegisterObjectProperty("stream_register_t", "int status", offsetof(stream_register_t, status)); assert_net(result>=0);
-    result = engine-> RegisterObjectProperty("stream_register_t", "int origin_sourceid", offsetof(stream_register_t, origin_sourceid)); assert_net(result>=0);
-    result = engine-> RegisterObjectProperty("stream_register_t", "int origin_streamid", offsetof(stream_register_t, origin_streamid)); assert_net(result>=0);
+    // Register RoRnet::StreamRegister class
+    result = engine->RegisterObjectType("RoRnet::StreamRegister", sizeof(RoRnet::StreamRegister), asOBJ_REF | asOBJ_NOCOUNT); assert_net(result>=0);
+    result = engine->RegisterObjectMethod("RoRnet::StreamRegister", "string getName()", asFUNCTION(stream_register_get_name), asCALL_CDECL_OBJFIRST); assert_net(result>=0); // (No property accessor on purpose)
+    result = engine-> RegisterObjectProperty("RoRnet::StreamRegister", "int type", offsetof(RoRnet::StreamRegister, type)); assert_net(result>=0);
+    result = engine-> RegisterObjectProperty("RoRnet::StreamRegister", "int status", offsetof(RoRnet::StreamRegister, status)); assert_net(result>=0);
+    result = engine-> RegisterObjectProperty("RoRnet::StreamRegister", "int origin_sourceid", offsetof(RoRnet::StreamRegister, origin_sourceid)); assert_net(result>=0);
+    result = engine-> RegisterObjectProperty("RoRnet::StreamRegister", "int origin_streamid", offsetof(RoRnet::StreamRegister, origin_streamid)); assert_net(result>=0);
 
     
     // Register ServerType enum for the server.serverMode attribute
@@ -445,13 +445,13 @@ void ScriptEngine::init()
     
     // Register authorizations
     result = engine->RegisterEnum("authType"); assert_net(result>=0);
-    result = engine->RegisterEnumValue("authType", "AUTH_NONE",   AUTH_NONE); assert_net(result>=0);
-    result = engine->RegisterEnumValue("authType", "AUTH_ADMIN",  AUTH_ADMIN); assert_net(result>=0);
-    result = engine->RegisterEnumValue("authType", "AUTH_RANKED", AUTH_RANKED); assert_net(result>=0);
-    result = engine->RegisterEnumValue("authType", "AUTH_MOD",    AUTH_MOD); assert_net(result>=0);
-    result = engine->RegisterEnumValue("authType", "AUTH_BOT",    AUTH_BOT); assert_net(result>=0);
-    result = engine->RegisterEnumValue("authType", "AUTH_BANNED", AUTH_BANNED); assert_net(result>=0);
-    result = engine->RegisterEnumValue("authType", "AUTH_ALL",    0xFFFFFFFF); assert_net(result>=0);
+    result = engine->RegisterEnumValue("authType", "RoRnet::AUTH_NONE",   RoRnet::AUTH_NONE); assert_net(result>=0);
+    result = engine->RegisterEnumValue("authType", "RoRnet::AUTH_ADMIN",  RoRnet::AUTH_ADMIN); assert_net(result>=0);
+    result = engine->RegisterEnumValue("authType", "RoRnet::AUTH_RANKED", RoRnet::AUTH_RANKED); assert_net(result>=0);
+    result = engine->RegisterEnumValue("authType", "RoRnet::AUTH_MOD",    RoRnet::AUTH_MOD); assert_net(result>=0);
+    result = engine->RegisterEnumValue("authType", "RoRnet::AUTH_BOT",    RoRnet::AUTH_BOT); assert_net(result>=0);
+    result = engine->RegisterEnumValue("authType", "RoRnet::AUTH_BANNED", RoRnet::AUTH_BANNED); assert_net(result>=0);
+    result = engine->RegisterEnumValue("authType", "RoRnet::AUTH_ALL",    0xFFFFFFFF); assert_net(result>=0);
     
     // Register serverSayType
     result = engine->RegisterEnum("serverSayType"); assert_net(result>=0);
@@ -635,7 +635,7 @@ void ScriptEngine::playerAdded(int uid)
     return;
 }
 
-int ScriptEngine::streamAdded(int uid, stream_register_t* reg)
+int ScriptEngine::streamAdded(int uid, RoRnet::StreamRegister* reg)
 {
     if(!engine) return 0;
     MutexLocker scoped_lock(context_mutex);
@@ -804,7 +804,7 @@ void ScriptEngine::addCallbackScript(const std::string& type, const std::string&
     else if(type=="playerDeleted")
         funcDecl = "void "+_func+"(int, int)";
     else if(type=="streamAdded")
-        funcDecl = "int "+_func+"(int, stream_register_t@)";
+        funcDecl = "int "+_func+"(int, RoRnet::StreamRegister@)";
     else
     {
         setException("Type "+type+" does not exist! Possible type strings: 'frameStep', 'playerChat', 'gameCmd', 'playerAdded', 'playerDeleted', 'streamAdded'.");
@@ -898,7 +898,7 @@ void ScriptEngine::deleteCallbackScript(const std::string& type, const std::stri
     else if(type=="playerDeleted")
         funcDecl = "void "+_func+"(int, int)";
     else if(type=="streamAdded")
-        funcDecl = "int "+_func+"(int, stream_register_t@)";
+        funcDecl = "int "+_func+"(int, RoRnet::StreamRegister@)";
     else
     {
         setException("Type "+type+" does not exist! Possible type strings: 'frameStep', 'playerChat', 'gameCmd', 'playerAdded', 'playerDeleted', 'streamAdded'.");
@@ -1023,25 +1023,25 @@ void ServerScript::setUserName(int uid, const string& username)
 {
     Client *c = seq->getClient(uid);
     if(!c) return;
-    strncpy(c->user.username, UTFString(username).asUTF8_c_str(), MAX_USERNAME_LEN);
+    strncpy(c->user.username, UTFString(username).asUTF8_c_str(), RORNET_MAX_USERNAME_LEN);
 }
 
 std::string ServerScript::getUserAuth(int uid)
 {
     Client *c = seq->getClient(uid);
     if(!c) return "none";
-    if(c->user.authstatus & AUTH_ADMIN) return "admin";
-    else if(c->user.authstatus & AUTH_MOD) return "moderator";
-    else if(c->user.authstatus & AUTH_RANKED) return "ranked";
-    else if(c->user.authstatus & AUTH_BOT) return "bot";
-    //else if(c->user.authstatus & AUTH_NONE) 
+    if(c->user.authstatus & RoRnet::AUTH_ADMIN) return "admin";
+    else if(c->user.authstatus & RoRnet::AUTH_MOD) return "moderator";
+    else if(c->user.authstatus & RoRnet::AUTH_RANKED) return "ranked";
+    else if(c->user.authstatus & RoRnet::AUTH_BOT) return "bot";
+    //else if(c->user.authstatus & RoRnet::AUTH_NONE) 
     return "none";
 }
 
 int ServerScript::getUserAuthRaw(int uid)
 {
     Client *c = seq->getClient(uid);
-    if(!c) return AUTH_NONE;
+    if(!c) return RoRnet::AUTH_NONE;
     return c->user.authstatus;
 }
 
@@ -1049,7 +1049,7 @@ void ServerScript::setUserAuthRaw(int uid, int authmode)
 {
     Client *c = seq->getClient(uid);
     if(!c) return;
-    c->user.authstatus = authmode & ~(AUTH_RANKED|AUTH_BANNED);
+    c->user.authstatus = authmode & ~(RoRnet::AUTH_RANKED|RoRnet::AUTH_BANNED);
 }
 
 int ServerScript::getUserColourNum(int uid)

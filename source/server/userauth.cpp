@@ -83,7 +83,7 @@ int UserAuth::readConfig(const char* authFile)
             }
             ptr++;
         }
-        int authmode = AUTH_NONE;
+        int authmode = RoRnet::AUTH_NONE;
         char token[256];
         char user_nick[40] = "";
         int res = sscanf(line, "%d %s %s", &authmode, token, user_nick);
@@ -94,8 +94,8 @@ int UserAuth::readConfig(const char* authFile)
         }
         
         // Not every auth mode is allowed to be set using the configuration file
-        if(authmode & AUTH_RANKED) authmode &= ~AUTH_RANKED;
-        if(authmode & AUTH_BANNED) authmode &= ~AUTH_BANNED;
+        if(authmode & RoRnet::AUTH_RANKED) authmode &= ~RoRnet::AUTH_RANKED;
+        if(authmode & RoRnet::AUTH_BANNED) authmode &= ~RoRnet::AUTH_BANNED;
         
         Logger::Log(LOG_DEBUG, "adding entry to local auth cache, size: %d", local_auth.size());
         user_auth_pair_t p;
@@ -134,6 +134,8 @@ int UserAuth::setUserAuth(int flags, UTFString user_nick, std::string token)
 
 int UserAuth::sendUserEvent(std::string user_token, std::string type, std::string arg1, std::string arg2)
 {
+    /* #### DISABLED UNTIL SUPPORTED BY NEW MULTIPLAYER PORTAL ####
+
     // Only contact the master server if we are allowed to do so
     if(trustlevel<=1) return 0;
     
@@ -151,6 +153,10 @@ int UserAuth::sendUserEvent(std::string user_token, std::string type, std::strin
     Logger::Log(LOG_DEBUG,"UserEvent reply: " + body);
 
     return (body!="ok");
+
+    */
+
+    return -1;
 }
 
 std::string UserAuth::getNewPlayernameByID(int id)
@@ -175,7 +181,7 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
     }
     
     // initialize the authlevel on none = normal user
-    int authlevel = AUTH_NONE;
+    int authlevel = RoRnet::AUTH_NONE;
 
     // Only contact the master-server if we're allowed to do so
     if(trustlevel>1)
@@ -184,6 +190,9 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
         UTFString resultNick = L"";
     
         // not found in cache or local_auth, get auth from masterserver
+
+        /* #### DISABLED UNTIL SUPPORTED BY NEW MULTIPLAYER PORTAL ####
+
         char url[2048];
         sprintf(url, "%s/authuser_utf8/?c=%s&t=%s&u=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), user_nick.asUTF8_c_str());
         Logger::Log(LOG_DEBUG, "UserAuth query to server: " + std::string(url));
@@ -191,7 +200,7 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
         if (HTTPGET(url, resp) < 0)
         {
             Logger::Log(LOG_ERROR, "UserAuth resolve query result empty");
-            return AUTH_NONE;
+            return RoRnet::AUTH_NONE;
         }
 
         std::string body = resp.GetBody();
@@ -203,7 +212,7 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
         if(args.size() < 2)
         {
             Logger::Log(LOG_INFO,"UserAuth: invalid return value from server: " + body);
-            return AUTH_NONE;
+            return RoRnet::AUTH_NONE;
         }
         
         authlevel = atoi(args[0].c_str());
@@ -213,11 +222,11 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
 
         // debug output the auth status
         UTFString authst;
-        if(authlevel & AUTH_NONE)   authst = authst + "N";
-        if(authlevel & AUTH_ADMIN)  authst = authst + "A";
-        if(authlevel & AUTH_MOD)    authst = authst + "M";
-        if(authlevel & AUTH_RANKED) authst = authst + "R";
-        if(authlevel & AUTH_BOT)    authst = authst + "B";
+        if(authlevel & RoRnet::AUTH_NONE)   authst = authst + "N";
+        if(authlevel & RoRnet::AUTH_ADMIN)  authst = authst + "A";
+        if(authlevel & RoRnet::AUTH_MOD)    authst = authst + "M";
+        if(authlevel & RoRnet::AUTH_RANKED) authst = authst + "R";
+        if(authlevel & RoRnet::AUTH_BOT)    authst = authst + "B";
         if(authst.empty()) authst = "(none)";
         Logger::Log(LOG_DEBUG, UTFString("User Auth Result: ") + authst + " / " + (resultNick) + " / " + tryConvertUTF(msg.c_str()));
 
@@ -225,11 +234,13 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
         {
             resultNick = widen(getNewPlayernameByID(clientid));
             Logger::Log(LOG_DEBUG, UTFString("got new random name for player: ") + resultNick);
-            authlevel = AUTH_NONE;
+            authlevel = RoRnet::AUTH_NONE;
         }
 
         // returned name valid, use it
         user_nick = resultNick;
+
+        */
     }
     
     //then check for overrides in the authorizations file (server admins, etc)
@@ -243,7 +254,7 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
     }
 
     // cache result if ranked or higher
-    if(authlevel > AUTH_NONE)
+    if(authlevel > RoRnet::AUTH_NONE)
     {
         user_auth_pair_t p;
         p.first = authlevel;
@@ -264,6 +275,8 @@ int UserAuth::HTTPGET(const char* URL, Http::Response &resp)
         Logger::Log(LOG_ERROR, "userauth: tried to contact master server without permission. URL: %s", URL);
         return 0;
     }
+
+    /* #### DISABLED UNTIL SUPPORTED BY NEW MULTIPLAYER PORTAL ####
     
     char httpresp[65536];  //!< http response from the master server
     int res=0;
@@ -306,5 +319,8 @@ int UserAuth::HTTPGET(const char* URL, Http::Response &resp)
         res=-1;
     }
     return res;
+
+    */
+    return -1;
 }
 

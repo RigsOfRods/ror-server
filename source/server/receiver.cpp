@@ -88,7 +88,7 @@ void Receiver::Thread()
     m_socket->set_timeout(60, 0);
     while( m_is_running )
     {
-        if (Messaging::ReceiveMessage(m_socket, &type, &source, &streamid, &len, m_dbuffer, MAX_MESSAGE_LENGTH))
+        if (Messaging::ReceiveMessage(m_socket, &type, &source, &streamid, &len, m_dbuffer, RORNET_MAX_MESSAGE_LENGTH))
         {
             m_sequencer->disconnect(m_id, "Game connection closed");
             break;
@@ -99,7 +99,7 @@ void Receiver::Thread()
             break;
         }
         
-        if (type != MSG2_STREAM_DATA)
+        if (type != RoRnet::MSG2_STREAM_DATA)
         {
             Logger::Log(LOG_VERBOSE, "got message: type: %d, source: %d:%d, len: %d", type, source, streamid, len);
         }

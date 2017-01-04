@@ -101,31 +101,31 @@ int SendMessage(SWInetSocket *socket, int type, int source, unsigned int streami
     assert(socket != nullptr);
 
     SWBaseSocket::SWBaseError error;
-    header_t head;
+    RoRnet::Header head;
 
-    const int msgsize = sizeof(header_t) + len;
+    const int msgsize = sizeof(RoRnet::Header) + len;
 
-    if(msgsize >= MAX_MESSAGE_LENGTH)
+    if(msgsize >= RORNET_MAX_MESSAGE_LENGTH)
     {
         Logger::Log( LOG_ERROR, "UID: %d - attempt to send too long message", source);
         return -4;
     }
 
-    char buffer[MAX_MESSAGE_LENGTH];
+    char buffer[RORNET_MAX_MESSAGE_LENGTH];
     
 
     int rlen = 0;
     
-    memset(&head, 0, sizeof(header_t));
+    memset(&head, 0, sizeof(RoRnet::Header));
     head.command  = type;
     head.source   = source;
     head.size     = len;
     head.streamid = streamid;
     
     // construct buffer
-    memset(buffer, 0, MAX_MESSAGE_LENGTH);
-    memcpy(buffer, (char *)&head, sizeof(header_t));
-    memcpy(buffer + sizeof(header_t), content, len);
+    memset(buffer, 0, RORNET_MAX_MESSAGE_LENGTH);
+    memcpy(buffer, (char *)&head, sizeof(RoRnet::Header));
+    memcpy(buffer + sizeof(RoRnet::Header), content, len);
 
     while (rlen < msgsize)
     {
@@ -142,7 +142,7 @@ int SendMessage(SWInetSocket *socket, int type, int source, unsigned int streami
 }
 
 /**
- * @param out_type        Message type, see MSG2_* macros in rornet.h
+ * @param out_type        Message type, see RoRnet::RoRnet::MSG2_* macros in rornet.h
  * @param out_source      Magic. Value 5000 used by serverlist to check this server.
  * @return                0 on success, negative number on error.
  */
@@ -161,13 +161,13 @@ int ReceiveMessage(
     assert(out_stream_id != nullptr);
     assert(out_payload   != nullptr);
 
-    char buffer[MAX_MESSAGE_LENGTH] = {};
+    char buffer[RORNET_MAX_MESSAGE_LENGTH] = {};
     
     int hlen=0;
     SWBaseSocket::SWBaseError error;
-    while (hlen<(int)sizeof(header_t))
+    while (hlen<(int)sizeof(RoRnet::Header))
     {
-        int recvnum=socket->recv(buffer+hlen, sizeof(header_t)-hlen, &error);
+        int recvnum=socket->recv(buffer+hlen, sizeof(RoRnet::Header)-hlen, &error);
         if (recvnum < 0 || error!=SWBaseSocket::ok)
         {
             Logger::Log(LOG_ERROR, "receive error -2: %s", error.get_error().c_str());
@@ -177,26 +177,26 @@ int ReceiveMessage(
         hlen+=recvnum;
     }
 
-    header_t head;
-    memcpy(&head, buffer, sizeof(header_t));
+    RoRnet::Header head;
+    memcpy(&head, buffer, sizeof(RoRnet::Header));
     *out_type         = head.command;
     *out_source       = head.source;
     *out_payload_len  = head.size;
     *out_stream_id    = head.streamid;
     
-    if((int)head.size >= MAX_MESSAGE_LENGTH)
+    if((int)head.size >= RORNET_MAX_MESSAGE_LENGTH)
     {
-        Logger::Log(LOG_ERROR, "ReceiveMessage(): payload too long: %d b (max. is %d b)", head.size, MAX_MESSAGE_LENGTH);
+        Logger::Log(LOG_ERROR, "ReceiveMessage(): payload too long: %d b (max. is %d b)", head.size, RORNET_MAX_MESSAGE_LENGTH);
         return -3;
     }
 
     if( head.size > 0)
     {
         //read the rest
-        while (hlen < (int)sizeof(header_t) + (int)head.size)
+        while (hlen < (int)sizeof(RoRnet::Header) + (int)head.size)
         {
             int recvnum = socket->recv(buffer + hlen,
-                    (head.size+sizeof(header_t)) - hlen, &error);
+                    (head.size+sizeof(RoRnet::Header)) - hlen, &error);
             if (recvnum<0 || error!=SWBaseSocket::ok)
             {
                 Logger::Log(LOG_ERROR, "receive error -1: %s",
@@ -207,8 +207,8 @@ int ReceiveMessage(
         }
     }
 
-    StatsAddIncoming((int)sizeof(header_t)+(int)head.size);
-    memcpy(out_payload, buffer+sizeof(header_t), payload_buf_len);
+    StatsAddIncoming((int)sizeof(RoRnet::Header)+(int)head.size);
+    memcpy(out_payload, buffer+sizeof(RoRnet::Header), payload_buf_len);
     return 0;
 }
 
@@ -246,7 +246,7 @@ int broadcastLAN()
     }
     
     sendaddr.sin_family      = AF_INET;
-    sendaddr.sin_port        = htons(LAN_BROADCAST_PORT+1);
+    sendaddr.sin_port        = htons(RORNET_LAN_BROADCAST_PORT+1);
     sendaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     if (bind(sockfd, (struct sockaddr *)&sendaddr, sizeof(sendaddr))  == SOCKET_ERROR)
@@ -256,7 +256,7 @@ int broadcastLAN()
     }
 
     recvaddr.sin_family      = AF_INET;
-    recvaddr.sin_port        = htons(LAN_BROADCAST_PORT);
+    recvaddr.sin_port        = htons(RORNET_LAN_BROADCAST_PORT);
     recvaddr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
 
 

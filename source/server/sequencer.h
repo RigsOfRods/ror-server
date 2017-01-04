@@ -109,12 +109,12 @@ public:
     bool          IsReceivingData() const              { return m_is_receiving_data; }
     Status        GetStatus() const                    { return m_status; }
 
-    user_info_t user;  //!< user information
+    RoRnet::UserInfo user;  //!< user information
 
     int drop_state;             // dropping outgoing packets?
 
     //things for the communication with the webserver below, not used in the main server code
-    std::map<unsigned int, stream_register_t> streams;
+    std::map<unsigned int, RoRnet::StreamRegister> streams;
     std::map<unsigned int, stream_traffic_t> streams_traffic;
 
 private:
@@ -130,8 +130,8 @@ struct ban_t
 {
     unsigned int uid;           //!< userid
     char ip[40];                //!< ip of banned client
-    char nickname[MAX_USERNAME_LEN];          //!< Username, this is what they are called to
-    char bannedby_nick[MAX_USERNAME_LEN];     //!< Username, this is what they are called to	
+    char nickname[RORNET_MAX_USERNAME_LEN];          //!< Username, this is what they are called to
+    char bannedby_nick[RORNET_MAX_USERNAME_LEN];     //!< Username, this is what they are called to	
     char banmsg[256];           //!< why he got banned
 };
 
@@ -150,7 +150,7 @@ public:
     void Close();
     
     //! initilize client information
-    void createClient(SWInetSocket *sock, user_info_t  user);
+    void createClient(SWInetSocket *sock, RoRnet::UserInfo  user);
     
     //! call to start the thread to disconnect clients from the server.
     void killerthreadstart();

@@ -20,6 +20,7 @@ If not, see <http://www.gnu.org/licenses/>.
 */
 
 #ifdef WITH_WEBSERVER
+
 #include "webserver.h"
 
 #include "sequencer.h"
@@ -64,10 +65,18 @@ struct mg_context	*ctx;
 #include <assert.h>
 #include <string.h>
 
+
+
 #include <ctemplate/template.h>
+
+
 #include <json/json.h>
 
+
+
 #include "mongoose.h"
+
+
 
 struct colour_t
 {
@@ -108,8 +117,9 @@ static colour_t s_colors[] =
     {0.6,0.6,0.0},
 };
 
-static bool s_is_advertised;
-static int  s_trust_level;
+static bool         s_is_advertised;
+static int          s_trust_level;
+static Sequencer*   s_sequencer;
 
 int getPlayerColour(int num, char *res)
 {
@@ -248,7 +258,6 @@ static void data_configuration(struct mg_connection *conn, const struct mg_reque
         {
             results.append(ConfToJson("Server Mode", "Private, Internet"));
         }
-        if (s_is_advertised) ? "Public, Internet" : ;
     }
 
     results.append(ConfToJson("Advertized on Master Server", s_is_advertised?"Yes":"No"));
@@ -287,23 +296,25 @@ static void data_players(struct mg_connection *conn, const struct mg_request_inf
 {
     Json::Value rows;
 
-    std::vector<Client> clients = Sequencer::GetClientList();
+    std::vector<Client> clients = s_sequencer->GetClientListCopy();
     int row_counter=0;
     for(std::vector<Client>::iterator it = clients.begin(); it != clients.end(); it++,row_counter++)
     {
         Json::Value row;
 
-        if (it->status == FREE)
+        if (it->GetStatus() == Client::STATUS_FREE)
         {
             row["slot"] = -1;
             row["status"] = "FREE";
             rows.append(row);
-        } else if (it->status == BUSY)
+        }
+        else if (it->GetStatus() == Client::STATUS_BUSY)
         {
             row["slot"] = -1;
             row["status"] = "BUSY";
             rows.append(row);
-        } else if (it->status == USED)
+        }
+        else if (it->GetStatus() == Client::STATUS_USED)
         {
             // some auth identifiers
             std::string authst = "none";
@@ -431,10 +442,11 @@ static void signal_handler(int sig_num)
     }
 }
 
-int StartWebserver(int port, bool is_advertised, int trust_level)
+int StartWebserver(int port, Sequencer* sequencer, bool is_advertised, int trust_level)
 {
     s_is_advertised = is_advertised;
     s_trust_level = trust_level;
+    s_sequencer = sequencer;
 
 #ifndef _WIN32
     signal(SIGPIPE, SIG_IGN);

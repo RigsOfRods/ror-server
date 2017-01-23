@@ -100,7 +100,7 @@ int UserAuth::readConfig(const char* authFile)
         Logger::Log(LOG_DEBUG, "adding entry to local auth cache, size: %d", local_auth.size());
         user_auth_pair_t p;
         p.first = authmode;
-        p.second = widen(std::string(user_nick));
+        p.second = Str::SanitizeUtf8(user_nick);
         local_auth[std::string(token)] = p;
     }
     Logger::Log(LOG_INFO, "found %d auth overrides in the authorizations file!",  local_auth.size());
@@ -123,7 +123,7 @@ std::map< std::string, user_auth_pair_t > UserAuth::getAuthCache()
     return cache;
 }
 
-int UserAuth::setUserAuth(int flags, UTFString user_nick, std::string token)
+int UserAuth::setUserAuth(int flags, std::string user_nick, std::string token)
 {
     user_auth_pair_t p;
     p.first = flags;
@@ -166,7 +166,7 @@ std::string UserAuth::getNewPlayernameByID(int id)
     return std::string(tmp);
 }
 
-int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid)
+int UserAuth::resolve(std::string user_token, std::string &user_nick, int clientid)
 {
     // There's alot of other info in the user token variable, but we don't need it here.
     // We only need the first 40 characters = the actual (encoded) token.
@@ -186,12 +186,12 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
     // Only contact the master-server if we're allowed to do so
     if(trustlevel>1)
     {
-        std::string msg = "";
-        UTFString resultNick = L"";
-    
         // not found in cache or local_auth, get auth from masterserver
 
         /* #### DISABLED UNTIL SUPPORTED BY NEW MULTIPLAYER PORTAL ####
+
+        std::string msg = "";
+        UTFString resultNick = L"";
 
         char url[2048];
         sprintf(url, "%s/authuser_utf8/?c=%s&t=%s&u=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), user_nick.asUTF8_c_str());

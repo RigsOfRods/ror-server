@@ -314,7 +314,7 @@ static void data_players(struct mg_connection *conn, const struct mg_request_inf
             row["status"]   = "USED";
             row["uid"]      = it->user.uniqueid;
             row["ip"]       = it->GetIpAddress();
-            row["name"]     = UTF8BuffertoString(it->user.username);
+            row["name"]     = Str::SanitizeUtf8(it->user.username);
             row["auth"]     = authst;
 
             // get traffic stats for all streams

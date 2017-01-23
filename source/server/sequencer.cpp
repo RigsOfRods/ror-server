@@ -197,15 +197,14 @@ void Sequencer::Close()
     cleanup = false; // WTF?? ~ only_a_ptr, 05/2016
 }
 
-bool Sequencer::CheckNickIsUnique(UTFString &nick)
+bool Sequencer::CheckNickIsUnique(std::string &nick)
 {
     // WARNING: be sure that this is only called within a clients_mutex lock!
 
     // check for duplicate names
     for (unsigned int i = 0; i < m_clients.size(); i++)
     {
-        UTFString a = tryConvertUTF(m_clients[i]->user.username);
-        if (nick == a)
+        if (nick == Str::SanitizeUtf8(m_clients[i]->user.username))
         {
             return true;
         }
@@ -247,7 +246,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user)
 
     MutexLocker scoped_lock(m_clients_mutex);
     
-    UTFString nick = tryConvertUTF(user.username);
+    std::string nick = Str::SanitizeUtf8(user.username);
     bool dupeNick = Sequencer::CheckNickIsUnique(nick);
     int playerColour = Sequencer::GetFreePlayerColour();
 
@@ -266,7 +265,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user)
     Logger::Log(LOG_DEBUG,"searching free slot for new client...");
     if( m_clients.size() >= (Config::getMaxClients() + m_bot_count) )
     {
-        Logger::Log(LOG_WARN,"join request from '%s' on full server: rejecting!", UTF8BuffertoString(user.username).c_str());
+        Logger::Log(LOG_WARN,"join request from '%s' on full server: rejecting!", Str::SanitizeUtf8(user.username).c_str());
         // set a low time out because we don't want to cause a back up of
         // connecting clients
         sock->set_timeout( 10, 0 );
@@ -276,24 +275,21 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user)
 
     if(dupeNick)
     {
-        Logger::Log(LOG_WARN, UTFString("found duplicate nick, getting new one: ") + tryConvertUTF(user.username));
+        Logger::Log(LOG_WARN, std::string("found duplicate nick, getting new one: ") + nick);
 
         // shorten username so the number will fit (only if its too long already)
-        UTFString nick = tryConvertUTF(user.username).substr(0, RORNET_MAX_USERNAME_LEN - 4);
-        UTFString newNick = nick;
+        std::string new_nick_base = nick.substr(0, RORNET_MAX_USERNAME_LEN - 4);
         // now get a new number
         while(dupeNick)
         {
             char buf[20] = "";
-            sprintf(buf, "_%d", dupecounter++);
-
-            newNick = nick + UTFString(buf);
-
-            dupeNick = Sequencer::CheckNickIsUnique(newNick);
+            sprintf(buf, "_%3d", dupecounter++);
+            nick = new_nick_base + buf;
+            dupeNick = Sequencer::CheckNickIsUnique(nick);
         }
-        Logger::Log(LOG_WARN, UTFString("chose alternate username: ") + newNick);
+        Logger::Log(LOG_WARN, std::string("New username was composed: ") + nick);
 
-        strncpy(user.username, newNick.asUTF8_c_str(), RORNET_MAX_USERNAME_LEN);
+        strncpy(user.username, nick.c_str(), RORNET_MAX_USERNAME_LEN);
 
         // we should send him a message about the nickchange later...
     }
@@ -309,12 +305,12 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user)
     to_add->user.authstatus = user.authstatus;
     
     // log some info about this client (in UTF8)
-    char buf[2048];
+    char buf[3000];
     if(strlen(user.usertoken) > 0)
-        sprintf(buf, " (%s), using %s %s, with token %s", user.language, user.clientname, user.clientversion, std::string(user.usertoken).substr(0,40).c_str());
+        sprintf(buf, "New client: %s (%s), using %s %s, with token %s", user.username, user.language, user.clientname, user.clientversion, std::string(user.usertoken).substr(0,40).c_str());
     else
-        sprintf(buf, " (%s), using %s %s, without token", user.language, user.clientname, user.clientversion);
-    Logger::Log(LOG_INFO, UTFString("New client: ") + tryConvertUTF(user.username) + tryConvertUTF(buf));
+        sprintf(buf, "New client: %s (%s), using %s %s, without token", user.username, user.language, user.clientname, user.clientversion);
+    Logger::Log(LOG_INFO, Str::SanitizeUtf8(buf));
 
     // assign unique userid
     unsigned int client_id = m_free_user_id;
@@ -406,7 +402,7 @@ int Sequencer::getNumClients()
     return (int)m_clients.size();
 }
 
-int Sequencer::AuthorizeNick(std::string token, UTFString &nickname)
+int Sequencer::AuthorizeNick(std::string token, std::string &nickname)
 {
     MutexLocker scoped_lock(m_clients_mutex);
     if (m_auth_resolver == nullptr)
@@ -434,7 +430,7 @@ void Sequencer::killerthreadstart()
         m_kill_queue.pop();
         m_killer_mutex.unlock();
 
-        Logger::Log(LOG_DEBUG, UTFString("Killer called to kill ") + tryConvertUTF(to_del->user.username) );
+        Logger::Log(LOG_DEBUG, "Killer called to kill %s", Str::SanitizeUtf8(to_del->user.username).c_str());
         to_del->Disconnect();
 
         delete to_del;
@@ -454,7 +450,7 @@ void Sequencer::disconnect(int uid, const char* errormsg, bool isError, bool doS
     // send an event if user is rankend and if we are a official server
     if (m_auth_resolver && (client->user.authstatus & RoRnet::AUTH_RANKED))
     {
-        m_auth_resolver->sendUserEvent(client->user.usertoken, (isError?"crash":"leave"), UTF8BuffertoString(client->user.username), "");
+        m_auth_resolver->sendUserEvent(client->user.usertoken, (isError?"crash":"leave"), Str::SanitizeUtf8(client->user.username), "");
     }
 
 #ifdef WITH_ANGELSCRIPT
@@ -634,9 +630,8 @@ void Sequencer::serverSay(std::string msg, int uid, int type)
             client->IsReceivingData() &&
             (uid == TO_ALL || ((int)client->user.uniqueid) == uid))
         {
-            UTFString s = tryConvertUTF(msg.c_str());
-            const char *str = s.asUTF8_c_str();
-            client->QueueMessage(RoRnet::MSG2_UTF8_CHAT, -1, -1, strlen(str), (char *)str);
+            std::string msg_valid = Str::SanitizeUtf8(msg.begin(), msg.end());
+            client->QueueMessage(RoRnet::MSG2_UTF8_CHAT, -1, -1, msg_valid.length(), msg_valid.c_str());
         }
     }
 }
@@ -661,7 +656,7 @@ bool Sequencer::Kick(int kuid, int modUID, const char *msg)
 
     char kickmsg[1024] = "";
     strcat(kickmsg, "kicked by ");
-    strcat(kickmsg, UTF8BuffertoString(mod_client->user.username).c_str());
+    strcat(kickmsg, Str::SanitizeUtf8(mod_client->user.username).c_str());
     if(msg)
     {
         strcat(kickmsg, " for ");
@@ -669,14 +664,14 @@ bool Sequencer::Kick(int kuid, int modUID, const char *msg)
     }
     
     char kickmsg2[1024] = "";
-    sprintf(kickmsg2, "player %s was %s", UTF8BuffertoString(kicked_client->user.username).c_str(), kickmsg);
+    sprintf(kickmsg2, "player %s was %s", Str::SanitizeUtf8(kicked_client->user.username).c_str(), kickmsg);
     serverSay(kickmsg2, TO_ALL, FROM_SERVER);
 
     Logger::Log(
         LOG_VERBOSE,
         "player '%s' kicked by '%s'",
-        UTF8BuffertoString(kicked_client->user.username).c_str(),
-        UTF8BuffertoString(mod_client->user.username).c_str());
+        Str::SanitizeUtf8(kicked_client->user.username).c_str(),
+        Str::SanitizeUtf8(mod_client->user.username).c_str());
 
     disconnect(kicked_client->user.uniqueid, kickmsg);
     return true;
@@ -701,10 +696,10 @@ bool Sequencer::Ban(int buid, int modUID, const char *msg)
 
     b->uid = buid;
     if(msg) strncpy(b->banmsg, msg, 256);
-    std::string mod_nickname = UTF8BuffertoString(mod_client->user.username);
+    std::string mod_nickname = Str::SanitizeUtf8(mod_client->user.username);
     strncpy(b->bannedby_nick, mod_nickname.c_str(), RORNET_MAX_USERNAME_LEN);
     strncpy(b->ip, banned_client->GetIpAddress().c_str(), 16);
-    std::string banned_nickname = UTF8BuffertoString(banned_client->user.username);
+    std::string banned_nickname = Str::SanitizeUtf8(banned_client->user.username);
     strncpy(b->nickname, banned_nickname.c_str(), RORNET_MAX_USERNAME_LEN);
     Logger::Log(LOG_DEBUG, "adding ban, size: %d", m_bans.size());
     m_bans.push_back(b);
@@ -737,7 +732,7 @@ void Sequencer::SilentBan(int buid, const char *msg, bool doScriptCallback /*= t
     if(msg) strncpy(b->banmsg, msg, 256);
     strncpy(b->bannedby_nick, "rorserver", RORNET_MAX_USERNAME_LEN);
     strncpy(b->ip, banned_client->GetIpAddress().c_str(), 16);
-    std::string banned_nickname = UTF8BuffertoString(banned_client->user.username);
+    std::string banned_nickname = Str::SanitizeUtf8(banned_client->user.username);
     strncpy(b->nickname, banned_nickname.c_str(), RORNET_MAX_USERNAME_LEN);
     Logger::Log(LOG_DEBUG, "adding ban, size: %d", m_bans.size());
     m_bans.push_back(b);
@@ -788,7 +783,7 @@ void Sequencer::streamDebug()
     {
         if (m_clients[i]->GetStatus() == Client::STATUS_USED)
         {
-            Logger::Log(LOG_VERBOSE, " * %d %s (slot %d):", m_clients[i]->user.uniqueid, UTF8BuffertoString(m_clients[i]->user.username).c_str(), i);
+            Logger::Log(LOG_VERBOSE, " * %d %s (slot %d):", m_clients[i]->user.uniqueid, Str::SanitizeUtf8(m_clients[i]->user.username).c_str(), i);
             if(!m_clients[i]->streams.size())
                 Logger::Log(LOG_VERBOSE, "  * no streams registered for user %d", m_clients[i]->user.uniqueid);
             else
@@ -860,14 +855,14 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
         if(client->streams.size() >= Config::getMaxVehicles()+NON_VEHICLE_STREAMS)
         {
             // This user has too many vehicles, we drop the stream and then disconnect the user
-            Logger::Log(LOG_INFO, "%s(%d) has too many streams. Stream dropped, user kicked.", UTF8BuffertoString(client->user.username).c_str(), client->user.uniqueid);
+            Logger::Log(LOG_INFO, "%s(%d) has too many streams. Stream dropped, user kicked.", Str::SanitizeUtf8(client->user.username).c_str(), client->user.uniqueid);
 
             // send a message to the user.
             serverSay("You are now being kicked for having too many vehicles. Please rejoin.",  client->user.uniqueid, FROM_SERVER);
 
             // broadcast a general message that this user was auto-kicked
             char sayMsg[128] = "";
-            sprintf(sayMsg, "%s was auto-kicked for having too many vehicles (limit: %d)", UTF8BuffertoString(client->user.username).c_str(), Config::getMaxVehicles());
+            sprintf(sayMsg, "%s was auto-kicked for having too many vehicles (limit: %d)", Str::SanitizeUtf8(client->user.username).c_str(), Config::getMaxVehicles());
             serverSay(sayMsg, TO_ALL, FROM_SERVER);
             disconnect(client->user.uniqueid, "You have too many vehicles. Please rejoin.", false);
             publishMode = BROADCAST_BLOCK; // drop
@@ -968,7 +963,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
     else if (type==RoRnet::MSG2_USER_LEAVE)
     {
         // from client
-        Logger::Log(LOG_INFO, UTFString("user disconnects on request: ") + tryConvertUTF(client->user.username));
+        Logger::Log(LOG_INFO, "User disconnects on request: " + Str::SanitizeUtf8(client->user.username));
 
         //char tmp[1024];
         //sprintf(tmp, "user %s disconnects on request", UTF8BuffertoString(client->user.username).c_str());
@@ -976,11 +971,9 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
         disconnect(client->user.uniqueid, "disconnected on request", false);
     }
     else if (type == RoRnet::MSG2_UTF8_CHAT)
-    {
-        // get an UTFString from it
-        UTFString str = tryConvertUTF(data);
-        
-        Logger::Log(LOG_INFO, UTFString("CHAT| ") + tryConvertUTF(client->user.username) + ": " + str);
+    {       
+        std::string str = Str::SanitizeUtf8(data);
+        Logger::Log(LOG_INFO, "CHAT| %s: %s", Str::SanitizeUtf8(client->user.username).c_str(), str);
         publishMode=BROADCAST_ALL;
 
         // no broadcast of server commands!
@@ -993,18 +986,18 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
             if(scriptpub!=BROADCAST_AUTO) publishMode = scriptpub;
         }
 #endif //WITH_ANGELSCRIPT
-        if(str == UTFString("!help"))
+        if(str == "!help")
         {
             serverSay(std::string("builtin commands:"), uid);
             serverSay(std::string("!version, !list, !say, !bans, !ban, !unban, !kick, !vehiclelimit"), uid);
             serverSay(std::string("!website, !irc, !owner, !voip, !rules, !motd"), uid);
         }
 
-        if(str == UTFString("!version"))
+        if(str == "!version")
         {
             serverSay(std::string(VERSION), uid);
         }
-        else if(str == UTFString("!list"))
+        else if(str == "!list")
         {
             serverSay(std::string(" uid | auth   | nick"), uid);
             for (unsigned int i = 0; i < m_clients.size(); i++)
@@ -1019,11 +1012,11 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                 if(m_clients[i]->user.authstatus & RoRnet::AUTH_BANNED) strcat(authst, "X");\
 
                 char tmp2[256]="";
-                sprintf(tmp2, "% 3d | %-6s | %-20s", m_clients[i]->user.uniqueid, authst, UTF8BuffertoString(m_clients[i]->user.username).c_str());
+                sprintf(tmp2, "% 3d | %-6s | %-20s", m_clients[i]->user.uniqueid, authst, Str::SanitizeUtf8(m_clients[i]->user.username).c_str());
                 serverSay(std::string(tmp2), uid);
             }
         }
-        else if(str.substr(0, 5) == UTFString("!bans"))
+        else if(str.substr(0, 5) == "!bans")
         {
             serverSay(std::string("uid | IP              | nickname             | banned by"), uid);
             for (unsigned int i = 0; i < m_bans.size(); i++)
@@ -1037,12 +1030,12 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                 serverSay(std::string(tmp), uid);
             }
         }
-        else if(str.substr(0, 7) == UTFString("!unban "))
+        else if(str.substr(0, 7) == "!unban ")
         {
             if(client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN)
             {
                 int buid=-1;
-                int res = sscanf(str.substr(7).asUTF8_c_str(), "%d", &buid);
+                int res = sscanf(str.substr(7).c_str(), "%d", &buid);
                 if(res != 1 || buid == -1)
                 {
                     serverSay(std::string("usage: !unban <uid>"), uid);
@@ -1060,13 +1053,13 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                 serverSay(std::string("You are not authorized to unban people!"), uid);
             }
         }
-        else if(str.substr(0, 5) == UTFString("!ban "))
+        else if(str.substr(0, 5) == "!ban ")
         {
             if(client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN)
             {
                 int buid=-1;
                 char banmsg_tmp[256]="";
-                int res = sscanf(str.substr(5).asUTF8_c_str(), "%d %s", &buid, banmsg_tmp);
+                int res = sscanf(str.substr(5).c_str(), "%d %s", &buid, banmsg_tmp);
                 std::string banMsg = std::string(banmsg_tmp);
                 banMsg = trim(banMsg);
                 if(res != 2 || buid == -1 || !banMsg.size())
@@ -1075,7 +1068,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                     serverSay(std::string("example: !ban 3 swearing"), uid);
                 } else
                 {
-                    bool banned = Ban(buid, uid, narrow(str.asWStr()).substr(6+intlen(buid),256).c_str());
+                    bool banned = Ban(buid, uid, str.substr(6+intlen(buid),256).c_str());
                     if(!banned)
                         serverSay(std::string("kick + ban not successful: uid not found!"), uid);
                 }
@@ -1085,13 +1078,13 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                 serverSay(std::string("You are not authorized to ban people!"), uid);
             }
         }
-        else if(str.substr(0, 6) == UTFString("!kick "))
+        else if(str.substr(0, 6) == "!kick ")
         {
             if(client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN)
             {
                 int kuid=-1;
                 char kickmsg_tmp[256]="";
-                int res = sscanf(str.substr(6).asUTF8_c_str(), "%d %s", &kuid, kickmsg_tmp);
+                int res = sscanf(str.substr(6).c_str(), "%d %s", &kuid, kickmsg_tmp);
                 std::string kickMsg = std::string(kickmsg_tmp);
                 kickMsg = trim(kickMsg);
                 if(res != 2 || kuid == -1 || !kickMsg.size())
@@ -1100,7 +1093,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                     serverSay(std::string("example: !kick 3 bye!"), uid);
                 } else
                 {
-                    bool kicked  = Kick(kuid, uid, narrow(str.asWStr()).substr(7+intlen(kuid),256).c_str());
+                    bool kicked  = Kick(kuid, uid, str.substr(7+intlen(kuid),256).c_str());
                     if(!kicked)
                         serverSay(std::string("kick not successful: uid not found!"), uid);
                 }
@@ -1110,19 +1103,19 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                 serverSay(std::string("You are not authorized to kick people!"), uid);
             }
         }
-        else if(str == UTFString("!vehiclelimit"))
+        else if(str == "!vehiclelimit")
         {
             char sayMsg[128] = "";
             sprintf(sayMsg, "The vehicle-limit on this server is set on %d", Config::getMaxVehicles());
             serverSay(sayMsg, uid, FROM_SERVER);
         }
-        else if(str.substr(0, 5) == UTFString("!say "))
+        else if(str.substr(0, 5) == "!say ")
         {
             if(client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN)
             {
                 int kuid=-2;
                 char saymsg_tmp[256]="";
-                int res = sscanf(str.substr(5).asUTF8_c_str(), "%d %s", &kuid, saymsg_tmp);
+                int res = sscanf(str.substr(5).c_str(), "%d %s", &kuid, saymsg_tmp);
                 std::string sayMsg = std::string(saymsg_tmp);
 
                 sayMsg = trim(sayMsg);
@@ -1132,7 +1125,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                     serverSay(std::string("example: !say 3 Wecome to this server!"), uid);
                 } else
                 {
-                    serverSay(narrow(str.asWStr()).substr(6+intlen(kuid),256), kuid, FROM_HOST);
+                    serverSay(str.substr(6+intlen(kuid),256), kuid, FROM_HOST);
                 }
 
             } else
@@ -1141,7 +1134,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                 serverSay(std::string("You are not authorized to use this command!"), uid);
             }
         }
-        else if(str == UTFString("!website") || str == UTFString("!www"))
+        else if(str == "!website" || str == "!www")
         {
             if(!Config::getWebsite().empty())
             {
@@ -1150,7 +1143,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                 serverSay(sayMsg, uid, FROM_SERVER);
             }
         }
-        else if(str == UTFString("!irc"))
+        else if(str == "!irc")
         {
             if(!Config::getIRC().empty())
             {
@@ -1159,7 +1152,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                 serverSay(sayMsg, uid, FROM_SERVER);
             }
         }
-        else if(str == UTFString("!owner"))
+        else if(str == "!owner")
         {
             if(!Config::getOwner().empty())
             {
@@ -1168,7 +1161,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                 serverSay(sayMsg, uid, FROM_SERVER);
             }
         }
-        else if(str == UTFString("!voip"))
+        else if(str == "!voip")
         {
             if(!Config::getVoIP().empty())
             {
@@ -1177,7 +1170,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                 serverSay(sayMsg, uid, FROM_SERVER);
             }
         }
-        else if(str == UTFString("!rules"))
+        else if(str == "!rules")
         {
             if(!Config::getRulesFile().empty())
             {
@@ -1193,9 +1186,9 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char* dat
                 }
             }
         }
-        else if(str == UTFString("!motd"))
+        else if(str == "!motd")
         {
-            sendMOTD(uid);
+            this->sendMOTD(uid);
         }
     }
     else if (type==RoRnet::MSG2_UTF8_PRIVCHAT)
@@ -1351,14 +1344,14 @@ void Sequencer::printStats()
                         m_clients[i]->user.uniqueid, "-",
                         authst,
                         m_clients[i]->user.colournum,
-                        UTF8BuffertoString(m_clients[i]->user.username).c_str());
+                        Str::SanitizeUtf8(m_clients[i]->user.username).c_str());
             else
                 Logger::Log(LOG_INFO, "%4i Used %5i %-16s % 4s %d, %s", i,
                         m_clients[i]->user.uniqueid,
                         m_clients[i]->GetIpAddress().c_str(),
                         authst,
                         m_clients[i]->user.colournum,
-                        UTF8BuffertoString(m_clients[i]->user.username).c_str());
+                        Str::SanitizeUtf8(m_clients[i]->user.username).c_str());
         }
         Logger::Log(LOG_INFO, "--------------------------------------------------");
         int timediff = Messaging::getTime() - m_start_time;

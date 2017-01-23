@@ -25,13 +25,12 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "mutexutils.h"
 #include "broadcaster.h"
 #include "receiver.h"
-#include "UTFString.h"
 #include "json/json.h"
 #ifdef WITH_ANGELSCRIPT
 #include "scriptmath3d/scriptmath3d.h" // angelscript addon
 #endif //WITH_ANGELSCRIPT
+#include "UnicodeStrings.h"
 
-#include <string>
 #include <queue>
 #include <vector>
 #include <map>
@@ -176,9 +175,9 @@ public:
     int sendGameCommand(int uid, std::string cmd);
     void serverSayThreadSave(std::string msg, int notto=-1, int type=0);
     
-    bool CheckNickIsUnique(UTFString &nick);
+    bool CheckNickIsUnique(std::string &nick);
     int GetFreePlayerColour();
-    int AuthorizeNick(std::string token, UTFString &nickname);
+    int AuthorizeNick(std::string token, std::string &nickname);
 
     bool Kick(int to_kick_uid, int modUID, const char *msg=0);
     bool Ban(int to_ban_uid, int modUID, const char *msg=0);

@@ -26,10 +26,10 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "SocketW.h"
 #include "logger.h"
 #include "config.h"
+#include "UnicodeStrings.h"
 #include "utils.h"
 
 #include <stdexcept>
-#include <string>
 #include <sstream>
 #include <stdio.h>
 
@@ -225,20 +225,11 @@ void Listener::threadstart()
 
             RoRnet::UserInfo *user = (RoRnet::UserInfo *)buffer;
             user->authstatus = RoRnet::AUTH_NONE;
-
-            // convert username UTF8->wchar (MB TO WC)
-            UTFString nickname = tryConvertUTF(user->username);
             
             // authenticate
-            int authflags = m_sequencer->AuthorizeNick(std::string(user->usertoken), nickname);
-
-            // now copy the resulting nickname over, server enforced
-            // and back (WC TO MB)
-            const char *newNick = nickname.asUTF8_c_str();
-            strncpy(user->username, newNick, RORNET_MAX_USERNAME_LEN);
-
-            // save the auth results
-            user->authstatus = authflags;
+            std::string nickname = Str::SanitizeUtf8(user->username);
+            user->authstatus = m_sequencer->AuthorizeNick(std::string(user->usertoken), nickname);
+            strncpy(user->username, nickname.c_str(), RORNET_MAX_USERNAME_LEN);
 
             if( Config::isPublic() )
             {

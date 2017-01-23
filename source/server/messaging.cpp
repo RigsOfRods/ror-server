@@ -27,10 +27,10 @@ If not, see <http://www.gnu.org/licenses/>.
 #include "SocketW.h"
 #include "config.h"
 #include "http.h"
+#include "UnicodeStrings.h"
 
 #include <stdarg.h>
 #include <time.h>
-#include <string>
 #include <errno.h>
 #include <assert.h>
 

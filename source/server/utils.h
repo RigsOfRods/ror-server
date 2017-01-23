@@ -20,7 +20,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "UTFString.h"
+#include "UnicodeStrings.h"
 
 #include <string>
 #include <sstream>
@@ -70,13 +70,3 @@ std::string trim(const std::string& str );
 std::string hexdump(void *pAddressIn, long  lSize);
 
 int intlen(int num);
-
-// Prototype for conversion functions
-std::string narrow(const std::wstring& wcs);
-std::wstring widen(const std::string& mbs);
-
-UTFString tryConvertUTF(const char *buffer);
-
-std::string UTF8BuffertoString(const char *buffer);
-std::string UTF8toString(UTFString &u);
-

@@ -20,7 +20,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include <string>
+#include "UnicodeStrings.h"
 
 // server modes
 enum ServerType

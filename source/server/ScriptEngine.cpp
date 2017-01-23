@@ -679,13 +679,12 @@ int ScriptEngine::streamAdded(int uid, RoRnet::StreamRegister* reg)
     return ret;
 }
 
-int ScriptEngine::playerChat(int uid, UTFString msg)
+int ScriptEngine::playerChat(int uid, std::string msg)
 {
     if(!engine) return 0;
     MutexLocker scoped_lock(context_mutex);
     if(!context) context = engine->CreateContext();
     int r;
-    std::string msgstr = UTF8toString(msg);
     int ret = BROADCAST_AUTO;
 
     // Copy the callback list, because the callback list itself may get changed while executing the script
@@ -707,7 +706,8 @@ int ScriptEngine::playerChat(int uid, UTFString msg)
 
         // Set the arguments
         context->SetArgDWord(0, uid);
-        context->SetArgObject(1, (void *)&msgstr);
+        std::string msg = Str::SanitizeUtf8(msg.begin(), msg.end());
+        context->SetArgObject(1, (void *)&msg);
         
         // Execute it
         r = context->Execute();
@@ -1016,14 +1016,15 @@ std::string ServerScript::getUserName(int uid)
     if(!c) return "";
 
     
-    return narrow(tryConvertUTF(c->user.username).asWStr());
+    return Str::SanitizeUtf8(c->user.username);
 }
 
 void ServerScript::setUserName(int uid, const string& username)
 {
     Client *c = seq->getClient(uid);
     if(!c) return;
-    strncpy(c->user.username, UTFString(username).asUTF8_c_str(), RORNET_MAX_USERNAME_LEN);
+    std::string username_sane = Str::SanitizeUtf8(username.begin(), username.end());
+    strncpy(c->user.username, username_sane.c_str(), RORNET_MAX_USERNAME_LEN);
 }
 
 std::string ServerScript::getUserAuth(int uid)

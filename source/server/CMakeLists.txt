@@ -4,6 +4,7 @@ FILE(GLOB_RECURSE server_src *.cpp *.c *.h *.rc)
 include_directories (${rorserver_SOURCE_DIR}/dependencies/socketw)
 include_directories (${rorserver_SOURCE_DIR}/dependencies/)
 include_directories (${rorserver_SOURCE_DIR}/source/protocol/)
+include_directories (${rorserver_SOURCE_DIR}/source/common/)
 include_directories (${rorserver_SOURCE_DIR}/dependencies/jsoncpp/include/)
 
 if(RORSERVER_WITH_ANGELSCRIPT)

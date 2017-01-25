@@ -153,4 +153,27 @@ inline std::string SanitizeUtf8(const char* str, const char* sub = UTF8_REPLACEM
     return SanitizeUtf8(str, str + strlen(str), sub);
 }
 
+/// Replicates behavior of `isspace()` under "C" locale - to be independent and faster.
+inline bool IsWhitespaceAscii(char c)
+{
+    return (c ==  ' ')  // (0x20)  space (SPC)
+        || (c == '\t')  // (0x09)  horizontal tab (TAB)
+        || (c == '\n')  // (0x0a)  newline (LF)
+        || (c == '\v')  // (0x0b)  vertical tab (VT)
+        || (c == '\f')  // (0x0c)  feed (FF)
+        || (c == '\r'); // (0x0d)  carriage return (CR)
+}
+
+// TODO: implement `TrimUtf8()`!
+/// @param start Pointer to first character
+/// @param end Pointer to after-the-last character
+inline void TrimAscii(char*& start, char*& end)
+{
+    while ((start != end) && IsWhitespaceAscii(*start))
+        ++start;
+
+    while ((start != (end - 1)) && IsWhitespaceAscii(*(end - 1)))
+        --end;
+}
+
 } // namespace Str

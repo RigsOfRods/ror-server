@@ -91,7 +91,7 @@ void setWebserverEnabled(bool value);
 void setWebserverPort( unsigned int port );
 void setHeartbeatIntervalSec(unsigned sec);
 void setForeground(bool value);
-void loadConfigFile(const std::string& filename);
+void LoadConfigFile(const std::string& filename);
 void setResourceDir(std::string dir);
 void setAuthFile(const std::string& file);
 void setMOTDFile(const std::string& file);

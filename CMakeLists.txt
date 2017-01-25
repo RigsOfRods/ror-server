@@ -81,7 +81,6 @@ endif()
 
 
 add_subdirectory("dependencies/socketw")
-add_subdirectory("dependencies/rudeconfig")
 add_subdirectory("dependencies/jsoncpp")
 
 add_subdirectory("source/server")

@@ -25,13 +25,12 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "mutexutils.h"
 #include "broadcaster.h"
 #include "receiver.h"
-#include "UTFString.h"
 #include "json/json.h"
 #ifdef WITH_ANGELSCRIPT
 #include "scriptmath3d/scriptmath3d.h" // angelscript addon
 #endif //WITH_ANGELSCRIPT
+#include "UnicodeStrings.h"
 
-#include <string>
 #include <queue>
 #include <vector>
 #include <map>
@@ -66,7 +65,7 @@ enum broadcastType {
 // constant for functions that receive an uid for sending something
 static const int TO_ALL = -1;
 
-typedef struct stream_traffic_t
+struct stream_traffic_t
 {
     // normal bandwidth
     double bandwidthIncoming;
@@ -83,7 +82,7 @@ typedef struct stream_traffic_t
     double bandwidthDropOutgoingLastMinute;
     double bandwidthDropIncomingRate;
     double bandwidthDropOutgoingRate;
-} stream_traffic_t;
+};
 
 class Client
 {
@@ -109,12 +108,12 @@ public:
     bool          IsReceivingData() const              { return m_is_receiving_data; }
     Status        GetStatus() const                    { return m_status; }
 
-    user_info_t user;  //!< user information
+    RoRnet::UserInfo user;  //!< user information
 
     int drop_state;             // dropping outgoing packets?
 
     //things for the communication with the webserver below, not used in the main server code
-    std::map<unsigned int, stream_register_t> streams;
+    std::map<unsigned int, RoRnet::StreamRegister> streams;
     std::map<unsigned int, stream_traffic_t> streams_traffic;
 
 private:
@@ -130,8 +129,8 @@ struct ban_t
 {
     unsigned int uid;           //!< userid
     char ip[40];                //!< ip of banned client
-    char nickname[MAX_USERNAME_LEN];          //!< Username, this is what they are called to
-    char bannedby_nick[MAX_USERNAME_LEN];     //!< Username, this is what they are called to	
+    char nickname[RORNET_MAX_USERNAME_LEN];          //!< Username, this is what they are called to
+    char bannedby_nick[RORNET_MAX_USERNAME_LEN];     //!< Username, this is what they are called to	
     char banmsg[256];           //!< why he got banned
 };
 
@@ -150,7 +149,7 @@ public:
     void Close();
     
     //! initilize client information
-    void createClient(SWInetSocket *sock, user_info_t  user);
+    void createClient(SWInetSocket *sock, RoRnet::UserInfo  user);
     
     //! call to start the thread to disconnect clients from the server.
     void killerthreadstart();
@@ -171,14 +170,14 @@ public:
     void GetHeartbeatUserList(Json::Value* out_array);
     //! prints the Stats view, of who is connected and what slot they are in
     void printStats();
-    void updateMinuteStats();
+    void UpdateMinuteStats();
     void serverSay(std::string msg, int notto=-1, int type=0);
     int sendGameCommand(int uid, std::string cmd);
     void serverSayThreadSave(std::string msg, int notto=-1, int type=0);
     
-    bool CheckNickIsUnique(UTFString &nick);
+    bool CheckNickIsUnique(std::string &nick);
     int GetFreePlayerColour();
-    int AuthorizeNick(std::string token, UTFString &nickname);
+    int AuthorizeNick(std::string token, std::string &nickname);
 
     bool Kick(int to_kick_uid, int modUID, const char *msg=0);
     bool Ban(int to_ban_uid, int modUID, const char *msg=0);

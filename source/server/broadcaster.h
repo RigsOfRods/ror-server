@@ -35,7 +35,7 @@ struct queue_entry_t
     int type;
     int uid;
     unsigned int streamid;
-    char data[MAX_MESSAGE_LENGTH];
+    char data[RORNET_MAX_MESSAGE_LENGTH];
     unsigned int datalen;
 };
 

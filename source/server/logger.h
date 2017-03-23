@@ -21,7 +21,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "UTFString.h"
+#include "UnicodeStrings.h"
 
 enum LogLevel
 {
@@ -43,9 +43,9 @@ enum LogType
 namespace Logger {
 
 void Log(const LogLevel& level, const char* format, ...);
-void Log(const LogLevel& level, const UTFString& msg);
+void Log(const LogLevel& level, const std::string& msg);
 
-void SetOutputFile(const UTFString& filename);
+void SetOutputFile(const std::string& filename);
 void SetLogLevel(const LogType type, const LogLevel level);
 
 } // namespace Logger

@@ -26,10 +26,10 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "SocketW.h"
 #include "logger.h"
 #include "config.h"
+#include "UnicodeStrings.h"
 #include "utils.h"
 
 #include <stdexcept>
-#include <string>
 #include <sstream>
 #include <stdio.h>
 
@@ -153,9 +153,9 @@ void Listener::threadstart()
                 throw std::runtime_error("ERROR Listener: receiving first message");
 
             // make sure our first message is a hello message
-            if (type != MSG2_HELLO)
+            if (type != RoRnet::MSG2_HELLO)
             {
-                Messaging::SendMessage(ts, MSG2_WRONG_VER, 0, 0, 0, 0);
+                Messaging::SendMessage(ts, RoRnet::MSG2_WRONG_VER, 0, 0, 0, 0);
                 throw std::runtime_error("ERROR Listener: protocol error");
             }
 
@@ -166,7 +166,7 @@ void Listener::threadstart()
                 // send back some information, then close socket
                 char tmp[2048]="";
                 sprintf(tmp,"protocol:%s\nrev:%s\nbuild_on:%s_%s\n", RORNET_VERSION, VERSION, __DATE__, __TIME__);
-                if (Messaging::SendMessage(ts, MSG2_MASTERINFO, 0, 0, (unsigned int) strlen(tmp), tmp))
+                if (Messaging::SendMessage(ts, RoRnet::MSG2_MASTERINFO, 0, 0, (unsigned int) strlen(tmp), tmp))
                 {
                     throw std::runtime_error("ERROR Listener: sending master info");
                 }
@@ -180,7 +180,7 @@ void Listener::threadstart()
             if(strncmp(buffer, RORNET_VERSION, strlen(RORNET_VERSION)))
             {
                 // not compatible
-                Messaging::SendMessage(ts, MSG2_WRONG_VER, 0, 0, 0, 0);
+                Messaging::SendMessage(ts, RoRnet::MSG2_WRONG_VER, 0, 0, 0, 0);
                 throw std::runtime_error("ERROR Listener: bad version: "+std::string(buffer)+". rejecting ...");
             }
 
@@ -195,15 +195,15 @@ void Listener::threadstart()
             }
 
             Logger::Log(LOG_DEBUG,"Listener sending server settings");
-            server_info_t settings;
-            memset(&settings, 0, sizeof(server_info_t));
-            settings.password = !Config::getPublicPassword().empty();
+            RoRnet::ServerInfo settings;
+            memset(&settings, 0, sizeof(RoRnet::ServerInfo));
+            settings.has_password = !Config::getPublicPassword().empty();
             strncpy(settings.info, motd_str.c_str(), motd_str.size());
             strncpy(settings.protocolversion, RORNET_VERSION, strlen(RORNET_VERSION));
             strncpy(settings.servername, Config::getServerName().c_str(), Config::getServerName().size());
             strncpy(settings.terrain, Config::getTerrainName().c_str(), Config::getTerrainName().size());
 
-            if (Messaging::SendMessage(ts, MSG2_HELLO, 0, 0, (unsigned int) sizeof(server_info_t), (char*)&settings))
+            if (Messaging::SendMessage(ts, RoRnet::MSG2_HELLO, 0, 0, (unsigned int) sizeof(RoRnet::ServerInfo), (char*)&settings))
                 throw std::runtime_error("ERROR Listener: sending version");
 
             //receive user infos
@@ -216,29 +216,20 @@ void Listener::threadstart()
                 throw std::runtime_error(error_msg.str());
             }
 
-            if (type != MSG2_USER_INFO)
+            if (type != RoRnet::MSG2_USER_INFO)
                 throw std::runtime_error("Warning Listener: no user name");
 
-            if (len > sizeof(user_info_t))
+            if (len > sizeof(RoRnet::UserInfo))
                 throw std::runtime_error( "Error: did not receive proper user credentials" );
             Logger::Log(LOG_INFO,"Listener creating a new client...");
 
-            user_info_t *user = (user_info_t *)buffer;
-            user->authstatus = AUTH_NONE;
-
-            // convert username UTF8->wchar (MB TO WC)
-            UTFString nickname = tryConvertUTF(user->username);
+            RoRnet::UserInfo *user = (RoRnet::UserInfo *)buffer;
+            user->authstatus = RoRnet::AUTH_NONE;
             
             // authenticate
-            int authflags = m_sequencer->AuthorizeNick(std::string(user->usertoken), nickname);
-
-            // now copy the resulting nickname over, server enforced
-            // and back (WC TO MB)
-            const char *newNick = nickname.asUTF8_c_str();
-            strncpy(user->username, newNick, MAX_USERNAME_LEN);
-
-            // save the auth results
-            user->authstatus = authflags;
+            std::string nickname = Str::SanitizeUtf8(user->username);
+            user->authstatus = m_sequencer->AuthorizeNick(std::string(user->usertoken), nickname);
+            strncpy(user->username, nickname.c_str(), RORNET_MAX_USERNAME_LEN);
 
             if( Config::isPublic() )
             {
@@ -247,7 +238,7 @@ void Listener::threadstart()
                         user->serverpassword);
                 if(strncmp(Config::getPublicPassword().c_str(), user->serverpassword, 40))
                 {
-                    Messaging::SendMessage(ts, MSG2_WRONG_PW, 0, 0, 0, 0);
+                    Messaging::SendMessage(ts, RoRnet::MSG2_WRONG_PW, 0, 0, 0, 0);
                     throw std::runtime_error( "ERROR Listener: wrong password" );
                 }
 

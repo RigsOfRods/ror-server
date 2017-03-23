@@ -21,11 +21,11 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #pragma once
 
 #include "http.h"
-#include "UTFString.h"
+#include "UnicodeStrings.h"
 
 #include <vector>
 
-typedef std::pair<int, UTFString> user_auth_pair_t;
+typedef std::pair<int, std::string> user_auth_pair_t;
 
 class UserAuth
 {
@@ -40,10 +40,10 @@ public:
     UserAuth(std::string challenge, int trustlevel, std::string authFile);
     ~UserAuth();
     
-    int resolve(std::string user_token, UTFString &user_nick, int clientid);
+    int resolve(std::string user_token, std::string &user_nick, int clientid);
 
     int getAuthSize();
-    int setUserAuth(int flags, UTFString user_nick, std::string token);
+    int setUserAuth(int flags, std::string user_nick, std::string token);
 
     int sendUserEvent(std::string user_token, std::string type, std::string arg1, std::string arg2);
 

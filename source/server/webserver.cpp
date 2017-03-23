@@ -301,11 +301,11 @@ static void data_players(struct mg_connection *conn, const struct mg_request_inf
         {
             // some auth identifiers
             std::string authst = "none";
-            if(it->user.authstatus & AUTH_BANNED) authst = "banned";
-            if(it->user.authstatus & AUTH_BOT)    authst = "bot";
-            if(it->user.authstatus & AUTH_RANKED) authst = "ranked";
-            if(it->user.authstatus & AUTH_MOD)    authst = "moderator";
-            if(it->user.authstatus & AUTH_ADMIN)  authst = "admin";
+            if(it->user.authstatus & RoRnet::AUTH_BANNED) authst = "banned";
+            if(it->user.authstatus & RoRnet::AUTH_BOT)    authst = "bot";
+            if(it->user.authstatus & RoRnet::AUTH_RANKED) authst = "ranked";
+            if(it->user.authstatus & RoRnet::AUTH_MOD)    authst = "moderator";
+            if(it->user.authstatus & RoRnet::AUTH_ADMIN)  authst = "admin";
 
             char playerColour[128] = "";
             getPlayerColour(it->user.colournum, playerColour);
@@ -314,7 +314,7 @@ static void data_players(struct mg_connection *conn, const struct mg_request_inf
             row["status"]   = "USED";
             row["uid"]      = it->user.uniqueid;
             row["ip"]       = it->GetIpAddress();
-            row["name"]     = UTF8BuffertoString(it->user.username);
+            row["name"]     = Str::SanitizeUtf8(it->user.username);
             row["auth"]     = authst;
 
             // get traffic stats for all streams
@@ -348,7 +348,7 @@ static void data_players(struct mg_connection *conn, const struct mg_request_inf
             rows.append(row);
             
             // now add the streams themself to the table
-            for(std::map<unsigned int, stream_register_t>::iterator sit = it->streams.begin(); sit != it->streams.end(); sit++)
+            for(std::map<unsigned int, RoRnet::StreamRegister>::iterator sit = it->streams.begin(); sit != it->streams.end(); sit++)
             {
                 Json::Value trow;
 

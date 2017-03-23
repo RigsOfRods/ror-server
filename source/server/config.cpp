@@ -25,7 +25,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "sha1_util.h"
 #include "utils.h"
 
-#include <rudeconfig/config.h>
 #include <cmath>
 #include <cstring>
 #ifdef __GNUC__
@@ -38,6 +37,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #else // _WIN32 ~ trailing slash important
 #   define RESOURCE_DIR "/usr/share/rorserver/"
 #endif // _WIN32
+
+#define CONFIG_LINE_BUF_LEN 2000
 
 // ============================== Variables ===================================
 
@@ -81,11 +82,10 @@ namespace Config
 void ShowHelp()
 {
     printf(
-        " -c (-config) <config file>   Loads the configuration from a file rather than from the commandline\n"
         "Usage: rorserver [OPTIONS]\n"
         "[OPTIONS] can be in Un*x `--help` or windows `/help` notation\n"
         "\n"
-        " ~config-file (-c) <JSON file> Loads the configuration from a file\n"
+        " ~config-file (-c) <INI file> Loads the configuration from a file\n"
         " ~name <name>                 Name of the server, no spaces, only\n"
         "                              [a-z,0-9,A-Z]\n"
         " ~terrain <mapname>           Map name (defaults to 'any')\n"
@@ -217,8 +217,8 @@ bool checkConfig()
         else                                        \
         {                                           \
             Logger::Log(LOG_WARN,                   \
-                "Command line error: argument `%s`" \
-                "at position %d without value",     \
+                "Command line error: argument `%s` "\
+                "at position %d has no value",      \
                 arg, pos);                          \
             return false;                           \
         }                                           \
@@ -295,7 +295,7 @@ bool ProcessArgs( int argc, char* argv[] )
 
     if (config_file != nullptr)
     {
-        loadConfigFile(config_file);
+        LoadConfigFile(config_file);
     }
 #endif //NOCMDLINE
     return true;
@@ -422,49 +422,121 @@ void setResourceDir(std::string dir)
     s_resourcedir = dir;
 }
 
-void loadConfigFile(const std::string& filename)
+inline void SetConfServerMode(std::string const & val)
 {
-    Logger::Log(LOG_INFO, "loading config file %s ...", filename.c_str());
-    rude::Config config;
-    if(config.load(filename.c_str()))
+    if (val.compare("inet") == 0)
+        setServerMode(SERVER_INET);
+    else
+        setServerMode(SERVER_LAN);
+}
+
+// Cloned from RudeConfig (http://rudeserver.com/config/) we used before. #compatibility
+inline bool RudeStrToBool(const char* val)
+{
+    switch (val[0])
     {
-        if(config.exists("baseconfig"))    loadConfigFile(config.getStringValue   ("baseconfig"));
-        if(config.exists("slots"))         setMaxClients(config.getIntValue       ("slots"));
-        if(config.exists("name"))          setServerName(config.getStringValue    ("name"));
-        if(config.exists("scriptname"))    setScriptName(config.getStringValue    ("scriptname"));
-        if(config.exists("terrain"))       setTerrain   (config.getStringValue    ("terrain"));
-        if(config.exists("password"))      setPublicPass(config.getStringValue    ("password"));
-        if(config.exists("ip"))            setIPAddr    (config.getStringValue    ("ip"));
-        if(config.exists("port"))          setListenPort(config.getIntValue       ("port"));
-        if(config.exists("mode"))          setServerMode((std::string(config.getStringValue("mode")) == std::string("inet"))?SERVER_INET:SERVER_LAN);
-
-        if(config.exists("printstats"))    setPrintStats(config.getBoolValue      ("printstats"));
-        if(config.exists("webserver"))     setWebserverEnabled(config.getBoolValue("webserver"));
-        if(config.exists("webserverport")) setWebserverPort(config.getIntValue    ("webserverport"));
-        if(config.exists("foreground"))    setForeground(config.getBoolValue      ("foreground"));
-
-        if(config.exists("verbosity"))     Logger::SetLogLevel(LOGTYPE_DISPLAY,   (LogLevel)config.getIntValue("verbosity"));
-        if(config.exists("logverbosity"))  Logger::SetLogLevel(LOGTYPE_FILE,      (LogLevel)config.getIntValue("logverbosity"));
-        if(config.exists("resdir"))        setResourceDir(config.getStringValue   ("resdir"));
-        if(config.exists("logfilename"))   Logger::SetOutputFile(config.getStringValue("logfilename"));
-        if(config.exists("authfile"))      setAuthFile(config.getStringValue      ("authfile"));
-        if(config.exists("motdfile"))      setMOTDFile(config.getStringValue      ("motdfile"));
-        if(config.exists("rulesfile"))     setRulesFile(config.getStringValue     ("rulesfile"));
-        if(config.exists("vehiclelimit"))  setMaxVehicles(config.getIntValue      ("vehiclelimit"));
-        if(config.exists("owner"))         setOwner(config.getStringValue         ("owner"));
-        if(config.exists("website"))       setWebsite(config.getStringValue       ("website"));
-        if(config.exists("irc"))           setIRC(config.getStringValue           ("irc"));
-        if(config.exists("voip"))          setVoIP(config.getStringValue          ("voip"));
-
-        if(config.exists("heartbeat-interval")) setHeartbeatIntervalSec(config.getIntValue("heartbeat-interval"));
-
-        if (config.exists("serverlist-host"))       { s_serverlist_host       = config.getStringValue("serverlist-host"); }
-        if (config.exists("serverlist-path"))       { s_serverlist_path       = config.getStringValue("serverlist-path"); }
+        case 't':
+        case 'T':
+        case 'y':
+        case 'Y':
+        case '1':
+            return true;
+        case 'o':
+        case 'O':
+            return (val[1] == 'n' || val[1] == 'N' );
+        default:
+            return false;
     }
+}
+
+#define VAL_STR(_STR_) (Str::SanitizeUtf8(_STR_))
+#define VAL_INT(_STR_) (atoi(value)) // Cloned from RudeConfig we used before. #compatibility
+#define VAL_BOOL(_STR_)(RudeStrToBool(value))
+
+void ProcessConfigEntry(const char* key, const char* value)
+{
+         if (strcmp(key, "baseconfig"        ) == 0) { LoadConfigFile       (VAL_STR (value)); }
+    else if (strcmp(key, "slots"             ) == 0) { setMaxClients        (VAL_INT (value)); }
+    else if (strcmp(key, "name"              ) == 0) { setServerName        (VAL_STR (value)); }
+    else if (strcmp(key, "scriptname"        ) == 0) { setScriptName        (VAL_STR (value)); }
+    else if (strcmp(key, "terrain"           ) == 0) { setTerrain           (VAL_STR (value)); }
+    else if (strcmp(key, "password"          ) == 0) { setPublicPass        (VAL_STR (value)); }
+    else if (strcmp(key, "ip"                ) == 0) { setIPAddr            (VAL_STR (value)); }
+    else if (strcmp(key, "port"              ) == 0) { setListenPort        (VAL_INT (value)); }
+    else if (strcmp(key, "mode"              ) == 0) { SetConfServerMode    (VAL_STR (value)); }
+    else if (strcmp(key, "printstats"        ) == 0) { setPrintStats        (VAL_BOOL(value)); }
+    else if (strcmp(key, "webserver"         ) == 0) { setWebserverEnabled  (VAL_BOOL(value)); }
+    else if (strcmp(key, "webserverport"     ) == 0) { setWebserverPort     (VAL_INT (value)); }
+    else if (strcmp(key, "foreground"        ) == 0) { setForeground        (VAL_BOOL(value)); }
+    else if (strcmp(key, "resdir"            ) == 0) { setResourceDir       (VAL_STR (value)); }
+    else if (strcmp(key, "logfilename"       ) == 0) { Logger::SetOutputFile(VAL_STR (value)); }
+    else if (strcmp(key, "authfile"          ) == 0) { setAuthFile          (VAL_STR (value)); }
+    else if (strcmp(key, "motdfile"          ) == 0) { setMOTDFile          (VAL_STR (value)); }
+    else if (strcmp(key, "rulesfile"         ) == 0) { setRulesFile         (VAL_STR (value)); }
+    else if (strcmp(key, "vehiclelimit"      ) == 0) { setMaxVehicles       (VAL_INT (value)); }
+    else if (strcmp(key, "owner"             ) == 0) { setOwner             (VAL_STR (value)); }
+    else if (strcmp(key, "website"           ) == 0) { setWebsite           (VAL_STR (value)); }
+    else if (strcmp(key, "irc"               ) == 0) { setIRC               (VAL_STR (value)); }
+    else if (strcmp(key, "voip"              ) == 0) { setVoIP              (VAL_STR (value)); }
+    else if (strcmp(key, "serverlist-host"   ) == 0) { s_serverlist_host   = VAL_STR (value);  }
+    else if (strcmp(key, "serverlist-path"   ) == 0) { s_serverlist_path   = VAL_STR (value);  }
+    else if (strcmp(key, "verbosity"         ) == 0) { Logger::SetLogLevel(LOGTYPE_DISPLAY, (LogLevel)VAL_INT(value)); }
+    else if (strcmp(key, "logverbosity"      ) == 0) { Logger::SetLogLevel(LOGTYPE_FILE,    (LogLevel)VAL_INT(value)); }
+    else if (strcmp(key, "heartbeat-interval") == 0) { setHeartbeatIntervalSec                       (VAL_INT(value)); }
     else
     {
-        Logger::Log(LOG_ERROR, "could not load config file %s : %s", filename.c_str(), config.getError());
+        Logger::Log(LOG_WARN, "Unknown key '%s' (value: '%s') in config file.", key, value);
     }
+}
+
+void LoadConfigFile(const std::string& filename)
+{
+    Logger::Log(LOG_INFO, "loading config file %s ...", filename.c_str());
+
+    FILE* f = fopen(filename.c_str(), "r");
+    if (f == nullptr)
+    {
+        Logger::Log(LOG_ERROR, "Failed to open config file %s ...", filename.c_str());
+        return;
+    }
+
+    size_t line_num = 0;
+    while (!feof(f) && !ferror(f))
+    {
+        ++line_num;
+
+        char line_buf[CONFIG_LINE_BUF_LEN];
+        if (fgets(line_buf, CONFIG_LINE_BUF_LEN, f) == nullptr)
+        {
+            break;
+        }
+
+        char* key_start = line_buf;
+        char* val_end   = line_buf + strlen(line_buf);
+        Str::TrimAscii(key_start, val_end); // In-out
+        if (*key_start == '#')
+            continue; // Skip comment lines
+
+        char* key_end = strrchr(key_start, '=');
+        if (key_end == nullptr)
+        {
+            Logger::Log(LOG_ERROR, "Invalid line %u; missing '=' separator (config file %s)", line_num, filename.c_str());
+            continue; // Skip invalid line
+        }
+        
+        char* val_start = key_end + 1;
+        Str::TrimAscii(key_start, key_end); // In-out
+        Str::TrimAscii(val_start, val_end);
+        *key_end = '\0';
+        *val_end = '\0';
+        ProcessConfigEntry(key_start, val_start);
+    }
+
+    if (!feof(f))
+    {
+        Logger::Log(LOG_ERROR, "Error reading line %u from config file %s", line_num, filename.c_str());
+    }
+    fclose(f);
 }
 
 } //namespace Config

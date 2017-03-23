@@ -21,9 +21,9 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #pragma once
 
 #include "prerequisites.h"
+#include "UnicodeStrings.h"
 
 #include "json/json.h"
-#include <string>
 
 namespace MasterServer {
 

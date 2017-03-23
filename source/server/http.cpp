@@ -26,7 +26,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include <assert.h>
 #include <stdexcept>
-#include <string>
 #include <vector>
 #include <sstream>
 #include <iostream>

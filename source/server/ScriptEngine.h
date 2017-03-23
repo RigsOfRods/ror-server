@@ -22,10 +22,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #ifdef WITH_ANGELSCRIPT
 
-#ifndef SCRIPTENGINE_H__
-#define SCRIPTENGINE_H__
-
-#include <string>
+#include "UnicodeStrings.h"
 #include <map>
 #include <vector>
 #include "angelscript.h"
@@ -58,8 +55,8 @@ public:
 
     void playerDeleted(int uid, int crash, bool doNestedCall = false);
     void playerAdded(int uid);
-    int streamAdded(int uid, stream_register_t* reg);
-    int playerChat(int uid, UTFString msg);
+    int streamAdded(int uid, RoRnet::StreamRegister* reg);
+    int playerChat(int uid, std::string msg);
     void gameCmd(int uid, const std::string& cmd);
     int framestep(float dt);
 
@@ -237,6 +234,5 @@ public:
     void broadcastUserInfo(int uid);
 };
 
-#endif //SCRIPTENGINE_H__
-#endif //WITH_ANGELSCRIPT
+#endif // WITH_ANGELSCRIPT
 

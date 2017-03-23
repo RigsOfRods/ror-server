@@ -89,7 +89,7 @@ void Broadcaster::Thread()
 
         if (msg.is_dropping)
         {
-            Messaging::addBandwidthDropOutgoing(sizeof(header_t) + msg.datalen); // Statistics
+            Messaging::StatsAddOutgoingDrop(sizeof(RoRnet::Header) + msg.datalen); // Statistics
         }
         else
         {
@@ -122,7 +122,7 @@ void Broadcaster::QueueMessage(int type, int uid, unsigned int streamid, unsigne
     }
     // for now lets just queue msgs in the order received to make things simple
     queue_entry_t msg = { false, type, uid, streamid, "", len};
-    memset( msg.data, 0, MAX_MESSAGE_LENGTH );
+    memset( msg.data, 0, RORNET_MAX_MESSAGE_LENGTH );
     memcpy( msg.data, data, len );
 
     MutexLocker scoped_lock( m_queue_mutex );
@@ -130,7 +130,7 @@ void Broadcaster::QueueMessage(int type, int uid, unsigned int streamid, unsigne
     // we will limit the entries in this queue
     
     // soft limit: we start dropping data packages
-    if((m_msg_queue.size() > (size_t)QUEUE_SOFT_LIMIT) && (type == MSG2_STREAM_DATA))
+    if((m_msg_queue.size() > (size_t)QUEUE_SOFT_LIMIT) && (type == RoRnet::MSG2_STREAM_DATA))
     {
         Logger::Log(LOG_DEBUG, "broadcaster queue soft full: m_thread %u owned by uid %d", ThreadID::getID(), m_client_id);
         msg.is_dropping = true;
@@ -151,7 +151,7 @@ void Broadcaster::QueueMessage(int type, int uid, unsigned int streamid, unsigne
     
     if (msg.is_dropping)
     {
-        Messaging::addBandwidthDropOutgoing(sizeof(header_t) + msg.datalen); // Statistics
+        Messaging::StatsAddOutgoingDrop(sizeof(RoRnet::Header) + msg.datalen); // Statistics
     }
     else
     {

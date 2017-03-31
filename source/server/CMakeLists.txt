@@ -17,7 +17,7 @@ if(RORSERVER_WITH_WEBSERVER)
 IF(WIN32)
 	include_directories (${rorserver_SOURCE_DIR}/dependencies/ctemplate/src/windows/)
 ELSEIF(UNIX)
-	include_directories (${rorserver_SOURCE_DIR}/dependencies/ctemplate/src)
+	include_directories (${rorserver_SOURCE_DIR}/dependencies/ctemplate/)
 ENDIF(WIN32)
 endif(RORSERVER_WITH_WEBSERVER)
 
@@ -70,7 +70,7 @@ ELSEIF(UNIX)
 			${rorserver_SOURCE_DIR}/contrib/rorserver-initscript
 			@ONLY
 			)
-	INSTALL(FILES ${rorserver_SOURCE_DIR}/contrib/rorserver-initscript  
+	INSTALL(FILES ${rorserver_SOURCE_DIR}/contrib/rorserver-initscript
 			DESTINATION /etc/init.d
 			RENAME rorserver
 			PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
@@ -82,7 +82,7 @@ ELSEIF(UNIX)
 			RENAME simple.cfg.example
 			PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
 	)
-	
+
 	# add example server authorization file
 	INSTALL(FILES ${rorserver_SOURCE_DIR}/contrib/example-auth.auth
 			DESTINATION /etc/rorserver/
@@ -115,9 +115,7 @@ ELSEIF(UNIX)
 	INSTALL(CODE "execute_process(COMMAND chown rorserver:rorserver -R /etc/rorserver)")
 	INSTALL(CODE "execute_process(COMMAND chown rorserver:rorserver -R /var/log/rorserver)")
 	INSTALL(CODE "execute_process(COMMAND chown rorserver:rorserver -R /var/run/rorserver)")
-	
+
 	INSTALL(CODE "message(\"example configuration added: /etc/rorserver/simple.cfg.example please configure this file to your likings and rename it to simple.cfg\")")
 	INSTALL(CODE "message(\"after you have configured your server, you can start it with: /etc/init.d/rorserver start\")")
 ENDIF(WIN32)
-
-

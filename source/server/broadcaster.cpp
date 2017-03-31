@@ -89,7 +89,7 @@ void Broadcaster::Thread()
 
         if (msg.is_dropping)
         {
-            Messaging::addBandwidthDropOutgoing(sizeof(header_t) + msg.datalen); // Statistics
+            Messaging::StatsAddOutgoingDrop(sizeof(header_t) + msg.datalen); // Statistics
         }
         else
         {
@@ -151,7 +151,7 @@ void Broadcaster::QueueMessage(int type, int uid, unsigned int streamid, unsigne
     
     if (msg.is_dropping)
     {
-        Messaging::addBandwidthDropOutgoing(sizeof(header_t) + msg.datalen); // Statistics
+        Messaging::StatsAddOutgoingDrop(sizeof(header_t) + msg.datalen); // Statistics
     }
     else
     {

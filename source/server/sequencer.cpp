@@ -1301,8 +1301,10 @@ Client *Sequencer::getClient(int uid)
     return this->FindClientById(static_cast<unsigned int>(uid));
 }
 
-void Sequencer::updateMinuteStats()
+void Sequencer::UpdateMinuteStats()
 {
+    MutexLocker scoped_lock(m_clients_mutex);
+
     for (unsigned int i=0; i<m_clients.size(); i++)
     {
         if (m_clients[i]->GetStatus() == Client::STATUS_USED)
@@ -1362,7 +1364,7 @@ void Sequencer::printStats()
         int timediff = Messaging::getTime() - m_start_time;
         int uphours = timediff/60/60;
         int upminutes = (timediff-(uphours*60*60))/60;
-        stream_traffic_t traffic = Messaging::getTraffic();
+        stream_traffic_t traffic = Messaging::GetTrafficStats();
 
         Logger::Log(LOG_INFO, "- traffic statistics (uptime: %d hours, %d "
                 "minutes):", uphours, upminutes);
@@ -1389,5 +1391,17 @@ Client* Sequencer::FindClientById(unsigned int client_id)
         }
     }
     return nullptr;
+}
+
+std::vector<Client> Sequencer::GetClientListCopy()
+{
+    MutexLocker scoped_lock(m_clients_mutex);
+
+    std::vector<Client> output;
+    for (Client* c : m_clients)
+    {
+        output.push_back(*c);
+    }
+    return output;
 }
 

@@ -189,6 +189,8 @@ public:
     int getStartTime();
     void broadcastUserInfo(int uid);
 
+    std::vector<Client> GetClientListCopy();
+
     static unsigned int connCrash, connCount;
 
 private:

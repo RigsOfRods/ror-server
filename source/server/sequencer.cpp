@@ -1386,3 +1386,15 @@ Client* Sequencer::FindClientById(unsigned int client_id)
     return nullptr;
 }
 
+std::vector<Client> Sequencer::GetClientListCopy()
+{
+    MutexLocker scoped_lock(m_clients_mutex);
+
+    std::vector<Client> output;
+    for (Client* c : m_clients)
+    {
+        output.push_back(*c);
+    }
+    return output;
+}
+

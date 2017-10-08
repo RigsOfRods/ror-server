@@ -101,7 +101,9 @@ typedef long off_t;
 #define	DIRSEP			'\\'
 #define	IS_DIRSEP_CHAR(c)	((c) == '/' || (c) == '\\')
 #define	O_NONBLOCK		0
+#if _MSC_VER <= 1800 // Visual Studio 2013 and earlier // @rigsofrods
 #define	EWOULDBLOCK		WSAEWOULDBLOCK
+#endif // @rigsofrods
 #define	_POSIX_
 #define UINT64_FMT		"I64"
 
@@ -136,10 +138,12 @@ typedef HANDLE pthread_cond_t;
 typedef DWORD pthread_t;
 typedef HANDLE pid_t;
 
+#if !defined(_MSC_VER) || _MSC_VER <= 1800 // Windows/MSVC2013 or earlier // @rigsofrods
 struct timespec {
     long tv_nsec;
     long tv_sec;
 };
+#endif // @rigsofrods
 
 static int pthread_mutex_lock(pthread_mutex_t *);
 static int pthread_mutex_unlock(pthread_mutex_t *);

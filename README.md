@@ -1,18 +1,18 @@
 # Rigs of Rods Server 
 
-|  Build status 	|                                                                                                                                                                         	|
-|---------------	|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|
-| Linux:        	| [![Build Status](https://travis-ci.org/RigsOfRods/ror-server.png?branch=master)](https://travis-ci.org/RigsOfRods/ror-server)                                           	|
-| Windows:      	| [![appveyor build Status](https://ci.appveyor.com/api/projects/status/github/RigsOfRods/ror-server?svg=true)](https://ci.appveyor.com/project/AnotherFoxGuy/ror-server) 	|
+|  Build status 	|                                                                                                                                                                             	|
+|---------------	|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|
+| Linux:        	| [![travis build Status](https://img.shields.io/travis/RigsOfRods/ror-server.svg?style=flat-square)](https://travis-ci.org/RigsOfRods/ror-server)                            	|
+| Windows:      	| [![appveyor build Status](https://img.shields.io/appveyor/ci/AnotherFoxGuy/ror-server.svg?style=flat-square)](https://ci.appveyor.com/project/AnotherFoxGuy/ror-server)    	|
 
 ## DESCRIPTION
 
-The Rigs of Rods Server is a game server for Rigs of Rods (http://www.rigsofrods.com/).
-It is compabible with RoR clients version 0.33d, and any future client using the RORNET protocol version 2.0
+The Rigs of Rods Server is a game server for Rigs of Rods (http://www.rigsofrods.org/).
+It is compabible with RoR clients version 0.33+, and any future client using the RORNET protocol version 2.0+
 
 ## INSTALLATION
 
-please refer to http://wiki.rigsofrods.com/pages/Compiling_Server
+please refer to http://docs.rigsofrods.org/gameplay/multiplayer-server-setup/#creating-a-rigs-of-rods-server
 
 ## USAGE
 

@@ -2,9 +2,9 @@ project(servergui)
 
 FILE(GLOB_RECURSE servergui_src *.cpp *.c *.h *.rc)
 
-FILE(GLOB_RECURSE servergui_server_src 
-	${rorserver_SOURCE_DIR}/source/server/*.cpp 
-	${rorserver_SOURCE_DIR}/source/server/*.c 
+FILE(GLOB_RECURSE servergui_server_src
+	${rorserver_SOURCE_DIR}/source/server/*.cpp
+	${rorserver_SOURCE_DIR}/source/server/*.c
 	${rorserver_SOURCE_DIR}/source/server/*.h )
 
 add_definitions(-DWITHOUTMAIN)
@@ -27,13 +27,13 @@ IF(wxWidgets_FOUND)
 	include_directories (${rorserver_SOURCE_DIR}/dependencies/angelscript/include)
 	include_directories (${rorserver_SOURCE_DIR}/dependencies/angelscript/add_on)
   endif(RORSERVER_WITH_ANGELSCRIPT)
-  
+
 if(RORSERVER_WITH_WEBSERVER)
 	add_definitions("-DWITH_WEBSERVER")
 IF(WIN32)
 	include_directories (${rorserver_SOURCE_DIR}/dependencies/ctemplate/src/windows/)
 ELSEIF(UNIX)
-	include_directories (${rorserver_SOURCE_DIR}/dependencies/ctemplate/src/)
+	include_directories (${rorserver_SOURCE_DIR}/dependencies/ctemplate/)
 ENDIF(WIN32)
 	include_directories (${rorserver_SOURCE_DIR}/dependencies/jsoncpp/include/)
 endif(RORSERVER_WITH_WEBSERVER)
@@ -72,7 +72,7 @@ endif(RORSERVER_WITH_WEBSERVER)
   if(RORSERVER_WITH_WEBSERVER)
 	target_link_libraries(servergui ctemplate jsoncpp)
   endif(RORSERVER_WITH_WEBSERVER)
-  
+
   TARGET_LINK_LIBRARIES(servergui ${wxWidgets_LIBRARIES} )
   IF(WIN32)
 	include_directories (${rorserver_SOURCE_DIR}/dependencies/win32_pthread)

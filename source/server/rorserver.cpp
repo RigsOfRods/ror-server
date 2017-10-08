@@ -58,7 +58,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 static Sequencer            s_sequencer;
 static MasterServer::Client s_master_server;
 static bool                 s_exit_requested = false;
-
+#ifndef _WIN32
 void handler(int signalnum)
 {
     if (s_exit_requested)
@@ -81,13 +81,12 @@ void handler(int signalnum)
         Logger::Log(LOG_ERROR,"got terminate signal, terminating ...");
         terminate = true;
     }
-#ifndef _WIN32
+
     else if (signalnum == SIGHUP)
     {
         Logger::Log(LOG_ERROR,"got HUP signal, terminating ...");
         terminate = true;
     }
-#endif // ! _WIN32
     else
     {
         Logger::Log(LOG_ERROR,"got unkown signal: %d", signal);
@@ -112,6 +111,41 @@ void handler(int signalnum)
         exit(0);
     }
 }
+#endif // ! _WIN32
+
+#ifdef _WIN32
+// Reference: https://msdn.microsoft.com/en-us/library/ms686016.aspx
+BOOL WINAPI WindowsConsoleHandlerRoutine(DWORD ctrl_type)
+{
+    switch (ctrl_type)
+    {
+    case CTRL_C_EVENT:
+        Logger::Log(LOG_INFO, "Received `Ctrl+C` event.");
+        break;
+    case CTRL_BREAK_EVENT:
+        Logger::Log(LOG_INFO, "Received `Ctrl+Break` event.");
+        break;
+    case CTRL_CLOSE_EVENT:
+        Logger::Log(LOG_INFO, "Received `Close` event.");
+        break;
+    case CTRL_SHUTDOWN_EVENT:
+        Logger::Log(LOG_INFO, "Received `System shutdown` event.");
+        break;
+    default:
+        Logger::Log(LOG_WARN, "Received unknown console event: %lu.", static_cast<unsigned long>(ctrl_type));
+        return TRUE; // Means 'event handled'
+    }
+
+    if (s_master_server.IsRegistered())
+    {
+        Logger::Log(LOG_INFO, "Unregistering...");
+        s_master_server.UnRegister();
+    }
+    s_sequencer.Close(); // TODO: This somehow closes (crashes?) the process on Windows, debugger doesn't intercept anything...
+    Logger::Log(LOG_INFO, "Clean exit (Windows)");
+    ExitProcess(0); // Recommended by MSDN, see above link.
+}
+#endif
 
 #ifndef WITHOUTMAIN
 
@@ -300,9 +334,12 @@ int main(int argc, char* argv[])
     // so ready to run, then set up signal handling
 #ifndef _WIN32
     signal(SIGHUP, handler);
-#endif // ! _WIN32
     signal(SIGINT, handler);
     signal(SIGTERM, handler);
+#else // _WIN32
+    SetConsoleCtrlHandler(WindowsConsoleHandlerRoutine, TRUE);
+#endif // ! _WIN32
+    
 
     Listener listener(&s_sequencer, Config::getListenPort());
     if (!listener.Initialize())
@@ -343,7 +380,7 @@ int main(int argc, char* argv[])
     {
         int port = Config::getWebserverPort();
         Logger::Log(LOG_INFO, "starting webserver on port %d ...", port);
-        startWebserver(port);
+        StartWebserver(port, &s_sequencer, s_master_server.IsRegistered(), s_master_server.GetTrustLevel());
     }
 #endif //WITH_WEBSERVER
 
@@ -354,8 +391,8 @@ int main(int argc, char* argv[])
         //heartbeat
         while (!s_exit_requested)
         {
-            Messaging::updateMinuteStats();
-            s_sequencer.updateMinuteStats();
+            Messaging::UpdateMinuteStats();
+            s_sequencer.UpdateMinuteStats();
 
             //every minute
             Utils::SleepSeconds(Config::GetHeartbeatIntervalSec());
@@ -403,8 +440,8 @@ int main(int argc, char* argv[])
     {
         while (!s_exit_requested)
         {
-            Messaging::updateMinuteStats();
-            s_sequencer.updateMinuteStats();
+            Messaging::UpdateMinuteStats();
+            s_sequencer.UpdateMinuteStats();
 
             // broadcast our "i'm here" signal
             Messaging::broadcastLAN();

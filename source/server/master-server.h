@@ -27,27 +27,30 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 namespace MasterServer {
 
-class Client
-{
-public:
-    Client();
+    class Client {
+    public:
+        Client();
 
-    bool Register();
-    bool SendHeatbeat(Json::Value user_list);
-    bool UnRegister();
-    bool IsRegistered() const { return m_is_registered; }
-    int  GetTrustLevel() const { return m_trust_level; }
+        bool Register();
 
-private:
-    int HttpRequest(const char* method, const char* payload, Http::Response* out_response); ///< Helper
+        bool SendHeatbeat(Json::Value user_list);
 
-    std::string   m_token;
-    int           m_trust_level;
-    bool          m_is_registered;
-    std::string   m_server_path;
-};
+        bool UnRegister();
 
-bool RetrievePublicIp();
+        bool IsRegistered() const { return m_is_registered; }
+
+        int GetTrustLevel() const { return m_trust_level; }
+
+    private:
+        int HttpRequest(const char *method, const char *payload, Http::Response *out_response); ///< Helper
+
+        std::string m_token;
+        int m_trust_level;
+        bool m_is_registered;
+        std::string m_server_path;
+    };
+
+    bool RetrievePublicIp();
 
 } // namespace MasterServer
 

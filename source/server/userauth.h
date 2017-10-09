@@ -27,27 +27,33 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 typedef std::pair<int, std::string> user_auth_pair_t;
 
-class UserAuth
-{
+class UserAuth {
 private:
-    std::map< std::string, user_auth_pair_t > cache;
-    int HTTPGET(const char* URL, Http::Response &resp);
+    std::map<std::string, user_auth_pair_t> cache;
+
+    int HTTPGET(const char *URL, Http::Response &resp);
+
     std::string challenge;
     int trustlevel;
-    std::map< std::string, user_auth_pair_t > local_auth;
-    int readConfig(const char* authFile);
+    std::map<std::string, user_auth_pair_t> local_auth;
+
+    int readConfig(const char *authFile);
+
 public:
     UserAuth(std::string challenge, int trustlevel, std::string authFile);
+
     ~UserAuth();
-    
+
     int resolve(std::string user_token, std::string &user_nick, int clientid);
 
     int getAuthSize();
+
     int setUserAuth(int flags, std::string user_nick, std::string token);
 
     int sendUserEvent(std::string user_token, std::string type, std::string arg1, std::string arg2);
 
-    std::map< std::string,  user_auth_pair_t> getAuthCache();
+    std::map<std::string, user_auth_pair_t> getAuthCache();
+
     void clearCache();
 
     std::string getNewPlayernameByID(int id);

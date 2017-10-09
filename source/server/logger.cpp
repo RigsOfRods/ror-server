@@ -32,71 +32,65 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <cstdarg>
 
 #ifndef _WIN32
+
 #include <sys/stat.h>
+
 #endif //_WIN32
 
-static FILE*       s_file              = nullptr;
-static LogLevel    s_log_level[2]      = { LOG_VERBOSE, LOG_INFO };
-static const char* s_log_level_names[] = { "STACK", "DEBUG", "VERBO", "INFO", "WARN", "ERROR" };
-static std::string s_log_filename      = "server.log";
-static Mutex       s_log_mutex;
+static FILE *s_file = nullptr;
+static LogLevel s_log_level[2] = {LOG_VERBOSE, LOG_INFO};
+static const char *s_log_level_names[] = {"STACK", "DEBUG", "VERBO", "INFO", "WARN", "ERROR"};
+static std::string s_log_filename = "server.log";
+static Mutex s_log_mutex;
 
 // take care about mutexes: only manual lock in the Logger, otherwise you 
 // could possibly start a recursion that ends in a deadlock
 
 // shamelessly taken from http://senzee.blogspot.com/2006/05/c-formatting-stdstring.html
-std::string format_arg_list(const char *fmt, va_list args)
-{
-    if (!fmt)
-    {
+std::string format_arg_list(const char *fmt, va_list args) {
+    if (!fmt) {
         return "";
     }
-    int   result = -1, length = 256;
+    int result = -1, length = 256;
     char *buffer = 0;
-    while (result == -1)
-    {
-        if (buffer)
-        {
+    while (result == -1) {
+        if (buffer) {
             delete[] buffer;
         }
-        buffer = new char [length + 1];
+        buffer = new char[length + 1];
         memset(buffer, 0, length + 1);
         result = vsnprintf(buffer, length, fmt, args);
         length *= 2;
     }
     std::string s = Str::SanitizeUtf8(buffer);
-    delete [] buffer;
+    delete[] buffer;
     return s;
 }
 
 namespace Logger {
 
-void Log(const LogLevel& level, const char* format, ...)
-{
-    va_list args;
-    va_start(args, format);
-    Logger::Log(level, format_arg_list(format, args));
-    va_end(args);
-}
-
-void Log(const LogLevel& level, const std::string& msg)
-{
-    time_t current_time = time(nullptr);
-    char time_str[] = "DD-MM-YYYY hh:mm:ss"; // Placeholder
-    strftime(time_str, 20, "%d-%m-%Y %H:%M:%S", localtime(&current_time));
-    const char* level_str = s_log_level_names[(int)level];
-
-    if (level >= s_log_level[LOGTYPE_DISPLAY])
-    {
-        printf("%s|t%02d|%5s|%s\n", time_str, ThreadID::getID(), level_str, msg.c_str());
+    void Log(const LogLevel &level, const char *format, ...) {
+        va_list args;
+        va_start(args, format);
+        Logger::Log(level, format_arg_list(format, args));
+        va_end(args);
     }
 
-    // do not use the class for locking, otherwise you get recursion because of STACKLOG
-    // UPDATE: 2016/05 only_a_ptr: STACKLOG was removed, TODO verify this
-    pthread_mutex_lock(s_log_mutex.getRaw());
+    void Log(const LogLevel &level, const std::string &msg) {
+        time_t current_time = time(nullptr);
+        char time_str[] = "DD-MM-YYYY hh:mm:ss"; // Placeholder
+        strftime(time_str, 20, "%d-%m-%Y %H:%M:%S", localtime(&current_time));
+        const char *level_str = s_log_level_names[(int) level];
 
-    if(s_file && level >= s_log_level[LOGTYPE_FILE])
-    {
+        if (level >= s_log_level[LOGTYPE_DISPLAY]) {
+            printf("%s|t%02d|%5s|%s\n", time_str, ThreadID::getID(), level_str, msg.c_str());
+        }
+
+        // do not use the class for locking, otherwise you get recursion because of STACKLOG
+        // UPDATE: 2016/05 only_a_ptr: STACKLOG was removed, TODO verify this
+        pthread_mutex_lock(s_log_mutex.getRaw());
+
+        if (s_file && level >= s_log_level[LOGTYPE_FILE]) {
 /* FIXME If you need this feature, use copytruncate option for logrotate for now
 #ifndef _WIN32
         
@@ -108,27 +102,25 @@ void Log(const LogLevel& level, const std::string& msg)
         }
 #endif // _WIN32
 */
-        fprintf(s_file, "%s|t%02d|%5s| %s\n", time_str, ThreadID::getID(), level_str, msg.c_str());
-        fflush(s_file);
+            fprintf(s_file, "%s|t%02d|%5s| %s\n", time_str, ThreadID::getID(), level_str, msg.c_str());
+            fflush(s_file);
+        }
+
+        pthread_mutex_unlock(s_log_mutex.getRaw());
     }
 
-    pthread_mutex_unlock(s_log_mutex.getRaw());
-}
-
-void SetOutputFile(const std::string& filename)
-{
-    s_log_filename = filename;
-    if (s_file)
-    {
-        fclose(s_file);
+    void SetOutputFile(const std::string &filename) {
+        s_log_filename = filename;
+        if (s_file) {
+            fclose(s_file);
+        }
+        s_file = fopen(s_log_filename.c_str(),
+                       "a+"); // FIXME: This will fail on Windows, UTF-8 paths are not supported.
+        // TODO Windows: research and convert the path to UTF-16
     }
-    s_file = fopen(s_log_filename.c_str(), "a+"); // FIXME: This will fail on Windows, UTF-8 paths are not supported.
-    // TODO Windows: research and convert the path to UTF-16 
-}
 
-void SetLogLevel(const LogType type, const LogLevel level)
-{
-    s_log_level[(int)type] = level;
-}
+    void SetLogLevel(const LogType type, const LogLevel level) {
+        s_log_level[(int) type] = level;
+    }
 
 } // namespace Logger

@@ -3,3 +3,5 @@ bin/*
 !bin/resources/*
 !bin/pthreadVC2.dll
 _build
+
+cmake-build-debug/

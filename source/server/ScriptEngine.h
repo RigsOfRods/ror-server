@@ -22,10 +22,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #ifdef WITH_ANGELSCRIPT
 
-#ifndef SCRIPTENGINE_H__
-#define SCRIPTENGINE_H__
-
-#include <string>
+#include "UnicodeStrings.h"
 #include <map>
 #include <vector>
 #include "angelscript.h"
@@ -33,34 +30,42 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "scriptmath3d/scriptmath3d.h" // angelscript addon
 
 class ExampleFrameListener;
+
 class GameScript;
+
 class Beam;
+
 class Sequencer;
 
 /**
  * This struct holds the information for a script callback.
  */
-struct callback_t
-{
-    asIScriptObject*   obj;  //!< The object instance that will need to be used with the function.
-    asIScriptFunction* func; //!< The function or method pointer that will be called.
+struct callback_t {
+    asIScriptObject *obj;  //!< The object instance that will need to be used with the function.
+    asIScriptFunction *func; //!< The function or method pointer that will be called.
 };
 typedef std::vector<callback_t> callbackList;
 
-class ScriptEngine
-{
+class ScriptEngine {
 public:
     ScriptEngine(Sequencer *seq);
+
     ~ScriptEngine();
 
     int loadScript(std::string scriptName);
+
     int executeString(std::string command);
 
     void playerDeleted(int uid, int crash, bool doNestedCall = false);
+
     void playerAdded(int uid);
-    int streamAdded(int uid, stream_register_t* reg);
-    int playerChat(int uid, UTFString msg);
-    void gameCmd(int uid, const std::string& cmd);
+
+    int streamAdded(int uid, RoRnet::StreamRegister *reg);
+
+    int playerChat(int uid, std::string msg);
+
+    void gameCmd(int uid, const std::string &cmd);
+
     int framestep(float dt);
 
     /**
@@ -68,56 +73,56 @@ public:
      * @see frameStep
      */
     void timerLoop();
-    
+
     /**
      * Gets the currently used AngelScript script engine.
      * @return a pointer to the currently used AngelScript script engine
      */
     asIScriptEngine *getEngine() { return engine; };
-    
+
     /**
      * Sets an exception that aborts the currently running script and shows the exception in the log file.
      * @param message A descriptive error message.
      */
-    void setException(const std::string& message);
-    
+    void setException(const std::string &message);
+
     /**
      * Adds a script callback.
      * @param type The type of the callback. This can be one of the following: 'frameStep', 'playerChat', 'gameCmd', 'playerAdded', 'playerDeleted'.
      * @param func A pointer to a script function.
      * @param obj A pointer to the object of the method or NULL if func is a global function.
      */
-    void addCallback(const std::string& type, asIScriptFunction* func, asIScriptObject* obj);
-    
+    void addCallback(const std::string &type, asIScriptFunction *func, asIScriptObject *obj);
+
     /**
      * This method checks and converts the parameters and then adds a script callback.
      * @param type The type of the callback. \see addCallback
      * @param func The name of a script function.
      * @param obj A pointer to the object of the method or NULL if func is a global function.
      */
-    void addCallbackScript(const std::string& type, const std::string& func, asIScriptObject* obj);
-    
+    void addCallbackScript(const std::string &type, const std::string &func, asIScriptObject *obj);
+
     /**
      * Deletes a script callback.
      * @param type The type of the callback. \see addCallback
      * @param func A pointer to a script function.
      * @param obj A pointer to the object of the method or NULL if func is a global function.
      */
-    void deleteCallback(const std::string& type, asIScriptFunction* func, asIScriptObject* obj);
-    
+    void deleteCallback(const std::string &type, asIScriptFunction *func, asIScriptObject *obj);
+
     /**
      * This method checks and converts the parameters and then deletes a script callback.
      * @param type The type of the callback. \see addCallback
      * @param func The name of a script function.
      * @param obj A pointer to the object of the method or NULL if func is a global function.
      */
-    void deleteCallbackScript(const std::string& type, const std::string& _func, asIScriptObject* obj);
-    
+    void deleteCallbackScript(const std::string &type, const std::string &_func, asIScriptObject *obj);
+
     /**
      * Deletes all script callbacks.
      */
     void deleteAllCallbacks();
-    
+
     /**
      * This checks if a script callback exists.
      * @param type The type of the callback. \see addCallback
@@ -125,7 +130,7 @@ public:
      * @param obj A pointer to the object of the method or NULL if func is a global function.
      * @return true if the callback exists
      */
-    bool callbackExists(const std::string& type, asIScriptFunction* func, asIScriptObject* obj);
+    bool callbackExists(const std::string &type, asIScriptFunction *func, asIScriptObject *obj);
 
 protected:
     Sequencer *seq;
@@ -141,7 +146,7 @@ protected:
      * This function initialzies the engine and registeres all types
      */
     void init();
- 
+
     /**
      * This is the callback function that gets called when script error occur.
      * When the script crashes, this function will provide you with more detail
@@ -165,78 +170,108 @@ protected:
      * @param param An unused parameter.
      */
     void ExceptionCallback(asIScriptContext *ctx, void *param);
-    
+
     /**
      * This logs all variables and their values at the specified stack level.
      * @param ctx The context that should be used.
      * @param stackLevel A number representing the level in the stack that should be logged.
      */
     void PrintVariables(asIScriptContext *ctx, int stackLevel);
-    
+
     /**
      * unused
      */
     void LineCallback(asIScriptContext *ctx, void *param);
 };
 
-class ServerScript
-{
+class ServerScript {
 protected:
     ScriptEngine *mse;              //!< local script engine pointer, used as proxy mostly
     Sequencer *seq;     //!< local pointer to the main ExampleFrameListener, used as proxy mostly
 
 public:
     ServerScript(ScriptEngine *se, Sequencer *seq);
+
     ~ServerScript();
 
     void log(std::string &msg);
-    void say(std::string &msg, int uid=-1, int type=0);
+
+    void say(std::string &msg, int uid = -1, int type = 0);
+
     void kick(int kuid, std::string &msg);
+
     void ban(int kuid, std::string &msg);
+
     bool unban(int kuid);
+
     int playerChat(int uid, char *str);
-    
+
     std::string getServerTerrain();
 
     int sendGameCommand(int uid, std::string cmd);
-    
+
     std::string getUserName(int uid);
-    void setUserName(int uid, const std::string& username);
+
+    void setUserName(int uid, const std::string &username);
+
     std::string getUserAuth(int uid);
+
     int getUserAuthRaw(int uid);
+
     void setUserAuthRaw(int uid, int authmode);
+
     int getUserColourNum(int uid);
+
     void setUserColourNum(int uid, int num);
+
     std::string getUserToken(int uid);
+
     std::string getUserVersion(int uid);
+
     std::string getUserIPAddress(int uid);
+
     int getUserPosition(int uid, Vector3 &v);
+
     int getNumClients();
 
     int getStartTime();
+
     int getTime();
-    
+
     std::string get_version();
+
     std::string get_asVersion();
+
     std::string get_protocolVersion();
 
-    void setCallback(const std::string& type, const std::string& func, void* obj, int refTypeId);
-    void deleteCallback(const std::string& type, const std::string& func, void* obj, int refTypeId);
-    void throwException(const std::string& message);
-    
+    void setCallback(const std::string &type, const std::string &func, void *obj, int refTypeId);
+
+    void deleteCallback(const std::string &type, const std::string &func, void *obj, int refTypeId);
+
+    void throwException(const std::string &message);
+
     unsigned int get_maxClients();
-    std::string  get_serverName();
-    std::string  get_IPAddr();
+
+    std::string get_serverName();
+
+    std::string get_IPAddr();
+
     unsigned int get_listenPort();
-    int          get_serverMode();
-    std::string  get_owner();
-    std::string  get_website();
-    std::string  get_ircServ();
-    std::string  get_voipServ();
+
+    int get_serverMode();
+
+    std::string get_owner();
+
+    std::string get_website();
+
+    std::string get_ircServ();
+
+    std::string get_voipServ();
+
     int rangeRandomInt(int from, int to);
+
     void broadcastUserInfo(int uid);
 };
 
-#endif //SCRIPTENGINE_H__
-#endif //WITH_ANGELSCRIPT
+#endif // WITH_ANGELSCRIPT
 

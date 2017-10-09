@@ -20,7 +20,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "UTFString.h"
+#include "UnicodeStrings.h"
 
 #include <string>
 #include <sstream>
@@ -29,54 +29,42 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 namespace Utils {
 
-int generateRandomPortNumber();
+    int generateRandomPortNumber();
 
-int ReadLinesFromFile(::std::string filename, std::vector<std::string> &lines);
+    int ReadLinesFromFile(::std::string filename, std::vector<std::string> &lines);
 
-void SleepSeconds(unsigned int seconds);
+    void SleepSeconds(unsigned int seconds);
 
 } // namespace Utils
 
-void tokenize(const std::string& str,
-                std::vector<std::string>& tokens,
-                const std::string& delimiters = " ");
+void tokenize(const std::string &str,
+              std::vector<std::string> &tokens,
+              const std::string &delimiters = " ");
 
 //! strict_tokenize treats the provided delimiter as the entire delimiter
 //! with tokenize, the string "  " would result in an empty vector.
 //! with strict_tokenize the same string would result in a vector with
 //! a single empty string.
-void strict_tokenize(const std::string& str,
-                std::vector<std::string>& tokens,
-                const std::string& delimiter = " ");
+void strict_tokenize(const std::string &str,
+                     std::vector<std::string> &tokens,
+                     const std::string &delimiter = " ");
 
-template <class T>
-T from_string(const std::string& s, 
-                 std::ios_base& (*f)(std::ios_base&))
-{
-    
+template<class T>
+T from_string(const std::string &s,
+              std::ios_base &(*f)(std::ios_base &)) {
+
     std::istringstream iss(s);
     T t;
-    if( !(iss >> f >> t).fail() )
-    {
-        
+    if (!(iss >> f >> t).fail()) {
+
         throw std::runtime_error(s + " is not a numerical value");
     }
     return t;
 }
 
-std::string trim(const std::string& str );
+std::string trim(const std::string &str);
 
 // from http://stahlforce.com/dev/index.php?tool=csc01
-std::string hexdump(void *pAddressIn, long  lSize);
+std::string hexdump(void *pAddressIn, long lSize);
 
 int intlen(int num);
-
-// Prototype for conversion functions
-std::string narrow(const std::wstring& wcs);
-std::wstring widen(const std::string& mbs);
-
-UTFString tryConvertUTF(const char *buffer);
-
-std::string UTF8BuffertoString(const char *buffer);
-std::string UTF8toString(UTFString &u);
-

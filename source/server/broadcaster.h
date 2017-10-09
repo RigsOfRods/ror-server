@@ -27,45 +27,49 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <deque>
 
 class SWInetSocket;
+
 class Sequencer;
 
-struct queue_entry_t
-{
+struct queue_entry_t {
     bool is_dropping;
     int type;
     int uid;
     unsigned int streamid;
-    char data[MAX_MESSAGE_LENGTH];
+    char data[RORNET_MAX_MESSAGE_LENGTH];
     unsigned int datalen;
 };
 
-void* StartBroadcasterThread(void*);
+void *StartBroadcasterThread(void *);
 
-class Broadcaster
-{
-    friend void* StartBroadcasterThread(void*);
+class Broadcaster {
+    friend void *StartBroadcasterThread(void *);
+
 public:
     static const int QUEUE_SOFT_LIMIT = 100;
     static const int QUEUE_HARD_LIMIT = 300;
 
-    Broadcaster(Sequencer* sequencer);
+    Broadcaster(Sequencer *sequencer);
 
     void Start(int client_id, SWInetSocket *socket);
+
     void Stop();
-    void QueueMessage(int msg_type, int client_id, unsigned int streamid, unsigned int payload_len, const char* payload);
+
+    void
+    QueueMessage(int msg_type, int client_id, unsigned int streamid, unsigned int payload_len, const char *payload);
+
     bool IsDroppingPackets() const { return m_is_dropping_packets; }
 
 private:
     void Thread();
 
-    Sequencer*    m_sequencer;
-    pthread_t     m_thread;
-    Mutex         m_queue_mutex;
-    Condition     m_queue_cond;
-    int           m_client_id;
-    SWInetSocket* m_socket;
-    bool          m_is_running;
-    bool          m_is_dropping_packets;
+    Sequencer *m_sequencer;
+    pthread_t m_thread;
+    Mutex m_queue_mutex;
+    Condition m_queue_cond;
+    int m_client_id;
+    SWInetSocket *m_socket;
+    bool m_is_running;
+    bool m_is_dropping_packets;
 
     std::deque<queue_entry_t> m_msg_queue;
 };

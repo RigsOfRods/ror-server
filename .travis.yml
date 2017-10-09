@@ -1,20 +1,11 @@
-dist: trusty
-language: cpp
-sudo: false
+language: c
+sudo: required
 
-compiler:
-  - gcc
-  - clang
+services:
+  - docker
 
-addons:
-  apt:
-    packages:
-      - libwxgtk2.8-dev
-      - libwxgtk2.8-dbg
+before_install:
+  - docker pull anotherfoxguy/ror-build-box
 
 script:
-  - cmake -DRORSERVER_CRASHHANDLER:BOOL=ON -DRORSERVER_GUI:BOOL=OFF -DRORSERVER_WITH_ANGELSCRIPT:BOOL=ON -DRORSERVER_WITH_WEBSERVER:BOOL=ON .
-  - make -j2
-
-notifications:
-  email: false
+  - docker build -c=2 .

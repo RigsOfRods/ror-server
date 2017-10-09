@@ -20,49 +20,52 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include <string>
+#include "UnicodeStrings.h"
 #include <map>
 #include <vector>
 
 namespace Http {
 
-extern const char* METHOD_GET;
-extern const char* METHOD_POST;
-extern const char* METHOD_PUT;
-extern const char* METHOD_DELETE;
+    extern const char *METHOD_GET;
+    extern const char *METHOD_POST;
+    extern const char *METHOD_PUT;
+    extern const char *METHOD_DELETE;
 
-class Response
-{
-public:
-    Response();
+    class Response {
+    public:
+        Response();
 
-    const std::string& GetBody();
-    const std::vector<std::string> GetBodyLines();
-    bool IsChunked();
-    bool FromBuffer(const std::string& message);
-    int GetCode() { return m_response_code; }
+        const std::string &GetBody();
 
-private:
-    std::map<std::string, std::string> m_headermap;
-    int m_response_code;
-};
+        const std::vector<std::string> GetBodyLines();
 
-bool RequestRaw(
-    const char* method,
-    const char* host,
-    const char* url,
-    const char* content_type,
-    const char* payload,
-    char*       out_response_buffer,
-    unsigned    response_buf_len);
+        bool IsChunked();
 
-int Request(
-    const char* method,
-    const char* host,
-    const char* url,
-    const char* content_type,
-    const char* payload,
-    Response*   out_response);
+        bool FromBuffer(const std::string &message);
+
+        int GetCode() { return m_response_code; }
+
+    private:
+        std::map<std::string, std::string> m_headermap;
+        int m_response_code;
+    };
+
+    bool RequestRaw(
+            const char *method,
+            const char *host,
+            const char *url,
+            const char *content_type,
+            const char *payload,
+            char *out_response_buffer,
+            unsigned response_buf_len);
+
+    int Request(
+            const char *method,
+            const char *host,
+            const char *url,
+            const char *content_type,
+            const char *payload,
+            Response *out_response);
 
 } // namespace Http
 

@@ -21,11 +21,10 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "UTFString.h"
+#include "UnicodeStrings.h"
 
-enum LogLevel
-{
-    LOG_STACK=0,
+enum LogLevel {
+    LOG_STACK = 0,
     LOG_DEBUG,
     LOG_VERBOSE,
     LOG_INFO,
@@ -34,18 +33,19 @@ enum LogLevel
     LOG_NONE
 };
 
-enum LogType
-{
-    LOGTYPE_FILE=0,
+enum LogType {
+    LOGTYPE_FILE = 0,
     LOGTYPE_DISPLAY
 };
 
 namespace Logger {
 
-void Log(const LogLevel& level, const char* format, ...);
-void Log(const LogLevel& level, const UTFString& msg);
+    void Log(const LogLevel &level, const char *format, ...);
 
-void SetOutputFile(const UTFString& filename);
-void SetLogLevel(const LogType type, const LogLevel level);
+    void Log(const LogLevel &level, const std::string &msg);
+
+    void SetOutputFile(const std::string &filename);
+
+    void SetLogLevel(const LogType type, const LogLevel level);
 
 } // namespace Logger

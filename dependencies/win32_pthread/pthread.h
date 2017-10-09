@@ -306,7 +306,8 @@ enum {
 #endif
 #endif
 
-#ifndef HAVE_STRUCT_TIMESPEC
+#if 0
+//#ifndef HAVE_STRUCT_TIMESPEC
 #define HAVE_STRUCT_TIMESPEC 1
 struct timespec {
         long tv_sec;

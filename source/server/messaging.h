@@ -26,30 +26,33 @@ If not, see <http://www.gnu.org/licenses/>.
 
 namespace Messaging {
 
-int SendMessage(
-    SWInetSocket* socket,
-    int           msg_type,
-    int           msg_client_id,
-    unsigned int  msg_stream_id,
-    unsigned int  payload_len,
-    const char*   payload);
+    int SendMessage(
+            SWInetSocket *socket,
+            int msg_type,
+            int msg_client_id,
+            unsigned int msg_stream_id,
+            unsigned int payload_len,
+            const char *payload);
 
-int ReceiveMessage(
-    SWInetSocket* socket,
-    int*          out_msg_type,
-    int*          out_client_id,
-    unsigned int* out_stream_id,
-    unsigned int* out_payload_len,
-    char*         out_payload,
-    unsigned int  payload_buf_len);
+    int ReceiveMessage(
+            SWInetSocket *socket,
+            int *out_msg_type,
+            int *out_client_id,
+            unsigned int *out_stream_id,
+            unsigned int *out_payload_len,
+            char *out_payload,
+            unsigned int payload_buf_len);
 
-int broadcastLAN();
+    int broadcastLAN();
 
-void StatsAddIncomingDrop(int bytes);
-void StatsAddOutgoingDrop(int bytes);
-stream_traffic_t GetTrafficStats();
+    void StatsAddIncomingDrop(int bytes);
 
-void UpdateMinuteStats();
-int getTime();
+    void StatsAddOutgoingDrop(int bytes);
+
+    stream_traffic_t GetTrafficStats();
+
+    void UpdateMinuteStats();
+
+    int getTime();
 
 } // namespace Messaging

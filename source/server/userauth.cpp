@@ -31,100 +31,91 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <cstdio>
 
 #ifdef __GNUC__
+
 #include <unistd.h>
 #include <stdlib.h>
+
 #endif
 
 
-UserAuth::UserAuth(std::string _challenge, int _trustlevel, std::string authFile)
-{
-    challenge  = _challenge;
+UserAuth::UserAuth(std::string _challenge, int _trustlevel, std::string authFile) {
+    challenge = _challenge;
     trustlevel = _trustlevel;
     readConfig(authFile.c_str());
 }
 
-UserAuth::~UserAuth(void)
-{
+UserAuth::~UserAuth(void) {
 }
 
-int UserAuth::readConfig(const char* authFile)
-{
+int UserAuth::readConfig(const char *authFile) {
     FILE *f = fopen(authFile, "r");
-    if (!f)
-    {
-        Logger::Log(LOG_WARN, "Couldn't open the local authorizations file ('%s'). No authorizations were loaded.", authFile);
+    if (!f) {
+        Logger::Log(LOG_WARN, "Couldn't open the local authorizations file ('%s'). No authorizations were loaded.",
+                    authFile);
         return -1;
     }
     Logger::Log(LOG_VERBOSE, "Reading the local authorizations file...");
-    int linecounter=0;
-    while(!feof(f))
-    {
+    int linecounter = 0;
+    while (!feof(f)) {
         char line[2048] = "";
         memset(line, 0, 2048);
-        fgets (line, 2048, f);
+        fgets(line, 2048, f);
         linecounter++;
-        
-        if(strnlen(line, 2048) <= 2)
+
+        if (strnlen(line, 2048) <= 2)
             continue;
 
-        if(line[0] == ';')
+        if (line[0] == ';')
             // ignore comment lines
             continue;
-        
+
         // this is setup mode (server)
         // strip line (newline char)
         char *ptr = line;
-        while(*ptr)
-        {
-            if(*ptr == '\n')
-            {
-                *ptr=0;
+        while (*ptr) {
+            if (*ptr == '\n') {
+                *ptr = 0;
                 break;
             }
             ptr++;
         }
-        int authmode = AUTH_NONE;
+        int authmode = RoRnet::AUTH_NONE;
         char token[256];
         char user_nick[40] = "";
         int res = sscanf(line, "%d %s %s", &authmode, token, user_nick);
-        if(res != 3 && res != 2)
-        {
+        if (res != 3 && res != 2) {
             Logger::Log(LOG_ERROR, "error parsing authorizations file: " + std::string(line));
             continue;
         }
-        
+
         // Not every auth mode is allowed to be set using the configuration file
-        if(authmode & AUTH_RANKED) authmode &= ~AUTH_RANKED;
-        if(authmode & AUTH_BANNED) authmode &= ~AUTH_BANNED;
-        
+        if (authmode & RoRnet::AUTH_RANKED) authmode &= ~RoRnet::AUTH_RANKED;
+        if (authmode & RoRnet::AUTH_BANNED) authmode &= ~RoRnet::AUTH_BANNED;
+
         Logger::Log(LOG_DEBUG, "adding entry to local auth cache, size: %d", local_auth.size());
         user_auth_pair_t p;
         p.first = authmode;
-        p.second = widen(std::string(user_nick));
+        p.second = Str::SanitizeUtf8(user_nick);
         local_auth[std::string(token)] = p;
     }
-    Logger::Log(LOG_INFO, "found %d auth overrides in the authorizations file!",  local_auth.size());
-    fclose (f);
+    Logger::Log(LOG_INFO, "found %d auth overrides in the authorizations file!", local_auth.size());
+    fclose(f);
     return 0;
 }
 
-int UserAuth::getAuthSize()
-{
+int UserAuth::getAuthSize() {
     return local_auth.size();
 }
 
-void UserAuth::clearCache()
-{
+void UserAuth::clearCache() {
     local_auth.clear();
 }
 
-std::map< std::string, user_auth_pair_t > UserAuth::getAuthCache()
-{
+std::map<std::string, user_auth_pair_t> UserAuth::getAuthCache() {
     return cache;
 }
 
-int UserAuth::setUserAuth(int flags, UTFString user_nick, std::string token)
-{
+int UserAuth::setUserAuth(int flags, std::string user_nick, std::string token) {
     user_auth_pair_t p;
     p.first = flags;
     p.second = user_nick;
@@ -132,8 +123,9 @@ int UserAuth::setUserAuth(int flags, UTFString user_nick, std::string token)
     return 0;
 }
 
-int UserAuth::sendUserEvent(std::string user_token, std::string type, std::string arg1, std::string arg2)
-{
+int UserAuth::sendUserEvent(std::string user_token, std::string type, std::string arg1, std::string arg2) {
+    /* #### DISABLED UNTIL SUPPORTED BY NEW MULTIPLAYER PORTAL ####
+
     // Only contact the master server if we are allowed to do so
     if(trustlevel<=1) return 0;
     
@@ -151,39 +143,42 @@ int UserAuth::sendUserEvent(std::string user_token, std::string type, std::strin
     Logger::Log(LOG_DEBUG,"UserEvent reply: " + body);
 
     return (body!="ok");
+
+    */
+
+    return -1;
 }
 
-std::string UserAuth::getNewPlayernameByID(int id)
-{
+std::string UserAuth::getNewPlayernameByID(int id) {
     char tmp[255] = "";
     sprintf(tmp, "Player%d", id);
     return std::string(tmp);
 }
 
-int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid)
-{
+int UserAuth::resolve(std::string user_token, std::string &user_nick, int clientid) {
     // There's alot of other info in the user token variable, but we don't need it here.
     // We only need the first 40 characters = the actual (encoded) token.
-    user_token = user_token.substr(0,40);
-    
+    user_token = user_token.substr(0, 40);
+
     //check cache first
-    if(cache.find(user_token) != cache.end())
-    {
+    if (cache.find(user_token) != cache.end()) {
         // cache hit!
         user_nick = cache[user_token].second;
         return cache[user_token].first;
     }
-    
+
     // initialize the authlevel on none = normal user
-    int authlevel = AUTH_NONE;
+    int authlevel = RoRnet::AUTH_NONE;
 
     // Only contact the master-server if we're allowed to do so
-    if(trustlevel>1)
-    {
+    if (trustlevel > 1) {
+        // not found in cache or local_auth, get auth from masterserver
+
+        /* #### DISABLED UNTIL SUPPORTED BY NEW MULTIPLAYER PORTAL ####
+
         std::string msg = "";
         UTFString resultNick = L"";
-    
-        // not found in cache or local_auth, get auth from masterserver
+
         char url[2048];
         sprintf(url, "%s/authuser_utf8/?c=%s&t=%s&u=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), user_nick.asUTF8_c_str());
         Logger::Log(LOG_DEBUG, "UserAuth query to server: " + std::string(url));
@@ -191,7 +186,7 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
         if (HTTPGET(url, resp) < 0)
         {
             Logger::Log(LOG_ERROR, "UserAuth resolve query result empty");
-            return AUTH_NONE;
+            return RoRnet::AUTH_NONE;
         }
 
         std::string body = resp.GetBody();
@@ -203,7 +198,7 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
         if(args.size() < 2)
         {
             Logger::Log(LOG_INFO,"UserAuth: invalid return value from server: " + body);
-            return AUTH_NONE;
+            return RoRnet::AUTH_NONE;
         }
         
         authlevel = atoi(args[0].c_str());
@@ -213,11 +208,11 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
 
         // debug output the auth status
         UTFString authst;
-        if(authlevel & AUTH_NONE)   authst = authst + "N";
-        if(authlevel & AUTH_ADMIN)  authst = authst + "A";
-        if(authlevel & AUTH_MOD)    authst = authst + "M";
-        if(authlevel & AUTH_RANKED) authst = authst + "R";
-        if(authlevel & AUTH_BOT)    authst = authst + "B";
+        if(authlevel & RoRnet::AUTH_NONE)   authst = authst + "N";
+        if(authlevel & RoRnet::AUTH_ADMIN)  authst = authst + "A";
+        if(authlevel & RoRnet::AUTH_MOD)    authst = authst + "M";
+        if(authlevel & RoRnet::AUTH_RANKED) authst = authst + "R";
+        if(authlevel & RoRnet::AUTH_BOT)    authst = authst + "B";
         if(authst.empty()) authst = "(none)";
         Logger::Log(LOG_DEBUG, UTFString("User Auth Result: ") + authst + " / " + (resultNick) + " / " + tryConvertUTF(msg.c_str()));
 
@@ -225,45 +220,45 @@ int UserAuth::resolve(std::string user_token, UTFString &user_nick, int clientid
         {
             resultNick = widen(getNewPlayernameByID(clientid));
             Logger::Log(LOG_DEBUG, UTFString("got new random name for player: ") + resultNick);
-            authlevel = AUTH_NONE;
+            authlevel = RoRnet::AUTH_NONE;
         }
 
         // returned name valid, use it
         user_nick = resultNick;
+
+        */
     }
-    
+
     //then check for overrides in the authorizations file (server admins, etc)
-    if(local_auth.find(user_token) != local_auth.end())
-    {
+    if (local_auth.find(user_token) != local_auth.end()) {
         // local auth hit!
         // the stored nickname can be empty if no nickname is specified.
-        if(!local_auth[user_token].second.empty())
+        if (!local_auth[user_token].second.empty())
             user_nick = local_auth[user_token].second;
         authlevel |= local_auth[user_token].first;
     }
 
     // cache result if ranked or higher
-    if(authlevel > AUTH_NONE)
-    {
+    if (authlevel > RoRnet::AUTH_NONE) {
         user_auth_pair_t p;
         p.first = authlevel;
         p.second = user_nick;
-        
-        Logger::Log(LOG_DEBUG, "adding entry to remote auth cache, size: %d",  cache.size());
+
+        Logger::Log(LOG_DEBUG, "adding entry to remote auth cache, size: %d", cache.size());
         cache[user_token] = p;
     }
 
     return authlevel;
 }
 
-int UserAuth::HTTPGET(const char* URL, Http::Response &resp)
-{
-    if(trustlevel<=1)
-    {
+int UserAuth::HTTPGET(const char *URL, Http::Response &resp) {
+    if (trustlevel <= 1) {
         // If this happens, then you did something wrong in the server code
         Logger::Log(LOG_ERROR, "userauth: tried to contact master server without permission. URL: %s", URL);
         return 0;
     }
+
+    /* #### DISABLED UNTIL SUPPORTED BY NEW MULTIPLAYER PORTAL ####
     
     char httpresp[65536];  //!< http response from the master server
     int res=0;
@@ -306,5 +301,8 @@ int UserAuth::HTTPGET(const char* URL, Http::Response &resp)
         res=-1;
     }
     return res;
+
+    */
+    return -1;
 }
 

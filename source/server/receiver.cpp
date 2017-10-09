@@ -26,28 +26,24 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "ScriptEngine.h"
 #include "logger.h"
 
-void* LaunchReceiverThread(void* data)
-{
-    Receiver* receiver = static_cast<Receiver*>(data);
+void *LaunchReceiverThread(void *data) {
+    Receiver *receiver = static_cast<Receiver *>(data);
     receiver->Thread();
     return nullptr;
 }
 
-Receiver::Receiver(Sequencer* sequencer):
-    m_id(0),
-    m_socket(nullptr),
-    m_is_running(false),
-    m_sequencer(sequencer)
-{
+Receiver::Receiver(Sequencer *sequencer) :
+        m_id(0),
+        m_socket(nullptr),
+        m_is_running(false),
+        m_sequencer(sequencer) {
 }
 
-Receiver::~Receiver(void)
-{
+Receiver::~Receiver(void) {
     Stop();
 }
 
-void Receiver::Start(int pos, SWInetSocket *socky)
-{
+void Receiver::Start(int pos, SWInetSocket *socky) {
     m_id = pos;
     m_socket = socky;
     m_is_running = true;
@@ -55,10 +51,8 @@ void Receiver::Start(int pos, SWInetSocket *socky)
     pthread_create(&m_thread, nullptr, LaunchReceiverThread, this);
 }
 
-void Receiver::Stop()
-{
-    if (!m_is_running)
-    {
+void Receiver::Stop() {
+    if (!m_is_running) {
         return;
     }
     m_is_running = false;
@@ -66,9 +60,8 @@ void Receiver::Stop()
     pthread_join(m_thread, nullptr);
 }
 
-void Receiver::Thread()
-{
-    Logger::Log( LOG_DEBUG, "receiver thread %d owned by uid %d", ThreadID::getID(), m_id);
+void Receiver::Thread() {
+    Logger::Log(LOG_DEBUG, "receiver thread %d owned by uid %d", ThreadID::getID(), m_id);
     //get the vehicle description
     int type;
     int source;
@@ -81,31 +74,27 @@ void Receiver::Thread()
     //send motd
     m_sequencer->sendMOTD(m_id);
 
-    Logger::Log(LOG_VERBOSE,"UID %d is switching to FLOW", m_id);
-    
+    Logger::Log(LOG_VERBOSE, "UID %d is switching to FLOW", m_id);
+
     // this prevents the socket from hangingwhen sending data
     // which is the cause of threads getting blocked
     m_socket->set_timeout(60, 0);
-    while( m_is_running )
-    {
-        if (Messaging::ReceiveMessage(m_socket, &type, &source, &streamid, &len, m_dbuffer, MAX_MESSAGE_LENGTH))
-        {
+    while (m_is_running) {
+        if (Messaging::ReceiveMessage(m_socket, &type, &source, &streamid, &len, m_dbuffer,
+                                      RORNET_MAX_MESSAGE_LENGTH)) {
             m_sequencer->disconnect(m_id, "Game connection closed");
             break;
         }
 
-        if (!m_is_running)
-        {
+        if (!m_is_running) {
             break;
         }
-        
-        if (type != MSG2_STREAM_DATA)
-        {
+
+        if (type != RoRnet::MSG2_STREAM_DATA) {
             Logger::Log(LOG_VERBOSE, "got message: type: %d, source: %d:%d, len: %d", type, source, streamid, len);
         }
-        
-        if (type < 1000 || type > 1050)
-        {
+
+        if (type < 1000 || type > 1050) {
             m_sequencer->disconnect(m_id, "Protocol error 3");
             break;
         }

@@ -26,77 +26,87 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 namespace Threading {
 
-class SimpleCond
-{
-public:
-    static const int INACTIVE = 0xFEFEFEFE;
+    class SimpleCond {
+    public:
+        static const int INACTIVE = 0xFEFEFEFE;
 
-    SimpleCond() : m_value(INACTIVE) {}
+        SimpleCond() : m_value(INACTIVE) {}
 
-    bool Initialize();
-    bool Destroy();
-    bool Wait(int* out_value);
-    bool Signal(int value);
+        bool Initialize();
 
-private:
-    bool Lock(const char* log_location);
-    bool Unlock(const char* log_location);
+        bool Destroy();
 
-    pthread_cond_t  m_cond;
-    pthread_mutex_t m_mutex;
-    int             m_value;
-};
+        bool Wait(int *out_value);
+
+        bool Signal(int value);
+
+    private:
+        bool Lock(const char *log_location);
+
+        bool Unlock(const char *log_location);
+
+        pthread_cond_t m_cond;
+        pthread_mutex_t m_mutex;
+        int m_value;
+    };
 
 }
 
-class Condition
-{
+class Condition {
     friend class Mutex;
+
 public:
     Condition();
+
     ~Condition();
+
     void signal();
+
 private:
     pthread_cond_t cond;
 };
 
 
-class Mutex
-{
+class Mutex {
 public:
     Mutex();
+
     ~Mutex();
+
     void lock();
+
     void unlock();
+
     void wait(Condition &c);
 
     pthread_mutex_t *getRaw() { return &m; };
-    
+
 private:
     pthread_mutex_t m;
     unsigned int lock_owner;
 };
 
 
-class MutexLocker
-{
+class MutexLocker {
 public:
-    MutexLocker(Mutex& pm);
-    ~MutexLocker() ;
+    MutexLocker(Mutex &pm);
+
+    ~MutexLocker();
+
 private:
-    Mutex& m;
+    Mutex &m;
 };
 
-class ThreadID
-{
-    
+class ThreadID {
+
 public:
     static unsigned int getID();
-    
+
 private:
     ThreadID();
+
     static void make_key();
-    
+
     unsigned int thread_id;
     static pthread_key_t key;
     static pthread_once_t key_once;

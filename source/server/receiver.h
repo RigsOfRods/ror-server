@@ -20,32 +20,36 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "rornet.h" // For MAX_MESSAGE_LENGTH
+#include "rornet.h" // For RORNET_MAX_MESSAGE_LENGTH
 
 #include <pthread.h>
 
 class SWInetSocket;
+
 class Sequencer;
 
-void* LaunchReceiverThread(void*);
+void *LaunchReceiverThread(void *);
 
-class Receiver
-{
-    friend void* LaunchReceiverThread(void*);
+class Receiver {
+    friend void *LaunchReceiverThread(void *);
+
 public:
-    Receiver(Sequencer* sequencer);
+    Receiver(Sequencer *sequencer);
+
     ~Receiver(void);
+
     void Start(int pos, SWInetSocket *socky);
+
     void Stop();
 
 private:
     void Thread();
 
-    pthread_t     m_thread;
-    int           m_id;
-    SWInetSocket* m_socket;
-    char          m_dbuffer[MAX_MESSAGE_LENGTH];
-    bool          m_is_running;
-    Sequencer*    m_sequencer;
+    pthread_t m_thread;
+    int m_id;
+    SWInetSocket *m_socket;
+    char m_dbuffer[RORNET_MAX_MESSAGE_LENGTH];
+    bool m_is_running;
+    Sequencer *m_sequencer;
 };
 

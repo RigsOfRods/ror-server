@@ -1,0 +1,10 @@
+	bin 	Updated AngelScript version to 2.22.1. 	6 years ago
+	contrib 	📚 Added serverlist override to example config 	10 months ago
+	dependencies 	🐛 Fixed building on Windows 	a month ago
+	source 	🐛 Fixed building on Windows 	a month ago
+	.gitignore 	📐 Reformated code 	a month ago
+	.travis.yml 	[travis] Use Docker 	a month ago
+	CMakeLists.txt 	📐 Reformated code 	a month ago
+	Dockerfile 	[travis] Use Docker 	a month ago
+	LICENSE 	initial 	10 years ago
+	README.md 	📚 Updated Readme 	8 months ago

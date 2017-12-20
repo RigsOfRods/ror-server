@@ -117,6 +117,8 @@ namespace Logger {
         s_file = fopen(s_log_filename.c_str(),
                        "a+"); // FIXME: This will fail on Windows, UTF-8 paths are not supported.
         // TODO Windows: research and convert the path to UTF-16
+
+        fprintf(s_file, "%s\n", "============================== RoR-Server started ==============================");
     }
 
     void SetLogLevel(const LogType type, const LogLevel level) {

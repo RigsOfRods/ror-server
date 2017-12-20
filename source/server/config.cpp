@@ -519,6 +519,10 @@ namespace Config {
             char *key_start = line_buf;
             char *val_end = line_buf + strlen(line_buf);
             Str::TrimAscii(key_start, val_end); // In-out
+
+            if (key_start == val_end)
+                continue; // Skip empty lines
+
             if (*key_start == '#')
                 continue; // Skip comment lines
 

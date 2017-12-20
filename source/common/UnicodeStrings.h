@@ -153,13 +153,13 @@ namespace Str {
     }
 
 // TODO: implement `TrimUtf8()`!
-/// @param start Pointer to first character
-/// @param end Pointer to after-the-last character
+/// @param start Pointer to first character (or NUL-terminating character if the string is empty)
+/// @param end Pointer to after-the-last character (the NUL-terminating character)
     inline void TrimAscii(char *&start, char *&end) {
         while ((start != end) && IsWhitespaceAscii(*start))
             ++start;
 
-        while ((start != (end - 1)) && IsWhitespaceAscii(*(end - 1)))
+        while ((start != end) && IsWhitespaceAscii(*(end - 1)))
             --end;
     }
 

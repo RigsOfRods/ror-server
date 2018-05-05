@@ -19,18 +19,15 @@
 #include "statpict.h"
 #include "wx/dcclient.h"
 
-IMPLEMENT_DYNAMIC_CLASS(wxStaticPicture, wxControl
-)
-const wxChar *wxStaticPictureNameStr = wxT("staticPicture");
+IMPLEMENT_DYNAMIC_CLASS(wxStaticPicture, wxControl)
+const wxChar * wxStaticPictureNameStr = wxT("staticPicture");
 
 /*
  * wxStaticPicture
  */
 
-BEGIN_EVENT_TABLE(wxStaticPicture, wxControl
-)
+BEGIN_EVENT_TABLE(wxStaticPicture, wxControl)
 EVT_PAINT(wxStaticPicture::OnPaint)
-
 END_EVENT_TABLE()
 
 bool wxStaticPicture::Create(wxWindow *parent, wxWindowID id,
@@ -38,11 +35,13 @@ bool wxStaticPicture::Create(wxWindow *parent, wxWindowID id,
                              const wxPoint &pos,
                              const wxSize &s,
                              long style,
-                             const wxString &name) {
+                             const wxString &name)
+{
     SetName(name);
 
     wxSize size = s;
-    if (bitmap.Ok()) {
+    if (bitmap.Ok())
+    {
         if (size.x == wxDefaultCoord)
             size.x = bitmap.GetWidth();
         if (size.y == wxDefaultCoord)
@@ -53,8 +52,8 @@ bool wxStaticPicture::Create(wxWindow *parent, wxWindowID id,
     m_foregroundColour = parent->GetForegroundColour();
 
     Bitmap = bitmap;
-    Align = 0;
-    Scale = 0;
+    Align  = 0;
+    Scale  = 0;
     ScaleX = ScaleY = 1;
 
 #ifndef __WXMSW__
@@ -64,7 +63,7 @@ bool wxStaticPicture::Create(wxWindow *parent, wxWindowID id,
 #endif
 
     if (id == wxID_ANY)
-        m_windowId = (int) NewControlId();
+        m_windowId = (int)NewControlId();
     else
         m_windowId = id;
 
@@ -77,7 +76,8 @@ bool wxStaticPicture::Create(wxWindow *parent, wxWindowID id,
     return ret;
 }
 
-void wxStaticPicture::SetBitmap(const wxBitmap &bmp) {
+void wxStaticPicture::SetBitmap(const wxBitmap &bmp)
+{
     Bitmap = bmp;
 #ifndef __WXMSW__
     if (Bitmap.Ok())
@@ -86,7 +86,8 @@ void wxStaticPicture::SetBitmap(const wxBitmap &bmp) {
 #endif
 }
 
-void wxStaticPicture::OnPaint(wxPaintEvent &WXUNUSED(event)) {
+void wxStaticPicture::OnPaint(wxPaintEvent &WXUNUSED(event))
+{
     if (!Bitmap.Ok())
         return;
 
@@ -96,50 +97,62 @@ void wxStaticPicture::OnPaint(wxPaintEvent &WXUNUSED(event)) {
 
     wxSize sz = GetSize();
     wxSize bmpsz(Bitmap.GetWidth(), Bitmap.GetHeight());
-    float sx = 1.0f, sy = 1.0f;
+    float  sx = 1.0f, sy = 1.0f;
 
-    if (Scale & wxSCALE_UNIFORM) {
-        float _sx = (float) sz.GetWidth() / (float) bmpsz.GetWidth();
-        float _sy = (float) sz.GetHeight() / (float) bmpsz.GetHeight();
+    if (Scale & wxSCALE_UNIFORM)
+    {
+        float _sx = (float)sz.GetWidth() / (float)bmpsz.GetWidth();
+        float _sy = (float)sz.GetHeight() / (float)bmpsz.GetHeight();
         sx = sy = _sx < _sy ? _sx : _sy;
-    } else if (Scale & wxSCALE_CUSTOM) {
+    }
+    else if (Scale & wxSCALE_CUSTOM)
+    {
         sx = ScaleX;
         sy = ScaleY;
-    } else {
+    }
+    else
+    {
         if (Scale & wxSCALE_HORIZONTAL)
-            sx = (float) sz.x / (float) bmpsz.x;
+            sx = (float)sz.x / (float)bmpsz.x;
         if (Scale & wxSCALE_VERTICAL)
-            sy = (float) sz.y / (float) bmpsz.y;
+            sy = (float)sz.y / (float)bmpsz.y;
     }
 
-    bmpsz = wxSize((int) (bmpsz.x * sx), (int) (bmpsz.y * sy));
+    bmpsz = wxSize((int)(bmpsz.x * sx), (int)(bmpsz.y * sy));
 
     wxPoint pos(0, 0);
 
-    if (Align & wxALIGN_CENTER_HORIZONTAL) pos.x = (sz.x - bmpsz.x) / 2;
-    else if (Align & wxALIGN_RIGHT) pos.x = sz.x - bmpsz.x;
+    if (Align & wxALIGN_CENTER_HORIZONTAL)
+        pos.x = (sz.x - bmpsz.x) / 2;
+    else if (Align & wxALIGN_RIGHT)
+        pos.x = sz.x - bmpsz.x;
 
-    if (Align & wxALIGN_CENTER_VERTICAL) pos.y = (sz.y - bmpsz.y) / 2;
-    else if (Align & wxALIGN_BOTTOM) pos.y = sz.y - bmpsz.y;
+    if (Align & wxALIGN_CENTER_VERTICAL)
+        pos.y = (sz.y - bmpsz.y) / 2;
+    else if (Align & wxALIGN_BOTTOM)
+        pos.y = sz.y - bmpsz.y;
 
-    if (Scale) {
+    if (Scale)
+    {
 #ifdef __WXMSW__
         double ux, uy;
-        dc.GetUserScale( &ux, &uy );
-        dc.SetUserScale( ux*sx, uy*sy );
-        dc.DrawBitmap( Bitmap, (int)((float)pos.x/sx), (int)((float)pos.y/sy) );
-        dc.SetUserScale( ux, uy );
+        dc.GetUserScale(&ux, &uy);
+        dc.SetUserScale(ux * sx, uy * sy);
+        dc.DrawBitmap(Bitmap, (int)((float)pos.x / sx), (int)((float)pos.y / sy));
+        dc.SetUserScale(ux, uy);
 #else
-        if (LastScaleX != sx || LastScaleY != sy) {
-            LastScaleX = sx;
-            LastScaleY = sy;
+        if (LastScaleX != sx || LastScaleY != sy)
+        {
+            LastScaleX   = sx;
+            LastScaleY   = sy;
             ScaledBitmap = wxBitmap(OriginalImage.Scale(bmpsz.x, bmpsz.y));
         }
         dc.DrawBitmap(ScaledBitmap, pos.x, pos.y);
 #endif
-    } else
+    }
+    else
+    {
         dc.DrawBitmap(Bitmap, pos.x, pos.y);
-
-//    dc.EndDrawing();
+        //    dc.EndDrawing();
+    }
 }
-

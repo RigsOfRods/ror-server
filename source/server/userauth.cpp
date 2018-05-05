@@ -1,22 +1,22 @@
 /*
-This file is part of "Rigs of Rods Server" (Relay mode)
-
-Copyright 2007   Pierre-Michel Ricordel
-Copyright 2014+  Rigs of Rods Community
-
-"Rigs of Rods Server" is free software: you can redistribute it
-and/or modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation, either version 3
-of the License, or (at your option) any later version.
-
-"Rigs of Rods Server" is distributed in the hope that it will
-be useful, but WITHOUT ANY WARRANTY; without even the implied
-warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with Foobar. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * This file is part of "Rigs of Rods Server" (Relay mode)
+ *
+ * Copyright 2007   Pierre-Michel Ricordel
+ * Copyright 2014+  Rigs of Rods Community
+ *
+ * "Rigs of Rods Server" is free software: you can redistribute it
+ * and/or modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, either version 3
+ * of the License, or (at your option) any later version.
+ *
+ * "Rigs of Rods Server" is distributed in the hope that it will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with "Rigs of Rods Server". If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "userauth.h"
 
@@ -38,25 +38,31 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #endif
 
 
-UserAuth::UserAuth(std::string _challenge, int _trustlevel, std::string authFile) {
-    challenge = _challenge;
+UserAuth::UserAuth(std::string _challenge, int _trustlevel, std::string authFile)
+{
+    challenge  = _challenge;
     trustlevel = _trustlevel;
     readConfig(authFile.c_str());
 }
 
-UserAuth::~UserAuth(void) {
+UserAuth::~UserAuth(void)
+{
 }
 
-int UserAuth::readConfig(const char *authFile) {
+int UserAuth::readConfig(const char *authFile)
+{
     FILE *f = fopen(authFile, "r");
-    if (!f) {
+
+    if (!f)
+    {
         Logger::Log(LOG_WARN, "Couldn't open the local authorizations file ('%s'). No authorizations were loaded.",
                     authFile);
         return -1;
     }
     Logger::Log(LOG_VERBOSE, "Reading the local authorizations file...");
     int linecounter = 0;
-    while (!feof(f)) {
+    while (!feof(f))
+    {
         char line[2048] = "";
         memset(line, 0, 2048);
         fgets(line, 2048, f);
@@ -72,30 +78,35 @@ int UserAuth::readConfig(const char *authFile) {
         // this is setup mode (server)
         // strip line (newline char)
         char *ptr = line;
-        while (*ptr) {
-            if (*ptr == '\n') {
+        while (*ptr)
+        {
+            if (*ptr == '\n')
+            {
                 *ptr = 0;
                 break;
             }
             ptr++;
         }
-        int authmode = RoRnet::AUTH_NONE;
+        int  authmode = RoRnet::AUTH_NONE;
         char token[256];
         char user_nick[40] = "";
-        int res = sscanf(line, "%d %s %s", &authmode, token, user_nick);
-        if (res != 3 && res != 2) {
+        int  res           = sscanf(line, "%d %s %s", &authmode, token, user_nick);
+        if (res != 3 && res != 2)
+        {
             Logger::Log(LOG_ERROR, "error parsing authorizations file: " + std::string(line));
             continue;
         }
 
         // Not every auth mode is allowed to be set using the configuration file
-        if (authmode & RoRnet::AUTH_RANKED) authmode &= ~RoRnet::AUTH_RANKED;
-        if (authmode & RoRnet::AUTH_BANNED) authmode &= ~RoRnet::AUTH_BANNED;
+        if (authmode & RoRnet::AUTH_RANKED)
+            authmode &= ~RoRnet::AUTH_RANKED;
+        if (authmode & RoRnet::AUTH_BANNED)
+            authmode &= ~RoRnet::AUTH_BANNED;
 
         Logger::Log(LOG_DEBUG, "adding entry to local auth cache, size: %d", local_auth.size());
         user_auth_pair_t p;
-        p.first = authmode;
-        p.second = Str::SanitizeUtf8(user_nick);
+        p.first                        = authmode;
+        p.second                       = Str::SanitizeUtf8(user_nick);
         local_auth[std::string(token)] = p;
     }
     Logger::Log(LOG_INFO, "found %d auth overrides in the authorizations file!", local_auth.size());
@@ -103,65 +114,75 @@ int UserAuth::readConfig(const char *authFile) {
     return 0;
 }
 
-int UserAuth::getAuthSize() {
+int UserAuth::getAuthSize()
+{
     return local_auth.size();
 }
 
-void UserAuth::clearCache() {
+void UserAuth::clearCache()
+{
     local_auth.clear();
 }
 
-std::map<std::string, user_auth_pair_t> UserAuth::getAuthCache() {
+std::map<std::string, user_auth_pair_t> UserAuth::getAuthCache()
+{
     return cache;
 }
 
-int UserAuth::setUserAuth(int flags, std::string user_nick, std::string token) {
+int UserAuth::setUserAuth(int flags, std::string user_nick, std::string token)
+{
     user_auth_pair_t p;
-    p.first = flags;
-    p.second = user_nick;
+
+    p.first           = flags;
+    p.second          = user_nick;
     local_auth[token] = p;
     return 0;
 }
 
-int UserAuth::sendUserEvent(std::string user_token, std::string type, std::string arg1, std::string arg2) {
+int UserAuth::sendUserEvent(std::string user_token, std::string type, std::string arg1, std::string arg2)
+{
     /* #### DISABLED UNTIL SUPPORTED BY NEW MULTIPLAYER PORTAL ####
-
-    // Only contact the master server if we are allowed to do so
-    if(trustlevel<=1) return 0;
-    
-    char url[2048];
-    sprintf(url, "%s/userevent_utf8/?v=0&sh=%s&h=%s&t=%s&a1=%s&a2=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), type.c_str(), arg1.c_str(), arg2.c_str());
-    Logger::Log(LOG_DEBUG, "UserAuth event to server: " + std::string(url));
-    Http::Response resp;
-    if (HTTPGET(url, resp) < 0)
-    {
-        Logger::Log(LOG_ERROR, "UserAuth event query result empty");
-        return -1;
-    }
-
-    std::string body = resp.GetBody();
-    Logger::Log(LOG_DEBUG,"UserEvent reply: " + body);
-
-    return (body!="ok");
-
-    */
+     *
+     * // Only contact the master server if we are allowed to do so
+     * if(trustlevel<=1) return 0;
+     *
+     * char url[2048];
+     * sprintf(url, "%s/userevent_utf8/?v=0&sh=%s&h=%s&t=%s&a1=%s&a2=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), type.c_str(), arg1.c_str(), arg2.c_str());
+     * Logger::Log(LOG_DEBUG, "UserAuth event to server: " + std::string(url));
+     * Http::Response resp;
+     * if (HTTPGET(url, resp) < 0)
+     * {
+     *  Logger::Log(LOG_ERROR, "UserAuth event query result empty");
+     *  return -1;
+     * }
+     *
+     * std::string body = resp.GetBody();
+     * Logger::Log(LOG_DEBUG,"UserEvent reply: " + body);
+     *
+     * return (body!="ok");
+     *
+     */
 
     return -1;
 }
 
-std::string UserAuth::getNewPlayernameByID(int id) {
+std::string UserAuth::getNewPlayernameByID(int id)
+{
     char tmp[255] = "";
+
     sprintf(tmp, "Player%d", id);
     return std::string(tmp);
 }
 
-int UserAuth::resolve(std::string user_token, std::string &user_nick, int clientid) {
+int UserAuth::resolve(std::string user_token, std::string &user_nick, int clientid)
+{
     // There's alot of other info in the user token variable, but we don't need it here.
     // We only need the first 40 characters = the actual (encoded) token.
     user_token = user_token.substr(0, 40);
 
     //check cache first
-    if (cache.find(user_token) != cache.end()) {
+    if (cache.find(user_token) != cache.end())
+    {
         // cache hit!
         user_nick = cache[user_token].second;
         return cache[user_token].first;
@@ -171,66 +192,68 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
     int authlevel = RoRnet::AUTH_NONE;
 
     // Only contact the master-server if we're allowed to do so
-    if (trustlevel > 1) {
+    if (trustlevel > 1)
+    {
         // not found in cache or local_auth, get auth from masterserver
 
         /* #### DISABLED UNTIL SUPPORTED BY NEW MULTIPLAYER PORTAL ####
-
-        std::string msg = "";
-        UTFString resultNick = L"";
-
-        char url[2048];
-        sprintf(url, "%s/authuser_utf8/?c=%s&t=%s&u=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), user_nick.asUTF8_c_str());
-        Logger::Log(LOG_DEBUG, "UserAuth query to server: " + std::string(url));
-        Http::Response resp;
-        if (HTTPGET(url, resp) < 0)
-        {
-            Logger::Log(LOG_ERROR, "UserAuth resolve query result empty");
-            return RoRnet::AUTH_NONE;
-        }
-
-        std::string body = resp.GetBody();
-        Logger::Log(LOG_DEBUG,"UserAuth reply: " + body);
-        
-        std::vector<std::string> args;
-        strict_tokenize(body, args, "\t");
-
-        if(args.size() < 2)
-        {
-            Logger::Log(LOG_INFO,"UserAuth: invalid return value from server: " + body);
-            return RoRnet::AUTH_NONE;
-        }
-        
-        authlevel = atoi(args[0].c_str());
-        resultNick = tryConvertUTF(args[1].c_str());
-        if(args.size() > 2)
-            msg = args[2];
-
-        // debug output the auth status
-        UTFString authst;
-        if(authlevel & RoRnet::AUTH_NONE)   authst = authst + "N";
-        if(authlevel & RoRnet::AUTH_ADMIN)  authst = authst + "A";
-        if(authlevel & RoRnet::AUTH_MOD)    authst = authst + "M";
-        if(authlevel & RoRnet::AUTH_RANKED) authst = authst + "R";
-        if(authlevel & RoRnet::AUTH_BOT)    authst = authst + "B";
-        if(authst.empty()) authst = "(none)";
-        Logger::Log(LOG_DEBUG, UTFString("User Auth Result: ") + authst + " / " + (resultNick) + " / " + tryConvertUTF(msg.c_str()));
-
-        if(resultNick == L"error" || resultNick == L"reserved" || resultNick == L"notranked")
-        {
-            resultNick = widen(getNewPlayernameByID(clientid));
-            Logger::Log(LOG_DEBUG, UTFString("got new random name for player: ") + resultNick);
-            authlevel = RoRnet::AUTH_NONE;
-        }
-
-        // returned name valid, use it
-        user_nick = resultNick;
-
-        */
+         *
+         * std::string msg = "";
+         * UTFString resultNick = L"";
+         *
+         * char url[2048];
+         * sprintf(url, "%s/authuser_utf8/?c=%s&t=%s&u=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), user_nick.asUTF8_c_str());
+         * Logger::Log(LOG_DEBUG, "UserAuth query to server: " + std::string(url));
+         * Http::Response resp;
+         * if (HTTPGET(url, resp) < 0)
+         * {
+         *  Logger::Log(LOG_ERROR, "UserAuth resolve query result empty");
+         *  return RoRnet::AUTH_NONE;
+         * }
+         *
+         * std::string body = resp.GetBody();
+         * Logger::Log(LOG_DEBUG,"UserAuth reply: " + body);
+         *
+         * std::vector<std::string> args;
+         * strict_tokenize(body, args, "\t");
+         *
+         * if(args.size() < 2)
+         * {
+         *  Logger::Log(LOG_INFO,"UserAuth: invalid return value from server: " + body);
+         *  return RoRnet::AUTH_NONE;
+         * }
+         *
+         * authlevel = atoi(args[0].c_str());
+         * resultNick = tryConvertUTF(args[1].c_str());
+         * if(args.size() > 2)
+         *  msg = args[2];
+         *
+         * // debug output the auth status
+         * UTFString authst;
+         * if(authlevel & RoRnet::AUTH_NONE)   authst = authst + "N";
+         * if(authlevel & RoRnet::AUTH_ADMIN)  authst = authst + "A";
+         * if(authlevel & RoRnet::AUTH_MOD)    authst = authst + "M";
+         * if(authlevel & RoRnet::AUTH_RANKED) authst = authst + "R";
+         * if(authlevel & RoRnet::AUTH_BOT)    authst = authst + "B";
+         * if(authst.empty()) authst = "(none)";
+         * Logger::Log(LOG_DEBUG, UTFString("User Auth Result: ") + authst + " / " + (resultNick) + " / " + tryConvertUTF(msg.c_str()));
+         *
+         * if(resultNick == L"error" || resultNick == L"reserved" || resultNick == L"notranked")
+         * {
+         *  resultNick = widen(getNewPlayernameByID(clientid));
+         *  Logger::Log(LOG_DEBUG, UTFString("got new random name for player: ") + resultNick);
+         *  authlevel = RoRnet::AUTH_NONE;
+         * }
+         *
+         * // returned name valid, use it
+         * user_nick = resultNick;
+         *
+         */
     }
 
     //then check for overrides in the authorizations file (server admins, etc)
-    if (local_auth.find(user_token) != local_auth.end()) {
+    if (local_auth.find(user_token) != local_auth.end())
+    {
         // local auth hit!
         // the stored nickname can be empty if no nickname is specified.
         if (!local_auth[user_token].second.empty())
@@ -239,9 +262,10 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
     }
 
     // cache result if ranked or higher
-    if (authlevel > RoRnet::AUTH_NONE) {
+    if (authlevel > RoRnet::AUTH_NONE)
+    {
         user_auth_pair_t p;
-        p.first = authlevel;
+        p.first  = authlevel;
         p.second = user_nick;
 
         Logger::Log(LOG_DEBUG, "adding entry to remote auth cache, size: %d", cache.size());
@@ -251,58 +275,60 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
     return authlevel;
 }
 
-int UserAuth::HTTPGET(const char *URL, Http::Response &resp) {
-    if (trustlevel <= 1) {
+int UserAuth::HTTPGET(const char *URL, Http::Response &resp)
+{
+    if (trustlevel <= 1)
+    {
         // If this happens, then you did something wrong in the server code
         Logger::Log(LOG_ERROR, "userauth: tried to contact master server without permission. URL: %s", URL);
         return 0;
     }
 
     /* #### DISABLED UNTIL SUPPORTED BY NEW MULTIPLAYER PORTAL ####
-    
-    char httpresp[65536];  //!< http response from the master server
-    int res=0;
-    SWBaseSocket::SWBaseError error;
-    SWInetSocket mySocket;
-
-    if (mySocket.connect(80, REPO_SERVER, &error))
-    {
-        char query[2048];
-        sprintf(query, "GET %s HTTP/1.1\r\nHost: %s\r\n\r\n", URL, REPO_SERVER);
-        Logger::Log(LOG_DEBUG,"Query to Master server: %s", query);
-        if (mySocket.sendmsg(query, &error)<0)
-        {
-            Logger::Log(LOG_ERROR,"Notifier: could not send request (%s)", error.get_error().c_str());
-            res=-1;
-        }
-        int rlen=mySocket.recv(httpresp, 65536, &error);
-        if (rlen>0 && rlen<65535) httpresp[rlen]=0;
-        else
-        {
-            Logger::Log(LOG_ERROR,"Notifier: could not get a valid response (%s)", error.get_error().c_str());
-            res=-1;
-        }
-        Logger::Log(LOG_DEBUG,"Response from Master server:'%s'", httpresp);
-        try
-        {
-            resp.FromBuffer(std::string(httpresp));
-        }
-        catch( std::runtime_error e)
-        {
-            Logger::Log(LOG_ERROR, e.what() );
-            res = -1;
-        }
-        // disconnect
-        mySocket.disconnect();
-    }
-    else
-    {
-        Logger::Log(LOG_ERROR,"Notifier: could not connect to the Master server (%s)", error.get_error().c_str());
-        res=-1;
-    }
-    return res;
-
-    */
+     *
+     * char httpresp[65536];  //!< http response from the master server
+     * int res=0;
+     * SWBaseSocket::SWBaseError error;
+     * SWInetSocket mySocket;
+     *
+     * if (mySocket.connect(80, REPO_SERVER, &error))
+     * {
+     *  char query[2048];
+     *  sprintf(query, "GET %s HTTP/1.1\r\nHost: %s\r\n\r\n", URL, REPO_SERVER);
+     *  Logger::Log(LOG_DEBUG,"Query to Master server: %s", query);
+     *  if (mySocket.sendmsg(query, &error)<0)
+     *  {
+     *      Logger::Log(LOG_ERROR,"Notifier: could not send request (%s)", error.get_error().c_str());
+     *      res=-1;
+     *  }
+     *  int rlen=mySocket.recv(httpresp, 65536, &error);
+     *  if (rlen>0 && rlen<65535) httpresp[rlen]=0;
+     *  else
+     *  {
+     *      Logger::Log(LOG_ERROR,"Notifier: could not get a valid response (%s)", error.get_error().c_str());
+     *      res=-1;
+     *  }
+     *  Logger::Log(LOG_DEBUG,"Response from Master server:'%s'", httpresp);
+     *  try
+     *  {
+     *      resp.FromBuffer(std::string(httpresp));
+     *  }
+     *  catch( std::runtime_error e)
+     *  {
+     *      Logger::Log(LOG_ERROR, e.what() );
+     *      res = -1;
+     *  }
+     *  // disconnect
+     *  mySocket.disconnect();
+     * }
+     * else
+     * {
+     *  Logger::Log(LOG_ERROR,"Notifier: could not connect to the Master server (%s)", error.get_error().c_str());
+     *  res=-1;
+     * }
+     * return res;
+     *
+     */
     return -1;
 }
 

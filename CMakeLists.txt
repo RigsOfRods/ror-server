@@ -7,6 +7,8 @@ endif (COMMAND cmake_policy)
 
 project(rorserver)
 
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
 # setup paths
 SET(RUNTIME_OUTPUT_DIRECTORY "${rorserver_SOURCE_DIR}/bin/")
 SET(LIBRARY_OUTPUT_DIRECTORY "${rorserver_SOURCE_DIR}/lib/")

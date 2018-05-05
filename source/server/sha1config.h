@@ -10,31 +10,31 @@
 #define XYSSL_CONFIG_H
 
 #ifndef _CRT_SECURE_NO_DEPRECATE
-#define _CRT_SECURE_NO_DEPRECATE 1
+#define _CRT_SECURE_NO_DEPRECATE    1
 #endif
 
 /*
  * Uncomment if native integers are 8-bit wide.
  *
-#define XYSSL_HAVE_INT8
+ ********#define XYSSL_HAVE_INT8
  */
 
 /*
  * Uncomment if native integers are 16-bit wide.
  *
-#define XYSSL_HAVE_INT16
+ ********#define XYSSL_HAVE_INT16
  */
 
 /*
  * Uncomment if the compiler supports long long.
  *
-#define XYSSL_HAVE_LONGLONG
+ ********#define XYSSL_HAVE_LONGLONG
  */
 
 /*
  * Uncomment if the CPU supports SSE2 (IA-32 specific).
  *
-#define XYSSL_HAVE_SSE2
+ ********#define XYSSL_HAVE_SSE2
  */
 
 /*
@@ -55,7 +55,7 @@
 /*
  * Uncomment this macro to store the AES tables in ROM.
  *
-#define XYSSL_AES_ROM_TABLES
+ ********#define XYSSL_AES_ROM_TABLES
  */
 
 /*

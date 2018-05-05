@@ -16,6 +16,7 @@ class UserAuth;
 
 class ScriptEngine;
 
-namespace Http {
+namespace Http
+{
     class Response;
 }

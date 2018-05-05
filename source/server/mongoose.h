@@ -36,23 +36,25 @@ struct mg_connection;    /* Handle for the individual connection	*/
  * This structure contains full information about the HTTP request.
  * It is passed to the user-specified callback function as a parameter.
  */
-struct mg_request_info {
-    char *request_method;    /* "GET", "POST", etc	*/
-    char *uri;            /* Normalized URI	*/
-    char *query_string;        /* \0 - terminated	*/
-    char *post_data;        /* POST data buffer	*/
-    char *remote_user;        /* Authenticated user	*/
+struct mg_request_info
+{
+    char *request_method;  /* "GET", "POST", etc	*/
+    char *uri;             /* Normalized URI	*/
+    char *query_string;    /* \0 - terminated	*/
+    char *post_data;       /* POST data buffer	*/
+    char *remote_user;     /* Authenticated user	*/
     long remote_ip;        /* Client's IP address	*/
-    int remote_port;        /* Client's port	*/
-    int post_data_len;        /* POST buffer length	*/
-    int http_version_major;
-    int http_version_minor;
-    int status_code;        /* HTTP status code	*/
-    int num_headers;        /* Number of headers	*/
-    struct mg_header {
-        char *name;        /* HTTP header name	*/
+    int  remote_port;      /* Client's port	*/
+    int  post_data_len;    /* POST buffer length	*/
+    int  http_version_major;
+    int  http_version_minor;
+    int  status_code;        /* HTTP status code	*/
+    int  num_headers;        /* Number of headers	*/
+    struct mg_header
+    {
+        char *name;         /* HTTP header name	*/
         char *value;        /* HTTP header value	*/
-    } http_headers[64];        /* Maximum 64 headers	*/
+    } http_headers[64];     /* Maximum 64 headers	*/
 };
 
 
@@ -98,7 +100,7 @@ const char *mg_get_option(const struct mg_context *, const char *option_name);
  * Return value:
  *	-1 if option is unknown
  *	0  if mg_set_option() failed
- *	1  if mg_set_option() succeeded 
+ *	1  if mg_set_option() succeeded
  */
 int mg_set_option(struct mg_context *, const char *opt_name, const char *value);
 
@@ -113,7 +115,7 @@ int mg_set_option(struct mg_context *, const char *opt_name, const char *value);
  * If password is not NULL, entry is added (or modified if already exists).
  * If password is NULL, entry is deleted. Return:
  *	1 on success
- *	0 on error 
+ *	0 on error
  */
 int mg_modify_passwords_file(struct mg_context *ctx, const char *file_name,
                              const char *user_name, const char *password);
@@ -220,7 +222,7 @@ void mg_authorize(struct mg_connection *);
  *	NULL      if the variable is not found
  *	non-NULL  if found. NOTE: this returned value is dynamically allocated
  *		  and is subject to mg_free() when no longer needed. It is
- *		  an application's responsibility to mg_free() the variable. 
+ *		  an application's responsibility to mg_free() the variable.
  */
 char *mg_get_var(const struct mg_connection *, const char *var_name);
 

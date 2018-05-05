@@ -1,37 +1,38 @@
 /*
-This file is part of "Rigs of Rods Server" (Relay mode)
-
-Copyright 2007   Pierre-Michel Ricordel
-Copyright 2014+  Rigs of Rods Community
-
-"Rigs of Rods Server" is free software: you can redistribute it
-and/or modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation, either version 3
-of the License, or (at your option) any later version.
-
-"Rigs of Rods Server" is distributed in the hope that it will
-be useful, but WITHOUT ANY WARRANTY; without even the implied
-warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with Foobar. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * This file is part of "Rigs of Rods Server" (Relay mode)
+ *
+ * Copyright 2007   Pierre-Michel Ricordel
+ * Copyright 2014+  Rigs of Rods Community
+ *
+ * "Rigs of Rods Server" is free software: you can redistribute it
+ * and/or modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, either version 3
+ * of the License, or (at your option) any later version.
+ *
+ * "Rigs of Rods Server" is distributed in the hope that it will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with "Rigs of Rods Server". If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #pragma once
 
 #include "UnicodeStrings.h"
 
 // server modes
-enum ServerType {
+enum ServerType
+{
     SERVER_LAN = 0,
     SERVER_INET,
     SERVER_AUTO
 };
 
-namespace Config {
-
-//! runs a check that all the required fields are present
+namespace Config
+{
+    //! runs a check that all the required fields are present
     bool checkConfig();
 
     bool ProcessArgs(int argc, char *argv[]);
@@ -40,11 +41,11 @@ namespace Config {
 
     void ShowVersion();
 
-//! checks if a password has been set for server access
+    //! checks if a password has been set for server access
     bool isPublic();
 
-//! getter function
-//!@{
+    //! getter function
+    //!@{
     unsigned int getMaxClients();
 
     const std::string &getServerName();
@@ -104,10 +105,10 @@ namespace Config {
     bool GetShowHelp();
 
     bool GetShowVersion();
-//!@}
+    //!@}
 
-//! setter functions
-//!@{
+    //! setter functions
+    //!@{
     bool setMaxClients(unsigned int num);
 
     bool setServerName(const std::string &name);
@@ -153,7 +154,6 @@ namespace Config {
     void setIRC(const std::string &irc);
 
     void setVoIP(const std::string &voip);
-//!@}
-
+    //!@}
 } // namespace Config
 

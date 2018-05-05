@@ -8,15 +8,16 @@
 /**
  * \brief          SHA-1 context structure
  */
-typedef struct {
-    unsigned long total[2];     /*!< number of bytes processed  */
-    unsigned long state[5];     /*!< intermediate digest state  */
-    unsigned char buffer[64];   /*!< data block being processed */
+typedef struct
+{
+    unsigned long total[2];      /*!< number of bytes processed  */
+    unsigned long state[5];      /*!< intermediate digest state  */
+    unsigned char buffer[64];    /*!< data block being processed */
 
-    unsigned char ipad[64];     /*!< HMAC: inner padding        */
-    unsigned char opad[64];     /*!< HMAC: outer padding        */
+    unsigned char ipad[64];      /*!< HMAC: inner padding        */
+    unsigned char opad[64];      /*!< HMAC: outer padding        */
 }
-        sha1_context;
+sha1_context;
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,7 +45,7 @@ void sha1_update(sha1_context *ctx, unsigned char *input, int ilen);
  * \param ctx      SHA-1 context
  * \param output   SHA-1 checksum result
  */
-void sha1_finish(sha1_context *ctx, unsigned char output[20]);
+void sha1_finish(sha1_context * ctx, unsigned char output[20]);
 
 /**
  * \brief          Output = SHA-1( input buffer )
@@ -90,7 +91,7 @@ void sha1_hmac_update(sha1_context *ctx, unsigned char *input, int ilen);
  * \param ctx      HMAC context
  * \param output   SHA-1 HMAC checksum result
  */
-void sha1_hmac_finish(sha1_context *ctx, unsigned char output[20]);
+void sha1_hmac_finish(sha1_context * ctx, unsigned char output[20]);
 
 /**
  * \brief          Output = HMAC-SHA-1( hmac key, input buffer )

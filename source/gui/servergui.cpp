@@ -48,46 +48,49 @@
 #include "stop.xpm"
 #include "stop_dis.xpm"
 
-class MyApp : public wxApp {
+class MyApp : public wxApp
+{
 public:
     virtual bool OnInit();
 
     virtual bool OnExceptionInMainLoop();
 };
 
-typedef struct log_queue_element_t {
-    int level;
+typedef struct log_queue_element_t
+{
+    int       level;
     UTFString msg;
     UTFString msgf;
 } log_queue_element_t;
 
 // Define a new frame type: this is going to be our main frame
-class MyDialog : public wxDialog {
+class MyDialog : public wxDialog
+{
 public:
     // ctor(s)
     MyDialog(const wxString &title, MyApp *_app);
 
-    void logCallback(int level, UTFString msg, UTFString msgf); //called by callback function
+    void logCallback(int level, UTFString msg, UTFString msgf);  //called by callback function
 private:
-    MyApp *app;
-    wxButton *startBtn, *stopBtn, *exitBtn, *pubipBtn;
-    wxTextCtrl *txtConsole, *ipaddr, *port, *slots, *passwd, *terrain, *sname, *logfilename, *adminuid;
-    wxComboBox *smode, *logmode;
-    wxNotebook *nbook;
-    wxListCtrl *slotlist;
+    MyApp            *app;
+    wxButton         *startBtn, *stopBtn, *exitBtn, *pubipBtn;
+    wxTextCtrl       *txtConsole, *ipaddr, *port, *slots, *passwd, *terrain, *sname, *logfilename, *adminuid;
+    wxComboBox       *smode, *logmode;
+    wxNotebook       *nbook;
+    wxListCtrl       *slotlist;
     wxScrolledWindow *settingsPanel;
-    wxPanel *logPanel, *playersPanel;
-    wxTimer *timer1;
-    wxToolBar *tb;
+    wxPanel          *logPanel, *playersPanel;
+    wxTimer          *timer1;
+    wxToolBar        *tb;
 
     void OnQuit(wxCloseEvent &event);
 
-    int loglevel;
-    int secondsCounter;
-    pthread_t notifyThread;
-    bool server_is_running;
+    int                             loglevel;
+    int                             secondsCounter;
+    pthread_t                       notifyThread;
+    bool                            server_is_running;
 
-    Mutex log_queue_mutex;
+    Mutex                           log_queue_mutex;
     std::deque<log_queue_element_t> log_queue;
 
     void OnBtnStart(wxCommandEvent &event);
@@ -113,59 +116,56 @@ private:
     DECLARE_EVENT_TABLE()
 };
 
-enum {
+enum
+{
     btn_start, btn_stop, btn_exit, EVT_timer1, btn_pubip, ctxtmenu_kick, ctxtmenu_ban, ctxtmenu_pm
 };
 
-BEGIN_EVENT_TABLE(MyDialog, wxDialog
-)
+BEGIN_EVENT_TABLE(MyDialog, wxDialog)
 EVT_CLOSE(MyDialog::OnQuit)
-EVT_BUTTON(btn_start, MyDialog::OnBtnStart
-)
-EVT_BUTTON(btn_stop, MyDialog::OnBtnStop
-)
-EVT_BUTTON(btn_exit, MyDialog::OnBtnExit
-)
-EVT_BUTTON(btn_pubip, MyDialog::OnBtnPubIP
-)
-EVT_TIMER(EVT_timer1, MyDialog::OnTimer
-)
+EVT_BUTTON(btn_start, MyDialog::OnBtnStart)
+EVT_BUTTON(btn_stop, MyDialog::OnBtnStop)
+EVT_BUTTON(btn_exit, MyDialog::OnBtnExit)
+EVT_BUTTON(btn_pubip, MyDialog::OnBtnPubIP)
+EVT_TIMER(EVT_timer1, MyDialog::OnTimer)
 
-EVT_TOOL(btn_start, MyDialog::OnBtnStart
-)
-EVT_TOOL(btn_stop, MyDialog::OnBtnStop
-)
-EVT_TOOL(btn_exit, MyDialog::OnBtnExit
-)
+EVT_TOOL(btn_start, MyDialog::OnBtnStart)
+EVT_TOOL(btn_stop, MyDialog::OnBtnStop)
+EVT_TOOL(btn_exit, MyDialog::OnBtnExit)
 
 END_EVENT_TABLE()
 
 IMPLEMENT_APP(MyApp)
 
 
-inline wxString conv(const char *s) {
+inline wxString conv(const char *s)
+{
     return wxString(s, wxConvUTF8);
 }
 
-inline wxString conv(const std::string &s) {
+inline wxString conv(const std::string &s)
+{
     return wxString(s.c_str(), wxConvUTF8);
 }
 
-inline std::string conv(const wxString &s) {
+inline std::string conv(const wxString &s)
+{
     return std::string(s.mb_str(wxConvUTF8));
 }
 
-void *s_notifyThreadStart(void *vid) {
+void *s_notifyThreadStart(void *vid)
+{
     STACKLOG;
     Sequencer::notifyRoutine();
     return NULL;
 }
 
 MyDialog *dialogInstance = 0; // we need to use this to be able to forward the messages
-MyApp *myApp = 0;
+MyApp    *myApp          = 0;
 
 // 'Main program' equivalent: the program execution "starts" here
-bool MyApp::OnInit() {
+bool MyApp::OnInit()
+{
     if (!wxApp::OnInit())
         return false;
 
@@ -177,7 +177,8 @@ bool MyApp::OnInit() {
     return true;
 }
 
-bool MyApp::OnExceptionInMainLoop() {
+bool MyApp::OnExceptionInMainLoop()
+{
     // something went wrong :/
     try {
         throw;
@@ -194,31 +195,35 @@ bool MyApp::OnExceptionInMainLoop() {
     return false;
 }
 
-void pureLogCallback(int level, UTFString msg, UTFString msgf) {
+void pureLogCallback(int level, UTFString msg, UTFString msgf)
+{
     dialogInstance->logCallback(level, msg, msgf);
 }
 
-void MyDialog::logCallback(int level, UTFString msg, UTFString msgf) {
-    if (level < loglevel) return;
+void MyDialog::logCallback(int level, UTFString msg, UTFString msgf)
+{
+    if (level < loglevel)
+        return;
 
     pthread_mutex_lock(log_queue_mutex.getRaw());
     if (log_queue.size() > 100)
         log_queue.pop_front();
     log_queue_element_t h;
     h.level = level;
-    h.msg = msg;
-    h.msgf = msgf;
+    h.msg   = msg;
+    h.msgf  = msgf;
     log_queue.push_back(h);
     pthread_mutex_unlock(log_queue_mutex.getRaw());
 }
 
 MyDialog::MyDialog(const wxString &title, MyApp *_app) :
-        wxDialog(NULL, wxID_ANY, title, wxDefaultPosition, wxSize(600, 600), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
-    app = _app;
-    loglevel = LOG_INFO;
+    wxDialog(NULL, wxID_ANY, title, wxDefaultPosition, wxSize(600, 600), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+{
+    app            = _app;
+    loglevel       = LOG_INFO;
     dialogInstance = this;
 
-    secondsCounter = 55; // trigger at start
+    secondsCounter = 55;  // trigger at start
 
     SetMinSize(wxSize(600, 600));
     //SetMaxSize(wxSize(500,500));
@@ -268,9 +273,9 @@ MyDialog::MyDialog(const wxString &title, MyApp *_app) :
     //settingsPanel->SetVirtualSize(300, 800);
     settingsPanel->SetScrollbars(0, 10, 1, 0, 0, 0);
 
-    wxSizer *settingsSizer = new wxBoxSizer(wxVERTICAL);
-    wxFlexGridSizer *grid_sizer = new wxFlexGridSizer(3, 2, 10, 20);
-    wxStaticText *dText;
+    wxSizer         *settingsSizer = new wxBoxSizer(wxVERTICAL);
+    wxFlexGridSizer *grid_sizer    = new wxFlexGridSizer(3, 2, 10, 20);
+    wxStaticText    *dText;
 
     // server version
     dText = new wxStaticText(settingsPanel, wxID_ANY, _("Server Version:"), wxDefaultPosition, wxDefaultSize,
@@ -295,8 +300,8 @@ MyDialog::MyDialog(const wxString &title, MyApp *_app) :
     wxString choices[2];
     choices[0] = _("LAN");
     choices[1] = _("Internet");
-    smode = new wxComboBox(settingsPanel, wxID_ANY, _("LAN"), wxDefaultPosition, wxDefaultSize, 2, choices,
-                           wxCB_DROPDOWN | wxCB_READONLY);
+    smode      = new wxComboBox(settingsPanel, wxID_ANY, _("LAN"), wxDefaultPosition, wxDefaultSize, 2, choices,
+                                wxCB_DROPDOWN | wxCB_READONLY);
     grid_sizer->Add(smode, 0, wxGROW);
 
     // IP
@@ -343,8 +348,8 @@ MyDialog::MyDialog(const wxString &title, MyApp *_app) :
     choices_log[3] = _("INFO");
     choices_log[4] = _("WARN");
     choices_log[5] = _("ERRROR");
-    logmode = new wxComboBox(settingsPanel, wxID_ANY, _("INFO"), wxDefaultPosition, wxDefaultSize, 6, choices_log,
-                             wxCB_DROPDOWN | wxCB_READONLY);
+    logmode        = new wxComboBox(settingsPanel, wxID_ANY, _("INFO"), wxDefaultPosition, wxDefaultSize, 6, choices_log,
+                                    wxCB_DROPDOWN | wxCB_READONLY);
     grid_sizer->Add(logmode, 0, wxGROW);
 
     // logfilename
@@ -422,7 +427,8 @@ MyDialog::MyDialog(const wxString &title, MyApp *_app) :
     Centre();
 }
 
-void MyDialog::OnTimer(wxTimerEvent &event) {
+void MyDialog::OnTimer(wxTimerEvent &event)
+{
     STACKLOG;
     // update the player tab
     // TODO: add a flag, so this is only updated when needed
@@ -432,8 +438,10 @@ void MyDialog::OnTimer(wxTimerEvent &event) {
     updateLogTab();
 
     secondsCounter++;
-    if (secondsCounter > 60) {
-        if (Config::getServerMode() == SERVER_LAN) {
+    if (secondsCounter > 60)
+    {
+        if (Config::getServerMode() == SERVER_LAN)
+        {
             Messaging::updateMinuteStats();
             Sequencer::updateMinuteStats();
 
@@ -444,12 +452,15 @@ void MyDialog::OnTimer(wxTimerEvent &event) {
     }
 }
 
-void MyDialog::updateLogTab() {
-    if (!log_queue.empty()) {
+void MyDialog::updateLogTab()
+{
+    if (!log_queue.empty())
+    {
         pthread_mutex_lock(log_queue_mutex.getRaw());
         txtConsole->Freeze();
         int lines = 0;
-        while (!log_queue.empty()) {
+        while (!log_queue.empty())
+        {
             log_queue_element_t h = log_queue.front();
             log_queue.pop_front();
 
@@ -468,8 +479,10 @@ void MyDialog::updateLogTab() {
 
             UTFString u = h.msgf;
             for (unsigned int i = 0; i < u.size(); i++)
+            {
                 if (u[i] == '\n')
                     ++lines;
+            }
 
             wxString wmsg = wxString(u.asWStr());
             txtConsole->AppendText(wmsg);
@@ -481,13 +494,16 @@ void MyDialog::updateLogTab() {
     }
 }
 
-void MyDialog::updatePlayerList() {
+void MyDialog::updatePlayerList()
+{
     slotlist->Freeze();
     std::vector<client_t> clients = Sequencer::getClients();
-    for (unsigned int i = 0; i < Config::getMaxClients(); i++) {
+    for (unsigned int i = 0; i < Config::getMaxClients(); i++)
+    {
         slotlist->SetItem(i, 0, wxString::Format(wxT("%d"), i));
 
-        if (i >= clients.size()) {
+        if (i >= clients.size())
+        {
             if (slotlist->GetItemText(i, 1) == _("FREE"))
                 break;
             slotlist->SetItem(i, 1, _("FREE"));
@@ -510,11 +526,16 @@ void MyDialog::updatePlayerList() {
         slotlist->SetItem(i, 3, conv(clients[i].ip_addr));
 
         char authst[5] = "";
-        if (clients[i].user.authstatus & AUTH_ADMIN) strcat(authst, "A");
-        if (clients[i].user.authstatus & AUTH_MOD) strcat(authst, "M");
-        if (clients[i].user.authstatus & AUTH_RANKED) strcat(authst, "R");
-        if (clients[i].user.authstatus & AUTH_BOT) strcat(authst, "B");
-        if (clients[i].user.authstatus & AUTH_BANNED) strcat(authst, "X");
+        if (clients[i].user.authstatus & AUTH_ADMIN)
+            strcat(authst, "A");
+        if (clients[i].user.authstatus & AUTH_MOD)
+            strcat(authst, "M");
+        if (clients[i].user.authstatus & AUTH_RANKED)
+            strcat(authst, "R");
+        if (clients[i].user.authstatus & AUTH_BOT)
+            strcat(authst, "B");
+        if (clients[i].user.authstatus & AUTH_BANNED)
+            strcat(authst, "X");
         slotlist->SetItem(i, 4, conv(authst));
         wxString un = wxString(tryConvertUTF(clients[i].user.username).asWStr());
         slotlist->SetItem(i, 5, un);
@@ -522,20 +543,23 @@ void MyDialog::updatePlayerList() {
     slotlist->Thaw();
 }
 
-void MyDialog::OnQuit(wxCloseEvent &event) {
+void MyDialog::OnQuit(wxCloseEvent &event)
+{
     Destroy();
     exit(0);
 }
 
-void MyDialog::OnContextMenu(wxContextMenuEvent &event) {
-    if (server_is_running) {
+void MyDialog::OnContextMenu(wxContextMenuEvent &event)
+{
+    if (server_is_running)
+    {
         // which client row is selected?
         long item = slotlist->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
         if (item == -1)
             return;
 
         // get the uid of that row
-        int uid = wxAtoi(slotlist->GetItemText(item, 2));
+        int      uid      = wxAtoi(slotlist->GetItemText(item, 2));
         wxString username = slotlist->GetItemText(item, 5);
 
         if (uid <= 0)
@@ -544,7 +568,7 @@ void MyDialog::OnContextMenu(wxContextMenuEvent &event) {
         // build the menu
         wxPoint point = event.GetPosition();
         point = ScreenToClient(point);
-        wxMenu menu;
+        wxMenu  menu;
         menu.SetTitle(username);
         menu.Append(ctxtmenu_kick, wxT("&kick"));
         menu.Append(ctxtmenu_ban, wxT("&ban"));
@@ -555,20 +579,24 @@ void MyDialog::OnContextMenu(wxContextMenuEvent &event) {
         const int rc = GetPopupMenuSelectionFromUser(menu, point);
 
         // interpret the selection and take the required action
-        if (rc == ctxtmenu_kick) {
+        if (rc == ctxtmenu_kick)
+        {
             wxString msg;
             msg.sprintf("Are you sure that you wish to kick user '%s'?", username);
-            int answer = wxMessageBox(msg, _("Confirmation required"), wxYES_NO | wxCANCEL, dialogInstance);
+            int      answer = wxMessageBox(msg, _("Confirmation required"), wxYES_NO | wxCANCEL, dialogInstance);
             if (answer == wxYES)
                 Sequencer::disconnect(uid, "Kicked by host.", false);
-        } else if (rc == ctxtmenu_ban) {
+        }
+        else if (rc == ctxtmenu_ban)
+        {
             wxString msg;
             msg.sprintf("Are you sure that you wish to kick and ban user '%s'?", username);
-            int answer = wxMessageBox(msg, _("Confirmation required"), wxYES_NO | wxCANCEL, dialogInstance);
-            if (answer == wxYES) {
+            int      answer = wxMessageBox(msg, _("Confirmation required"), wxYES_NO | wxCANCEL, dialogInstance);
+            if (answer == wxYES)
                 Sequencer::silentBan(uid, "Banned by host.");
-            }
-        } else if (rc == ctxtmenu_pm) {
+        }
+        else if (rc == ctxtmenu_pm)
+        {
             wxString msg;
             msg = wxGetTextFromUser(_("Please enter your private message:"),
                                     _("Private message"),
@@ -577,7 +605,7 @@ void MyDialog::OnContextMenu(wxContextMenuEvent &event) {
                                     wxDefaultCoord,
                                     wxDefaultCoord,
                                     true
-            );
+                  );
             if (!msg.IsEmpty())
                 Sequencer::serverSay(std::string(msg.mb_str()), uid, FROM_HOST);
         }
@@ -585,7 +613,8 @@ void MyDialog::OnContextMenu(wxContextMenuEvent &event) {
 }
 
 
-void MyDialog::OnBtnStart(wxCommandEvent &event) {
+void MyDialog::OnBtnStart(wxCommandEvent &event)
+{
     tb->EnableTool(btn_start, false);
     settingsPanel->Disable();
     wxBeginBusyCursor();
@@ -593,12 +622,16 @@ void MyDialog::OnBtnStart(wxCommandEvent &event) {
     //startBtn->Disable();
     //stopBtn->Enable();
     nbook->SetSelection(1);
-    if (startServer()) {
+    if (startServer())
+    {
         settingsPanel->Enable();
         tb->EnableTool(btn_start, true);
-    } else {
+    }
+    else
+    {
         // build the playerlist
-        for (unsigned int i = 0; i < Config::getMaxClients(); i++) {
+        for (unsigned int i = 0; i < Config::getMaxClients(); i++)
+        {
             slotlist->InsertItem(i, wxString::Format(wxT("%d"), i));
             slotlist->SetItem(i, 1, _("FREE"));
         }
@@ -611,7 +644,8 @@ void MyDialog::OnBtnStart(wxCommandEvent &event) {
     wxEndBusyCursor();
 }
 
-void MyDialog::OnBtnStop(wxCommandEvent &event) {
+void MyDialog::OnBtnStop(wxCommandEvent &event)
+{
     tb->EnableTool(btn_stop, false);
     wxBeginBusyCursor();
 
@@ -632,25 +666,35 @@ void MyDialog::OnBtnStop(wxCommandEvent &event) {
     wxEndBusyCursor();
 }
 
-void MyDialog::OnBtnExit(wxCommandEvent &event) {
+void MyDialog::OnBtnExit(wxCommandEvent &event)
+{
     Destroy();
     exit(0);
 }
 
-void MyDialog::OnBtnPubIP(wxCommandEvent &event) {
+void MyDialog::OnBtnPubIP(wxCommandEvent &event)
+{
     wxString ip = conv(Config::getPublicIP());
+
     ipaddr->SetValue(ip);
 }
 
-int MyDialog::startServer() {
+int MyDialog::startServer()
+{
     // set default verbose levels
     loglevel = LOG_INFO;
-    if (logmode->GetValue() == _("STACK")) loglevel = LOG_STACK;
-    if (logmode->GetValue() == _("DEBUG")) loglevel = LOG_DEBUG;
-    if (logmode->GetValue() == _("VERBOSE")) loglevel = LOG_VERBOSE;
-    if (logmode->GetValue() == _("INFO")) loglevel = LOG_INFO;
-    if (logmode->GetValue() == _("WARN")) loglevel = LOG_WARN;
-    if (logmode->GetValue() == _("ERROR")) loglevel = LOG_ERROR;
+    if (logmode->GetValue() == _("STACK"))
+        loglevel = LOG_STACK;
+    if (logmode->GetValue() == _("DEBUG"))
+        loglevel = LOG_DEBUG;
+    if (logmode->GetValue() == _("VERBOSE"))
+        loglevel = LOG_VERBOSE;
+    if (logmode->GetValue() == _("INFO"))
+        loglevel = LOG_INFO;
+    if (logmode->GetValue() == _("WARN"))
+        loglevel = LOG_WARN;
+    if (logmode->GetValue() == _("ERROR"))
+        loglevel = LOG_ERROR;
 
     Logger::setLogLevel(LOGTYPE_FILE, LOG_VERBOSE);
     Logger::setOutputFile("server.log");
@@ -689,26 +733,29 @@ int MyDialog::startServer() {
         Config::setPublicPass(conv(passwd->GetValue()));
 
     //server name, replace space with underscore
-    wxString server_name = sname->GetValue();
-    const wxString from = wxString(" ");
-    const wxString to = wxString("%20");
+    wxString       server_name = sname->GetValue();
+    const wxString from        = wxString(" ");
+    const wxString to          = wxString("%20");
     server_name.Replace(from, to, true);
 
-    if (!Config::setServerName(conv(server_name))) {
+    if (!Config::setServerName(conv(server_name)))
+    {
         Logger::log(LOG_ERROR, "Invalid servername!");
         wxBell();
         return 1;
     }
 
     // set the terrain
-    if (!Config::setTerrain(conv(terrain->GetValue()))) {
+    if (!Config::setTerrain(conv(terrain->GetValue())))
+    {
         Logger::log(LOG_ERROR, "Invalid terrain name!");
         wxBell();
         return 1;
     }
 
     // check the configuration
-    if (!Config::checkConfig()) {
+    if (!Config::checkConfig())
+    {
         wxBell();
         return 1;
     }
@@ -717,7 +764,8 @@ int MyDialog::startServer() {
     Sequencer::initilize();
 
     // set the admin
-    if (!adminuid->GetValue().IsEmpty()) {
+    if (!adminuid->GetValue().IsEmpty())
+    {
         std::string user_token = conv(adminuid->GetValue());
         SHA1FromString(user_token, user_token);
         if (Sequencer::getUserAuth())
@@ -734,9 +782,11 @@ int MyDialog::startServer() {
     return 0;
 }
 
-int MyDialog::stopServer() {
+int MyDialog::stopServer()
+{
     server_is_running = false;
-    if (Sequencer::getNotifier()) {
+    if (Sequencer::getNotifier())
+    {
         pthread_cancel(notifyThread);
         pthread_detach(notifyThread);
     }

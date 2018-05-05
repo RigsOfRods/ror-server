@@ -1,22 +1,22 @@
 /*
-This file is part of "Rigs of Rods Server" (Relay mode)
-
-Copyright 2007   Pierre-Michel Ricordel
-Copyright 2014+  Rigs of Rods Community
-
-"Rigs of Rods Server" is free software: you can redistribute it
-and/or modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation, either version 3
-of the License, or (at your option) any later version.
-
-"Rigs of Rods Server" is distributed in the hope that it will
-be useful, but WITHOUT ANY WARRANTY; without even the implied
-warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with Foobar. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * This file is part of "Rigs of Rods Server" (Relay mode)
+ *
+ * Copyright 2007   Pierre-Michel Ricordel
+ * Copyright 2014+  Rigs of Rods Community
+ *
+ * "Rigs of Rods Server" is free software: you can redistribute it
+ * and/or modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, either version 3
+ * of the License, or (at your option) any later version.
+ *
+ * "Rigs of Rods Server" is distributed in the hope that it will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with "Rigs of Rods Server". If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #pragma once
 
@@ -40,13 +40,15 @@ class Sequencer;
 /**
  * This struct holds the information for a script callback.
  */
-struct callback_t {
-    asIScriptObject *obj;  //!< The object instance that will need to be used with the function.
+struct callback_t
+{
+    asIScriptObject   *obj;  //!< The object instance that will need to be used with the function.
     asIScriptFunction *func; //!< The function or method pointer that will be called.
 };
-typedef std::vector<callback_t> callbackList;
+typedef std::vector<callback_t>   callbackList;
 
-class ScriptEngine {
+class ScriptEngine
+{
 public:
     ScriptEngine(Sequencer *seq);
 
@@ -78,7 +80,10 @@ public:
      * Gets the currently used AngelScript script engine.
      * @return a pointer to the currently used AngelScript script engine
      */
-    asIScriptEngine *getEngine() { return engine; };
+    asIScriptEngine *getEngine()
+    {
+        return engine;
+    };
 
     /**
      * Sets an exception that aborts the currently running script and shows the exception in the log file.
@@ -133,14 +138,14 @@ public:
     bool callbackExists(const std::string &type, asIScriptFunction *func, asIScriptObject *obj);
 
 protected:
-    Sequencer *seq;
-    asIScriptEngine *engine;                //!< instance of the scripting engine
-    asIScriptContext *context;              //!< context in which all scripting happens
-    Mutex context_mutex;                    //!< mutex used for locking access to the context
-    bool frameStepThreadRunning;            //!< indicates whether the thread for the frameStep is running or not
-    bool exit;                              //!< indicates whether the script engine is shutting down
-    pthread_t timer_thread;
-    std::map<std::string, callbackList> callbacks; //!< A map containing the script callbacks by type.
+    Sequencer                           *seq;
+    asIScriptEngine                     *engine;                //!< instance of the scripting engine
+    asIScriptContext                    *context;               //!< context in which all scripting happens
+    Mutex                               context_mutex;          //!< mutex used for locking access to the context
+    bool                                frameStepThreadRunning; //!< indicates whether the thread for the frameStep is running or not
+    bool                                exit;                   //!< indicates whether the script engine is shutting down
+    pthread_t                           timer_thread;
+    std::map<std::string, callbackList> callbacks;              //!< A map containing the script callbacks by type.
 
     /**
      * This function initialzies the engine and registeres all types
@@ -184,10 +189,11 @@ protected:
     void LineCallback(asIScriptContext *ctx, void *param);
 };
 
-class ServerScript {
+class ServerScript
+{
 protected:
-    ScriptEngine *mse;              //!< local script engine pointer, used as proxy mostly
-    Sequencer *seq;     //!< local pointer to the main ExampleFrameListener, used as proxy mostly
+    ScriptEngine *mse;   //!< local script engine pointer, used as proxy mostly
+    Sequencer    *seq;   //!< local pointer to the main ExampleFrameListener, used as proxy mostly
 
 public:
     ServerScript(ScriptEngine *se, Sequencer *seq);
@@ -274,4 +280,3 @@ public:
 };
 
 #endif // WITH_ANGELSCRIPT
-

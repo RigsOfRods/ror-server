@@ -1,22 +1,22 @@
 /*
-This file is part of "Rigs of Rods Server" (Relay mode)
-
-Copyright 2007   Pierre-Michel Ricordel
-Copyright 2014+  Rigs of Rods Community
-
-"Rigs of Rods Server" is free software: you can redistribute it
-and/or modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation, either version 3
-of the License, or (at your option) any later version.
-
-"Rigs of Rods Server" is distributed in the hope that it will
-be useful, but WITHOUT ANY WARRANTY; without even the implied
-warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with Foobar. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * This file is part of "Rigs of Rods Server" (Relay mode)
+ *
+ * Copyright 2007   Pierre-Michel Ricordel
+ * Copyright 2014+  Rigs of Rods Community
+ *
+ * "Rigs of Rods Server" is free software: you can redistribute it
+ * and/or modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, either version 3
+ * of the License, or (at your option) any later version.
+ *
+ * "Rigs of Rods Server" is distributed in the hope that it will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with "Rigs of Rods Server". If not, see <http://www.gnu.org/licenses/>.
+ */
 
 // copied from the angelscript library and edited for use in Rigs of Rods Multiplayer Server
 // 01 Jan 2012
@@ -43,7 +43,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 //  1 = on
 
 #ifndef AS_WRITE_OPS
-#define AS_WRITE_OPS 1
+#define AS_WRITE_OPS    1
 #endif
 
 
@@ -59,7 +59,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 BEGIN_AS_NAMESPACE
 
-class ScriptFileSafe {
+class ScriptFileSafe
+{
 public:
     ScriptFileSafe();
 
@@ -117,7 +118,7 @@ protected:
     ~ScriptFileSafe();
 
     mutable int refCount;
-    FILE *file;
+    FILE        *file;
 };
 
 // This function will determine the configuration of the engine

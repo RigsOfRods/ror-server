@@ -1,22 +1,22 @@
 /*
-This file is part of "Rigs of Rods Server" (Relay mode)
-
-Copyright 2007   Pierre-Michel Ricordel
-Copyright 2014+  Rigs of Rods Community
-
-"Rigs of Rods Server" is free software: you can redistribute it
-and/or modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation, either version 3
-of the License, or (at your option) any later version.
-
-"Rigs of Rods Server" is distributed in the hope that it will
-be useful, but WITHOUT ANY WARRANTY; without even the implied
-warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with Foobar. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * This file is part of "Rigs of Rods Server" (Relay mode)
+ *
+ * Copyright 2007   Pierre-Michel Ricordel
+ * Copyright 2014+  Rigs of Rods Community
+ *
+ * "Rigs of Rods Server" is free software: you can redistribute it
+ * and/or modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, either version 3
+ * of the License, or (at your option) any later version.
+ *
+ * "Rigs of Rods Server" is distributed in the hope that it will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with "Rigs of Rods Server". If not, see <http://www.gnu.org/licenses/>.
+ */
 
 // copied from the angelscript library and edited for use in Rigs of Rods Multiplayer Server
 // 01 Jan 2012
@@ -43,137 +43,184 @@ using namespace std;
 
 BEGIN_AS_NAMESPACE
 
-ScriptFileSafe *ScriptFile_Factory() {
+ScriptFileSafe *ScriptFile_Factory()
+{
     return new ScriptFileSafe();
 }
 
-void ScriptFile_Factory_Generic(asIScriptGeneric *gen) {
-    *(ScriptFileSafe **) gen->GetAddressOfReturnLocation() = ScriptFile_Factory();
+void ScriptFile_Factory_Generic(asIScriptGeneric *gen)
+{
+    *(ScriptFileSafe**)gen->GetAddressOfReturnLocation() = ScriptFile_Factory();
 }
 
-void ScriptFile_AddRef_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
+void ScriptFile_AddRef_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+
     file->AddRef();
 }
 
-void ScriptFile_Release_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
+void ScriptFile_Release_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+
     file->Release();
 }
 
-void ScriptFile_Open_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
-    std::string *f = (std::string *) gen->GetArgAddress(0);
-    std::string *m = (std::string *) gen->GetArgAddress(1);
-    int r = file->Open(*f, *m);
+void ScriptFile_Open_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+
+    std::string    *f = (std::string*)gen->GetArgAddress(0);
+    std::string    *m = (std::string*)gen->GetArgAddress(1);
+    int            r  = file->Open(*f, *m);
+
     gen->SetReturnDWord(r);
 }
 
-void ScriptFile_Close_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
-    int r = file->Close();
+void ScriptFile_Close_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+    int            r     = file->Close();
+
     gen->SetReturnDWord(r);
 }
 
-void ScriptFile_GetSize_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
-    int r = file->GetSize();
+void ScriptFile_GetSize_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+    int            r     = file->GetSize();
+
     gen->SetReturnDWord(r);
 }
 
-void ScriptFile_ReadString_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
-    int len = gen->GetArgDWord(0);
-    std::string *str = (std::string *) gen->GetArgAddress(1);
+void ScriptFile_ReadString_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+    int            len   = gen->GetArgDWord(0);
+
+    std::string    *str = (std::string*)gen->GetArgAddress(1);
+
     len = file->ReadString(len, *str);
     gen->SetReturnDWord(len);
 }
 
-void ScriptFile_ReadLine_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
-    std::string *str = (std::string *) gen->GetArgAddress(0);
-    int len = file->ReadLine(*str);
+void ScriptFile_ReadLine_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+
+    std::string    *str = (std::string*)gen->GetArgAddress(0);
+    int            len  = file->ReadLine(*str);
+
     gen->SetReturnDWord(len);
 }
 
-void ScriptFile_ReadInt_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
-    asUINT bytes = *(asUINT *) gen->GetAddressOfArg(0);
-    *(asINT64 *) gen->GetAddressOfReturnLocation() = file->ReadInt(bytes);
+void ScriptFile_ReadInt_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+    asUINT         bytes = *(asUINT*)gen->GetAddressOfArg(0);
+
+    *(asINT64*)gen->GetAddressOfReturnLocation() = file->ReadInt(bytes);
 }
 
-void ScriptFile_ReadUInt_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
-    asUINT bytes = *(asUINT *) gen->GetAddressOfArg(0);
-    *(asQWORD *) gen->GetAddressOfReturnLocation() = file->ReadUInt(bytes);
+void ScriptFile_ReadUInt_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+    asUINT         bytes = *(asUINT*)gen->GetAddressOfArg(0);
+
+    *(asQWORD*)gen->GetAddressOfReturnLocation() = file->ReadUInt(bytes);
 }
 
-void ScriptFile_ReadFloat_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
-    *(float *) gen->GetAddressOfReturnLocation() = file->ReadFloat();
+void ScriptFile_ReadFloat_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+
+    *(float*)gen->GetAddressOfReturnLocation() = file->ReadFloat();
 }
 
-void ScriptFile_ReadDouble_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
-    *(double *) gen->GetAddressOfReturnLocation() = file->ReadDouble();
+void ScriptFile_ReadDouble_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+
+    *(double*)gen->GetAddressOfReturnLocation() = file->ReadDouble();
 }
 
-void ScriptFile_WriteString_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
-    std::string *str = (std::string *) gen->GetArgAddress(0);
+void ScriptFile_WriteString_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+
+    std::string    *str = (std::string*)gen->GetArgAddress(0);
+
     gen->SetReturnDWord(file->WriteString(*str));
 }
 
-void ScriptFile_WriteInt_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
-    asINT64 val = *(asINT64 *) gen->GetAddressOfArg(0);
-    asUINT bytes = *(asUINT *) gen->GetAddressOfArg(1);
-    *(int *) gen->GetAddressOfReturnLocation() = file->WriteInt(val, bytes);
+void ScriptFile_WriteInt_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+    asINT64        val   = *(asINT64*)gen->GetAddressOfArg(0);
+    asUINT         bytes = *(asUINT*)gen->GetAddressOfArg(1);
+
+    *(int*)gen->GetAddressOfReturnLocation() = file->WriteInt(val, bytes);
 }
 
-void ScriptFile_WriteUInt_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
-    asQWORD val = *(asQWORD *) gen->GetAddressOfArg(0);
-    asUINT bytes = *(asUINT *) gen->GetAddressOfArg(1);
-    *(int *) gen->GetAddressOfReturnLocation() = file->WriteUInt(val, bytes);
+void ScriptFile_WriteUInt_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+    asQWORD        val   = *(asQWORD*)gen->GetAddressOfArg(0);
+    asUINT         bytes = *(asUINT*)gen->GetAddressOfArg(1);
+
+    *(int*)gen->GetAddressOfReturnLocation() = file->WriteUInt(val, bytes);
 }
 
-void ScriptFile_WriteFloat_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
-    float val = *(float *) gen->GetAddressOfArg(0);
-    *(int *) gen->GetAddressOfReturnLocation() = file->WriteFloat(val);
+void ScriptFile_WriteFloat_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+    float          val   = *(float*)gen->GetAddressOfArg(0);
+
+    *(int*)gen->GetAddressOfReturnLocation() = file->WriteFloat(val);
 }
 
-void ScriptFile_WriteDouble_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
-    double val = *(double *) gen->GetAddressOfArg(0);
-    *(int *) gen->GetAddressOfReturnLocation() = file->WriteDouble(val);
+void ScriptFile_WriteDouble_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+    double         val   = *(double*)gen->GetAddressOfArg(0);
+
+    *(int*)gen->GetAddressOfReturnLocation() = file->WriteDouble(val);
 }
 
-void ScriptFile_IsEOF_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
-    bool r = file->IsEOF();
+void ScriptFile_IsEOF_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+    bool           r     = file->IsEOF();
+
     gen->SetReturnByte(r);
 }
 
-void ScriptFile_GetPos_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
+void ScriptFile_GetPos_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+
     gen->SetReturnDWord(file->GetPos());
 }
 
-void ScriptFile_SetPos_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
-    int pos = (int) gen->GetArgDWord(0);
+void ScriptFile_SetPos_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+    int            pos   = (int)gen->GetArgDWord(0);
+
     gen->SetReturnDWord(file->SetPos(pos));
 }
 
-void ScriptFile_MovePos_Generic(asIScriptGeneric *gen) {
-    ScriptFileSafe *file = (ScriptFileSafe *) gen->GetObject();
-    int delta = (int) gen->GetArgDWord(0);
+void ScriptFile_MovePos_Generic(asIScriptGeneric *gen)
+{
+    ScriptFileSafe *file = (ScriptFileSafe*)gen->GetObject();
+    int            delta = (int)gen->GetArgDWord(0);
+
     gen->SetReturnDWord(file->MovePos(delta));
 }
 
-void RegisterScriptFile_Native(asIScriptEngine *engine) {
+void RegisterScriptFile_Native(asIScriptEngine *engine)
+{
     int r;
 
     r = engine->RegisterObjectType("file", 0, asOBJ_REF);
@@ -243,7 +290,8 @@ void RegisterScriptFile_Native(asIScriptEngine *engine) {
     assert(r >= 0);
 }
 
-void RegisterScriptFile_Generic(asIScriptEngine *engine) {
+void RegisterScriptFile_Generic(asIScriptEngine *engine)
+{
     int r;
 
     r = engine->RegisterObjectType("file", 0, asOBJ_REF);
@@ -318,33 +366,39 @@ void RegisterScriptFile_Generic(asIScriptEngine *engine) {
     assert(r >= 0);
 }
 
-void RegisterScriptFile(asIScriptEngine *engine) {
+void RegisterScriptFile(asIScriptEngine *engine)
+{
     if (strstr(asGetLibraryOptions(), "AS_MAX_PORTABILITY"))
         RegisterScriptFile_Generic(engine);
     else
         RegisterScriptFile_Native(engine);
 }
 
-ScriptFileSafe::ScriptFileSafe() {
-    refCount = 1;
-    file = 0;
+ScriptFileSafe::ScriptFileSafe()
+{
+    refCount                 = 1;
+    file                     = 0;
     mostSignificantByteFirst = false;
 }
 
-ScriptFileSafe::~ScriptFileSafe() {
+ScriptFileSafe::~ScriptFileSafe()
+{
     Close();
 }
 
-void ScriptFileSafe::AddRef() const {
+void ScriptFileSafe::AddRef() const
+{
     ++refCount;
 }
 
-void ScriptFileSafe::Release() const {
+void ScriptFileSafe::Release() const
+{
     if (--refCount == 0)
         delete this;
 }
 
-int ScriptFileSafe::Open(const std::string &filename, const std::string &mode) {
+int ScriptFileSafe::Open(const std::string &filename, const std::string &mode)
+{
     // Close the previously opened file handle
     if (file)
         Close();
@@ -358,7 +412,7 @@ int ScriptFileSafe::Open(const std::string &filename, const std::string &mode) {
 #if AS_WRITE_OPS == 1
     if (mode != "r" && mode != "w" && mode != "a")
 #else
-        if( mode != "r" )
+    if (mode != "r")
 #endif
         return -2;
     else
@@ -373,9 +427,10 @@ int ScriptFileSafe::Open(const std::string &filename, const std::string &mode) {
     if (myFilename.length() > 7 && myFilename.substr(myFilename.length() - 7, 7) == ".asdata")
         myFilename = myFilename.substr(0, myFilename.length() - 7);
 
-    // Replace all forbidden characters in the filename	
+    // Replace all forbidden characters in the filename
     std::string allowedChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-";
-    for (std::string::iterator it = myFilename.begin(); it < myFilename.end(); ++it) {
+    for (std::string::iterator it = myFilename.begin(); it < myFilename.end(); ++it)
+    {
         if (allowedChars.find(*it) == std::string::npos)
             *it = '_';
     }
@@ -393,7 +448,8 @@ int ScriptFileSafe::Open(const std::string &filename, const std::string &mode) {
     return 0;
 }
 
-int ScriptFileSafe::Close() {
+int ScriptFileSafe::Close()
+{
     if (file == 0)
         return -1;
 
@@ -403,7 +459,8 @@ int ScriptFileSafe::Close() {
     return 0;
 }
 
-int ScriptFileSafe::GetSize() const {
+int ScriptFileSafe::GetSize() const
+{
     if (file == 0)
         return -1;
 
@@ -415,14 +472,16 @@ int ScriptFileSafe::GetSize() const {
     return size;
 }
 
-int ScriptFileSafe::GetPos() const {
+int ScriptFileSafe::GetPos() const
+{
     if (file == 0)
         return -1;
 
     return ftell(file);
 }
 
-int ScriptFileSafe::SetPos(int pos) {
+int ScriptFileSafe::SetPos(int pos)
+{
     if (file == 0)
         return -1;
 
@@ -432,7 +491,8 @@ int ScriptFileSafe::SetPos(int pos) {
     return r ? -1 : 0;
 }
 
-int ScriptFileSafe::MovePos(int delta) {
+int ScriptFileSafe::MovePos(int delta)
+{
     if (file == 0)
         return -1;
 
@@ -442,19 +502,21 @@ int ScriptFileSafe::MovePos(int delta) {
     return r ? -1 : 0;
 }
 
-int ScriptFileSafe::ReadString(unsigned int length, std::string &str) {
+int ScriptFileSafe::ReadString(unsigned int length, std::string &str)
+{
     if (file == 0)
         return 0;
 
     // Read the string
     str.resize(length);
-    int size = (int) fread(&str[0], 1, length, file);
+    int size = (int)fread(&str[0], 1, length, file);
     str.resize(size);
 
     return size;
 }
 
-int ScriptFileSafe::ReadLine(std::string &str) {
+int ScriptFileSafe::ReadLine(std::string &str)
+{
     if (file == 0)
         return 0;
 
@@ -462,7 +524,8 @@ int ScriptFileSafe::ReadLine(std::string &str) {
     str = "";
     char buf[256];
 
-    do {
+    do
+    {
         // Get the current position so we can determine how many characters were read
         int start = ftell(file);
 
@@ -471,7 +534,8 @@ int ScriptFileSafe::ReadLine(std::string &str) {
 
         // Read the line (or first 255 characters, which ever comes first)
         char *r = fgets(buf, 256, file);
-        if (r == 0) break;
+        if (r == 0)
+            break;
 
         // Get the position after the read
         int end = ftell(file);
@@ -483,107 +547,152 @@ int ScriptFileSafe::ReadLine(std::string &str) {
     return int(str.size());
 }
 
-asINT64 ScriptFileSafe::ReadInt(asUINT bytes) {
+asINT64 ScriptFileSafe::ReadInt(asUINT bytes)
+{
     if (file == 0)
         return 0;
 
-    if (bytes > 8) bytes = 8;
-    if (bytes == 0) return 0;
+    if (bytes > 8)
+        bytes = 8;
+    if (bytes == 0)
+        return 0;
 
     unsigned char buf[8];
-    size_t r = fread(buf, bytes, 1, file);
-    if (r == 0) return 0;
+    size_t        r = fread(buf, bytes, 1, file);
+    if (r == 0)
+        return 0;
 
     asINT64 val = 0;
-    if (mostSignificantByteFirst) {
+    if (mostSignificantByteFirst)
+    {
         unsigned int n = 0;
         for (; n < bytes; n++)
+        {
             val |= asQWORD(buf[n]) << ((bytes - n - 1) * 8);
+        }
         if (buf[0] & 0x80)
             for (; n < 8; n++)
+            {
                 val |= asQWORD(0xFF) << (n * 8);
-    } else {
+            }
+    }
+    else
+    {
         unsigned int n = 0;
         for (; n < bytes; n++)
+        {
             val |= asQWORD(buf[n]) << (n * 8);
+        }
         if (buf[0] & 0x80)
             for (; n < 8; n++)
+            {
                 val |= asQWORD(0xFF) << (n * 8);
+            }
     }
 
     return val;
 }
 
-asQWORD ScriptFileSafe::ReadUInt(asUINT bytes) {
+asQWORD ScriptFileSafe::ReadUInt(asUINT bytes)
+{
     if (file == 0)
         return 0;
 
-    if (bytes > 8) bytes = 8;
-    if (bytes == 0) return 0;
+    if (bytes > 8)
+        bytes = 8;
+    if (bytes == 0)
+        return 0;
 
     unsigned char buf[8];
-    size_t r = fread(buf, bytes, 1, file);
-    if (r == 0) return 0;
+    size_t        r = fread(buf, bytes, 1, file);
+    if (r == 0)
+        return 0;
 
     asQWORD val = 0;
-    if (mostSignificantByteFirst) {
+    if (mostSignificantByteFirst)
+    {
         unsigned int n = 0;
         for (; n < bytes; n++)
+        {
             val |= asQWORD(buf[n]) << ((bytes - n - 1) * 8);
-    } else {
+        }
+    }
+    else
+    {
         unsigned int n = 0;
         for (; n < bytes; n++)
+        {
             val |= asQWORD(buf[n]) << (n * 8);
+        }
     }
 
     return val;
 }
 
-float ScriptFileSafe::ReadFloat() {
+float ScriptFileSafe::ReadFloat()
+{
     if (file == 0)
         return 0;
 
     unsigned char buf[4];
-    size_t r = fread(buf, 4, 1, file);
-    if (r == 0) return 0;
+    size_t        r = fread(buf, 4, 1, file);
+    if (r == 0)
+        return 0;
 
     asUINT val = 0;
-    if (mostSignificantByteFirst) {
+    if (mostSignificantByteFirst)
+    {
         unsigned int n = 0;
         for (; n < 4; n++)
+        {
             val |= asUINT(buf[n]) << ((3 - n) * 8);
-    } else {
+        }
+    }
+    else
+    {
         unsigned int n = 0;
         for (; n < 4; n++)
+        {
             val |= asUINT(buf[n]) << (n * 8);
+        }
     }
 
     return *reinterpret_cast<float *>(&val);
 }
 
-double ScriptFileSafe::ReadDouble() {
+double ScriptFileSafe::ReadDouble()
+{
     if (file == 0)
         return 0;
 
     unsigned char buf[8];
-    size_t r = fread(buf, 8, 1, file);
-    if (r == 0) return 0;
+    size_t        r = fread(buf, 8, 1, file);
+    if (r == 0)
+        return 0;
 
     asQWORD val = 0;
-    if (mostSignificantByteFirst) {
+    if (mostSignificantByteFirst)
+    {
         unsigned int n = 0;
         for (; n < 8; n++)
+        {
             val |= asQWORD(buf[n]) << ((7 - n) * 8);
-    } else {
+        }
+    }
+    else
+    {
         unsigned int n = 0;
         for (; n < 8; n++)
+        {
             val |= asQWORD(buf[n]) << (n * 8);
+        }
     }
 
     return *reinterpret_cast<double *>(&val);
 }
 
-bool ScriptFileSafe::IsEOF() const {
+bool ScriptFileSafe::IsEOF() const
+{
     if (file == 0)
         return true;
 
@@ -592,7 +701,8 @@ bool ScriptFileSafe::IsEOF() const {
 
 #if AS_WRITE_OPS == 1
 
-int ScriptFileSafe::WriteString(const std::string &str) {
+int ScriptFileSafe::WriteString(const std::string &str)
+{
     if (file == 0)
         return -1;
 
@@ -602,71 +712,87 @@ int ScriptFileSafe::WriteString(const std::string &str) {
     return int(r);
 }
 
-int ScriptFileSafe::WriteInt(asINT64 val, asUINT bytes) {
+int ScriptFileSafe::WriteInt(asINT64 val, asUINT bytes)
+{
     if (file == 0)
         return 0;
 
     unsigned char buf[8];
-    if (mostSignificantByteFirst) {
+    if (mostSignificantByteFirst)
         for (unsigned int n = 0; n < bytes; n++)
+        {
             buf[n] = (val >> ((bytes - n - 1) * 8)) & 0xFF;
-    } else {
+        }
+    else
         for (unsigned int n = 0; n < bytes; n++)
+        {
             buf[n] = (val >> (n * 8)) & 0xFF;
-    }
+        }
 
     size_t r = fwrite(&buf, bytes, 1, file);
     return int(r);
 }
 
-int ScriptFileSafe::WriteUInt(asQWORD val, asUINT bytes) {
+int ScriptFileSafe::WriteUInt(asQWORD val, asUINT bytes)
+{
     if (file == 0)
         return 0;
 
     unsigned char buf[8];
-    if (mostSignificantByteFirst) {
+    if (mostSignificantByteFirst)
         for (unsigned int n = 0; n < bytes; n++)
+        {
             buf[n] = (val >> ((bytes - n - 1) * 8)) & 0xFF;
-    } else {
+        }
+    else
         for (unsigned int n = 0; n < bytes; n++)
+        {
             buf[n] = (val >> (n * 8)) & 0xFF;
-    }
+        }
 
     size_t r = fwrite(&buf, bytes, 1, file);
     return int(r);
 }
 
-int ScriptFileSafe::WriteFloat(float f) {
+int ScriptFileSafe::WriteFloat(float f)
+{
     if (file == 0)
         return 0;
 
     unsigned char buf[4];
-    asUINT val = *reinterpret_cast<asUINT *>(&f);
-    if (mostSignificantByteFirst) {
+    asUINT        val = *reinterpret_cast<asUINT *>(&f);
+    if (mostSignificantByteFirst)
         for (unsigned int n = 0; n < 4; n++)
+        {
             buf[n] = (val >> ((3 - n) * 4)) & 0xFF;
-    } else {
+        }
+    else
         for (unsigned int n = 0; n < 4; n++)
+        {
             buf[n] = (val >> (n * 8)) & 0xFF;
-    }
+        }
 
     size_t r = fwrite(&buf, 4, 1, file);
     return int(r);
 }
 
-int ScriptFileSafe::WriteDouble(double d) {
+int ScriptFileSafe::WriteDouble(double d)
+{
     if (file == 0)
         return 0;
 
     unsigned char buf[8];
-    asQWORD val = *reinterpret_cast<asQWORD *>(&d);
-    if (mostSignificantByteFirst) {
+    asQWORD       val = *reinterpret_cast<asQWORD *>(&d);
+    if (mostSignificantByteFirst)
         for (unsigned int n = 0; n < 8; n++)
+        {
             buf[n] = (val >> ((7 - n) * 8)) & 0xFF;
-    } else {
+        }
+    else
         for (unsigned int n = 0; n < 8; n++)
+        {
             buf[n] = (val >> (n * 8)) & 0xFF;
-    }
+        }
 
     size_t r = fwrite(&buf, 8, 1, file);
     return int(r);

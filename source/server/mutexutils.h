@@ -1,22 +1,22 @@
 /*
-This file is part of "Rigs of Rods Server" (Relay mode)
-
-Copyright 2007   Pierre-Michel Ricordel
-Copyright 2014+  Rigs of Rods Community
-
-"Rigs of Rods Server" is free software: you can redistribute it
-and/or modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation, either version 3
-of the License, or (at your option) any later version.
-
-"Rigs of Rods Server" is distributed in the hope that it will
-be useful, but WITHOUT ANY WARRANTY; without even the implied
-warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with Foobar. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * This file is part of "Rigs of Rods Server" (Relay mode)
+ *
+ * Copyright 2007   Pierre-Michel Ricordel
+ * Copyright 2014+  Rigs of Rods Community
+ *
+ * "Rigs of Rods Server" is free software: you can redistribute it
+ * and/or modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, either version 3
+ * of the License, or (at your option) any later version.
+ *
+ * "Rigs of Rods Server" is distributed in the hope that it will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with "Rigs of Rods Server". If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #pragma once
 
@@ -24,13 +24,16 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #define USE_THREADID
 
-namespace Threading {
-
-    class SimpleCond {
-    public:
+namespace Threading
+{
+    class SimpleCond
+    {
+public:
         static const int INACTIVE = 0xFEFEFEFE;
 
-        SimpleCond() : m_value(INACTIVE) {}
+        SimpleCond() : m_value(INACTIVE)
+        {
+        }
 
         bool Initialize();
 
@@ -40,19 +43,19 @@ namespace Threading {
 
         bool Signal(int value);
 
-    private:
+private:
         bool Lock(const char *log_location);
 
         bool Unlock(const char *log_location);
 
-        pthread_cond_t m_cond;
+        pthread_cond_t  m_cond;
         pthread_mutex_t m_mutex;
-        int m_value;
+        int             m_value;
     };
-
 }
 
-class Condition {
+class Condition
+{
     friend class Mutex;
 
 public:
@@ -67,7 +70,8 @@ private:
 };
 
 
-class Mutex {
+class Mutex
+{
 public:
     Mutex();
 
@@ -79,15 +83,19 @@ public:
 
     void wait(Condition &c);
 
-    pthread_mutex_t *getRaw() { return &m; };
+    pthread_mutex_t *getRaw()
+    {
+        return &m;
+    };
 
 private:
     pthread_mutex_t m;
-    unsigned int lock_owner;
+    unsigned int    lock_owner;
 };
 
 
-class MutexLocker {
+class MutexLocker
+{
 public:
     MutexLocker(Mutex &pm);
 
@@ -97,8 +105,8 @@ private:
     Mutex &m;
 };
 
-class ThreadID {
-
+class ThreadID
+{
 public:
     static unsigned int getID();
 
@@ -107,8 +115,8 @@ private:
 
     static void make_key();
 
-    unsigned int thread_id;
-    static pthread_key_t key;
+    unsigned int          thread_id;
+    static pthread_key_t  key;
     static pthread_once_t key_once;
-    static unsigned int tuid;
+    static unsigned int   tuid;
 };

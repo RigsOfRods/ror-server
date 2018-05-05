@@ -1,22 +1,22 @@
 /*
-This file is part of "Rigs of Rods Server" (Relay mode)
-
-Copyright 2007   Pierre-Michel Ricordel
-Copyright 2014+  Rigs of Rods Community
-
-"Rigs of Rods Server" is free software: you can redistribute it
-and/or modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation, either version 3
-of the License, or (at your option) any later version.
-
-"Rigs of Rods Server" is distributed in the hope that it will
-be useful, but WITHOUT ANY WARRANTY; without even the implied
-warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with Foobar. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * This file is part of "Rigs of Rods Server" (Relay mode)
+ *
+ * Copyright 2007   Pierre-Michel Ricordel
+ * Copyright 2014+  Rigs of Rods Community
+ *
+ * "Rigs of Rods Server" is free software: you can redistribute it
+ * and/or modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, either version 3
+ * of the License, or (at your option) any later version.
+ *
+ * "Rigs of Rods Server" is distributed in the hope that it will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with "Rigs of Rods Server". If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #pragma once
 
@@ -27,14 +27,13 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <vector>
 #include <stdexcept>
 
-namespace Utils {
-
+namespace Utils
+{
     int generateRandomPortNumber();
 
     int ReadLinesFromFile(::std::string filename, std::vector<std::string> &lines);
 
     void SleepSeconds(unsigned int seconds);
-
 } // namespace Utils
 
 void tokenize(const std::string &str,
@@ -51,14 +50,14 @@ void strict_tokenize(const std::string &str,
 
 template<class T>
 T from_string(const std::string &s,
-              std::ios_base &(*f)(std::ios_base &)) {
-
+              std::ios_base & (*f)(std::ios_base &))
+{
     std::istringstream iss(s);
-    T t;
-    if (!(iss >> f >> t).fail()) {
+    T                  t;
+
+    if (!(iss >> f >> t).fail())
 
         throw std::runtime_error(s + " is not a numerical value");
-    }
     return t;
 }
 

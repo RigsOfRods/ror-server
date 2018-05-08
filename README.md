@@ -150,9 +150,13 @@ By default, if neither `-lan` nor `-inet` is used the server will try to registe
 
 ## Bandwidth used by the server:
 The RoR server uses large amounts of bandwidth. The general formula to compute bandwidth is:  
+
 -DOWNLOAD: `maxclients * 64kbit/s` 
+
 -UPLOAD  : `maxclients * (maxclients-1) * 64kbit/s` 
+
 That translates into:  
+
 -4 clients: `256kbit/s` download, `768kbit/s` upload <= will nearly saturate most ADSL links  
 -8 clients: `512kbit/s` download, `3.5Mbit/s` upload  
 -16 clients:  `1Mbit/s` download,  `15Mbit/s` upload  

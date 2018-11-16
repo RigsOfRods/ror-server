@@ -134,8 +134,8 @@ namespace RoRnet {
         int32_t status;                //!< initial stream status
         int32_t origin_sourceid;       //!< origin sourceid
         int32_t origin_streamid;       //!< origin streamid
-        int32_t bufferSize;            //!< initial stream status
         char name[128];             //!< the truck filename
+        int32_t bufferSize;            //!< initial stream status
         char truckconfig[10][60];   //!< truck section configuration
     };
 

@@ -179,7 +179,7 @@ void Listener::threadstart() {
             memset(&settings, 0, sizeof(RoRnet::ServerInfo));
             settings.has_password = !Config::getPublicPassword().empty();
             strncpy(settings.info, motd_str.c_str(), motd_str.size());
-            strncpy(settings.protocolversion, RORNET_VERSION, strlen(RORNET_VERSION));
+            strncpy(settings.protocolversion, RORNET_VERSION, sizeof(settings.protocolversion) - 1);
             strncpy(settings.servername, Config::getServerName().c_str(), Config::getServerName().size());
             strncpy(settings.terrain, Config::getTerrainName().c_str(), Config::getTerrainName().size());
 
@@ -230,7 +230,7 @@ void Listener::threadstart() {
             m_sequencer->createClient(ts, *user); // copy the user info, since the buffer will be cleared soon
             Logger::Log(LOG_DEBUG, "listener returned!");
         }
-        catch (std::runtime_error e) {
+        catch (std::runtime_error &e) {
             Logger::Log(LOG_ERROR, e.what());
             ts->disconnect(&error);
             delete ts;

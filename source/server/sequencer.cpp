@@ -264,7 +264,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
         }
         Logger::Log(LOG_WARN, std::string("New username was composed: ") + nick);
 
-        strncpy(user.username, nick.c_str(), RORNET_MAX_USERNAME_LEN);
+        strncpy(user.username, nick.c_str(), RORNET_MAX_USERNAME_LEN - 1);
 
         // we should send him a message about the nickchange later...
     }
@@ -600,7 +600,7 @@ bool Sequencer::Kick(int kuid, int modUID, const char *msg) {
         strcat(kickmsg, msg);
     }
 
-    char kickmsg2[1024] = "";
+    char kickmsg2[1036] = "";
     sprintf(kickmsg2, "player %s was %s", Str::SanitizeUtf8(kicked_client->user.username).c_str(), kickmsg);
     serverSay(kickmsg2, TO_ALL, FROM_SERVER);
 
@@ -631,10 +631,10 @@ bool Sequencer::Ban(int buid, int modUID, const char *msg) {
     b->uid = buid;
     if (msg) strncpy(b->banmsg, msg, 256);
     std::string mod_nickname = Str::SanitizeUtf8(mod_client->user.username);
-    strncpy(b->bannedby_nick, mod_nickname.c_str(), RORNET_MAX_USERNAME_LEN);
+    strncpy(b->bannedby_nick, mod_nickname.c_str(), RORNET_MAX_USERNAME_LEN - 1);
     strncpy(b->ip, banned_client->GetIpAddress().c_str(), 16);
     std::string banned_nickname = Str::SanitizeUtf8(banned_client->user.username);
-    strncpy(b->nickname, banned_nickname.c_str(), RORNET_MAX_USERNAME_LEN);
+    strncpy(b->nickname, banned_nickname.c_str(), RORNET_MAX_USERNAME_LEN - 1);
     Logger::Log(LOG_DEBUG, "adding ban, size: %d", m_bans.size());
     m_bans.push_back(b);
     Logger::Log(LOG_VERBOSE, "new ban added: '%s' by '%s'", banned_nickname.c_str(), mod_nickname.c_str());
@@ -661,10 +661,10 @@ void Sequencer::SilentBan(int buid, const char *msg, bool doScriptCallback /*= t
 
     b->uid = buid;
     if (msg) strncpy(b->banmsg, msg, 256);
-    strncpy(b->bannedby_nick, "rorserver", RORNET_MAX_USERNAME_LEN);
+    strncpy(b->bannedby_nick, "rorserver", RORNET_MAX_USERNAME_LEN - 1);
     strncpy(b->ip, banned_client->GetIpAddress().c_str(), 16);
     std::string banned_nickname = Str::SanitizeUtf8(banned_client->user.username);
-    strncpy(b->nickname, banned_nickname.c_str(), RORNET_MAX_USERNAME_LEN);
+    strncpy(b->nickname, banned_nickname.c_str(), RORNET_MAX_USERNAME_LEN - 1);
     Logger::Log(LOG_DEBUG, "adding ban, size: %d", m_bans.size());
     m_bans.push_back(b);
     Logger::Log(LOG_VERBOSE, "new ban added '%s' by rorserver", banned_nickname.c_str());

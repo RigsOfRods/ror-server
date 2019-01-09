@@ -80,7 +80,7 @@ namespace MasterServer {
         return true;
     }
 
-    bool Client::SendHeatbeat(Json::Value user_list) {
+    bool Client::SendHeatbeat(Json::Value &user_list) {
         Json::Value data(Json::objectValue);
         data["challenge"] = m_token;
         data["users"] = user_list;

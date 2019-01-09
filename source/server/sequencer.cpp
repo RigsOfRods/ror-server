@@ -348,7 +348,7 @@ void Sequencer::broadcastUserInfo(int client_id) {
     }
 }
 
-void Sequencer::GetHeartbeatUserList(Json::Value *out_array) {
+void Sequencer::GetHeartbeatUserList(Json::Value &out_array) {
     MutexLocker scoped_lock(m_clients_mutex);
 
     auto itor = m_clients.begin();
@@ -364,7 +364,7 @@ void Sequencer::GetHeartbeatUserList(Json::Value *out_array) {
         user_data["ip_address"] = client->GetIpAddress();
         user_data["client_id"] = client->user.uniqueid;
 
-        out_array->append(user_data);
+        out_array.append(user_data);
     }
 }
 

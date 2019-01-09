@@ -33,7 +33,7 @@ namespace MasterServer {
 
         bool Register();
 
-        bool SendHeatbeat(Json::Value user_list);
+        bool SendHeatbeat(Json::Value &user_list);
 
         bool UnRegister();
 

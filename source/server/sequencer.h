@@ -179,7 +179,7 @@ public:
     int getNumClients(); //! number of clients connected to this server
     Client *getClient(int uid);
 
-    void GetHeartbeatUserList(Json::Value *out_array);
+    void GetHeartbeatUserList(Json::Value &out_array);
 
     //! prints the Stats view, of who is connected and what slot they are in
     void printStats();

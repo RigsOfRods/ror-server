@@ -358,7 +358,7 @@ int main(int argc, char *argv[]) {
 
             Logger::Log(LOG_VERBOSE, "Sending heartbeat...");
             Json::Value user_list(Json::arrayValue);
-            s_sequencer.GetHeartbeatUserList(&user_list);
+            s_sequencer.GetHeartbeatUserList(user_list);
             if (!s_master_server.SendHeatbeat(user_list)) {
                 unsigned int timeout = Config::GetHeartbeatRetrySeconds();
                 unsigned int max_retries = Config::GetHeartbeatRetryCount();

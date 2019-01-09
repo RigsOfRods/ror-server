@@ -57,7 +57,7 @@ namespace Http {
                         method, host, url, result.get_error().c_str());
             return false;
         }
-        char query[2000] = {0};
+        char query[18000] = {0};
         char *query_pos = query;
 
         query_pos += sprintf(query_pos, "%s %s HTTP/1.1"      "\r\n", method, url);

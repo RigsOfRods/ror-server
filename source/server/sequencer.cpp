@@ -146,10 +146,6 @@ void Sequencer::Initialize(Listener *listener) {
  * this is in place of the destructor.
  */
 void Sequencer::Close() {
-    static bool cleanup = false;
-    if (cleanup) return;
-    cleanup = true; // WTF?? ~ only_a_ptr, 05/2016
-
     Logger::Log(LOG_INFO, "closing. disconnecting clients ...");
 
     const char *str = "server shutting down (try to reconnect later!)";
@@ -173,14 +169,8 @@ void Sequencer::Close() {
         m_auth_resolver = nullptr;
     }
 
-    if (m_listener != nullptr) {
-        delete m_listener;
-        m_listener = nullptr;
-    }
-
     pthread_cancel(m_killer_thread);
     pthread_detach(m_killer_thread);
-    cleanup = false; // WTF?? ~ only_a_ptr, 05/2016
 }
 
 bool Sequencer::CheckNickIsUnique(std::string &nick) {

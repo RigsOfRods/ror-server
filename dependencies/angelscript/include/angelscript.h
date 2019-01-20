@@ -576,60 +576,56 @@ BEGIN_AS_NAMESPACE
 template<typename T>
 asUINT asGetTypeTraits()
 {
-#if defined(_MSC_VER) || defined(_LIBCPP_TYPE_TRAITS)
-	// MSVC & XCode/Clang
-	// C++11 compliant code
-	bool hasConstructor        = std::is_default_constructible<T>::value && !std::is_trivially_default_constructible<T>::value;
-	bool hasDestructor         = std::is_destructible<T>::value          && !std::is_trivially_destructible<T>::value;
-	bool hasAssignmentOperator = std::is_copy_assignable<T>::value       && !std::is_trivially_copy_assignable<T>::value;
-	bool hasCopyConstructor    = std::is_copy_constructible<T>::value    && !std::is_trivially_copy_constructible<T>::value;
+#if defined(_MSC_VER) || defined(_LIBCPP_TYPE_TRAITS) || (__GNUC__ >= 5)
+ 	// MSVC & XCode/Clang & gnuc 5+
+ 	// C++11 compliant code
+ 	bool hasConstructor        = std::is_default_constructible<T>::value && !std::is_trivially_default_constructible<T>::value;
+ 	bool hasDestructor         = std::is_destructible<T>::value          && !std::is_trivially_destructible<T>::value;
+ 	bool hasAssignmentOperator = std::is_copy_assignable<T>::value       && !std::is_trivially_copy_assignable<T>::value;
+ 	bool hasCopyConstructor    = std::is_copy_constructible<T>::value    && !std::is_trivially_copy_constructible<T>::value;
 #elif defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 8))
 	// gnuc 4.8+
 	// gnuc is using a mix of C++11 standard and pre-standard templates
 	bool hasConstructor        = std::is_default_constructible<T>::value && !std::has_trivial_default_constructor<T>::value;
-	bool hasDestructor         = std::is_destructible<T>::value          && !std::is_trivially_destructible<T>::value;
-	bool hasAssignmentOperator = std::is_copy_assignable<T>::value       && !std::has_trivial_copy_assign<T>::value;
-	bool hasCopyConstructor    = std::is_copy_constructible<T>::value    && !std::has_trivial_copy_constructor<T>::value;
+ 	bool hasDestructor         = std::is_destructible<T>::value          && !std::is_trivially_destructible<T>::value;
+ 	bool hasAssignmentOperator = std::is_copy_assignable<T>::value       && !std::has_trivial_copy_assign<T>::value;
+ 	bool hasCopyConstructor    = std::is_copy_constructible<T>::value    && !std::has_trivial_copy_constructor<T>::value;
 #else
-	// Not fully C++11 compliant. The has_trivial checks were used while the standard was still
-	// being elaborated, but were then removed in favor of the above is_trivially checks
-	// http://stackoverflow.com/questions/12702103/writing-code-that-works-when-has-trivial-destructor-is-defined-instead-of-is
-	// https://github.com/mozart/mozart2/issues/51
-	bool hasConstructor        = std::is_default_constructible<T>::value && !std::has_trivial_default_constructor<T>::value;
-	bool hasDestructor         = std::is_destructible<T>::value          && !std::has_trivial_destructor<T>::value;
-	bool hasAssignmentOperator = std::is_copy_assignable<T>::value       && !std::has_trivial_copy_assign<T>::value;
-	bool hasCopyConstructor    = std::is_copy_constructible<T>::value    && !std::has_trivial_copy_constructor<T>::value;
+ 	// Not fully C++11 compliant. The has_trivial checks were used while the standard was still
+ 	// being elaborated, but were then removed in favor of the above is_trivially checks
+ 	// http://stackoverflow.com/questions/12702103/writing-code-that-works-when-has-trivial-destructor-is-defined-instead-of-is
+ 	// https://github.com/mozart/mozart2/issues/51
+ 	bool hasConstructor        = std::is_default_constructible<T>::value && !std::has_trivial_default_constructor<T>::value;
+ 	bool hasDestructor         = std::is_destructible<T>::value          && !std::has_trivial_destructor<T>::value;
+ 	bool hasAssignmentOperator = std::is_copy_assignable<T>::value       && !std::has_trivial_copy_assign<T>::value;
+ 	bool hasCopyConstructor    = std::is_copy_constructible<T>::value    && !std::has_trivial_copy_constructor<T>::value;
 #endif
-	bool isFloat     = std::is_floating_point<T>::value;
-	bool isPrimitive = std::is_integral<T>::value || std::is_pointer<T>::value || std::is_enum<T>::value;
-	bool isClass     = std::is_class<T>::value;
-	bool isArray     = std::is_array<T>::value;
-
-	if( isFloat )
-		return asOBJ_APP_FLOAT;
-	if( isPrimitive )
-		return asOBJ_APP_PRIMITIVE;
-
-	if( isClass )
-	{
-		asDWORD flags = asOBJ_APP_CLASS;
-		if( hasConstructor )
-			flags |= asOBJ_APP_CLASS_CONSTRUCTOR;
-		if( hasDestructor )
-			flags |= asOBJ_APP_CLASS_DESTRUCTOR;
-		if( hasAssignmentOperator )
-			flags |= asOBJ_APP_CLASS_ASSIGNMENT;
-		if( hasCopyConstructor )
-			flags |= asOBJ_APP_CLASS_COPY_CONSTRUCTOR;
-		return flags;
+ 	bool isFloat     = std::is_floating_point<T>::value;
+ 	bool isPrimitive = std::is_integral<T>::value || std::is_pointer<T>::value || std::is_enum<T>::value;
+ 	bool isClass     = std::is_class<T>::value;
+ 	bool isArray     = std::is_array<T>::value;
+ 	if( isFloat )
+  	  return asOBJ_APP_FLOAT;
+ 	if( isPrimitive )
+  	  return asOBJ_APP_PRIMITIVE;
+ 	if( isClass )
+ 	{
+  	  asDWORD flags = asOBJ_APP_CLASS;
+  	  if( hasConstructor )
+   	    flags |= asOBJ_APP_CLASS_CONSTRUCTOR;
+  	  if( hasDestructor )
+   	    flags |= asOBJ_APP_CLASS_DESTRUCTOR;
+  	  if( hasAssignmentOperator )
+   	    flags |= asOBJ_APP_CLASS_ASSIGNMENT;
+  	  if( hasCopyConstructor )
+   	    flags |= asOBJ_APP_CLASS_COPY_CONSTRUCTOR;
+  	    return flags;
+ 	}
+ 	if( isArray )
+  	  return asOBJ_APP_ARRAY;
+ 	  // Unknown type traits
+ 	  return 0;
 	}
-
-	if( isArray )
-		return asOBJ_APP_ARRAY;
-
-	// Unknown type traits
-	return 0;
-}
 
 #endif // c++11
 

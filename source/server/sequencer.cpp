@@ -869,7 +869,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
         disconnect(client->user.uniqueid, "disconnected on request", false);
     } else if (type == RoRnet::MSG2_UTF8_CHAT) {
         std::string str = Str::SanitizeUtf8(data);
-        Logger::Log(LOG_INFO, "CHAT| %s: %s", Str::SanitizeUtf8(client->user.username).c_str(), str);
+        Logger::Log(LOG_INFO, "CHAT| %s: %s", Str::SanitizeUtf8(client->user.username).c_str(), str.c_str());
         publishMode = BROADCAST_ALL;
 
         // no broadcast of server commands!

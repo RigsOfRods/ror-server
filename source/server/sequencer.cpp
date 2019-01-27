@@ -214,12 +214,6 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
 
     MutexLocker scoped_lock(m_clients_mutex);
 
-    std::string nick = Str::SanitizeUtf8(user.username);
-    bool dupeNick = Sequencer::CheckNickIsUnique(nick);
-    int playerColour = Sequencer::GetFreePlayerColour();
-
-    int dupecounter = 2;
-
     // check if banned
     SWBaseSocket::SWBaseError error;
     if (Sequencer::IsBanned(sock->get_peerAddr(&error).c_str())) {
@@ -240,23 +234,21 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
         throw std::runtime_error("Server is full");
     }
 
-    if (dupeNick) {
+    std::string nick = Str::SanitizeUtf8(user.username);
+    if (Sequencer::CheckNickIsUnique(nick)) {
         Logger::Log(LOG_WARN, std::string("found duplicate nick, getting new one: ") + nick);
 
         // shorten username so the number will fit (only if its too long already)
-        std::string new_nick_base = nick.substr(0, RORNET_MAX_USERNAME_LEN - 4);
-        // now get a new number
-        while (dupeNick) {
-            char buf[20] = "";
-            sprintf(buf, "_%3d", dupecounter++);
-            nick = new_nick_base + buf;
-            dupeNick = Sequencer::CheckNickIsUnique(nick);
+        std::string new_nick_base = nick.substr(0, RORNET_MAX_USERNAME_LEN - 4) + "-";
+
+        for (int i = 2; i < 99; i++) {
+            nick = new_nick_base + std::to_string(i);
+            if (!Sequencer::CheckNickIsUnique(nick)) {
+                Logger::Log(LOG_WARN, std::string("New username was composed: ") + nick);
+                strncpy(user.username, nick.c_str(), RORNET_MAX_USERNAME_LEN - 1);
+                break;
+            }
         }
-        Logger::Log(LOG_WARN, std::string("New username was composed: ") + nick);
-
-        strncpy(user.username, nick.c_str(), RORNET_MAX_USERNAME_LEN - 1);
-
-        // we should send him a message about the nickchange later...
     }
 
     // Increase the botcount if this is a bot
@@ -266,7 +258,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
     //okay, create the client slot
     Client *to_add = new Client(this, sock);
     to_add->user = user;
-    to_add->user.colournum = playerColour;
+    to_add->user.colournum = Sequencer::GetFreePlayerColour();
     to_add->user.authstatus = user.authstatus;
 
     // log some info about this client (in UTF8)

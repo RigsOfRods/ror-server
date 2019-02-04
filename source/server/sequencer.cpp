@@ -139,6 +139,8 @@ void Sequencer::Initialize(Listener *listener) {
 #endif //WITH_ANGELSCRIPT
 
     pthread_create(&m_killer_thread, NULL, LaunchKillerThread, this);
+
+    m_auth_resolver = new UserAuth(Config::getAuthFile());
 }
 
 /**

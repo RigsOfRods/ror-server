@@ -477,8 +477,6 @@ void ScriptEngine::init() {
     assert_net(result >= 0);
 
     // Register RoRnet::StreamRegister class
-    result = engine->SetDefaultNamespace("RoRnet");
-
     result = engine->RegisterObjectType("StreamRegister", sizeof(RoRnet::StreamRegister),
                                         asOBJ_REF | asOBJ_NOCOUNT);
     assert_net(result >= 0);

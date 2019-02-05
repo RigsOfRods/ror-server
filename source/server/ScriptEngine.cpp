@@ -477,22 +477,24 @@ void ScriptEngine::init() {
     assert_net(result >= 0);
 
     // Register RoRnet::StreamRegister class
-    result = engine->RegisterObjectType("RoRnet::StreamRegister", sizeof(RoRnet::StreamRegister),
+    result = engine->SetDefaultNamespace("RoRnet");
+
+    result = engine->RegisterObjectType("StreamRegister", sizeof(RoRnet::StreamRegister),
                                         asOBJ_REF | asOBJ_NOCOUNT);
     assert_net(result >= 0);
-    result = engine->RegisterObjectMethod("RoRnet::StreamRegister", "string getName()",
+    result = engine->RegisterObjectMethod("StreamRegister", "string getName()",
                                           asFUNCTION(stream_register_get_name), asCALL_CDECL_OBJFIRST);
     assert_net(result >= 0); // (No property accessor on purpose)
-    result = engine->RegisterObjectProperty("RoRnet::StreamRegister", "int type",
+    result = engine->RegisterObjectProperty("StreamRegister", "int type",
                                             offsetof(RoRnet::StreamRegister, type));
     assert_net(result >= 0);
-    result = engine->RegisterObjectProperty("RoRnet::StreamRegister", "int status",
+    result = engine->RegisterObjectProperty("StreamRegister", "int status",
                                             offsetof(RoRnet::StreamRegister, status));
     assert_net(result >= 0);
-    result = engine->RegisterObjectProperty("RoRnet::StreamRegister", "int origin_sourceid",
+    result = engine->RegisterObjectProperty("StreamRegister", "int origin_sourceid",
                                             offsetof(RoRnet::StreamRegister, origin_sourceid));
     assert_net(result >= 0);
-    result = engine->RegisterObjectProperty("RoRnet::StreamRegister", "int origin_streamid",
+    result = engine->RegisterObjectProperty("StreamRegister", "int origin_streamid",
                                             offsetof(RoRnet::StreamRegister, origin_streamid));
     assert_net(result >= 0);
 
@@ -524,19 +526,19 @@ void ScriptEngine::init() {
     // Register authorizations
     result = engine->RegisterEnum("authType");
     assert_net(result >= 0);
-    result = engine->RegisterEnumValue("authType", "RoRnet::AUTH_NONE", RoRnet::AUTH_NONE);
+    result = engine->RegisterEnumValue("authType", "AUTH_NONE", RoRnet::AUTH_NONE);
     assert_net(result >= 0);
-    result = engine->RegisterEnumValue("authType", "RoRnet::AUTH_ADMIN", RoRnet::AUTH_ADMIN);
+    result = engine->RegisterEnumValue("authType", "AUTH_ADMIN", RoRnet::AUTH_ADMIN);
     assert_net(result >= 0);
-    result = engine->RegisterEnumValue("authType", "RoRnet::AUTH_RANKED", RoRnet::AUTH_RANKED);
+    result = engine->RegisterEnumValue("authType", "AUTH_RANKED", RoRnet::AUTH_RANKED);
     assert_net(result >= 0);
-    result = engine->RegisterEnumValue("authType", "RoRnet::AUTH_MOD", RoRnet::AUTH_MOD);
+    result = engine->RegisterEnumValue("authType", "AUTH_MOD", RoRnet::AUTH_MOD);
     assert_net(result >= 0);
-    result = engine->RegisterEnumValue("authType", "RoRnet::AUTH_BOT", RoRnet::AUTH_BOT);
+    result = engine->RegisterEnumValue("authType", "AUTH_BOT", RoRnet::AUTH_BOT);
     assert_net(result >= 0);
-    result = engine->RegisterEnumValue("authType", "RoRnet::AUTH_BANNED", RoRnet::AUTH_BANNED);
+    result = engine->RegisterEnumValue("authType", "AUTH_BANNED", RoRnet::AUTH_BANNED);
     assert_net(result >= 0);
-    result = engine->RegisterEnumValue("authType", "RoRnet::AUTH_ALL", 0xFFFFFFFF);
+    result = engine->RegisterEnumValue("authType", "AUTH_ALL", 0xFFFFFFFF);
     assert_net(result >= 0);
 
     // Register serverSayType

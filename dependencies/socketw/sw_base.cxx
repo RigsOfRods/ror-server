@@ -28,6 +28,7 @@
   #include <unistd.h>
   #include <sys/select.h>
   #include <sys/time.h>
+  #include <netinet/tcp.h>
   
   #define INVALID_SOCKET -1  //avoid M$ braindamage
 #else
@@ -214,7 +215,7 @@ bool SWBaseSocket::listen(int qLimit, SWBaseError *error)
 
 	//Avoid "Address already in use" thingie
 	char yes=1;
-	setsockopt(myfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+	setsockopt(myfd, SOL_SOCKET, TCP_NODELAY, &yes, sizeof(int));
 	
 	if(::listen(myfd, qLimit) == -1){		
 		handle_errno(error, "SWBaseSocket::listen() error: ");

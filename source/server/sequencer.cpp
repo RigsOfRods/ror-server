@@ -389,7 +389,6 @@ void Sequencer::killerthreadstart() {
 }
 
 void Sequencer::disconnect(int uid, const char *errormsg, bool isError, bool doScriptCallback /*= true*/) {
-    MutexLocker scoped_lock(m_killer_mutex);
     Client *client = this->FindClientById(static_cast<unsigned int>(uid));
     if (client == nullptr) {
         return;
@@ -416,19 +415,22 @@ void Sequencer::disconnect(int uid, const char *errormsg, bool isError, bool doS
     //so we use a killer thread
     Logger::Log(LOG_VERBOSE, "Disconnecting client ID %d: %s", uid, errormsg);
     Logger::Log(LOG_DEBUG, "adding client to kill queue, size: %d", m_kill_queue.size());
-    m_kill_queue.push(client);
+    {
+        MutexLocker scoped_lock(m_killer_mutex);
+        m_kill_queue.push(client);
+    }
+    m_killer_cond.signal();
 
     //notify the others
     int pos = 0;
     for (unsigned int i = 0; i < m_clients.size(); i++) {
-        m_clients[i]->QueueMessage(RoRnet::MSG2_USER_LEAVE, client->user.uniqueid, 0, (int) strlen(errormsg), errormsg);
         if (m_clients[i]->user.uniqueid == static_cast<unsigned int>(uid)) {
             pos = i;
+        } else {
+            m_clients[i]->QueueMessage(RoRnet::MSG2_USER_LEAVE, uid, 0, (int) strlen(errormsg), errormsg);
         }
     }
     m_clients.erase(m_clients.begin() + pos);
-
-    m_killer_cond.signal();
 
     this->connCount++;
     if (isError) {
@@ -594,7 +596,7 @@ bool Sequencer::Kick(int kuid, int modUID, const char *msg) {
             Str::SanitizeUtf8(kicked_client->user.username).c_str(),
             Str::SanitizeUtf8(mod_client->user.username).c_str());
 
-    disconnect(kicked_client->user.uniqueid, kickmsg);
+    disconnect(kicked_client->user.uniqueid, kickmsg, false);
     return true;
 }
 

@@ -88,7 +88,7 @@ namespace Config {
                         "\n"
                         " -config-file (-c) <INI file> Loads the configuration from a file\n"
                         " -name <name>                 Name of the server, no spaces, only\n"
-                        " -                            [a-z,0-9,A-Z]\n"
+                        "                              [a-z,0-9,A-Z]\n"
                         " -terrain <mapname>           Map name (defaults to 'any')\n"
                         " -max-clients|speed <clients> Maximum clients allowed\n"
                         " -lan|inet                    Private or public server (defaults to inet)\n"

@@ -101,7 +101,7 @@ public:
 
     void Disconnect();
 
-    void QueueMessage(int msg_type, int client_id, bool discardable, unsigned int stream_id, unsigned int payload_len, const char *payload);
+    void QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len, const char *payload);
 
     void NotifyAllVehicles(Sequencer *sequencer);
 
@@ -165,7 +165,7 @@ public:
     //! queue client for disconenct
     void disconnect(int pos, const char *error, bool isError = true, bool doScriptCallback = true);
 
-    void queueMessage(int uid, int type, bool discardable, unsigned int streamid, char *data, unsigned int len);
+    void queueMessage(int uid, int type, unsigned int streamid, char *data, unsigned int len);
 
     void enableFlow(int id);
 

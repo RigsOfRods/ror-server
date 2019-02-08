@@ -80,6 +80,11 @@ void Broadcaster::Thread() {
             m_msg_queue.pop_front();
         }
 
+        if (msg.type == RoRnet::MSG2_STREAM_DATA_DISCARDABLE)
+        {
+            msg.type = RoRnet::MSG2_STREAM_DATA;
+        }
+
         // TODO WARNING THE SOCKET IS NOT PROTECTED!!!
         if (Messaging::SendMessage(m_socket, msg.type, msg.uid, msg.streamid, msg.datalen, msg.data) != 0) {
             m_sequencer->disconnect(m_client_id, "Broadcaster: Send error", true, true);
@@ -90,7 +95,7 @@ void Broadcaster::Thread() {
     if (!m_is_running) {
         MutexLocker scoped_lock(m_queue_mutex);
         for (const auto& msg : m_msg_queue) {
-            if (msg.type != RoRnet::MSG2_STREAM_DATA) {
+            if (msg.type != RoRnet::MSG2_STREAM_DATA && msg.type != RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
                 Messaging::SendMessage(m_socket, msg.type, msg.uid, msg.streamid, msg.datalen, msg.data);
             }
         }
@@ -101,20 +106,20 @@ void Broadcaster::Thread() {
 //and keep in mind that it is called crazily and concurently from lots of threads
 //we MUST copy the data too
 //also, this function can be called by threads owning clients_mutex !!!
-void Broadcaster::QueueMessage(int type, int uid, bool discardable, unsigned int streamid, unsigned int len, const char *data) {
+void Broadcaster::QueueMessage(int type, int uid, unsigned int streamid, unsigned int len, const char *data) {
     if (!m_is_running) {
         return;
     }
-    queue_entry_t msg = {type, uid, discardable, streamid, len, ""};
+    queue_entry_t msg = {type, uid, streamid, len, ""};
     memcpy(msg.data, data, len);
 
     {
         MutexLocker scoped_lock(m_queue_mutex);
         if (m_msg_queue.empty()) {
             m_is_dropping_packets = false;
-        } else if (discardable) {
-            auto search = std::find_if(m_msg_queue.begin(), m_msg_queue.end(),
-                    [&](const queue_entry_t& m) { return m.uid == uid && m.discardable && m.streamid == streamid; });
+        } else if (type == RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
+            auto search = std::find_if(m_msg_queue.begin(), m_msg_queue.end(), [&](const queue_entry_t& m)
+                    { return m.type == RoRnet::MSG2_STREAM_DATA_DISCARDABLE && m.uid == uid && m.streamid == streamid; });
             if (search != m_msg_queue.end()) {
                 // Found outdated discardable streamdata -> replace it
                 (*search) = msg;

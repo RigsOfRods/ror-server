@@ -33,7 +33,6 @@ class Sequencer;
 struct queue_entry_t {
     int type;
     int uid;
-    bool discardable;
     unsigned int streamid;
     unsigned int datalen;
     char data[RORNET_MAX_MESSAGE_LENGTH];
@@ -54,7 +53,7 @@ public:
 
     void Stop();
 
-    void QueueMessage(int msg_type, int client_id, bool discardable, unsigned int streamid, unsigned int payload_len, const char *payload);
+    void QueueMessage(int msg_type, int client_id, unsigned int streamid, unsigned int payload_len, const char *payload);
 
     bool IsDroppingPackets() const { return m_is_dropping_packets; }
 

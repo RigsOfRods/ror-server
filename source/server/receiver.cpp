@@ -65,6 +65,7 @@ void Receiver::Thread() {
     //get the vehicle description
     int type;
     int source;
+    bool discardable;
     unsigned int streamid;
     unsigned int len;
     SWBaseSocket::SWBaseError error;
@@ -80,7 +81,7 @@ void Receiver::Thread() {
     // which is the cause of threads getting blocked
     m_socket->set_timeout(60, 0);
     while (m_is_running) {
-        if (Messaging::ReceiveMessage(m_socket, &type, &source, &streamid, &len, m_dbuffer,
+        if (Messaging::ReceiveMessage(m_socket, &type, &source, &discardable, &streamid, &len, m_dbuffer,
                                       RORNET_MAX_MESSAGE_LENGTH)) {
             m_sequencer->disconnect(m_id, "Game connection closed");
             break;
@@ -98,6 +99,6 @@ void Receiver::Thread() {
             m_sequencer->disconnect(m_id, "Protocol error 3");
             break;
         }
-        m_sequencer->queueMessage(m_id, type, streamid, m_dbuffer, len);
+        m_sequencer->queueMessage(m_id, type, discardable, streamid, m_dbuffer, len);
     }
 }

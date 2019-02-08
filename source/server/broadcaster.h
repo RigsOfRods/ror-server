@@ -31,12 +31,12 @@ class SWInetSocket;
 class Sequencer;
 
 struct queue_entry_t {
-    bool is_dropping;
     int type;
     int uid;
+    bool discardable;
     unsigned int streamid;
-    char data[RORNET_MAX_MESSAGE_LENGTH];
     unsigned int datalen;
+    char data[RORNET_MAX_MESSAGE_LENGTH];
 };
 
 void *StartBroadcasterThread(void *);
@@ -54,8 +54,7 @@ public:
 
     void Stop();
 
-    void
-    QueueMessage(int msg_type, int client_id, unsigned int streamid, unsigned int payload_len, const char *payload);
+    void QueueMessage(int msg_type, int client_id, bool discardable, unsigned int streamid, unsigned int payload_len, const char *payload);
 
     bool IsDroppingPackets() const { return m_is_dropping_packets; }
 

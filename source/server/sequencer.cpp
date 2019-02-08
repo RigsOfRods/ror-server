@@ -411,6 +411,16 @@ void Sequencer::disconnect(int uid, const char *errormsg, bool isError, bool doS
         m_bot_count--;
     }
 
+    //notify the others
+    int pos = 0;
+    for (unsigned int i = 0; i < m_clients.size(); i++) {
+        m_clients[i]->QueueMessage(RoRnet::MSG2_USER_LEAVE, uid, 0, (int) strlen(errormsg), errormsg);
+        if (m_clients[i]->user.uniqueid == static_cast<unsigned int>(uid)) {
+            pos = i;
+        }
+    }
+    m_clients.erase(m_clients.begin() + pos);
+
     //this routine is a potential trouble maker as it can be called from many thread contexts
     //so we use a killer thread
     Logger::Log(LOG_VERBOSE, "Disconnecting client ID %d: %s", uid, errormsg);
@@ -420,17 +430,6 @@ void Sequencer::disconnect(int uid, const char *errormsg, bool isError, bool doS
         m_kill_queue.push(client);
     }
     m_killer_cond.signal();
-
-    //notify the others
-    int pos = 0;
-    for (unsigned int i = 0; i < m_clients.size(); i++) {
-        if (m_clients[i]->user.uniqueid == static_cast<unsigned int>(uid)) {
-            pos = i;
-        } else {
-            m_clients[i]->QueueMessage(RoRnet::MSG2_USER_LEAVE, uid, 0, (int) strlen(errormsg), errormsg);
-        }
-    }
-    m_clients.erase(m_clients.begin() + pos);
 
     this->connCount++;
     if (isError) {

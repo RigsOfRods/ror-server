@@ -160,7 +160,6 @@ namespace Messaging {
         while (hlen < (int) sizeof(RoRnet::Header)) {
             int recvnum = socket->recv(buffer + hlen, sizeof(RoRnet::Header) - hlen, &error);
             if (recvnum < 0 || error != SWBaseSocket::ok) {
-                Logger::Log(LOG_ERROR, "receive error -2: %s", error.get_error().c_str());
                 // this also happens when the connection is canceled
                 return -2;
             }
@@ -186,8 +185,6 @@ namespace Messaging {
                 int recvnum = socket->recv(buffer + hlen,
                                            (head.size + sizeof(RoRnet::Header)) - hlen, &error);
                 if (recvnum < 0 || error != SWBaseSocket::ok) {
-                    Logger::Log(LOG_ERROR, "receive error -1: %s",
-                                error.get_error().c_str());
                     return -1;
                 }
                 hlen += recvnum;

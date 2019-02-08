@@ -55,8 +55,8 @@ void Broadcaster::Start(int client_id, SWInetSocket *socket) {
 void Broadcaster::Stop() {
     m_queue_mutex.lock();
     m_is_running = false;
-    m_queue_cond.signal();
     m_queue_mutex.unlock();
+    m_queue_cond.signal();
 
     pthread_join(m_thread, nullptr);
 }
@@ -90,10 +90,13 @@ void Broadcaster::Thread() {
         }
     }
 
-    if (m_is_running) {
+    if (!m_is_running) {
         MutexLocker scoped_lock(m_queue_mutex);
-        m_is_running = false;
-        m_queue_mutex.wait(m_queue_cond);
+        for (const auto& msg : m_msg_queue) {
+            if (msg.type != RoRnet::MSG2_STREAM_DATA) {
+                Messaging::SendMessage(m_socket, msg.type, msg.uid, msg.streamid, msg.datalen, msg.data);
+            }
+        }
     }
 }
 

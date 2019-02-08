@@ -38,6 +38,7 @@ namespace Messaging {
             SWInetSocket *socket,
             int *out_msg_type,
             int *out_client_id,
+            bool *out_discardable,
             unsigned int *out_stream_id,
             unsigned int *out_payload_len,
             char *out_payload,

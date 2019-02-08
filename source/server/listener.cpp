@@ -127,13 +127,14 @@ void Listener::threadstart() {
         //receive a magic
         int type;
         int source;
+        bool discardable;
         unsigned int len;
         unsigned int streamid;
         char buffer[4096];
 
         try {
             // this is the start of it all, it all starts with a simple hello
-            if (Messaging::ReceiveMessage(ts, &type, &source, &streamid, &len, buffer, 256))
+            if (Messaging::ReceiveMessage(ts, &type, &source, &discardable, &streamid, &len, buffer, 256))
                 throw std::runtime_error("ERROR Listener: receiving first message");
 
             // make sure our first message is a hello message
@@ -188,7 +189,7 @@ void Listener::threadstart() {
                 throw std::runtime_error("ERROR Listener: sending version");
 
             //receive user infos
-            if (Messaging::ReceiveMessage(ts, &type, &source, &streamid, &len, buffer, 256)) {
+            if (Messaging::ReceiveMessage(ts, &type, &source, &discardable, &streamid, &len, buffer, 256)) {
                 std::stringstream error_msg;
                 error_msg << "ERROR Listener: receiving user infos\n"
                           << "ERROR Listener: got that: "

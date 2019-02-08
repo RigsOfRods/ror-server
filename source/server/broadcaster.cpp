@@ -26,6 +26,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "sequencer.h"
 
 #include <map>
+#include <algorithm>
 
 void *StartBroadcasterThread(void *data) {
     Broadcaster *broadcaster = static_cast<Broadcaster *>(data);
@@ -79,14 +80,10 @@ void Broadcaster::Thread() {
             m_msg_queue.pop_front();
         }
 
-        if (msg.is_dropping) {
-            Messaging::StatsAddOutgoingDrop(sizeof(RoRnet::Header) + msg.datalen); // Statistics
-        } else {
-            // TODO WARNING THE SOCKET IS NOT PROTECTED!!!
-            if (Messaging::SendMessage(m_socket, msg.type, msg.uid, msg.streamid, msg.datalen, msg.data) != 0) {
-                m_sequencer->disconnect(m_client_id, "Broadcaster: Send error", true, true);
-                break;
-            }
+        // TODO WARNING THE SOCKET IS NOT PROTECTED!!!
+        if (Messaging::SendMessage(m_socket, msg.type, msg.uid, msg.streamid, msg.datalen, msg.data) != 0) {
+            m_sequencer->disconnect(m_client_id, "Broadcaster: Send error", true, true);
+            break;
         }
     }
 
@@ -104,45 +101,30 @@ void Broadcaster::Thread() {
 //and keep in mind that it is called crazily and concurently from lots of threads
 //we MUST copy the data too
 //also, this function can be called by threads owning clients_mutex !!!
-void Broadcaster::QueueMessage(int type, int uid, unsigned int streamid, unsigned int len, const char *data) {
+void Broadcaster::QueueMessage(int type, int uid, bool discardable, unsigned int streamid, unsigned int len, const char *data) {
     if (!m_is_running) {
         return;
     }
-    // for now lets just queue msgs in the order received to make things simple
-    queue_entry_t msg = {false, type, uid, streamid, "", len};
-    memset(msg.data, 0, RORNET_MAX_MESSAGE_LENGTH);
+    queue_entry_t msg = {type, uid, discardable, streamid, len, ""};
     memcpy(msg.data, data, len);
 
-    MutexLocker scoped_lock(m_queue_mutex);
-
-    // we will limit the entries in this queue
-
-    // soft limit: we start dropping data packages
-    if ((m_msg_queue.size() > (size_t) QUEUE_SOFT_LIMIT) && (type == RoRnet::MSG2_STREAM_DATA)) {
-        Logger::Log(LOG_DEBUG, "broadcaster queue soft full: m_thread %u owned by uid %d", ThreadID::getID(),
-                    m_client_id);
-        msg.is_dropping = true;
-        m_is_dropping_packets = true;
-    } else if (m_msg_queue.size() < (size_t) QUEUE_SOFT_LIMIT - 20) // - 20 to prevent border problems
     {
-        m_is_dropping_packets = false;
-    }
-
-    // hard limit drop anything, otherwise we would need to run through the queue and search and remove
-    // data packages, which is not really feasible
-    if (m_msg_queue.size() > (size_t) QUEUE_HARD_LIMIT) {
-        Logger::Log(LOG_DEBUG, "broadcaster queue hard full: m_thread %u owned by uid %d", ThreadID::getID(),
-                    m_client_id);
-        msg.is_dropping = true;
-    }
-
-    if (msg.is_dropping) {
-        Messaging::StatsAddOutgoingDrop(sizeof(RoRnet::Header) + msg.datalen); // Statistics
-    } else {
+        MutexLocker scoped_lock(m_queue_mutex);
+        if (m_msg_queue.empty()) {
+            m_is_dropping_packets = false;
+        } else if (discardable) {
+            auto search = std::find_if(m_msg_queue.begin(), m_msg_queue.end(),
+                    [&](const queue_entry_t& m) { return m.uid == uid && m.discardable && m.streamid == streamid; });
+            if (search != m_msg_queue.end()) {
+                // Found outdated discardable streamdata -> replace it
+                (*search) = msg;
+                m_is_dropping_packets = true;
+                return;
+            }
+        }
         m_msg_queue.push_back(msg);
-        //signal the thread that new data is waiting to be sent
-        m_queue_cond.signal();
     }
-}
 
+    m_queue_cond.signal();
+}
 

@@ -143,7 +143,6 @@ namespace Messaging {
             SWInetSocket *socket,
             int *out_type,
             int *out_source,
-            bool *out_discardable,
             unsigned int *out_stream_id,
             unsigned int *out_payload_len,
             char *out_payload,
@@ -151,7 +150,6 @@ namespace Messaging {
         assert(socket != nullptr);
         assert(out_type != nullptr);
         assert(out_source != nullptr);
-        assert(out_discardable != nullptr);
         assert(out_stream_id != nullptr);
         assert(out_payload != nullptr);
 
@@ -174,7 +172,6 @@ namespace Messaging {
         *out_source = head.source;
         *out_payload_len = head.size;
         *out_stream_id = head.streamid;
-        *out_discardable = head.discardable > 0;
 
         if ((int) head.size >= RORNET_MAX_MESSAGE_LENGTH) {
             Logger::Log(LOG_ERROR, "ReceiveMessage(): payload too long: %d b (max. is %d b)", head.size,

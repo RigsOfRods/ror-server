@@ -91,17 +91,15 @@ namespace Logger {
         pthread_mutex_lock(s_log_mutex.getRaw());
 
         if (s_file && level >= s_log_level[LOGTYPE_FILE]) {
-/* FIXME If you need this feature, use copytruncate option for logrotate for now
 #ifndef _WIN32
         
         // check if we need to reopen the s_file (i.e. moved by logrotate)
         struct stat mystat;
-        if (stat(s_log_filename.asUTF8_c_str(), &mystat))
-        {		
-            freopen(s_log_filename.asUTF8_c_str(), "a+", s_file);
+        if (stat(s_log_filename.c_str(), &mystat))
+        {
+            freopen(s_log_filename.c_str(), "a+", s_file);
         }
 #endif // _WIN32
-*/
             fprintf(s_file, "%s|t%02d|%5s| %s\n", time_str, ThreadID::getID(), level_str, msg.c_str());
             fflush(s_file);
         }

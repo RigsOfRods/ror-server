@@ -267,7 +267,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
     char buf[3000];
     if (strlen(user.usertoken) > 0)
         sprintf(buf, "New client: %s (%s), using %s %s, with token %s", user.username, user.language, user.clientname,
-                user.clientversion, std::string(user.usertoken).substr(0, 40).c_str());
+                user.clientversion, std::string(user.usertoken, 40).c_str());
     else
         sprintf(buf, "New client: %s (%s), using %s %s, without token", user.username, user.language, user.clientname,
                 user.clientversion);
@@ -398,7 +398,7 @@ void Sequencer::disconnect(int uid, const char *errormsg, bool isError, bool doS
 
     // send an event if user is rankend and if we are a official server
     if (m_auth_resolver && (client->user.authstatus & RoRnet::AUTH_RANKED)) {
-        m_auth_resolver->sendUserEvent(client->user.usertoken, (isError ? "crash" : "leave"),
+        m_auth_resolver->sendUserEvent(std::string(client->user.usertoken, 40), (isError ? "crash" : "leave"),
                                        Str::SanitizeUtf8(client->user.username), "");
     }
 
@@ -806,7 +806,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
 
                 // send an event if user is rankend and if we are a official server
                 if (m_auth_resolver && (client->user.authstatus & RoRnet::AUTH_RANKED))
-                    m_auth_resolver->sendUserEvent(client->user.usertoken, std::string("newvehicle"),
+                    m_auth_resolver->sendUserEvent(std::string(client->user.usertoken, 40), std::string("newvehicle"),
                                                    std::string(reg->name), std::string());
 
                 // Notify the user about the vehicle limit

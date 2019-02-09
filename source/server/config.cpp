@@ -107,6 +107,7 @@ namespace Config {
                         "                                  5 = error\n"
                         " -log-file <server.log>       Sets the filename of the log\n"
                         " -script-file <script.as>     Server script to execute\n"
+                        " -print-stats                 Prints stats to the console\n"
                         " -use-webserver               Enables the built-in webserver\n"
                         " -webserver-port <number>     Sets up the port for the webserver, default is game port + 100\n"
                         " -version                     Prints the server version numbers\n"

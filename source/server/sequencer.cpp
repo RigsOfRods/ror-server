@@ -310,6 +310,8 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
                                    (char *) &info_for_others);
     }
 
+    printStats();
+
     // done!
     Logger::Log(LOG_VERBOSE, "Sequencer: New client added");
 }
@@ -421,6 +423,8 @@ void Sequencer::disconnect(int uid, const char *errormsg, bool isError, bool doS
     }
     m_clients.erase(m_clients.begin() + pos);
 
+    printStats();
+
     //this routine is a potential trouble maker as it can be called from many thread contexts
     //so we use a killer thread
     Logger::Log(LOG_VERBOSE, "Disconnecting client ID %d: %s", uid, errormsg);
@@ -436,8 +440,6 @@ void Sequencer::disconnect(int uid, const char *errormsg, bool isError, bool doS
         this->connCrash++;
     }
     Logger::Log(LOG_INFO, "crash statistic: %d of %d deletes crashed", this->connCrash, this->connCount);
-
-    printStats();
 }
 
 //this is called from the listener thread initial handshake
@@ -450,8 +452,6 @@ void Sequencer::enableFlow(int uid) {
     }
 
     client->SetReceiveData(true);
-    // now they are a bonified part of the server, show the new stats
-    printStats();
 }
 
 

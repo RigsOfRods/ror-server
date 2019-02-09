@@ -1157,9 +1157,9 @@ void Sequencer::printStats() {
             if (m_clients[i]->user.authstatus & RoRnet::AUTH_BANNED) strcat(authst, "X");
 
             // construct screen
-            if (m_clients[i]->GetStatus() == Client::STATUS_USED)
+            if (m_clients[i]->GetStatus() == Client::STATUS_FREE)
                 Logger::Log(LOG_INFO, "%4i Free", i);
-            else if (m_clients[i]->GetStatus() == Client::STATUS_USED)
+            else if (m_clients[i]->GetStatus() == Client::STATUS_BUSY)
                 Logger::Log(LOG_INFO, "%4i Busy %5i %-16s % 4s %d, %s", i,
                             m_clients[i]->user.uniqueid, "-",
                             authst,

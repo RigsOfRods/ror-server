@@ -87,7 +87,7 @@ void handler(int signalnum) {
 
     if (terminate) {
         if (Config::getServerMode() == SERVER_LAN) {
-            Logger::Log(LOG_ERROR, "closing server ... ");
+            Logger::Log(LOG_INFO, "closing server ... ");
             s_sequencer.Close();
         } else {
             Logger::Log(LOG_INFO, "closing server ... unregistering ... ");

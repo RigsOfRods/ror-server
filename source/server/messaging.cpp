@@ -108,9 +108,6 @@ namespace Messaging {
 
         char buffer[RORNET_MAX_MESSAGE_LENGTH];
 
-
-        int rlen = 0;
-
         memset(&head, 0, sizeof(RoRnet::Header));
         head.command = type;
         head.source = source;
@@ -122,13 +119,10 @@ namespace Messaging {
         memcpy(buffer, (char *) &head, sizeof(RoRnet::Header));
         memcpy(buffer + sizeof(RoRnet::Header), content, len);
 
-        while (rlen < msgsize) {
-            int sendnum = socket->send(buffer + rlen, msgsize - rlen, &error);
-            if (sendnum < 0 || error != SWBaseSocket::ok) {
-                Logger::Log(LOG_ERROR, "send error -1: %s", error.get_error().c_str());
-                return -1;
-            }
-            rlen += sendnum;
+        if (socket->fsend(buffer, msgsize, &error) < msgsize)
+        {
+            Logger::Log(LOG_ERROR, "send error -1: %s", error.get_error().c_str());
+            return -1;
         }
         StatsAddOutgoing(msgsize);
         return 0;

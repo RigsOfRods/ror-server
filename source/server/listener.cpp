@@ -208,13 +208,13 @@ void Listener::threadstart() {
 
             // authenticate
             std::string nickname = Str::SanitizeUtf8(user->username);
-            user->authstatus = m_sequencer->AuthorizeNick(std::string(user->usertoken), nickname);
+            user->authstatus = m_sequencer->AuthorizeNick(std::string(user->usertoken, 40), nickname);
             strncpy(user->username, nickname.c_str(), RORNET_MAX_USERNAME_LEN);
 
             if (Config::isPublic()) {
                 Logger::Log(LOG_DEBUG, "password login: %s == %s?",
                             Config::getPublicPassword().c_str(),
-                            user->serverpassword);
+                            std::string(user->serverpassword, 40).c_str());
                 if (strncmp(Config::getPublicPassword().c_str(), user->serverpassword, 40)) {
                     Messaging::SendMessage(ts, RoRnet::MSG2_WRONG_PW, 0, 0, 0, 0);
                     throw std::runtime_error("ERROR Listener: wrong password");

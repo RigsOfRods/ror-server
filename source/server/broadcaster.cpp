@@ -124,6 +124,7 @@ void Broadcaster::QueueMessage(int type, int uid, unsigned int streamid, unsigne
                 // Found outdated discardable streamdata -> replace it
                 (*search) = msg;
                 m_is_dropping_packets = true;
+                Messaging::StatsAddOutgoingDrop(sizeof(RoRnet::Header) + msg.datalen); // Statistics
                 return;
             }
         }

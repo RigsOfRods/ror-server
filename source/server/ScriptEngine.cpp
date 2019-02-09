@@ -777,7 +777,6 @@ int ScriptEngine::playerChat(int uid, std::string msg) {
 
         // Set the arguments
         context->SetArgDWord(0, uid);
-        std::string msg = Str::SanitizeUtf8(msg.begin(), msg.end());
         context->SetArgObject(1, (void *) &msg);
 
         // Execute it

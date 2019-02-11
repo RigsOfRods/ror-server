@@ -128,7 +128,7 @@ struct StreamRegister              //!< Sent from the client to server and vice 
     int32_t origin_sourceid;       //!< origin sourceid
     int32_t origin_streamid;       //!< origin streamid
     char    name[128];             //!< the actor filename
-    char    data[8000];            //!< data used for stream setup
+    char    data[128];             //!< data used for stream setup
 };
 
 struct ActorStreamRegister
@@ -139,7 +139,9 @@ struct ActorStreamRegister
     int32_t origin_streamid;       //!< origin streamid
     char    name[128];             //!< filename
     int32_t bufferSize;            //!< initial stream status
-    char    actorconfig[10][60];   //!< section configuration
+    int32_t time;                  //!< initial time stamp
+    char    skin[60];              //!< skin
+    char    sectionconfig[60];     //!< section configuration
 };
 
 struct StreamUnRegister            //< sent to remove a stream

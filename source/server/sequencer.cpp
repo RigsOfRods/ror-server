@@ -798,10 +798,10 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
 
             if (publishMode != BROADCAST_BLOCK) {
                 // Add the stream
-                Logger::Log(LOG_VERBOSE, " * new stream registered: %d:%d, type: %d, name: '%s', status: %d",
-                            client->user.uniqueid, streamid, reg->type, reg->name, reg->status);
                 for (int i = 0; i < 128; i++) if (reg->name[i] == ' ') reg->name[i] = 0; // convert spaces to zero's
                 reg->name[127] = 0;
+                Logger::Log(LOG_VERBOSE, " * new stream registered: %d:%d, type: %d, name: '%s', status: %d",
+                            client->user.uniqueid, streamid, reg->type, reg->name, reg->status);
                 client->streams[streamid] = *reg;
 
                 // send an event if user is rankend and if we are a official server

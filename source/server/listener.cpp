@@ -166,10 +166,11 @@ void Listener::threadstart() {
             std::string motd_str;
             {
                 std::vector<std::string> lines;
-                int res = Utils::ReadLinesFromFile(Config::getMOTDFile(), lines);
-                if (!res)
-                    for (std::vector<std::string>::iterator it = lines.begin(); it != lines.end(); it++)
-                        motd_str += *it + "\n";
+                if (!Utils::ReadLinesFromFile(Config::getMOTDFile(), lines))
+                {
+                    for (const auto& line : lines)
+                        motd_str += line + "\n";
+                }
             }
 
             Logger::Log(LOG_DEBUG, "Listener sending server settings");
@@ -177,7 +178,7 @@ void Listener::threadstart() {
             memset(&settings, 0, sizeof(RoRnet::ServerInfo));
             settings.has_password = !Config::getPublicPassword().empty();
             strncpy(settings.info, motd_str.c_str(), motd_str.size());
-            strncpy(settings.protocolversion, RORNET_VERSION, sizeof(settings.protocolversion) - 1);
+            strncpy(settings.protocolversion, RORNET_VERSION, strlen(RORNET_VERSION));
             strncpy(settings.servername, Config::getServerName().c_str(), Config::getServerName().size());
             strncpy(settings.terrain, Config::getTerrainName().c_str(), Config::getTerrainName().size());
 
@@ -205,9 +206,10 @@ void Listener::threadstart() {
             user->authstatus = RoRnet::AUTH_NONE;
 
             // authenticate
+            user->username[RORNET_MAX_USERNAME_LEN - 1] = 0;
             std::string nickname = Str::SanitizeUtf8(user->username);
             user->authstatus = m_sequencer->AuthorizeNick(std::string(user->usertoken, 40), nickname);
-            strncpy(user->username, nickname.c_str(), RORNET_MAX_USERNAME_LEN);
+            strncpy(user->username, nickname.c_str(), RORNET_MAX_USERNAME_LEN - 1);
 
             if (Config::isPublic()) {
                 Logger::Log(LOG_DEBUG, "password login: %s == %s?",

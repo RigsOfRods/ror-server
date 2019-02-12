@@ -147,46 +147,34 @@ namespace Messaging {
         assert(out_stream_id != nullptr);
         assert(out_payload != nullptr);
 
-        char buffer[RORNET_MAX_MESSAGE_LENGTH] = {};
-
-        int hlen = 0;
         SWBaseSocket::SWBaseError error;
-        while (hlen < (int) sizeof(RoRnet::Header)) {
-            int recvnum = socket->recv(buffer + hlen, sizeof(RoRnet::Header) - hlen, &error);
-            if (recvnum < 0 || error != SWBaseSocket::ok) {
-                // this also happens when the connection is canceled
-                return -2;
-            }
-            hlen += recvnum;
-        }
 
         RoRnet::Header head;
-        memcpy(&head, buffer, sizeof(RoRnet::Header));
+        if (socket->frecv((char*)&head, sizeof(RoRnet::Header), &error) < sizeof(RoRnet::Header))
+        {
+            // this also happens when the connection is canceled
+            return -2;
+        }
+
         *out_type = head.command;
         *out_source = head.source;
         *out_payload_len = head.size;
         *out_stream_id = head.streamid;
 
-        if ((int) head.size >= RORNET_MAX_MESSAGE_LENGTH) {
+        if ( head.size > payload_buf_len) {
             Logger::Log(LOG_ERROR, "ReceiveMessage(): payload too long: %d b (max. is %d b)", head.size,
-                        RORNET_MAX_MESSAGE_LENGTH);
+                        payload_buf_len);
             return -3;
         }
 
         if (head.size > 0) {
             //read the rest
-            while (hlen < (int) sizeof(RoRnet::Header) + (int) head.size) {
-                int recvnum = socket->recv(buffer + hlen,
-                                           (head.size + sizeof(RoRnet::Header)) - hlen, &error);
-                if (recvnum < 0 || error != SWBaseSocket::ok) {
-                    return -1;
-                }
-                hlen += recvnum;
+            if (socket->frecv(out_payload, head.size, &error) < head.size) {
+                return -1;
             }
         }
 
-        StatsAddIncoming((int) sizeof(RoRnet::Header) + (int) head.size);
-        memcpy(out_payload, buffer + sizeof(RoRnet::Header), payload_buf_len);
+        StatsAddIncoming(sizeof(RoRnet::Header) + head.size);
         return 0;
     }
 

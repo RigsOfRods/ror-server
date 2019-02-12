@@ -50,21 +50,19 @@ namespace Http {
         int m_response_code;
     };
 
-    bool RequestRaw(
-            const char *method,
-            const char *host,
-            const char *url,
-            const char *content_type,
-            const char *payload,
-            char *out_response_buffer,
-            unsigned response_buf_len);
+    std::string RequestRaw(
+            std::string method,
+            std::string host,
+            std::string url,
+            std::string content_type,
+            std::string payload);
 
     int Request(
-            const char *method,
-            const char *host,
-            const char *url,
-            const char *content_type,
-            const char *payload,
+            std::string method,
+            std::string host,
+            std::string url,
+            std::string content_type,
+            std::string payload,
             Response *out_response);
 
 } // namespace Http

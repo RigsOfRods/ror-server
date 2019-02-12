@@ -29,6 +29,7 @@ If not, see <http://www.gnu.org/licenses/>.
 #include "http.h"
 #include "UnicodeStrings.h"
 
+#include <cstring>
 #include <stdarg.h>
 #include <time.h>
 #include <errno.h>

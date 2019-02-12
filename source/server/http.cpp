@@ -39,15 +39,13 @@ namespace Http {
     const char *METHOD_DELETE = "DELETE";
 
 
-    bool RequestRaw(
-            const char *method,
-            const char *host,
-            const char *url,
-            const char *content_type,
-            const char *payload,
-            char *out_response_buffer,
-            unsigned response_buf_len) {
-        method = (method == nullptr) ? METHOD_GET : method;
+    std::string RequestRaw(
+            std::string method,
+            std::string host,
+            std::string url,
+            std::string content_type,
+            std::string payload) {
+        method = method.empty() ? METHOD_GET : method;
 
         SWInetSocket socket;
         SWInetSocket::SWBaseError result;
@@ -55,53 +53,46 @@ namespace Http {
             Logger::Log(LOG_ERROR,
                         "Could not process HTTP %s request %s%s failed, error: ",
                         method, host, url, result.get_error().c_str());
-            return false;
+            return "";
         }
-        char query[18000] = {0};
-        char *query_pos = query;
 
-        query_pos += sprintf(query_pos, "%s %s HTTP/1.1"      "\r\n", method, url);
-        query_pos += sprintf(query_pos, "Host: %s"            "\r\n", host);
-        query_pos += sprintf(query_pos, "Content-Type: %s"    "\r\n", content_type);
-        query_pos += sprintf(query_pos, "Content-Length: %lu" "\r\n",
-                             static_cast<unsigned long>(strnlen(payload, 16000)));
+        std::string query = method + " " + url + " HTTP/1.1\r\nHost: " + host + "\r\nContent-Type: " +
+            content_type + "\r\nContent-Length: " + std::to_string(payload.length()) + "\r\n\r\n" + payload;
 
-        sprintf(query_pos, "\r\n%s", payload);
-
-        if (socket.sendmsg(query, &result) < 0) {
+        if (socket.fsendmsg(query, &result) < 0) {
             Logger::Log(LOG_ERROR,
                         "Could not process HTTP %s request %s%s failed, error: ",
                         method, host, url, result.get_error().c_str());
-            return false;
+            return "";
         }
 
-        int response_len = socket.recv(out_response_buffer, response_buf_len, &result);
-        if (response_len < 0) {
+        std::string response = socket.recvmsg(5000, &result);
+        if (result != SWInetSocket::ok) {
             Logger::Log(LOG_ERROR,
                         "Could not process HTTP %s request %s%s failed, invalid response length, error message: ",
                         method, host, url, result.get_error().c_str());
-            return false;
+            return "";
         }
 
         socket.disconnect();
-        return true;
+        return response;
     }
 
     int Request(
-            const char *method,
-            const char *host,
-            const char *url,
-            const char *content_type,
-            const char *payload,
+            std::string method,
+            std::string host,
+            std::string url,
+            std::string content_type,
+            std::string payload,
             Response *response) {
         assert(response != nullptr);
 
-        char response_buf[5000] = {0};
-        if (!RequestRaw(method, host, url, content_type, payload, response_buf, 5000)) {
+        std::string response_str = RequestRaw(method, host, url, content_type, payload);
+
+        if (response_str.empty()) {
             return -1;
         }
 
-        std::string response_str(response_buf);
         if (!response->FromBuffer(response_str)) {
             return -2;
         }

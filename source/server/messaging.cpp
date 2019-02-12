@@ -169,6 +169,7 @@ namespace Messaging {
 
         if (head.size > 0) {
             //read the rest
+            std::memset(out_payload, 0, payload_buf_len);
             if (socket->frecv(out_payload, head.size, &error) < head.size) {
                 return -1;
             }

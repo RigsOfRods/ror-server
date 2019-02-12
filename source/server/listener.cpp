@@ -118,11 +118,9 @@ void Listener::threadstart() {
             }
         }
 
-
         Logger::Log(LOG_VERBOSE, "Listener got a new connection");
-#ifndef NOTIMEOUT
-        ts->set_timeout(600, 0);
-#endif
+
+        ts->set_timeout(5, 0);
 
         //receive a magic
         int type;

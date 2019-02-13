@@ -1,11 +1,6 @@
+dist: xenial
 language: c
-sudo: required
-
-services:
-  - docker
-
-before_install:
-  - docker pull anotherfoxguy/ror-build-box
 
 script:
-  - docker build -c=2 .
+  - cmake -DRORSERVER_CRASHHANDLER:BOOL=ON -DRORSERVER_GUI:BOOL=OFF -DRORSERVER_WITH_ANGELSCRIPT:BOOL=ON -DRORSERVER_WITH_WEBSERVER:BOOL=ON .
+  - make -j2

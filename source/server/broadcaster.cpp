@@ -39,7 +39,9 @@ Broadcaster::Broadcaster(Sequencer *sequencer) :
         m_client_id(0),
         m_socket(nullptr),
         m_is_running(false),
-        m_is_dropping_packets(false) {
+        m_is_dropping_packets(false),
+        m_packet_drop_counter(0),
+        m_packet_good_counter(0) {
 }
 
 void Broadcaster::Start(int client_id, SWInetSocket *socket) {
@@ -47,6 +49,8 @@ void Broadcaster::Start(int client_id, SWInetSocket *socket) {
     m_socket = socket;
     m_is_running = true;
     m_is_dropping_packets = false;
+    m_packet_drop_counter = 0;
+    m_packet_good_counter = 0;
 
     m_msg_queue.clear();
 
@@ -116,14 +120,16 @@ void Broadcaster::QueueMessage(int type, int uid, unsigned int streamid, unsigne
     {
         MutexLocker scoped_lock(m_queue_mutex);
         if (m_msg_queue.empty()) {
-            m_is_dropping_packets = false;
+            m_packet_drop_counter = 0;
+            m_is_dropping_packets = (++m_packet_good_counter > 3) ? false : m_is_dropping_packets;
         } else if (type == RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
             auto search = std::find_if(m_msg_queue.begin(), m_msg_queue.end(), [&](const queue_entry_t& m)
                     { return m.type == RoRnet::MSG2_STREAM_DATA_DISCARDABLE && m.uid == uid && m.streamid == streamid; });
             if (search != m_msg_queue.end()) {
                 // Found outdated discardable streamdata -> replace it
                 (*search) = msg;
-                m_is_dropping_packets = true;
+                m_packet_good_counter = 0;
+                m_is_dropping_packets = (++m_packet_drop_counter > 3) ? true : m_is_dropping_packets;
                 Messaging::StatsAddOutgoingDrop(sizeof(RoRnet::Header) + msg.datalen); // Statistics
                 return;
             }

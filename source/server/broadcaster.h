@@ -68,6 +68,8 @@ private:
     SWInetSocket *m_socket;
     bool m_is_running;
     bool m_is_dropping_packets;
+    int  m_packet_drop_counter;
+    int  m_packet_good_counter;
 
     std::deque<queue_entry_t> m_msg_queue;
 };

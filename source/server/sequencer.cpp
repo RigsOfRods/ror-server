@@ -744,11 +744,6 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
             std::map<unsigned int, RoRnet::StreamRegister>::iterator it = client->streams.find(streamid);
             if (it == client->streams.end())
                 publishMode = BROADCAST_BLOCK;
-            else if (it->second.type == 0) {
-                RoRnet::ActorStreamRegister *reg = (RoRnet::ActorStreamRegister *) &it->second;
-                if ((unsigned int) reg->bufferSize + sizeof(RoRnet::VehicleState) != len)
-                    publishMode = BROADCAST_BLOCK;
-            }
         }
     } else if (type == RoRnet::MSG2_STREAM_REGISTER) {
         if (client->streams.size() >= Config::getMaxVehicles() + NON_VEHICLE_STREAMS) {
@@ -843,7 +838,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
         RoRnet::StreamRegister *reg = (RoRnet::StreamRegister *) data;
         Client *origin_client = this->FindClientById(reg->origin_sourceid);
         if (origin_client != nullptr) {
-            origin_client->QueueMessage(type, uid, 0, sizeof(RoRnet::StreamRegister), (char *) reg);
+            origin_client->QueueMessage(type, uid, streamid, sizeof(RoRnet::StreamRegister), (char *) reg);
             Logger::Log(LOG_VERBOSE, "stream registration result for stream %03d:%03d from user %03d: %d",
                         reg->origin_sourceid, reg->origin_streamid, uid, reg->status);
         }

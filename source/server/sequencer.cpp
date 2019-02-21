@@ -237,6 +237,11 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
     }
 
     std::string nick = Str::SanitizeUtf8(user.username);
+    if (nick.empty())
+    {
+        nick = "Anonymous";
+        strncpy(user.username, nick.c_str(), RORNET_MAX_USERNAME_LEN - 1);
+    }
     if (Sequencer::CheckNickIsUnique(nick)) {
         Logger::Log(LOG_WARN, std::string("found duplicate nick, getting new one: ") + nick);
 

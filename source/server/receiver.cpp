@@ -82,7 +82,7 @@ void Receiver::Thread() {
     while (m_is_running) {
         if (Messaging::ReceiveMessage(m_socket, &type, &source, &streamid, &len, m_dbuffer,
                                       RORNET_MAX_MESSAGE_LENGTH)) {
-            m_sequencer->disconnect(m_id, "Game connection closed");
+            m_sequencer->QueueClientForDisconnect(m_id, "Game connection closed");
             break;
         }
 
@@ -95,7 +95,7 @@ void Receiver::Thread() {
         }
 
         if (type < 1000 || type > 1050) {
-            m_sequencer->disconnect(m_id, "Protocol error 3");
+            m_sequencer->QueueClientForDisconnect(m_id, "Protocol error 3");
             break;
         }
         m_sequencer->queueMessage(m_id, type, streamid, m_dbuffer, len);

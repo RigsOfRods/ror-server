@@ -162,8 +162,7 @@ public:
     //! call to start the thread to disconnect clients from the server.
     void killerthreadstart();
 
-    //! queue client for disconenct
-    void disconnect(int pos, const char *error, bool isError = true, bool doScriptCallback = true);
+    void QueueClientForDisconnect(int client_id, const char *error, bool isError = true, bool doScriptCallback = true);
 
     void queueMessage(int uid, int type, unsigned int streamid, char *data, unsigned int len);
 

@@ -291,7 +291,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
     Logger::Log(LOG_VERBOSE, "Sending welcome message to uid %i", client_id);
     if (Messaging::SendMessage(sock, RoRnet::MSG2_WELCOME, client_id, 0, sizeof(RoRnet::UserInfo),
                                (char *) &to_add->user)) {
-        Sequencer::disconnect(client_id, "error sending welcome message");
+        this->QueueClientForDisconnect(client_id, "error sending welcome message");
         return;
     }
 
@@ -392,9 +392,12 @@ void Sequencer::killerthreadstart() {
     }
 }
 
-void Sequencer::disconnect(int uid, const char *errormsg, bool isError, bool doScriptCallback /*= true*/) {
+void Sequencer::QueueClientForDisconnect(int uid, const char *errormsg, bool isError /*=true*/, bool doScriptCallback /*= true*/) {
     Client *client = this->FindClientById(static_cast<unsigned int>(uid));
     if (client == nullptr) {
+        Logger::Log(LOG_DEBUG,
+            "Sequencer::QueueClientForDisconnect() Internal error, got non-existent user ID: %d"
+            "(error message: '%s')", uid, errormsg);
         return;
     }
 
@@ -597,7 +600,7 @@ bool Sequencer::Kick(int kuid, int modUID, const char *msg) {
             Str::SanitizeUtf8(kicked_client->user.username).c_str(),
             Str::SanitizeUtf8(mod_client->user.username).c_str());
 
-    disconnect(kicked_client->user.uniqueid, kickmsg, false);
+    this->QueueClientForDisconnect(kicked_client->user.uniqueid, kickmsg, false);
     return true;
 }
 
@@ -662,7 +665,7 @@ void Sequencer::SilentBan(int buid, const char *msg, bool doScriptCallback /*= t
     }
     strcat(tmp, " (banned)");
 
-    disconnect(banned_client->user.uniqueid, tmp, false, doScriptCallback);
+    this->QueueClientForDisconnect(banned_client->user.uniqueid, tmp, false, doScriptCallback);
 }
 
 bool Sequencer::UnBan(int buid) {
@@ -762,7 +765,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
             sprintf(sayMsg, "%s was auto-kicked for having too many vehicles (limit: %d)",
                     Str::SanitizeUtf8(client->user.username).c_str(), Config::getMaxVehicles());
             serverSay(sayMsg, TO_ALL, FROM_SERVER);
-            disconnect(client->user.uniqueid, "You have too many vehicles. Please rejoin.", false);
+            QueueClientForDisconnect(client->user.uniqueid, "You have too many vehicles. Please rejoin.", false);
             publishMode = BROADCAST_BLOCK; // drop
         } else {
             publishMode = BROADCAST_NORMAL;
@@ -853,11 +856,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
     } else if (type == RoRnet::MSG2_USER_LEAVE) {
         // from client
         Logger::Log(LOG_INFO, "User disconnects on request: " + Str::SanitizeUtf8(client->user.username));
-
-        //char tmp[1024];
-        //sprintf(tmp, "user %s disconnects on request", UTF8BuffertoString(client->user.username).c_str());
-        //serverSay(std::string(tmp), -1);
-        disconnect(client->user.uniqueid, "disconnected on request", false);
+        QueueClientForDisconnect(client->user.uniqueid, "disconnected on request", false);
     } else if (type == RoRnet::MSG2_UTF8_CHAT) {
         std::string str = Str::SanitizeUtf8(data);
         Logger::Log(LOG_INFO, "CHAT| %s: %s", Str::SanitizeUtf8(client->user.username).c_str(), str.c_str());

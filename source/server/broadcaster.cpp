@@ -63,6 +63,7 @@ void Broadcaster::Stop() {
 
 void Broadcaster::Thread() {
     Logger::Log(LOG_DEBUG, "Started broadcaster thread %u owned by client_id %d", ThreadID::getID(), m_client->GetUserId());
+    bool socket_error = false;
     while (true) {
         queue_entry_t msg;
         // define a new scope and use a scope lock
@@ -86,11 +87,12 @@ void Broadcaster::Thread() {
         // TODO WARNING THE SOCKET IS NOT PROTECTED!!!
         if (Messaging::SendMessage(m_client->GetSocket(), msg.type, msg.uid, msg.streamid, msg.datalen, msg.data) != 0) {
             m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Broadcaster: Send error", true, true);
+            socket_error = true;
             break;
         }
     }
 
-    { // Scope for lock
+    if (!socket_error) {
         MutexLocker scoped_lock(m_queue_mutex);
         for (const auto& msg : m_msg_queue) {
             if (msg.type != RoRnet::MSG2_STREAM_DATA && msg.type != RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {

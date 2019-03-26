@@ -62,15 +62,11 @@ void Client::StartThreads() {
 }
 
 void Client::Disconnect() {
-    // CRITICAL ORDER OF EVENTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // stop the broadcaster first, then disconnect the socket.
-    // other wise there is a chance (being concurrent code) that the
-    // socket will attempt to send a message between the disconnect
-    // which makes the socket invalid) and the actual time of stoping
-    // the bradcaster
-
+    // Signal threads to stop and wait for them to finish
     m_broadcaster.Stop();
     m_receiver.Stop();
+
+    // Disconnect the socket
     SWBaseSocket::SWBaseError result;
     bool disconnected_ok = m_socket->disconnect(&result);
     if (!disconnected_ok || (result != SWBaseSocket::base_error::ok)) {
@@ -79,7 +75,6 @@ void Client::Disconnect() {
                 "Internal: Error while disconnecting client - failed to disconnect socket. Message: %s",
                 result.get_error().c_str());
     }
-    // END CRITICAL ORDER OF EVENTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     delete m_socket;
 }
 

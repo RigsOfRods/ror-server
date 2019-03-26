@@ -33,71 +33,68 @@ void *LaunchReceiverThread(void *data) {
 }
 
 Receiver::Receiver(Sequencer *sequencer) :
-        m_id(0),
-        m_socket(nullptr),
-        m_is_running(false),
+        m_client(nullptr),
         m_sequencer(sequencer) {
 }
 
-Receiver::~Receiver(void) {
-    Stop();
+Receiver::~Receiver() {
+    this->Stop();
 }
 
-void Receiver::Start(int pos, SWInetSocket *socky) {
-    m_id = pos;
-    m_socket = socky;
-    m_is_running = true;
+void Receiver::Start(Client* client) {
+    m_client = client;
+    m_keep_running.store(true);
 
     pthread_create(&m_thread, nullptr, LaunchReceiverThread, this);
 }
 
 void Receiver::Stop() {
-    if (!m_is_running) {
-        return;
+    bool was_running = m_keep_running.exchange(false);
+    if (was_running) {
+        //TODO: how do I signal the thread to stop waiting for the socket?
+        //      For now I stick to the existing solution - I just don't ~ only_a_ptr, 03/2019
+        pthread_join(m_thread, nullptr);
     }
-    m_is_running = false;
-
-    pthread_join(m_thread, nullptr);
 }
 
 void Receiver::Thread() {
-    Logger::Log(LOG_DEBUG, "receiver thread %d owned by uid %d", ThreadID::getID(), m_id);
+    Logger::Log(LOG_DEBUG, "Started receiver thread %d owned by user ID %d", ThreadID::getID(), m_client->GetUserId());
     //get the vehicle description
     int type;
     int source;
     unsigned int streamid;
     unsigned int len;
-    SWBaseSocket::SWBaseError error;
     //okay, we are ready, we can receive data frames
-    m_sequencer->enableFlow(m_id);
+    m_client->SetReceiveData(true);
 
     //send motd
-    m_sequencer->sendMOTD(m_id);
+    m_sequencer->sendMOTD(m_client->GetUserId());
 
-    Logger::Log(LOG_VERBOSE, "UID %d is switching to FLOW", m_id);
+    Logger::Log(LOG_VERBOSE, "UID %d is switching to FLOW", m_client->GetUserId());
 
     // this prevents the socket from hangingwhen sending data
     // which is the cause of threads getting blocked
-    m_socket->set_timeout(60, 0);
-    while (m_is_running) {
-        if (Messaging::ReceiveMessage(m_socket, &type, &source, &streamid, &len, m_dbuffer,
+    m_client->GetSocket()->set_timeout(60, 0);
+    while (true) {
+        if (Messaging::ReceiveMessage(m_client->GetSocket(), &type, &source, &streamid, &len, m_dbuffer,
                                       RORNET_MAX_MESSAGE_LENGTH)) {
-            m_sequencer->QueueClientForDisconnect(m_id, "Game connection closed");
+            m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Game connection closed");
             break;
         }
 
-        if (!m_is_running) {
+        if (m_keep_running.load() == false)
             break;
-        }
 
         if (type != RoRnet::MSG2_STREAM_DATA && type != RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
             Logger::Log(LOG_VERBOSE, "got message: type: %d, source: %d:%d, len: %d", type, source, streamid, len);
         }
 
         if (type < 1000 || type > 1050) {
-            m_sequencer->QueueClientForDisconnect(m_id, "Protocol error 3");
+            m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Protocol error 3");
             break;
         }
-        m_sequencer->queueMessage(m_id, type, streamid, m_dbuffer, len);
+        m_sequencer->queueMessage(m_client->GetUserId(), type, streamid, m_dbuffer, len);
     }
+
+    Logger::Log(LOG_DEBUG, "Receiver thread %d (user ID %d) exits", ThreadID::getID(), m_client->GetUserId());
 }

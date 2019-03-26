@@ -22,7 +22,9 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "rornet.h"
 #include "mutexutils.h"
+#include "prerequisites.h"
 
+#include <atomic>
 #include <pthread.h>
 #include <deque>
 
@@ -49,7 +51,7 @@ public:
 
     Broadcaster(Sequencer *sequencer);
 
-    void Start(int client_id, SWInetSocket *socket);
+    void Start(Client* client);
 
     void Stop();
 
@@ -64,9 +66,8 @@ private:
     pthread_t m_thread;
     Mutex m_queue_mutex;
     Condition m_queue_cond;
-    int m_client_id;
-    SWInetSocket *m_socket;
-    bool m_is_running;
+    Client* m_client;
+    std::atomic<bool> m_keep_running;
     bool m_is_dropping_packets;
     int  m_packet_drop_counter;
     int  m_packet_good_counter;

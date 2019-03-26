@@ -91,7 +91,7 @@ void Broadcaster::Thread() {
 
         // TODO WARNING THE SOCKET IS NOT PROTECTED!!!
         if (Messaging::SendMessage(m_socket, msg.type, msg.uid, msg.streamid, msg.datalen, msg.data) != 0) {
-            m_sequencer->disconnect(m_client_id, "Broadcaster: Send error", true, true);
+            m_sequencer->QueueClientForDisconnect(m_client_id, "Broadcaster: Send error", true, true);
             break;
         }
     }

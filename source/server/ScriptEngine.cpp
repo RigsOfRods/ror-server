@@ -1038,7 +1038,7 @@ void ServerScript::say(std::string &msg, int uid, int type) {
 }
 
 void ServerScript::kick(int kuid, std::string &msg) {
-    seq->disconnect(kuid, msg.c_str(), false, false);
+    seq->QueueClientForDisconnect(kuid, msg.c_str(), false, false);
     mse->playerDeleted(kuid, 0, true);
 }
 

@@ -314,7 +314,7 @@ int main(int argc, char *argv[]) {
     if (!listener.Initialize()) {
         return -1;
     }
-    s_sequencer.Initialize(&listener);
+    s_sequencer.Initialize();
 
     if (!listener.WaitUntilReady()) {
         return -1; // Error already logged

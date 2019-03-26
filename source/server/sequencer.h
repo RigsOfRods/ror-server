@@ -117,6 +117,8 @@ public:
 
     Status GetStatus() const { return m_status; }
 
+    int GetUserId() const { return static_cast<int>(user.uniqueid); }
+
     RoRnet::UserInfo user;  //!< user information
 
     int drop_state;             // dropping outgoing packets?
@@ -132,6 +134,25 @@ private:
     Status m_status;
     bool m_is_receiving_data;
     bool m_is_initialized;
+};
+
+struct WebserverClientInfo // Needed because Client cannot be trivially copied anymore due to presence of std::atomic<>
+{
+    WebserverClientInfo(Client* c):
+        user (c->user),
+        status(c->GetStatus()),
+        ip_address(c->GetIpAddress()),
+        streams(c->streams),
+        streams_traffic(c->streams_traffic){
+    }
+    Client::Status GetStatus() const { return status; }
+    std::string GetIpAddress() const { return ip_address; }
+
+    RoRnet::UserInfo user;  //!< Copy of user information
+    Client::Status status;
+    std::string ip_address;
+    std::map<unsigned int, RoRnet::StreamRegister> streams;
+    std::map<unsigned int, stream_traffic_t> streams_traffic;
 };
 
 struct ban_t {
@@ -212,7 +233,7 @@ public:
 
     void broadcastUserInfo(int uid);
 
-    std::vector<Client> GetClientListCopy();
+    std::vector<WebserverClientInfo> GetClientListCopy();
 
     static unsigned int connCrash, connCount;
 

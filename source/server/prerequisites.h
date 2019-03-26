@@ -2,6 +2,8 @@
 #pragma once
 
 // Forward declarations
+class Client;
+
 class Sequencer;
 
 class SWInetSocket;

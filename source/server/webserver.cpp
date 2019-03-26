@@ -279,9 +279,9 @@ static void debug_client_list(struct mg_connection *conn, const struct mg_reques
 static void data_players(struct mg_connection *conn, const struct mg_request_info *request_info, void *data) {
     Json::Value rows;
 
-    std::vector<Client> clients = s_sequencer->GetClientListCopy();
+    std::vector<WebserverClientInfo> clients = s_sequencer->GetClientListCopy();
     int row_counter = 0;
-    for (std::vector<Client>::iterator it = clients.begin(); it != clients.end(); it++, row_counter++) {
+    for (auto it = clients.begin(); it != clients.end(); it++, row_counter++) {
         Json::Value row;
 
         if (it->GetStatus() == Client::STATUS_FREE) {

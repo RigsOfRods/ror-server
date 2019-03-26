@@ -36,50 +36,44 @@ void *StartBroadcasterThread(void *data) {
 
 Broadcaster::Broadcaster(Sequencer *sequencer) :
         m_sequencer(sequencer),
-        m_client_id(0),
-        m_socket(nullptr),
-        m_is_running(false),
+        m_client(nullptr),
         m_is_dropping_packets(false),
         m_packet_drop_counter(0),
         m_packet_good_counter(0) {
 }
 
-void Broadcaster::Start(int client_id, SWInetSocket *socket) {
-    m_client_id = client_id;
-    m_socket = socket;
-    m_is_running = true;
+void Broadcaster::Start(Client* client) {
+    m_client = client;
     m_is_dropping_packets = false;
     m_packet_drop_counter = 0;
     m_packet_good_counter = 0;
-
+    m_keep_running.store(true);
     m_msg_queue.clear();
 
     pthread_create(&m_thread, nullptr, StartBroadcasterThread, this);
 }
 
 void Broadcaster::Stop() {
-    m_queue_mutex.lock();
-    m_is_running = false;
-    m_queue_mutex.unlock();
-    m_queue_cond.signal();
-
-    pthread_join(m_thread, nullptr);
+    const bool was_running = m_keep_running.exchange(false);
+    if (was_running) {
+        m_queue_cond.signal();
+        pthread_join(m_thread, nullptr);
+    }
 }
 
 void Broadcaster::Thread() {
-    Logger::Log(LOG_DEBUG, "broadcaster m_thread %u owned by client_id %d", ThreadID::getID(), m_client_id);
-    while (m_is_running) {
+    Logger::Log(LOG_DEBUG, "Started broadcaster thread %u owned by client_id %d", ThreadID::getID(), m_client->GetUserId());
+    while (true) {
         queue_entry_t msg;
         // define a new scope and use a scope lock
         {
             MutexLocker scoped_lock(m_queue_mutex);
-            while (m_msg_queue.empty() && m_is_running) {
+            while (m_msg_queue.empty()) {
                 m_queue_mutex.wait(m_queue_cond);
             }
-            if (!m_is_running) {
+            if (m_keep_running.load() == false) {
                 break;
             }
-
             msg = m_msg_queue.front();
             m_msg_queue.pop_front();
         }
@@ -90,20 +84,22 @@ void Broadcaster::Thread() {
         }
 
         // TODO WARNING THE SOCKET IS NOT PROTECTED!!!
-        if (Messaging::SendMessage(m_socket, msg.type, msg.uid, msg.streamid, msg.datalen, msg.data) != 0) {
-            m_sequencer->QueueClientForDisconnect(m_client_id, "Broadcaster: Send error", true, true);
+        if (Messaging::SendMessage(m_client->GetSocket(), msg.type, msg.uid, msg.streamid, msg.datalen, msg.data) != 0) {
+            m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Broadcaster: Send error", true, true);
             break;
         }
     }
 
-    if (!m_is_running) {
+    { // Scope for lock
         MutexLocker scoped_lock(m_queue_mutex);
         for (const auto& msg : m_msg_queue) {
             if (msg.type != RoRnet::MSG2_STREAM_DATA && msg.type != RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
-                Messaging::SendMessage(m_socket, msg.type, msg.uid, msg.streamid, msg.datalen, msg.data);
+                Messaging::SendMessage(m_client->GetSocket(), msg.type, msg.uid, msg.streamid, msg.datalen, msg.data);
             }
         }
     }
+
+    Logger::Log(LOG_DEBUG, "Broadcaster thread %u (client_id %d) exits", ThreadID::getID(), m_client->GetUserId());
 }
 
 //this is called all the way from the receiver threads, we should process this swiftly
@@ -111,7 +107,7 @@ void Broadcaster::Thread() {
 //we MUST copy the data too
 //also, this function can be called by threads owning clients_mutex !!!
 void Broadcaster::QueueMessage(int type, int uid, unsigned int streamid, unsigned int len, const char *data) {
-    if (!m_is_running) {
+    if (m_keep_running.load() == false) {
         return;
     }
     queue_entry_t msg = {type, uid, streamid, len, ""};

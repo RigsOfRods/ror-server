@@ -57,8 +57,8 @@ Client::Client(Sequencer *sequencer, SWInetSocket *socket) :
 }
 
 void Client::StartThreads() {
-    m_receiver.Start(user.uniqueid, m_socket);
-    m_broadcaster.Start(user.uniqueid, m_socket);
+    m_receiver.Start(this);
+    m_broadcaster.Start(this);
 }
 
 void Client::Disconnect() {
@@ -1198,12 +1198,12 @@ Client *Sequencer::FindClientById(unsigned int client_id) {
     return nullptr;
 }
 
-std::vector<Client> Sequencer::GetClientListCopy() {
+std::vector<WebserverClientInfo> Sequencer::GetClientListCopy() {
     MutexLocker scoped_lock(m_clients_mutex);
 
-    std::vector<Client> output;
+    std::vector<WebserverClientInfo> output;
     for (Client *c : m_clients) {
-        output.push_back(*c);
+        output.push_back(c);
     }
     return output;
 }

@@ -151,7 +151,7 @@ public:
 
     Sequencer();
 
-    void Initialize(Listener *listener);
+    void Initialize();
 
     //! destructor call, used for clean up
     void Close();
@@ -222,7 +222,6 @@ private:
     Condition m_killer_cond;    //!< wait condition that there are clients to kill
     Mutex m_killer_mutex;   //!< mutex used for locking access to the killqueue
     Mutex m_clients_mutex;  //!< mutex used for locking access to the clients array
-    Listener *m_listener;
     ScriptEngine *m_script_engine;
     UserAuth *m_auth_resolver;
     int m_bot_count;      //!< Amount of registered bots on the server.

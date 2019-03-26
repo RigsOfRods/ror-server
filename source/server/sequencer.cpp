@@ -22,7 +22,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "messaging.h"
 #include "sha1_util.h"
-#include "listener.h"
 #include "receiver.h"
 #include "broadcaster.h"
 #include "userauth.h"
@@ -116,7 +115,6 @@ void *LaunchKillerThread(void *data) {
 }
 
 Sequencer::Sequencer() :
-        m_listener(nullptr),
         m_script_engine(nullptr),
         m_auth_resolver(nullptr),
         m_bot_count(0),
@@ -125,10 +123,9 @@ Sequencer::Sequencer() :
 }
 
 /**
- * Inililize, needs to be called before the class is used
+ * Initialize, needs to be called before the class is used
  */
-void Sequencer::Initialize(Listener *listener) {
-    m_listener = listener;
+void Sequencer::Initialize() {
     m_clients.reserve(Config::getMaxClients());
 
 #ifdef WITH_ANGELSCRIPT

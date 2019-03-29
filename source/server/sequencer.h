@@ -235,8 +235,6 @@ public:
 
     std::vector<WebserverClientInfo> GetClientListCopy();
 
-    static unsigned int connCrash, connCount;
-
 private:
     pthread_t m_killer_thread;  //!< thread to handle the killing of clients
     Condition m_killer_cond;    //!< wait condition that there are clients to kill
@@ -247,6 +245,8 @@ private:
     int m_bot_count;      //!< Amount of registered bots on the server.
     unsigned int m_free_user_id;
     int m_start_time;
+    size_t m_num_disconnects_total; //!< Statistic
+    size_t m_num_disconnects_crash; //!< Statistic
 
     std::queue<Client *> m_kill_queue; //!< holds pointer for client deletion
     std::vector<Client *> m_clients;

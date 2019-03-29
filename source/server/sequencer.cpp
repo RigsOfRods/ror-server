@@ -44,9 +44,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #endif
 
-unsigned int Sequencer::connCrash = 0;
-unsigned int Sequencer::connCount = 0;
-
 Client::Client(Sequencer *sequencer, SWInetSocket *socket) :
         m_socket(socket),
         m_receiver(sequencer),
@@ -112,6 +109,8 @@ void *LaunchKillerThread(void *data) {
 Sequencer::Sequencer() :
         m_script_engine(nullptr),
         m_auth_resolver(nullptr),
+        m_num_disconnects_total(0),
+        m_num_disconnects_crash(0),
         m_bot_count(0),
         m_free_user_id(1) {
     m_start_time = static_cast<int>(time(nullptr));
@@ -435,11 +434,12 @@ void Sequencer::QueueClientForDisconnect(int uid, const char *errormsg, bool isE
     }
     m_killer_cond.signal();
 
-    this->connCount++;
+    m_num_disconnects_total++;
     if (isError) {
-        this->connCrash++;
+        m_num_disconnects_crash++;
     }
-    Logger::Log(LOG_INFO, "crash statistic: %d of %d deletes crashed", this->connCrash, this->connCount);
+    Logger::Log(LOG_INFO, "crash statistic: %zu of %zu deletes crashed",
+        m_num_disconnects_crash, m_num_disconnects_total);
 }
 
 //this is called from the listener thread initial handshake

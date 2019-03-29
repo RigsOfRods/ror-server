@@ -312,7 +312,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
     Logger::Log(LOG_VERBOSE, "Sequencer: New client added");
 }
 
-// assuming client lock
+// Only used by scripting
 void Sequencer::broadcastUserInfo(int client_id) {
     Client *client = this->FindClientById(static_cast<unsigned int>(client_id));
     if (client == nullptr) {
@@ -324,9 +324,12 @@ void Sequencer::broadcastUserInfo(int client_id) {
     RoRnet::UserInfo info_for_others = client->user;
     memset(info_for_others.usertoken, 0, 40);
     memset(info_for_others.clientGUID, 0, 40);
-    for (unsigned int i = 0; i < m_clients.size(); i++) {
-        m_clients[i]->QueueMessage(RoRnet::MSG2_USER_INFO, info_for_others.uniqueid, 0, sizeof(RoRnet::UserInfo),
-                                   (char *) &info_for_others);
+    { // Lock scope
+        MutexLocker scoped_lock(m_clients_mutex);
+        for (unsigned int i = 0; i < m_clients.size(); i++) {
+            m_clients[i]->QueueMessage(RoRnet::MSG2_USER_INFO, info_for_others.uniqueid, 0, sizeof(RoRnet::UserInfo),
+                                       (char *) &info_for_others);
+        }
     }
 }
 
@@ -387,6 +390,8 @@ void Sequencer::killerthreadstart() {
 }
 
 void Sequencer::QueueClientForDisconnect(int uid, const char *errormsg, bool isError /*=true*/, bool doScriptCallback /*= true*/) {
+    MutexLocker scoped_lock(m_clients_mutex);
+
     Client *client = this->FindClientById(static_cast<unsigned int>(uid));
     if (client == nullptr) {
         Logger::Log(LOG_DEBUG,
@@ -396,10 +401,12 @@ void Sequencer::QueueClientForDisconnect(int uid, const char *errormsg, bool isE
     }
 
     // send an event if user is rankend and if we are a official server
+    /* Disabled until new multiplayer portal supports it.
     if (m_auth_resolver && (client->user.authstatus & RoRnet::AUTH_RANKED)) {
         m_auth_resolver->sendUserEvent(std::string(client->user.usertoken, 40), (isError ? "crash" : "leave"),
                                        Str::SanitizeUtf8(client->user.username), "");
     }
+    */
 
 #ifdef WITH_ANGELSCRIPT
     if (m_script_engine != nullptr && doScriptCallback) {
@@ -1181,6 +1188,8 @@ void Sequencer::printStats() {
     }
 }
 
+// clients_mutex needs to be locked wen calling this method
+// Invoked either from Sequencer or ServerScript
 Client *Sequencer::FindClientById(unsigned int client_id) {
     auto itor = m_clients.begin();
     auto endi = m_clients.end();

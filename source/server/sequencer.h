@@ -239,7 +239,7 @@ private:
     pthread_t m_killer_thread;  //!< thread to handle the killing of clients
     Condition m_killer_cond;    //!< wait condition that there are clients to kill
     Mutex m_killer_mutex;   //!< mutex used for locking access to the killqueue
-    Mutex m_clients_mutex;  //!< mutex used for locking access to the clients array
+    Mutex m_clients_mutex;  //!< Protects: m_clients, m_script_engine, m_auth_resolver, m_bot_count, m_num_disconnects_[total/crash]
     ScriptEngine *m_script_engine;
     UserAuth *m_auth_resolver;
     int m_bot_count;      //!< Amount of registered bots on the server.

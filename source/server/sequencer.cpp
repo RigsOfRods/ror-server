@@ -109,6 +109,7 @@ void *LaunchKillerThread(void *data) {
 Sequencer::Sequencer() :
         m_script_engine(nullptr),
         m_auth_resolver(nullptr),
+        m_clients_mutex(/*recursive=*/ true),
         m_num_disconnects_total(0),
         m_num_disconnects_crash(0),
         m_bot_count(0),

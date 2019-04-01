@@ -31,23 +31,25 @@ Condition::~Condition() { pthread_cond_destroy(&cond); }
 
 void Condition::signal() { pthread_cond_signal(&cond); }
 
-Mutex::Mutex() : lock_owner(0) { pthread_mutex_init(&m, NULL); }
+Mutex::Mutex(bool recursive /*= false*/)
+{
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    if (recursive)
+    {
+        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    }
+    pthread_mutex_init(&m, &attr);
+}
 
 Mutex::~Mutex() { pthread_mutex_destroy(&m); }
 
 void Mutex::lock() {
-    // check for deadlock, if this occurs raise an abort signal to stop the
-    // debugger
-
-    if (ThreadID::getID() == lock_owner)
-        raise(SIGABRT);
     pthread_mutex_lock(&m);
-    lock_owner = ThreadID::getID();
 }
 
 void Mutex::unlock() {
     pthread_mutex_unlock(&m);
-    lock_owner = 0;
 }
 
 void Mutex::wait(Condition &c) { pthread_cond_wait(&(c.cond), &m); }

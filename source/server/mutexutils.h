@@ -69,7 +69,7 @@ private:
 
 class Mutex {
 public:
-    Mutex();
+    Mutex(bool recursive = false);
 
     ~Mutex();
 
@@ -83,7 +83,6 @@ public:
 
 private:
     pthread_mutex_t m;
-    unsigned int lock_owner;
 };
 
 

@@ -69,14 +69,17 @@ void Broadcaster::Thread() {
         // define a new scope and use a scope lock
         {
             MutexLocker scoped_lock(m_queue_mutex);
-            while (m_msg_queue.empty()) {
+            while (m_msg_queue.empty() && m_keep_running.load()) {
                 m_queue_mutex.wait(m_queue_cond);
             }
-            if (m_keep_running.load() == false) {
+
+            if (!m_keep_running.load()) {
                 break;
             }
-            msg = m_msg_queue.front();
-            m_msg_queue.pop_front();
+            else if (!m_msg_queue.empty()) { // This shouldn't be needed, but rorserver is haunted: https://github.com/RigsOfRods/ror-server/pull/90#issuecomment-500597467 ~ only_a_ptr, 06/2019
+                msg = m_msg_queue.front();
+                m_msg_queue.pop_front();
+            }
         }
 
         if (msg.type == RoRnet::MSG2_STREAM_DATA_DISCARDABLE)

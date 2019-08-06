@@ -20,8 +20,10 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "userauth.h"
 
+#include "config.h"
 #include "rornet.h"
 #include "logger.h"
+#include "http.h"
 
 #include <stdexcept>
 #include <cstdio>
@@ -130,6 +132,23 @@ int UserAuth::sendUserEvent(std::string user_token, std::string type, std::strin
 int UserAuth::resolve(std::string user_token, std::string &user_nick, int clientid) {
     // initialize the authlevel on none = normal user
     int authlevel = RoRnet::AUTH_NONE;
+
+    // contact the master server
+    char url[512];
+    sprintf(url, "/%s/users?username=%s&user_token=%s", Config::GetServerlistPath().c_str(), user_nick.c_str(), user_token.c_str());
+    Logger::Log(LOG_INFO, "Attempting user authentication (%s)", url);
+
+    Http::Response resp;
+    int result_code = Http::Request(Http::METHOD_GET,
+                                    Config::GetServerlistHostC(), url, "application/json", "", &resp);
+
+    // 200 means success!
+    if (result_code == 200) {
+        Logger::Log(LOG_INFO, "User authentication success, result code: %d", result_code);
+        int authlevel = RoRnet::AUTH_RANKED;
+    } else {
+        Logger::Log(LOG_INFO, "User authentication failed, result code: %d", result_code);
+    }
 
     //then check for overrides in the authorizations file (server admins, etc)
     if (local_auth.find(user_token) != local_auth.end()) {

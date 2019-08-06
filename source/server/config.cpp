@@ -57,7 +57,7 @@ static std::string s_owner;
 static std::string s_website;
 static std::string s_irc;
 static std::string s_voip;
-static std::string s_serverlist_host("multiplayer.rigsofrods.org");
+static std::string s_serverlist_host("api.rigsofrods.org");
 static std::string s_serverlist_path("");
 static std::string s_resourcedir(RESOURCE_DIR);
 

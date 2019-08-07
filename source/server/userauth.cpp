@@ -24,6 +24,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h"
 #include "logger.h"
 #include "http.h"
+#include "json/json.h"
 
 #include <stdexcept>
 #include <cstdio>
@@ -135,17 +136,23 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
 
     // contact the master server
     char url[512];
-    sprintf(url, "/%s/users?username=%s&user_token=%s", Config::GetServerlistPath().c_str(), user_nick.c_str(), user_token.c_str());
+    sprintf(url, "/%s/users", Config::GetServerlistPath().c_str());
     Logger::Log(LOG_INFO, "Attempting user authentication (%s)", url);
+
+    Json::Value data(Json::objectValue);
+    data["username"] = user_nick;
+    data["user_token"] = user_token;
+    std::string json_str = data.toStyledString();
 
     Http::Response resp;
     int result_code = Http::Request(Http::METHOD_GET,
-                                    Config::GetServerlistHostC(), url, "application/json", "", &resp);
+                                    Config::GetServerlistHostC(), url, "application/json",
+                                    json_str.c_str(), &resp);
 
     // 200 means success!
     if (result_code == 200) {
         Logger::Log(LOG_INFO, "User authentication success, result code: %d", result_code);
-        int authlevel = RoRnet::AUTH_RANKED;
+        authlevel = RoRnet::AUTH_RANKED;
     } else {
         Logger::Log(LOG_INFO, "User authentication failed, result code: %d", result_code);
     }

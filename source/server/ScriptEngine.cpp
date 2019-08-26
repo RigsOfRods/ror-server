@@ -122,7 +122,7 @@ RoRServerScriptBuilderIncludeCallback(const char *include, const char *from, CSc
     if (myFilename.length() > 3 && myFilename.substr(myFilename.length() - 3, 3) == ".as")
         myFilename = myFilename.substr(0, myFilename.length() - 3);
 
-    // Replace all forbidden characters in the filename	
+    // Replace all forbidden characters in the filename
     std::string allowedChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-";
     for (std::string::iterator it = myFilename.begin(); it < myFilename.end(); ++it) {
         if (allowedChars.find(*it) == std::string::npos)
@@ -194,7 +194,7 @@ int ScriptEngine::loadScript(std::string scriptname) {
     func = mod->GetFunctionByDecl("void playerAdded(int)");
     if (func) addCallback("playerAdded", func, NULL);
 
-    func = mod->GetFunctionByDecl("int streamAdded(int, RoRnet::StreamRegister@)");
+    func = mod->GetFunctionByDecl("int streamAdded(int, StreamRegister@)");
     if (func) addCallback("streamAdded", func, NULL);
 
     func = mod->GetFunctionByDecl("int playerChat(int, string msg)");
@@ -864,7 +864,7 @@ void ScriptEngine::addCallbackScript(const std::string &type, const std::string 
     else if (type == "playerDeleted")
         funcDecl = "void " + _func + "(int, int)";
     else if (type == "streamAdded")
-        funcDecl = "int " + _func + "(int, RoRnet::StreamRegister@)";
+        funcDecl = "int " + _func + "(int, StreamRegister@)";
     else {
         setException("Type " + type +
                      " does not exist! Possible type strings: 'frameStep', 'playerChat', 'gameCmd', 'playerAdded', 'playerDeleted', 'streamAdded'.");
@@ -953,7 +953,7 @@ void ScriptEngine::deleteCallbackScript(const std::string &type, const std::stri
     else if (type == "playerDeleted")
         funcDecl = "void " + _func + "(int, int)";
     else if (type == "streamAdded")
-        funcDecl = "int " + _func + "(int, RoRnet::StreamRegister@)";
+        funcDecl = "int " + _func + "(int, StreamRegister@)";
     else {
         setException("Type " + type +
                      " does not exist! Possible type strings: 'frameStep', 'playerChat', 'gameCmd', 'playerAdded', 'playerDeleted', 'streamAdded'.");
@@ -1073,7 +1073,7 @@ std::string ServerScript::getUserAuth(int uid) {
     else if (c->user.authstatus & RoRnet::AUTH_MOD) return "moderator";
     else if (c->user.authstatus & RoRnet::AUTH_RANKED) return "ranked";
     else if (c->user.authstatus & RoRnet::AUTH_BOT) return "bot";
-    //else if(c->user.authstatus & RoRnet::AUTH_NONE) 
+    //else if(c->user.authstatus & RoRnet::AUTH_NONE)
     return "none";
 }
 

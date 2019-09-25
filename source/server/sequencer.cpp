@@ -112,6 +112,7 @@ Sequencer::Sequencer() :
         m_clients_mutex(/*recursive=*/ true),
         m_num_disconnects_total(0),
         m_num_disconnects_crash(0),
+        m_blacklist(this),
         m_bot_count(0),
         m_free_user_id(1) {
     m_start_time = static_cast<int>(time(nullptr));
@@ -133,6 +134,8 @@ void Sequencer::Initialize() {
     pthread_create(&m_killer_thread, NULL, LaunchKillerThread, this);
 
     m_auth_resolver = new UserAuth(Config::getAuthFile());
+
+    m_blacklist.LoadBlacklistFromFile();
 }
 
 /**
@@ -639,6 +642,7 @@ bool Sequencer::Ban(int buid, int modUID, const char *msg) {
 
     this->RecordBan(buid, banned_client->GetIpAddress(),
                     banned_client->GetUsername(), mod_client->GetUsername(), msg);
+    m_blacklist.SaveBlacklistToFile(); // Persist the ban
 
     std::string kick_msg = msg + std::string(" (banned)");
     return Kick(buid, modUID, kick_msg.c_str());
@@ -653,6 +657,7 @@ void Sequencer::SilentBan(int buid, const char *msg, bool doScriptCallback /*= t
 
     this->RecordBan(buid, banned_client->GetIpAddress(),
         banned_client->GetUsername(), "rorserver", msg);
+    m_blacklist.SaveBlacklistToFile(); // Persist the ban
 
     std::string kick_msg = msg + std::string(" (banned)");
     disconnect(banned_client->user.uniqueid, kick_msg.c_str(), false, doScriptCallback);
@@ -1196,6 +1201,17 @@ std::vector<WebserverClientInfo> Sequencer::GetClientListCopy() {
     std::vector<WebserverClientInfo> output;
     for (Client *c : m_clients) {
         output.push_back(c);
+    }
+    return output;
+}
+
+std::vector<ban_t> Sequencer::GetBanListCopy()
+{
+    // FIXME: bans really should be synchronized ~ 09/2019
+
+    std::vector<ban_t> output;
+    for (ban_t *b : m_bans) {
+        output.push_back(*b);
     }
     return output;
 }

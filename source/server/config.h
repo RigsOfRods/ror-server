@@ -79,6 +79,8 @@ namespace Config {
 
     const std::string &getRulesFile();
 
+    const std::string &getBlacklistFile();
+
     unsigned int getMaxVehicles();
 
     const std::string &getOwner();
@@ -143,6 +145,8 @@ namespace Config {
     void setMOTDFile(const std::string &file);
 
     void setRulesFile(const std::string &rulesFile);
+
+    void setBlacklistFile(const std::string &blacklistFile);
 
     void setMaxVehicles(unsigned int num);
 

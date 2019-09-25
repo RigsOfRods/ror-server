@@ -53,6 +53,7 @@ static std::string s_scriptname;
 static std::string s_authfile("server.auth");
 static std::string s_motdfile("server.motd");
 static std::string s_rulesfile("server.rules");
+static std::string s_blacklistfile("server.blacklist");
 static std::string s_owner;
 static std::string s_website;
 static std::string s_irc;
@@ -113,9 +114,10 @@ namespace Config {
                         " -version                     Prints the server version numbers\n"
                         " -fg                          Starts the server in the foreground (background by default)\n"
                         " -resource-dir <path>         Sets the path to the resource directory\n"
-                        " -auth-file <server.auth>     Sets the filename of the file that contains authorization info\n"
-                        " -motd-file <server.motd>     Sets the filename of the file that contains the message of the day\n"
-                        " -rules-file <server.rules>   Sets the filename of the file that contains rules for this server\n"
+                        " -auth-file <server.auth>             Path to file with authorization info\n"
+                        " -motd-file <server.motd>             Path to file with message of the day\n"
+                        " -rules-file <server.rules>           Path to file with rules for this server\n"
+                        " -blacklist-file <server.blacklist>   Path to file where bans are persisted\n"
                         " -vehicle-limit {0-...}       Sets the maximum number of vehicles that a user is allowed to have\n"
                         " -owner <name|organisation>   Sets the owner of this server (for the !owner command) (optional)\n"
                         " -website <URL>               Sets the website of this server (for the !website command) (optional)\n"
@@ -248,6 +250,7 @@ namespace Config {
             HANDLE_ARG_VALUE("auth-file", { setAuthFile(value); });
             HANDLE_ARG_VALUE("motd-file", { setMOTDFile(value); });
             HANDLE_ARG_VALUE("rules-file", { setRulesFile(value); });
+            HANDLE_ARG_VALUE("blacklist-file", { setBlacklistFile(value); });
             HANDLE_ARG_VALUE("owner", { setOwner(value); });
             HANDLE_ARG_VALUE("website", { setWebsite(value); });
             HANDLE_ARG_VALUE("irc", { setIRC(value); });
@@ -320,6 +323,8 @@ namespace Config {
     const std::string &getAuthFile() { return s_authfile; }
 
     const std::string &getMOTDFile() { return s_motdfile; }
+
+    const std::string &getBlacklistFile() { return s_blacklistfile; }
 
     const std::string &getRulesFile() { return s_rulesfile; }
 
@@ -409,6 +414,8 @@ namespace Config {
 
     void setRulesFile(const std::string &file) { s_rulesfile = file; }
 
+    void setBlacklistFile(const std::string &file) { s_blacklistfile = file; }
+
     void setMaxVehicles(unsigned int num) { s_max_vehicles = num; }
 
     void setOwner(const std::string &owner) { s_owner = owner; }
@@ -484,6 +491,7 @@ namespace Config {
         else if (strcmp(key, "authfile") == 0) { setAuthFile(VAL_STR (value)); }
         else if (strcmp(key, "motdfile") == 0) { setMOTDFile(VAL_STR (value)); }
         else if (strcmp(key, "rulesfile") == 0) { setRulesFile(VAL_STR (value)); }
+        else if (strcmp(key, "blacklistfile") == 0) { setBlacklistFile(VAL_STR(value)); }
         else if (strcmp(key, "vehiclelimit") == 0) { setMaxVehicles(VAL_INT (value)); }
         else if (strcmp(key, "owner") == 0) { setOwner(VAL_STR (value)); }
         else if (strcmp(key, "website") == 0) { setWebsite(VAL_STR (value)); }

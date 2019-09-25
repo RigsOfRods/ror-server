@@ -607,6 +607,26 @@ bool Sequencer::Kick(int kuid, int modUID, const char *msg) {
     return true;
 }
 
+void Sequencer::RecordBan(int user_id,
+    std::string const& ip_addr,
+    std::string const& nickname,
+    std::string const& by_nickname,
+    std::string const& banmsg)
+{
+    // construct ban data and add it to the list
+    ban_t *b = new ban_t;
+    memset(b, 0, sizeof(ban_t));
+
+    b->uid = user_id;
+    strncpy(b->banmsg, banmsg.c_str(), /* copy max: */255);
+    strncpy(b->nickname, nickname.c_str(), /* copy max: */RORNET_MAX_USERNAME_LEN - 1);
+    strncpy(b->bannedby_nick, by_nickname.c_str(), /* copy max: */RORNET_MAX_USERNAME_LEN - 1);
+
+    Logger::Log(LOG_DEBUG, "adding ban, size: %u", m_bans.size());
+    m_bans.push_back(b);
+    Logger::Log(LOG_VERBOSE, "new ban added: '%s' by '%s'", nickname.c_str(), by_nickname.c_str());
+}
+
 bool Sequencer::Ban(int buid, int modUID, const char *msg) {
     Client *banned_client = this->FindClientById(static_cast<unsigned int>(buid));
     if (banned_client == nullptr) {
@@ -617,28 +637,11 @@ bool Sequencer::Ban(int buid, int modUID, const char *msg) {
         return false;
     }
 
-    // construct ban data and add it to the list
-    ban_t *b = new ban_t;
-    memset(b, 0, sizeof(ban_t));
+    this->RecordBan(buid, banned_client->GetIpAddress(),
+                    banned_client->GetUsername(), mod_client->GetUsername(), msg);
 
-    b->uid = buid;
-    if (msg) strncpy(b->banmsg, msg, 256);
-    std::string mod_nickname = Str::SanitizeUtf8(mod_client->user.username);
-    strncpy(b->bannedby_nick, mod_nickname.c_str(), RORNET_MAX_USERNAME_LEN - 1);
-    strncpy(b->ip, banned_client->GetIpAddress().c_str(), 16);
-    std::string banned_nickname = Str::SanitizeUtf8(banned_client->user.username);
-    strncpy(b->nickname, banned_nickname.c_str(), RORNET_MAX_USERNAME_LEN - 1);
-    Logger::Log(LOG_DEBUG, "adding ban, size: %d", m_bans.size());
-    m_bans.push_back(b);
-    Logger::Log(LOG_VERBOSE, "new ban added: '%s' by '%s'", banned_nickname.c_str(), mod_nickname.c_str());
-
-    char tmp[1024] = "";
-    if (msg) {
-        strcat(tmp, msg);
-    }
-    strcat(tmp, " (banned)");
-
-    return Kick(buid, modUID, tmp);
+    std::string kick_msg = msg + std::string(" (banned)");
+    return Kick(buid, modUID, kick_msg.c_str());
 }
 
 void Sequencer::SilentBan(int buid, const char *msg, bool doScriptCallback /*= true*/) {
@@ -648,27 +651,11 @@ void Sequencer::SilentBan(int buid, const char *msg, bool doScriptCallback /*= t
         return;
     }
 
-    // construct ban data and add it to the list
-    ban_t *b = new ban_t;
-    memset(b, 0, sizeof(ban_t));
+    this->RecordBan(buid, banned_client->GetIpAddress(),
+        banned_client->GetUsername(), "rorserver", msg);
 
-    b->uid = buid;
-    if (msg) strncpy(b->banmsg, msg, 256);
-    strncpy(b->bannedby_nick, "rorserver", RORNET_MAX_USERNAME_LEN - 1);
-    strncpy(b->ip, banned_client->GetIpAddress().c_str(), 16);
-    std::string banned_nickname = Str::SanitizeUtf8(banned_client->user.username);
-    strncpy(b->nickname, banned_nickname.c_str(), RORNET_MAX_USERNAME_LEN - 1);
-    Logger::Log(LOG_DEBUG, "adding ban, size: %d", m_bans.size());
-    m_bans.push_back(b);
-    Logger::Log(LOG_VERBOSE, "new ban added '%s' by rorserver", banned_nickname.c_str());
-
-    char tmp[1024] = "";
-    if (msg) {
-        strcat(tmp, msg);
-    }
-    strcat(tmp, " (banned)");
-
-    this->QueueClientForDisconnect(banned_client->user.uniqueid, tmp, false, doScriptCallback);
+    std::string kick_msg = msg + std::string(" (banned)");
+    disconnect(banned_client->user.uniqueid, kick_msg.c_str(), false, doScriptCallback);
 }
 
 bool Sequencer::UnBan(int buid) {

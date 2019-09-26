@@ -6,8 +6,6 @@ class Client;
 
 class Sequencer;
 
-class SWInetSocket;
-
 class Broadcaster;
 
 class Receiver;
@@ -21,3 +19,9 @@ class ScriptEngine;
 namespace Http {
     class Response;
 }
+
+#include <kissnet.hpp>
+
+#ifdef SendMessage // Kissnet leaks Win32 defines
+#   undef SendMessage
+#endif

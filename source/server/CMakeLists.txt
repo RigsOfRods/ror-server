@@ -1,7 +1,7 @@
 FILE(GLOB_RECURSE server_src *.cpp *.c *.h *.rc)
 
 # general flags
-include_directories(${rorserver_SOURCE_DIR}/dependencies/socketw)
+include_directories(${rorserver_SOURCE_DIR}/dependencies/kissnet)
 include_directories(${rorserver_SOURCE_DIR}/dependencies/)
 include_directories(${rorserver_SOURCE_DIR}/source/protocol/)
 include_directories(${rorserver_SOURCE_DIR}/source/common/)
@@ -23,6 +23,7 @@ if (RORSERVER_WITH_WEBSERVER)
 endif (RORSERVER_WITH_WEBSERVER)
 
 # the final lib
+set(CMAKE_CXX_STANDARD 17)
 add_executable(rorserver ${server_src})
 
 # libraries
@@ -35,13 +36,13 @@ IF (WIN32)
     add_definitions("/wd4251")
     include_directories(${rorserver_SOURCE_DIR}/dependencies/win32_pthread)
     target_link_libraries(rorserver ${rorserver_SOURCE_DIR}/dependencies/win32_pthread/pthreadVC2.lib)
-    target_link_libraries(rorserver mysocketw jsoncpp)
+    target_link_libraries(rorserver jsoncpp)
     if (RORSERVER_WITH_WEBSERVER)
         target_link_libraries(rorserver ctemplate)
     endif (RORSERVER_WITH_WEBSERVER)
 ELSEIF (UNIX)
     #add_definitions("-DAS_MAX_PORTABILITY")
-    target_link_libraries(rorserver mysocketw pthread dl jsoncpp)
+    target_link_libraries(rorserver pthread dl jsoncpp)
     if (RORSERVER_WITH_WEBSERVER)
         target_link_libraries(rorserver ctemplate)
     endif (RORSERVER_WITH_WEBSERVER)

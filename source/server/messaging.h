@@ -26,8 +26,14 @@ If not, see <http://www.gnu.org/licenses/>.
 
 namespace Messaging {
 
+    enum class Result { SUCCESS, DISCONNECT, FAILURE };
+
+    Result RecvAll(kissnet::tcp_socket& socket,
+        std::byte* dst_buffer, size_t dst_size,
+        std::byte* overflow_buf, size_t overflow_cap, size_t* out_overflow_size);
+
     int SendMessage(
-            SWInetSocket *socket,
+            kissnet::tcp_socket& socket,
             int msg_type,
             int msg_client_id,
             unsigned int msg_stream_id,
@@ -35,7 +41,7 @@ namespace Messaging {
             const char *payload);
 
     int ReceiveMessage(
-            SWInetSocket *socket,
+            kissnet::tcp_socket& socket,
             int *out_msg_type,
             int *out_client_id,
             unsigned int *out_stream_id,

@@ -37,7 +37,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "ScriptFileSafe.h" // (edited) angelscript addon
 
 #include "utils.h"
-#include "SocketW.h"
 
 #include <cstdio>
 #include <stdlib.h>

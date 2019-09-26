@@ -49,7 +49,7 @@ private:
 
     pthread_t m_thread;
     Client* m_client;
-    char m_dbuffer[RORNET_MAX_MESSAGE_LENGTH]; // Keep here to be allocated on heap (along with Client)
+    char m_dbuffer[RORNET_MAX_MESSAGE_LENGTH];
     std::atomic<bool> m_keep_running;
     Sequencer *m_sequencer;
 };

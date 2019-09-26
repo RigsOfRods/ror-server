@@ -23,7 +23,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h"
 #include "messaging.h"
 #include "sequencer.h"
-#include "SocketW.h"
 #include "logger.h"
 #include "config.h"
 #include "UnicodeStrings.h"
@@ -46,8 +45,7 @@ void *s_lsthreadstart(void *arg) {
 }
 
 
-Listener::Listener(Sequencer *sequencer, int port) :
-        m_listen_port(port),
+Listener::Listener(Sequencer *sequencer) :
         m_sequencer(sequencer),
         m_thread_shutdown(false) {
 }
@@ -68,7 +66,6 @@ bool Listener::Initialize() {
 void Listener::Shutdown() {
     Logger::Log(LOG_VERBOSE, "Stopping listener thread...");
     m_thread_shutdown = true;
-    m_listen_socket.disconnect();
     pthread_join(m_thread, nullptr);
     Logger::Log(LOG_VERBOSE, "Listener thread stopped");
 }
@@ -87,40 +84,39 @@ bool Listener::WaitUntilReady() {
 }
 
 void Listener::threadstart() {
-    Logger::Log(LOG_DEBUG, "Listerer thread starting");
-    //here we start
-    SWBaseSocket::SWBaseError error;
+    Logger::Log(LOG_DEBUG, "Listener thread starting");
 
-    //manage the listening socket
-    m_listen_socket.bind(m_listen_port, &error);
-    if (error != SWBaseSocket::ok) {
-        //this is an error!
-        Logger::Log(LOG_ERROR, "FATAL Listerer: %s", error.get_error().c_str());
-        //there is nothing we can do here
-        return;
-        // exit(1);
+    kissnet::tcp_socket listen_sock(
+        kissnet::endpoint("0.0.0.0", kissnet::port_t(Config::getListenPort())));
+    try
+    {
+        listen_sock.bind();
+        listen_sock.listen();
+        Logger::Log(LOG_VERBOSE, "Listener ready");
+        m_ready_cond.Signal(1);
     }
-    m_listen_socket.listen();
-
-    Logger::Log(LOG_VERBOSE, "Listener ready");
-    m_ready_cond.Signal(1);
+    catch (std::exception& e)
+    {
+        Logger::Log(LOG_ERROR, "FATAL Listener: %s", e.what());
+        return;
+    }
 
     //await connections
-    while (!m_thread_shutdown) {
+    while (!m_thread_shutdown)
+    {
         Logger::Log(LOG_VERBOSE, "Listener awaiting connections");
-        SWInetSocket *ts = (SWInetSocket *) m_listen_socket.accept(&error);
-
-        if (error != SWBaseSocket::ok) {
-            if (m_thread_shutdown) {
-                Logger::Log(LOG_ERROR, "INFO Listener shutting down");
-            } else {
-                Logger::Log(LOG_ERROR, "ERROR Listener: %s", error.get_error().c_str());
-            }
+        kissnet::tcp_socket ts;
+        try
+        {
+            ts = listen_sock.accept();
+        }
+        catch (std::exception& e)
+        {
+            Logger::Log(LOG_ERROR, "Listener failed to accept connection: %s", e.what());
+            return;
         }
 
         Logger::Log(LOG_VERBOSE, "Listener got a new connection");
-
-        ts->set_timeout(5, 0);
 
         //receive a magic
         int type;
@@ -129,7 +125,9 @@ void Listener::threadstart() {
         unsigned int streamid;
         char buffer[RORNET_MAX_MESSAGE_LENGTH];
 
-        try {
+        try
+        {
+
             // this is the start of it all, it all starts with a simple hello
             if (Messaging::ReceiveMessage(ts, &type, &source, &streamid, &len, buffer, RORNET_MAX_MESSAGE_LENGTH))
                 throw std::runtime_error("ERROR Listener: receiving first message");
@@ -150,8 +148,7 @@ void Listener::threadstart() {
                     throw std::runtime_error("ERROR Listener: sending master info");
                 }
                 // close socket
-                ts->disconnect(&error);
-                delete ts;
+                ts.close();
                 continue;
             }
 
@@ -227,13 +224,13 @@ void Listener::threadstart() {
             }
 
             //create a new client
-            m_sequencer->createClient(ts, *user); // copy the user info, since the buffer will be cleared soon
+            assert(ts.is_valid());
+            m_sequencer->createClient(std::move(ts), *user); // copy the user info, since the buffer will be cleared soon
             Logger::Log(LOG_DEBUG, "listener returned!");
         }
         catch (std::runtime_error &e) {
             Logger::Log(LOG_ERROR, e.what());
-            ts->disconnect(&error);
-            delete ts;
+            ts.close();
         }
     }
 }

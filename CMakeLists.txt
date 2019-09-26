@@ -80,7 +80,6 @@ IF (NOT WIN32)
 endif ()
 
 
-add_subdirectory("dependencies/socketw")
 add_subdirectory("dependencies/jsoncpp")
 
 add_subdirectory("source/server")

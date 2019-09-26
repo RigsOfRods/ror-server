@@ -310,7 +310,7 @@ int main(int argc, char *argv[]) {
 #endif // ! _WIN32
 
 
-    Listener listener(&s_sequencer, Config::getListenPort());
+    Listener listener(&s_sequencer);
     if (!listener.Initialize()) {
         return -1;
     }

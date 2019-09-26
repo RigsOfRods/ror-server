@@ -20,7 +20,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "receiver.h"
 
-#include "SocketW.h"
 #include "sequencer.h"
 #include "messaging.h"
 #include "ScriptEngine.h"
@@ -59,6 +58,7 @@ void Receiver::Stop() {
 
 void Receiver::Thread() {
     Logger::Log(LOG_DEBUG, "Started receiver thread %d owned by user ID %d", ThreadID::getID(), m_client->GetUserId());
+
     //get the vehicle description
     int type;
     int source;
@@ -72,9 +72,6 @@ void Receiver::Thread() {
 
     Logger::Log(LOG_VERBOSE, "UID %d is switching to FLOW", m_client->GetUserId());
 
-    // this prevents the socket from hangingwhen sending data
-    // which is the cause of threads getting blocked
-    m_client->GetSocket()->set_timeout(60, 0);
     while (true) {
         if (Messaging::ReceiveMessage(m_client->GetSocket(), &type, &source, &streamid, &len, m_dbuffer,
                                       RORNET_MAX_MESSAGE_LENGTH)) {

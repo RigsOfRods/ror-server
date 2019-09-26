@@ -95,7 +95,7 @@ public:
         STATUS_USED = 2
     };
 
-    Client(Sequencer *sequencer, SWInetSocket *socket);
+    Client(Sequencer *sequencer, kissnet::tcp_socket socket) noexcept;
 
     void StartThreads();
 
@@ -107,7 +107,7 @@ public:
 
     std::string GetIpAddress();
 
-    SWInetSocket *GetSocket() { return m_socket; }
+    kissnet::tcp_socket& GetSocket() { return m_socket; }
 
     bool IsBroadcasterDroppingPackets() const { return m_broadcaster.IsDroppingPackets(); }
 
@@ -128,7 +128,7 @@ public:
     std::map<unsigned int, stream_traffic_t> streams_traffic;
 
 private:
-    SWInetSocket *m_socket;
+    kissnet::tcp_socket m_socket;
     Receiver m_receiver;
     Broadcaster m_broadcaster;
     Status m_status;
@@ -163,6 +163,16 @@ struct ban_t {
     char banmsg[256];           //!< why he got banned
 };
 
+struct ClientInfo // for webserver
+{
+    Client::Status GetStatus() const { return status; }
+
+    std::map<unsigned int, RoRnet::StreamRegister> streams;
+    std::map<unsigned int, stream_traffic_t> streams_traffic;
+    Client::Status status;
+    RoRnet::UserInfo user;
+};
+
 void *LaunchKillerThread(void *);
 
 class Sequencer {
@@ -178,7 +188,7 @@ public:
     void Close();
 
     //! initilize client information
-    void createClient(SWInetSocket *sock, RoRnet::UserInfo user);
+    void createClient(kissnet::tcp_socket socket, RoRnet::UserInfo user);
 
     //! call to start the thread to disconnect clients from the server.
     void killerthreadstart();

@@ -25,7 +25,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "receiver.h"
 #include "broadcaster.h"
 #include "userauth.h"
-#include "SocketW.h"
 #include "logger.h"
 #include "config.h"
 #include "utils.h"
@@ -44,13 +43,14 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #endif
 
-Client::Client(Sequencer *sequencer, SWInetSocket *socket) :
-        m_socket(socket),
+Client::Client(Sequencer *sequencer, kissnet::tcp_socket socket) noexcept :
+        m_socket(std::move(socket)),
         m_receiver(sequencer),
         m_broadcaster(sequencer),
         m_status(Client::STATUS_USED),
         m_is_receiving_data(false),
         m_is_initialized(false) {
+    assert(m_socket.is_valid());
 }
 
 void Client::StartThreads() {
@@ -63,28 +63,12 @@ void Client::Disconnect() {
     m_broadcaster.Stop();
     m_receiver.Stop();
 
-    // Disconnect the socket
-    SWBaseSocket::SWBaseError result;
-    bool disconnected_ok = m_socket->disconnect(&result);
-    if (!disconnected_ok || (result != SWBaseSocket::base_error::ok)) {
-        Logger::Log(
-                LOG_ERROR,
-                "Internal: Error while disconnecting client - failed to disconnect socket. Message: %s",
-                result.get_error().c_str());
-    }
-    delete m_socket;
+    // Disconnect
+    m_socket.close();
 }
 
 std::string Client::GetIpAddress() {
-    SWBaseSocket::SWBaseError result;
-    std::string ip = m_socket->get_peerAddr(&result);
-    if (result != SWBaseSocket::base_error::ok) {
-        Logger::Log(
-                LOG_ERROR,
-                "Internal: Error while getting client IP address. Message: %s",
-                result.get_error().c_str());
-    }
-    return ip;
+    return m_socket.get_recv_endpoint().address;
 }
 
 void Client::QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len,
@@ -201,17 +185,18 @@ int Sequencer::GetFreePlayerColour() {
 }
 
 //this is called by the Listener thread
-void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
+void Sequencer::createClient(kissnet::tcp_socket sock, RoRnet::UserInfo user) {
     //we have a confirmed client that wants to play
     //try to find a place for him
     Logger::Log(LOG_DEBUG, "got instance in createClient()");
 
     MutexLocker scoped_lock(m_clients_mutex);
+    assert(sock.is_valid());
 
     // check if banned
-    SWBaseSocket::SWBaseError error;
-    if (Sequencer::IsBanned(sock->get_peerAddr(&error).c_str())) {
-        Logger::Log(LOG_VERBOSE, "rejected banned IP %s", sock->get_peerAddr(&error).c_str());
+    std::string ip_addr = sock.get_recv_endpoint().address;
+    if (this->IsBanned(ip_addr.c_str())) {
+        Logger::Log(LOG_VERBOSE, "rejected banned IP %s", ip_addr.c_str());
         Messaging::SendMessage(sock, RoRnet::MSG2_BANNED, 0, 0, 0, 0);
         return;
     }
@@ -221,9 +206,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
     if (m_clients.size() >= (Config::getMaxClients() + m_bot_count)) {
         Logger::Log(LOG_WARN, "join request from '%s' on full server: rejecting!",
                     Str::SanitizeUtf8(user.username).c_str());
-        // set a low time out because we don't want to cause a back up of
-        // connecting clients
-        sock->set_timeout(10, 0);
+
         Messaging::SendMessage(sock, RoRnet::MSG2_FULL, 0, 0, 0, 0);
         throw std::runtime_error("Server is full");
     }
@@ -255,7 +238,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
         m_bot_count++;
 
     //okay, create the client slot
-    Client *to_add = new Client(this, sock);
+    Client *to_add = new Client(this, std::move(sock));
     to_add->user = user;
     to_add->user.colournum = Sequencer::GetFreePlayerColour();
     to_add->user.authstatus = user.authstatus;
@@ -284,7 +267,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
     to_add->StartThreads();
 
     Logger::Log(LOG_VERBOSE, "Sending welcome message to uid %i", client_id);
-    if (Messaging::SendMessage(sock, RoRnet::MSG2_WELCOME, client_id, 0, sizeof(RoRnet::UserInfo),
+    if (Messaging::SendMessage(to_add->GetSocket(), RoRnet::MSG2_WELCOME, client_id, 0, sizeof(RoRnet::UserInfo),
                                (char *) &to_add->user)) {
         this->QueueClientForDisconnect(client_id, "error sending welcome message");
         return;

@@ -22,7 +22,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "logger.h"
 #include "messaging.h"
-#include "SocketW.h"
 #include "sequencer.h"
 
 #include <map>

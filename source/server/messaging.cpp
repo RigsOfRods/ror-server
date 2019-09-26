@@ -24,17 +24,18 @@ If not, see <http://www.gnu.org/licenses/>.
 #include "sequencer.h"
 #include "rornet.h"
 #include "logger.h"
-#include "SocketW.h"
 #include "config.h"
 #include "http.h"
+#include "prerequisites.h"
 #include "UnicodeStrings.h"
 
 #include <cstring>
+#include <cstddef>
 #include <stdarg.h>
 #include <time.h>
 #include <errno.h>
 #include <assert.h>
-
+#include <array>
 #include <mutex>
 
 static stream_traffic_t s_traffic = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -93,21 +94,17 @@ namespace Messaging {
  * @param content Payload
  * @return 0 on success
  */
-    int SendMessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len,
+    int SendMessage(kissnet::tcp_socket& socket, int type, int source, unsigned int streamid, unsigned int len,
                     const char *content) {
-        assert(socket != nullptr);
 
-        SWBaseSocket::SWBaseError error;
         RoRnet::Header head;
 
-        const int msgsize = sizeof(RoRnet::Header) + len;
+        const size_t msgsize = sizeof(RoRnet::Header) + len;
 
         if (msgsize >= RORNET_MAX_MESSAGE_LENGTH) {
             Logger::Log(LOG_ERROR, "UID: %d - attempt to send too long message", source);
             return -4;
         }
-
-        char buffer[RORNET_MAX_MESSAGE_LENGTH];
 
         memset(&head, 0, sizeof(RoRnet::Header));
         head.command = type;
@@ -116,15 +113,30 @@ namespace Messaging {
         head.streamid = streamid;
 
         // construct buffer
+        std::byte buffer[RORNET_MAX_MESSAGE_LENGTH];
         memset(buffer, 0, RORNET_MAX_MESSAGE_LENGTH);
-        memcpy(buffer, (char *) &head, sizeof(RoRnet::Header));
+        memcpy(buffer, (void *)&head, sizeof(RoRnet::Header));
         memcpy(buffer + sizeof(RoRnet::Header), content, len);
 
-        if (socket->fsend(buffer, msgsize, &error) < msgsize)
+        try
         {
-            Logger::Log(LOG_ERROR, "send error -1: %s", error.get_error().c_str());
+            auto [sent_len, sock_state] = socket.send(buffer, msgsize);
+            if (sock_state == kissnet::socket_status::cleanly_disconnected)
+            {
+                return -2;
+            }
+            else if (sock_state != kissnet::socket_status::valid)
+            {
+                Logger::Log(LOG_ERROR, "send error - invalid socket");
+                return -3;
+            }
+        }
+        catch (std::exception& e)
+        {
+            Logger::Log(LOG_ERROR, "send error: %s", e.what());
             return -1;
         }
+
         StatsAddOutgoing(msgsize);
         return 0;
     }
@@ -135,25 +147,32 @@ namespace Messaging {
  * @return                0 on success, negative number on error.
  */
     int ReceiveMessage(
-            SWInetSocket *socket,
+            kissnet::tcp_socket& socket,
             int *out_type,
             int *out_source,
             unsigned int *out_stream_id,
             unsigned int *out_payload_len,
             char *out_payload,
             unsigned int payload_buf_len) {
-        assert(socket != nullptr);
+
         assert(out_type != nullptr);
         assert(out_source != nullptr);
         assert(out_stream_id != nullptr);
         assert(out_payload != nullptr);
 
-        SWBaseSocket::SWBaseError error;
-
         RoRnet::Header head;
-        if (socket->frecv((char*)&head, sizeof(RoRnet::Header), &error) < sizeof(RoRnet::Header))
-        {
-            // this also happens when the connection is canceled
+        std::memset(out_payload, 0, payload_buf_len);
+        size_t payload_size = 0;
+        Result result = RecvAll(socket,
+            (std::byte*)&head, sizeof(RoRnet::Header),
+            (std::byte*)out_payload, payload_buf_len, &payload_size);
+
+        if (result == Result::DISCONNECT) {
+            Logger::Log(LOG_VERBOSE, "ReceiveMessage: disconnect while receiving header");
+            return -1;
+        }
+        else if (result == Result::FAILURE) {
+            Logger::Log(LOG_ERROR, "ReceiveMessage: socket failure while receiving header");
             return -2;
         }
 
@@ -168,11 +187,22 @@ namespace Messaging {
             return -3;
         }
 
-        if (head.size > 0) {
-            //read the rest
-            std::memset(out_payload, 0, payload_buf_len);
-            if (socket->frecv(out_payload, head.size, &error) < head.size) {
+        Logger::Log(LOG_VERBOSE, "ReceiveMessage(): payload size=%u, already got %u",
+            head.size, payload_size);
+        if (head.size > payload_size) {
+            //read the rest         
+
+            Result result = RecvAll(socket,
+                (std::byte*)out_payload+payload_size, head.size-payload_size,
+                nullptr, 0, nullptr);
+
+            if (result == Result::DISCONNECT) {
+                Logger::Log(LOG_VERBOSE, "ReceiveMessage: disconnect while receiving payload");
                 return -1;
+            }
+            else if (result == Result::FAILURE) {
+                Logger::Log(LOG_ERROR, "ReceiveMessage: socket failure while receiving payload");
+                return -2;
             }
         }
 
@@ -255,6 +285,46 @@ namespace Messaging {
         Logger::Log(LOG_DEBUG, "LAN broadcast successful");
 #endif // _WIN32	
         return 0;
+    }
+
+    Result RecvAll(kissnet::tcp_socket& socket,
+        std::byte* dst_buffer, size_t dst_size,
+        std::byte* overflow_buf, size_t overflow_cap, size_t* out_overflow_size)
+    {
+        kissnet::buffer<4000> buffer; // arbitrary
+        size_t total_size = 0;
+        while (total_size < dst_size)
+        {
+            // Wait for data part (blocking mode)            
+            auto[recv_size, sock_state] = socket.recv(buffer);
+            Logger::Log(LOG_VERBOSE, "RecvAll(): got %u bytes (%u total, %u requested) and status %d",
+                recv_size, total_size, dst_size, (int)sock_state);
+
+            if (sock_state == kissnet::socket_status::cleanly_disconnected)
+            {
+                return Result::DISCONNECT;
+            }
+            else if (sock_state != kissnet::socket_status::valid)
+            {
+                return Result::FAILURE;
+            }
+
+            // Buffer data up to capacity
+            memcpy(dst_buffer + total_size, buffer.data(),
+                std::min(recv_size, dst_size - total_size));
+            total_size += recv_size;
+        }
+
+        // Check overflow
+        if (overflow_buf && total_size > dst_size)
+        {
+            size_t overflow_size = std::min(overflow_cap, total_size - dst_size);
+            Logger::Log(LOG_VERBOSE, "RecvAll(): overflow %u bytes (%u total, %u requested, %u buffer cap)",
+                overflow_size, total_size, dst_size, overflow_cap);
+            memcpy(overflow_buf, buffer.data() + dst_size, overflow_size);
+            *out_overflow_size = overflow_size;
+        }
+        return Result::SUCCESS;
     }
 
 } // namespace Messaging

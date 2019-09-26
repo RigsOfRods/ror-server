@@ -22,7 +22,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "utils.h"
 #include "logger.h"
-#include "SocketW.h"
+#include "prerequisites.h"
 
 #include <assert.h>
 #include <stdexcept>
@@ -47,35 +47,43 @@ namespace Http {
             std::string payload) {
         method = method.empty() ? METHOD_GET : method;
 
-        SWInetSocket socket;
-        SWInetSocket::SWBaseError result;
-        if (!socket.connect(80, host, &result) || (result != SWInetSocket::ok)) {
-            Logger::Log(LOG_ERROR,
-                        "Could not process HTTP %s request %s%s failed, error: ",
-                        method, host, url, result.get_error().c_str());
-            return "";
+        kissnet::tcp_socket socket(kissnet::endpoint(host, 80));
+        try
+        {
+            socket.connect();
+            std::string query = method + " " + url + " HTTP/1.1\r\nHost: " + host + "\r\nContent-Type: " +
+                content_type + "\r\nContent-Length: " + std::to_string(payload.length()) + "\r\n\r\n" + payload;
+            auto [sent_len, sock_sent_status] = socket.send((std::byte*)query.data(), query.length());
+            if (sent_len != query.length() || sock_sent_status != kissnet::socket_status::valid)
+            {
+                Logger::Log(LOG_ERROR,
+                    "Could not process HTTP %s request %s%s failed, error sending data",
+                    method, host, url);
+                socket.close();
+                return "";
+            }
+
+            kissnet::buffer<5000> recv_buffer;
+            auto [recv_len, sock_recv_status] = socket.recv(recv_buffer);
+            if (recv_len == 0 || sock_recv_status != kissnet::socket_status::valid)
+            {
+                Logger::Log(LOG_ERROR,
+                    "Could not process HTTP %s request %s%s failed, error receiving data",
+                    method, host, url);
+                socket.close();
+                return "";
+            }
+
+            recv_buffer[std::min(recv_buffer.size() - 1, recv_len)] = std::byte(0); // Ensure null-terminated string
+            return std::string((const char*)recv_buffer.data());
         }
-
-        std::string query = method + " " + url + " HTTP/1.1\r\nHost: " + host + "\r\nContent-Type: " +
-            content_type + "\r\nContent-Length: " + std::to_string(payload.length()) + "\r\n\r\n" + payload;
-
-        if (socket.fsendmsg(query, &result) < 0) {
+        catch (std::exception& e)
+        {
             Logger::Log(LOG_ERROR,
-                        "Could not process HTTP %s request %s%s failed, error: ",
-                        method, host, url, result.get_error().c_str());
-            return "";
+                "Could not process HTTP %s request %s%s failed, message: %s",
+                method, host, url, e.what());
         }
-
-        std::string response = socket.recvmsg(5000, &result);
-        if (result != SWInetSocket::ok) {
-            Logger::Log(LOG_ERROR,
-                        "Could not process HTTP %s request %s%s failed, invalid response length, error message: ",
-                        method, host, url, result.get_error().c_str());
-            return "";
-        }
-
-        socket.disconnect();
-        return response;
+        return "";
     }
 
     int Request(

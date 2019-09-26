@@ -20,7 +20,6 @@
 
 #pragma once
 
-#include "SocketW.h"
 #include "mutexutils.h"
 #include "prerequisites.h"
 
@@ -30,13 +29,11 @@
 class Listener {
 private:
     pthread_t m_thread;
-    SWInetSocket m_listen_socket;
-    int m_listen_port;
     Threading::SimpleCond m_ready_cond;
     Sequencer *m_sequencer;
     std::atomic_bool m_thread_shutdown;
 public:
-    Listener(Sequencer *sequencer, int port);
+    Listener(Sequencer *sequencer);
 
     ~Listener(void);
 

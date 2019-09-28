@@ -153,61 +153,74 @@ namespace Messaging {
             unsigned int *out_stream_id,
             unsigned int *out_payload_len,
             char *out_payload,
-            unsigned int payload_buf_len) {
+            unsigned int payload_buf_len)
+    {
 
         assert(out_type != nullptr);
         assert(out_source != nullptr);
         assert(out_stream_id != nullptr);
         assert(out_payload != nullptr);
 
-        RoRnet::Header head;
-        std::memset(out_payload, 0, payload_buf_len);
-        size_t payload_size = 0;
-        Result result = RecvAll(socket,
-            (std::byte*)&head, sizeof(RoRnet::Header),
-            (std::byte*)out_payload, payload_buf_len, &payload_size);
+        try
+        {
+            RoRnet::Header header;
+            size_t header_recv = 0;
+            while (header_recv < sizeof(RoRnet::Header))
+            {
+                const auto [recv_len, sock_state] = socket.recv(
+                    reinterpret_cast<std::byte*>(&header), sizeof(RoRnet::Header));
 
-        if (result == Result::DISCONNECT) {
-            Logger::Log(LOG_VERBOSE, "ReceiveMessage: disconnect while receiving header");
-            return -1;
+                if (sock_state != kissnet::socket_status::valid)
+                {
+                    throw kissnet::socket_status(sock_state);
+                }
+                header_recv += recv_len;
+            }
+
+            *out_type = header.command;
+            *out_source = header.source;
+            *out_payload_len = header.size;
+            *out_stream_id = header.streamid;
+
+            if (header.size > payload_buf_len)
+            {
+                Logger::Log(LOG_ERROR,
+                    "ReceiveMessage(): payload too long: %u (buffer cap: %u)",
+                    header.size, payload_buf_len);
+                return -3;
+            }
+
+            std::memset(out_payload, 0, payload_buf_len);
+            size_t payload_recv = 0;
+            while (payload_recv < header.size)
+            {
+                const auto [recv_len, sock_state] = socket.recv(
+                    reinterpret_cast<std::byte*>(out_payload) + payload_recv,
+                    payload_buf_len - payload_recv);
+
+                if (sock_state != kissnet::socket_status::valid)
+                {
+                    throw kissnet::socket_status(sock_state);
+                }
+                payload_recv += recv_len;
+            }
+
+            StatsAddIncoming(sizeof(RoRnet::Header) + header.size);
+            return 0;
         }
-        else if (result == Result::FAILURE) {
-            Logger::Log(LOG_ERROR, "ReceiveMessage: socket failure while receiving header");
-            return -2;
-        }
-
-        *out_type = head.command;
-        *out_source = head.source;
-        *out_payload_len = head.size;
-        *out_stream_id = head.streamid;
-
-        if ( head.size > payload_buf_len) {
-            Logger::Log(LOG_ERROR, "ReceiveMessage(): payload too long: %d b (max. is %d b)", head.size,
-                        payload_buf_len);
-            return -3;
-        }
-
-        Logger::Log(LOG_VERBOSE, "ReceiveMessage(): payload size=%u, already got %u",
-            head.size, payload_size);
-        if (head.size > payload_size) {
-            //read the rest         
-
-            Result result = RecvAll(socket,
-                (std::byte*)out_payload+payload_size, head.size-payload_size,
-                nullptr, 0, nullptr);
-
-            if (result == Result::DISCONNECT) {
-                Logger::Log(LOG_VERBOSE, "ReceiveMessage: disconnect while receiving payload");
+        catch (kissnet::socket_status& sock_e)
+        {
+            if (sock_e == kissnet::socket_status::cleanly_disconnected)
+            {
+                Logger::Log(LOG_VERBOSE, "ReceiveMessage(): disconnect while receiving data");
                 return -1;
             }
-            else if (result == Result::FAILURE) {
-                Logger::Log(LOG_ERROR, "ReceiveMessage: socket failure while receiving payload");
+            else
+            {
+                Logger::Log(LOG_ERROR, "ReceiveMessage(): Invalid socket state: %d", static_cast<int>(sock_e));
                 return -2;
             }
         }
-
-        StatsAddIncoming(sizeof(RoRnet::Header) + head.size);
-        return 0;
     }
 
     int getTime() { return (int) time(NULL); }
@@ -285,46 +298,6 @@ namespace Messaging {
         Logger::Log(LOG_DEBUG, "LAN broadcast successful");
 #endif // _WIN32	
         return 0;
-    }
-
-    Result RecvAll(kissnet::tcp_socket& socket,
-        std::byte* dst_buffer, size_t dst_size,
-        std::byte* overflow_buf, size_t overflow_cap, size_t* out_overflow_size)
-    {
-        kissnet::buffer<4000> buffer; // arbitrary
-        size_t total_size = 0;
-        while (total_size < dst_size)
-        {
-            // Wait for data part (blocking mode)            
-            auto[recv_size, sock_state] = socket.recv(buffer);
-            Logger::Log(LOG_VERBOSE, "RecvAll(): got %u bytes (%u total, %u requested) and status %d",
-                recv_size, total_size, dst_size, (int)sock_state);
-
-            if (sock_state == kissnet::socket_status::cleanly_disconnected)
-            {
-                return Result::DISCONNECT;
-            }
-            else if (sock_state != kissnet::socket_status::valid)
-            {
-                return Result::FAILURE;
-            }
-
-            // Buffer data up to capacity
-            memcpy(dst_buffer + total_size, buffer.data(),
-                std::min(recv_size, dst_size - total_size));
-            total_size += recv_size;
-        }
-
-        // Check overflow
-        if (overflow_buf && total_size > dst_size)
-        {
-            size_t overflow_size = std::min(overflow_cap, total_size - dst_size);
-            Logger::Log(LOG_VERBOSE, "RecvAll(): overflow %u bytes (%u total, %u requested, %u buffer cap)",
-                overflow_size, total_size, dst_size, overflow_cap);
-            memcpy(overflow_buf, buffer.data() + dst_size, overflow_size);
-            *out_overflow_size = overflow_size;
-        }
-        return Result::SUCCESS;
     }
 
 } // namespace Messaging

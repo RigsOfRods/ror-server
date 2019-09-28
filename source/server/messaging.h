@@ -28,10 +28,6 @@ namespace Messaging {
 
     enum class Result { SUCCESS, DISCONNECT, FAILURE };
 
-    Result RecvAll(kissnet::tcp_socket& socket,
-        std::byte* dst_buffer, size_t dst_size,
-        std::byte* overflow_buf, size_t overflow_cap, size_t* out_overflow_size);
-
     int SendMessage(
             kissnet::tcp_socket& socket,
             int msg_type,

@@ -20,29 +20,27 @@
 
 #pragma once
 
-#include "mutexutils.h"
 #include "prerequisites.h"
 
-#include <pthread.h>
-#include <atomic>
+#include <thread>
 
-class Listener {
-private:
-    pthread_t m_thread;
-    Threading::SimpleCond m_ready_cond;
-    Sequencer *m_sequencer;
-    std::atomic_bool m_thread_shutdown;
+/// Listens for incoming connections (RoR players joining server)
+class Listener
+{
 public:
-    Listener(Sequencer *sequencer);
-
-    ~Listener(void);
-
-    void threadstart();
-
-    bool Initialize();
-
-    bool WaitUntilReady();
+    Listener(Sequencer* sequencer, kissnet::port_t listen_port);
+    ~Listener();
 
     void Shutdown();
+
+private:
+    void ListenThread();
+
+    /// Called by ListenThread(), all exceptions are propagated.
+    bool CheckClient(kissnet::tcp_socket& socket, RoRnet::UserInfo *user);
+
+    kissnet::tcp_socket m_socket;
+    std::thread m_thread;
+    Sequencer* m_sequencer;
 };
 

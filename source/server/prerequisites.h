@@ -20,8 +20,12 @@ namespace Http {
     class Response;
 }
 
-#include <kissnet.hpp>
+// Common includes
 
+#include "logger.h"
+#include "rornet.h"
+
+#include <kissnet.hpp>
 #ifdef SendMessage // Kissnet leaks Win32 defines
 #   undef SendMessage
 #endif

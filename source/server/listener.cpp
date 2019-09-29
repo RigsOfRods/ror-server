@@ -20,217 +20,182 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "listener.h"
 
-#include "rornet.h"
-#include "messaging.h"
-#include "sequencer.h"
-#include "logger.h"
 #include "config.h"
-#include "UnicodeStrings.h"
+#include "messaging.h"
 #include "utils.h"
 
-#include <stdexcept>
-#include <sstream>
-#include <stdio.h>
-
-#ifdef __GNUC__
-
-#include <stdlib.h>
-
-#endif
-
-void *s_lsthreadstart(void *arg) {
-    Listener *listener = static_cast<Listener *>(arg);
-    listener->threadstart();
-    return nullptr;
+Listener::Listener(Sequencer *sequencer, kissnet::port_t listen_port)
+    : m_sequencer(sequencer)
+    , m_socket(kissnet::endpoint("0.0.0.0", listen_port))
+{
+    m_socket.bind();
+    m_socket.listen();
+    m_thread = std::thread(&Listener::ListenThread, this);
 }
 
-
-Listener::Listener(Sequencer *sequencer) :
-        m_sequencer(sequencer),
-        m_thread_shutdown(false) {
-}
-
-Listener::~Listener(void) {
-    if (!m_thread_shutdown) {
-        this->Shutdown();
-    }
-}
-
-bool Listener::Initialize() {
-    if (!m_ready_cond.Initialize()) {
-        return false;
-    }
-    return (0 == pthread_create(&m_thread, NULL, s_lsthreadstart, this));
-}
-
-void Listener::Shutdown() {
-    Logger::Log(LOG_VERBOSE, "Stopping listener thread...");
-    m_thread_shutdown = true;
-    pthread_join(m_thread, nullptr);
-    Logger::Log(LOG_VERBOSE, "Listener thread stopped");
-}
-
-bool Listener::WaitUntilReady() {
-    int result = 0;
-    if (!m_ready_cond.Wait(&result)) {
-        Logger::Log(LOG_ERROR, "Internal: Error while starting listener thread");
-        return false;
-    }
-    if (result < 0) {
-        Logger::Log(LOG_ERROR, "Internal: Listerer thread failed to start");
-        return false;
-    }
-    return true;
-}
-
-void Listener::threadstart() {
-    Logger::Log(LOG_DEBUG, "Listener thread starting");
-
-    kissnet::tcp_socket listen_sock(
-        kissnet::endpoint("0.0.0.0", kissnet::port_t(Config::getListenPort())));
+Listener::~Listener()
+{
     try
     {
-        listen_sock.bind();
-        listen_sock.listen();
-        Logger::Log(LOG_VERBOSE, "Listener ready");
-        m_ready_cond.Signal(1);
+        this->Shutdown();
     }
     catch (std::exception& e)
     {
-        Logger::Log(LOG_ERROR, "FATAL Listener: %s", e.what());
-        return;
+        Logger::Log(LOG_ERROR, "Listener destructor: %s", e.what());
     }
+}
 
-    //await connections
-    while (!m_thread_shutdown)
+void Listener::ListenThread()
+{
+    for(;;) // Endless loop
     {
-        Logger::Log(LOG_VERBOSE, "Listener awaiting connections");
-        kissnet::tcp_socket ts;
         try
         {
-            ts = listen_sock.accept();
+            // Block until somebody connects or socket is closed by main thread.
+            kissnet::tcp_socket conn_sock = m_socket.accept();
+            if (!m_socket.is_valid())
+            {
+                Logger::Log(LOG_VERBOSE, "ListenThread(): Invalid socket after `accept()`, exiting.");
+                m_socket.close();
+                return;
+            }
+
+            // Evaluate the connection
+            Logger::Log(LOG_VERBOSE, "ListenThread(): got a new connection");
+            RoRnet::UserInfo user;
+            if (this->CheckClient(conn_sock, &user))
+            {
+                m_sequencer->createClient(std::move(conn_sock), user);
+            }
+            else
+            {
+                conn_sock.close();
+            }
         }
         catch (std::exception& e)
         {
-            Logger::Log(LOG_ERROR, "Listener failed to accept connection: %s", e.what());
-            return;
-        }
-
-        Logger::Log(LOG_VERBOSE, "Listener got a new connection");
-
-        //receive a magic
-        int type;
-        int source;
-        unsigned int len;
-        unsigned int streamid;
-        char buffer[RORNET_MAX_MESSAGE_LENGTH];
-
-        try
-        {
-
-            // this is the start of it all, it all starts with a simple hello
-            if (Messaging::ReceiveMessage(ts, &type, &source, &streamid, &len, buffer, RORNET_MAX_MESSAGE_LENGTH))
-                throw std::runtime_error("ERROR Listener: receiving first message");
-
-            // make sure our first message is a hello message
-            if (type != RoRnet::MSG2_HELLO) {
-                Messaging::SendMessage(ts, RoRnet::MSG2_WRONG_VER, 0, 0, 0, 0);
-                throw std::runtime_error("ERROR Listener: protocol error");
-            }
-
-            // check client version
-            if (source == 5000 && (std::string(buffer) == "MasterServer")) {
-                Logger::Log(LOG_VERBOSE, "Master Server knocked ...");
-                // send back some information, then close socket
-                char tmp[2048] = "";
-                sprintf(tmp, "protocol:%s\nrev:%s\nbuild_on:%s_%s\n", RORNET_VERSION, VERSION, __DATE__, __TIME__);
-                if (Messaging::SendMessage(ts, RoRnet::MSG2_MASTERINFO, 0, 0, (unsigned int) strlen(tmp), tmp)) {
-                    throw std::runtime_error("ERROR Listener: sending master info");
-                }
-                // close socket
-                ts.close();
-                continue;
-            }
-
-            // compare the versions if they are compatible
-            if (strncmp(buffer, RORNET_VERSION, strlen(RORNET_VERSION))) {
-                // not compatible
-                Messaging::SendMessage(ts, RoRnet::MSG2_WRONG_VER, 0, 0, 0, 0);
-                throw std::runtime_error("ERROR Listener: bad version: " + std::string(buffer) + ". rejecting ...");
-            }
-
-            // compatible version, continue to send server settings
-            std::string motd_str;
+            Logger::Log(LOG_ERROR, "ListenThread(): %s", e.what());
+            if (!m_socket.is_valid())
             {
-                std::vector<std::string> lines;
-                if (!Utils::ReadLinesFromFile(Config::getMOTDFile(), lines))
-                {
-                    for (const auto& line : lines)
-                        motd_str += line + "\n";
-                }
+                Logger::Log(LOG_VERBOSE, "ListenThread(): Invalid socket after exception, exiting.");
+                m_socket.close();
+                return;
             }
-
-            Logger::Log(LOG_DEBUG, "Listener sending server settings");
-            RoRnet::ServerInfo settings;
-            memset(&settings, 0, sizeof(RoRnet::ServerInfo));
-            settings.has_password = !Config::getPublicPassword().empty();
-            strncpy(settings.info, motd_str.c_str(), motd_str.size());
-            strncpy(settings.protocolversion, RORNET_VERSION, strlen(RORNET_VERSION));
-            strncpy(settings.servername, Config::getServerName().c_str(), Config::getServerName().size());
-            strncpy(settings.terrain, Config::getTerrainName().c_str(), Config::getTerrainName().size());
-
-            if (Messaging::SendMessage(ts, RoRnet::MSG2_HELLO, 0, 0, (unsigned int) sizeof(RoRnet::ServerInfo),
-                                       (char *) &settings))
-                throw std::runtime_error("ERROR Listener: sending version");
-
-            //receive user infos
-            if (Messaging::ReceiveMessage(ts, &type, &source, &streamid, &len, buffer, RORNET_MAX_MESSAGE_LENGTH)) {
-                std::stringstream error_msg;
-                error_msg << "ERROR Listener: receiving user infos\n"
-                          << "ERROR Listener: got that: "
-                          << type;
-                throw std::runtime_error(error_msg.str());
-            }
-
-            if (type != RoRnet::MSG2_USER_INFO)
-                throw std::runtime_error("Warning Listener: no user name");
-
-            if (len > sizeof(RoRnet::UserInfo))
-                throw std::runtime_error("Error: did not receive proper user credentials");
-            Logger::Log(LOG_INFO, "Listener creating a new client...");
-
-            RoRnet::UserInfo *user = (RoRnet::UserInfo *) buffer;
-            user->authstatus = RoRnet::AUTH_NONE;
-
-            // authenticate
-            user->username[RORNET_MAX_USERNAME_LEN - 1] = 0;
-            std::string nickname = Str::SanitizeUtf8(user->username);
-            user->authstatus = m_sequencer->AuthorizeNick(std::string(user->usertoken, 40), nickname);
-            strncpy(user->username, nickname.c_str(), RORNET_MAX_USERNAME_LEN - 1);
-
-            if (Config::isPublic()) {
-                Logger::Log(LOG_DEBUG, "password login: %s == %s?",
-                            Config::getPublicPassword().c_str(),
-                            std::string(user->serverpassword, 40).c_str());
-                if (strncmp(Config::getPublicPassword().c_str(), user->serverpassword, 40)) {
-                    Messaging::SendMessage(ts, RoRnet::MSG2_WRONG_PW, 0, 0, 0, 0);
-                    throw std::runtime_error("ERROR Listener: wrong password");
-                }
-
-                Logger::Log(LOG_DEBUG, "user used the correct password, "
-                        "creating client!");
-            } else {
-                Logger::Log(LOG_DEBUG, "no password protection, creating client");
-            }
-
-            //create a new client
-            assert(ts.is_valid());
-            m_sequencer->createClient(std::move(ts), *user); // copy the user info, since the buffer will be cleared soon
-            Logger::Log(LOG_DEBUG, "listener returned!");
         }
-        catch (std::runtime_error &e) {
-            Logger::Log(LOG_ERROR, e.what());
-            ts.close();
+    }
+}
+
+bool Listener::CheckClient(kissnet::tcp_socket& socket, RoRnet::UserInfo *user)
+{
+    //receive a magic
+    int type;
+    int source;
+    unsigned int len;
+    unsigned int streamid;
+    char buffer[RORNET_MAX_MESSAGE_LENGTH];
+
+    // this is the start of it all, it all starts with a simple hello
+    if (Messaging::ReceiveMessage(socket, &type, &source, &streamid, &len, buffer, RORNET_MAX_MESSAGE_LENGTH))
+        throw std::runtime_error("ERROR Listener: receiving first message");
+
+    // make sure our first message is a hello message
+    if (type != RoRnet::MSG2_HELLO) {
+        Messaging::SendMessage(socket, RoRnet::MSG2_WRONG_VER, 0, 0, 0, 0);
+        Logger::Log(LOG_INFO, "ListenThread(): Client sent invalid request, rejecting.");
+        return false; // Close connection
+    }
+
+    // check client version
+    if (source == 5000 && (std::string(buffer) == "MasterServer")) {
+        Logger::Log(LOG_VERBOSE, "Master Server knocked ...");
+        // send back some information, then close socket
+        char tmp[2048] = "";
+        sprintf(tmp, "protocol:%s\nrev:%s\nbuild_on:%s_%s\n", RORNET_VERSION, VERSION, __DATE__, __TIME__);
+        if (Messaging::SendMessage(socket, RoRnet::MSG2_MASTERINFO, 0, 0, (unsigned int) strlen(tmp), tmp)) {
+            throw std::runtime_error("ListenThread(): error sending master info");
         }
+        return false; // Caller will close the socket
+    }
+
+    // compare the versions if they are compatible
+    if (strncmp(buffer, RORNET_VERSION, strlen(RORNET_VERSION))) {
+        // not compatible
+        Messaging::SendMessage(socket, RoRnet::MSG2_WRONG_VER, 0, 0, 0, 0);
+        Logger::Log(LOG_INFO, "ListenThread(): Rejecting client, bad RoRnet version (%s)", buffer);
+        return false; // Close connection
+    }
+
+    // compatible version, continue to send server settings
+    std::string motd_str;
+    {
+        std::vector<std::string> lines;
+        if (!Utils::ReadLinesFromFile(Config::getMOTDFile(), lines))
+        {
+            for (const auto& line : lines)
+                motd_str += line + "\n";
+        }
+    }
+
+    Logger::Log(LOG_DEBUG, "Listener sending server settings");
+    RoRnet::ServerInfo settings;
+    memset(&settings, 0, sizeof(RoRnet::ServerInfo));
+    settings.has_password = !Config::getPublicPassword().empty();
+    strncpy(settings.info, motd_str.c_str(), motd_str.size());
+    strncpy(settings.protocolversion, RORNET_VERSION, strlen(RORNET_VERSION));
+    strncpy(settings.servername, Config::getServerName().c_str(), Config::getServerName().size());
+    strncpy(settings.terrain, Config::getTerrainName().c_str(), Config::getTerrainName().size());
+
+    if (Messaging::SendMessage(socket, RoRnet::MSG2_HELLO, 0, 0, (unsigned int) sizeof(RoRnet::ServerInfo),
+                                (char *) &settings))
+    {
+        throw std::runtime_error("ListenThread(): failed to send version");
+    }
+
+    //receive user infos
+    if (Messaging::ReceiveMessage(socket, &type, &source, &streamid, &len, buffer, RORNET_MAX_MESSAGE_LENGTH))
+    {
+        throw std::runtime_error("ListenThread(): failed to receive user info");
+    }
+
+    if (type != RoRnet::MSG2_USER_INFO)
+        throw std::runtime_error("Warning Listener: no user name");
+
+    if (len > sizeof(RoRnet::UserInfo))
+        throw std::runtime_error("Error: did not receive proper user credentials");
+    Logger::Log(LOG_INFO, "Listener creating a new client...");
+
+    std::memcpy(user, buffer, sizeof(RoRnet::UserInfo));
+    user->authstatus = RoRnet::AUTH_NONE;
+
+    // authenticate
+    user->username[RORNET_MAX_USERNAME_LEN - 1] = 0;
+    std::string nickname = Str::SanitizeUtf8(user->username);
+    user->authstatus = m_sequencer->AuthorizeNick(std::string(user->usertoken, 40), nickname);
+    strncpy(user->username, nickname.c_str(), RORNET_MAX_USERNAME_LEN - 1);
+
+    if (Config::isPublic()) {
+        Logger::Log(LOG_DEBUG, "password login: %s == %s?",
+                    Config::getPublicPassword().c_str(),
+                    std::string(user->serverpassword, 40).c_str());
+        if (strncmp(Config::getPublicPassword().c_str(), user->serverpassword, 40)) {
+            Messaging::SendMessage(socket, RoRnet::MSG2_WRONG_PW, 0, 0, 0, 0);
+            throw std::runtime_error("ERROR Listener: wrong password");
+        }
+
+        Logger::Log(LOG_DEBUG, "user used the correct password, "
+                "creating client!");
+    } else {
+        Logger::Log(LOG_DEBUG, "no password protection, creating client");
+    }
+
+    return true;
+}
+
+void Listener::Shutdown()
+{
+    if (m_thread.joinable())
+    {
+        m_socket.close();
+        m_thread.join();
     }
 }

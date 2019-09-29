@@ -309,23 +309,14 @@ int main(int argc, char *argv[]) {
     SetConsoleCtrlHandler(WindowsConsoleHandlerRoutine, TRUE);
 #endif // ! _WIN32
 
-
-    Listener listener(&s_sequencer);
-    if (!listener.Initialize()) {
-        return -1;
-    }
-    s_sequencer.Initialize();
-
-    if (!listener.WaitUntilReady()) {
-        return -1; // Error already logged
-    }
+    // Start accepting connections
+    Listener listener(&s_sequencer, Config::getListenPort());
 
     // Listener is ready, let's register ourselves on serverlist (which will contact us back to check).
     if (server_mode != SERVER_LAN) {
         bool registered = s_master_server.Register();
         if (!registered && (server_mode == SERVER_INET)) {
             Logger::Log(LOG_ERROR, "Failed to register on serverlist. Exit");
-            listener.Shutdown();
             return -1;
         } else if (!registered) // server_mode == SERVER_AUTO
         {

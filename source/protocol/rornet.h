@@ -19,7 +19,9 @@
 
 #pragma once
 
-#include <stdint.h>
+#include <array>
+#include <cstddef>
+#include <cstdint>
 
 #define BITMASK(x) (1 << (x-1))
 
@@ -31,6 +33,8 @@ namespace RoRnet {
 #define RORNET_MAX_USERNAME_LEN     40     //!< port used to send the broadcast announcement in LAN mode
 
 #define RORNET_VERSION              "RoRnet_2.41"
+
+typedef std::array<std::byte, RORNET_MAX_MESSAGE_LENGTH> Payload;
 
 enum MessageType
 {

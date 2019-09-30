@@ -38,12 +38,8 @@ namespace Messaging {
 
     int ReceiveMessage(
             kissnet::tcp_socket& socket,
-            int *out_msg_type,
-            int *out_client_id,
-            unsigned int *out_stream_id,
-            unsigned int *out_payload_len,
-            char *out_payload,
-            unsigned int payload_buf_len);
+            RoRnet::Header& header,
+            RoRnet::Payload& payload);
 
     int broadcastLAN();
 

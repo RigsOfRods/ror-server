@@ -141,29 +141,13 @@ namespace Messaging {
         return 0;
     }
 
-/**
- * @param out_type        Message type, see RoRnet::RoRnet::MSG2_* macros in rornet.h
- * @param out_source      Magic. Value 5000 used by serverlist to check this server.
- * @return                0 on success, negative number on error.
- */
     int ReceiveMessage(
-            kissnet::tcp_socket& socket,
-            int *out_type,
-            int *out_source,
-            unsigned int *out_stream_id,
-            unsigned int *out_payload_len,
-            char *out_payload,
-            unsigned int payload_buf_len)
+        kissnet::tcp_socket& socket,
+        RoRnet::Header& header,
+        RoRnet::Payload& payload)
     {
-
-        assert(out_type != nullptr);
-        assert(out_source != nullptr);
-        assert(out_stream_id != nullptr);
-        assert(out_payload != nullptr);
-
         try
         {
-            RoRnet::Header header;
             size_t header_recv = 0;
             while (header_recv < sizeof(RoRnet::Header))
             {
@@ -177,26 +161,22 @@ namespace Messaging {
                 header_recv += recv_len;
             }
 
-            *out_type = header.command;
-            *out_source = header.source;
-            *out_payload_len = header.size;
-            *out_stream_id = header.streamid;
-
-            if (header.size > payload_buf_len)
+            if (header.size > payload.max_size())
             {
                 Logger::Log(LOG_ERROR,
                     "ReceiveMessage(): payload too long: %u (buffer cap: %u)",
-                    header.size, payload_buf_len);
+                    header.size, payload.max_size());
                 return -3;
             }
 
-            std::memset(out_payload, 0, payload_buf_len);
+            payload.fill(std::byte(0)); // Clear buffer
+
             size_t payload_recv = 0;
             while (payload_recv < header.size)
             {
                 const auto [recv_len, sock_state] = socket.recv(
-                    reinterpret_cast<std::byte*>(out_payload) + payload_recv,
-                    payload_buf_len - payload_recv);
+                    payload.data() + payload_recv,
+                    payload.max_size() - payload_recv);
 
                 if (sock_state != kissnet::socket_status::valid)
                 {

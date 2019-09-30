@@ -87,26 +87,24 @@ void Listener::ListenThread()
 
 bool Listener::CheckClient(kissnet::tcp_socket& socket, RoRnet::UserInfo *user)
 {
-    //receive a magic
-    int type;
-    int source;
-    unsigned int len;
-    unsigned int streamid;
-    char buffer[RORNET_MAX_MESSAGE_LENGTH];
+    RoRnet::Header header;
+    RoRnet::Payload payload;
 
     // this is the start of it all, it all starts with a simple hello
-    if (Messaging::ReceiveMessage(socket, &type, &source, &streamid, &len, buffer, RORNET_MAX_MESSAGE_LENGTH))
+    if (Messaging::ReceiveMessage(socket, header, payload))
         throw std::runtime_error("ERROR Listener: receiving first message");
 
     // make sure our first message is a hello message
-    if (type != RoRnet::MSG2_HELLO) {
+    if (header.command != RoRnet::MSG2_HELLO) {
         Messaging::SendMessage(socket, RoRnet::MSG2_WRONG_VER, 0, 0, 0, 0);
         Logger::Log(LOG_INFO, "ListenThread(): Client sent invalid request, rejecting.");
         return false; // Close connection
     }
 
-    // check client version
-    if (source == 5000 && (std::string(buffer) == "MasterServer")) {
+    std::string version_str(reinterpret_cast<char*>(payload.data()));
+
+    // Magic 'source_id' 5000 is used by serverlist to check this server.
+    if (header.source == 5000 && version_str == "MasterServer") {
         Logger::Log(LOG_VERBOSE, "Master Server knocked ...");
         // send back some information, then close socket
         char tmp[2048] = "";
@@ -118,10 +116,10 @@ bool Listener::CheckClient(kissnet::tcp_socket& socket, RoRnet::UserInfo *user)
     }
 
     // compare the versions if they are compatible
-    if (strncmp(buffer, RORNET_VERSION, strlen(RORNET_VERSION))) {
+    if (version_str != RORNET_VERSION) {
         // not compatible
         Messaging::SendMessage(socket, RoRnet::MSG2_WRONG_VER, 0, 0, 0, 0);
-        Logger::Log(LOG_INFO, "ListenThread(): Rejecting client, bad RoRnet version (%s)", buffer);
+        Logger::Log(LOG_INFO, "ListenThread(): Rejecting client, bad RoRnet version (%s)", version_str.c_str());
         return false; // Close connection
     }
 
@@ -152,19 +150,20 @@ bool Listener::CheckClient(kissnet::tcp_socket& socket, RoRnet::UserInfo *user)
     }
 
     //receive user infos
-    if (Messaging::ReceiveMessage(socket, &type, &source, &streamid, &len, buffer, RORNET_MAX_MESSAGE_LENGTH))
+    payload.fill(std::byte(0));
+    if (Messaging::ReceiveMessage(socket, header, payload))
     {
         throw std::runtime_error("ListenThread(): failed to receive user info");
     }
 
-    if (type != RoRnet::MSG2_USER_INFO)
+    if (header.command != RoRnet::MSG2_USER_INFO)
         throw std::runtime_error("Warning Listener: no user name");
 
-    if (len > sizeof(RoRnet::UserInfo))
+    if (header.size > sizeof(RoRnet::UserInfo))
         throw std::runtime_error("Error: did not receive proper user credentials");
     Logger::Log(LOG_INFO, "Listener creating a new client...");
 
-    std::memcpy(user, buffer, sizeof(RoRnet::UserInfo));
+    std::memcpy(user, payload.data(), sizeof(RoRnet::UserInfo));
     user->authstatus = RoRnet::AUTH_NONE;
 
     // authenticate

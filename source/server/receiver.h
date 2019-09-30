@@ -49,7 +49,7 @@ private:
 
     pthread_t m_thread;
     Client* m_client;
-    char m_dbuffer[RORNET_MAX_MESSAGE_LENGTH];
+    RoRnet::Payload m_payload_buf;
     std::atomic<bool> m_keep_running;
     Sequencer *m_sequencer;
 };

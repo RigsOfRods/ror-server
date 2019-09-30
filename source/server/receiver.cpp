@@ -59,11 +59,6 @@ void Receiver::Stop() {
 void Receiver::Thread() {
     Logger::Log(LOG_DEBUG, "Started receiver thread %d owned by user ID %d", ThreadID::getID(), m_client->GetUserId());
 
-    //get the vehicle description
-    int type;
-    int source;
-    unsigned int streamid;
-    unsigned int len;
     //okay, we are ready, we can receive data frames
     m_client->SetReceiveData(true);
 
@@ -73,8 +68,9 @@ void Receiver::Thread() {
     Logger::Log(LOG_VERBOSE, "UID %d is switching to FLOW", m_client->GetUserId());
 
     while (true) {
-        if (Messaging::ReceiveMessage(m_client->GetSocket(), &type, &source, &streamid, &len, m_dbuffer,
-                                      RORNET_MAX_MESSAGE_LENGTH)) {
+        RoRnet::Header header;
+
+        if (Messaging::ReceiveMessage(m_client->GetSocket(), header, m_payload_buf)) {
             m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Game connection closed");
             break;
         }
@@ -82,15 +78,18 @@ void Receiver::Thread() {
         if (m_keep_running.load() == false)
             break;
 
-        if (type != RoRnet::MSG2_STREAM_DATA && type != RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
-            Logger::Log(LOG_VERBOSE, "got message: type: %d, source: %d:%d, len: %d", type, source, streamid, len);
+        if (header.command != RoRnet::MSG2_STREAM_DATA &&
+            header.command != RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
+            Logger::Log(LOG_VERBOSE, "got message: type: %d, source: %d:%d, len: %d",
+                header.command, header.source, header.streamid, header.size);
         }
 
-        if (type < 1000 || type > 1050) {
+        if (header.command < 1000 || header.command > 1050) {
             m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Protocol error 3");
             break;
         }
-        m_sequencer->queueMessage(m_client->GetUserId(), type, streamid, m_dbuffer, len);
+        m_sequencer->queueMessage(m_client->GetUserId(),
+            header.command, header.streamid, (char*)m_payload_buf.data(), header.size);
     }
 
     Logger::Log(LOG_DEBUG, "Receiver thread %d (user ID %d) exits", ThreadID::getID(), m_client->GetUserId());

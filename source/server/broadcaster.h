@@ -22,6 +22,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "prerequisites.h"
 
+#include <condition_variable>
 #include <thread>
 #include <mutex>
 #include <deque>

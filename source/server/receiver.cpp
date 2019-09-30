@@ -25,58 +25,44 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "ScriptEngine.h"
 #include "logger.h"
 
-void *LaunchReceiverThread(void *data) {
-    Receiver *receiver = static_cast<Receiver *>(data);
-    receiver->Thread();
-    return nullptr;
+Receiver::Receiver(Sequencer *sequencer, Client* client) :
+        m_client(client),
+        m_sequencer(sequencer)
+{
 }
 
-Receiver::Receiver(Sequencer *sequencer) :
-        m_client(nullptr),
-        m_sequencer(sequencer) {
-}
-
-Receiver::~Receiver() {
-    this->Stop();
-}
-
-void Receiver::Start(Client* client) {
-    m_client = client;
-    m_keep_running.store(true);
-
-    pthread_create(&m_thread, nullptr, LaunchReceiverThread, this);
-}
-
-void Receiver::Stop() {
-    bool was_running = m_keep_running.exchange(false);
-    if (was_running) {
-        //TODO: how do I signal the thread to stop waiting for the socket?
-        //      For now I stick to the existing solution - I just don't ~ only_a_ptr, 03/2019
-        pthread_join(m_thread, nullptr);
+Receiver::~Receiver()
+{
+    try
+    {
+        if (m_thread.joinable())
+            m_thread.join();
+    }
+    catch (std::exception& e)
+    {
+        Logger::Log(LOG_ERROR, "Failed to stop receiver thread: %s", e.what());
     }
 }
 
-void Receiver::Thread() {
+void Receiver::StartThread()
+{
+    m_thread = std::thread(&Receiver::Thread, this);
+}
+
+void Receiver::Thread()
+{
     Logger::Log(LOG_DEBUG, "Started receiver thread %d owned by user ID %d", ThreadID::getID(), m_client->GetUserId());
 
-    //okay, we are ready, we can receive data frames
-    m_client->SetReceiveData(true);
-
-    //send motd
-    m_sequencer->sendMOTD(m_client->GetUserId());
-
-    Logger::Log(LOG_VERBOSE, "UID %d is switching to FLOW", m_client->GetUserId());
-
-    while (true) {
+    for (;;)
+    {
+        // Block until a message arrives
         RoRnet::Header header;
-
-        if (Messaging::ReceiveMessage(m_client->GetSocket(), header, m_payload_buf)) {
+        const int recv_result = Messaging::ReceiveMessage(m_client->GetSocket(), header, m_buffer);
+        if (recv_result != 0 || !m_client->GetSocket().is_valid())
+        {
             m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Game connection closed");
-            break;
+            return;
         }
-
-        if (m_keep_running.load() == false)
-            break;
 
         if (header.command != RoRnet::MSG2_STREAM_DATA &&
             header.command != RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
@@ -86,10 +72,10 @@ void Receiver::Thread() {
 
         if (header.command < 1000 || header.command > 1050) {
             m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Protocol error 3");
-            break;
+            return;
         }
-        m_sequencer->queueMessage(m_client->GetUserId(),
-            header.command, header.streamid, (char*)m_payload_buf.data(), header.size);
+
+        m_sequencer->ProcessMessage(m_client, header, m_buffer);
     }
 
     Logger::Log(LOG_DEBUG, "Receiver thread %d (user ID %d) exits", ThreadID::getID(), m_client->GetUserId());

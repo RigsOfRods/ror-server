@@ -20,37 +20,26 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "rornet.h" // For RORNET_MAX_MESSAGE_LENGTH
 #include "prerequisites.h"
 
-#include <atomic>
-#include <pthread.h>
+#include <thread>
 
-class SWInetSocket;
-
-class Sequencer;
-
-void *LaunchReceiverThread(void *);
-
-class Receiver {
-    friend void *LaunchReceiverThread(void *);
+class Receiver
+{
 
 public:
-    Receiver(Sequencer *sequencer);
-
+    Receiver(Sequencer *sequencer, Client* client);
+    Receiver(): Receiver(nullptr, nullptr) {}
     ~Receiver();
 
-    void Start(Client* client);
-
-    void Stop();
+    void StartThread();
 
 private:
     void Thread();
 
-    pthread_t m_thread;
+    std::thread m_thread;
     Client* m_client;
-    RoRnet::Payload m_payload_buf;
-    std::atomic<bool> m_keep_running;
-    Sequencer *m_sequencer;
+    std::array<std::byte, RORNET_MAX_MESSAGE_LENGTH> m_buffer;
+    Sequencer* m_sequencer;
 };
 

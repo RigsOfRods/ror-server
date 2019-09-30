@@ -95,7 +95,7 @@ public:
         STATUS_USED = 2
     };
 
-    Client(Sequencer *sequencer, kissnet::tcp_socket socket) noexcept;
+    Client(Sequencer *sequencer, kissnet::tcp_socket socket);
 
     void StartThreads();
 
@@ -110,10 +110,6 @@ public:
     kissnet::tcp_socket& GetSocket() { return m_socket; }
 
     bool IsBroadcasterDroppingPackets() const { return m_broadcaster.IsDroppingPackets(); }
-
-    void SetReceiveData(bool val) { m_is_receiving_data = val; }
-
-    bool IsReceivingData() const { return m_is_receiving_data; }
 
     Status GetStatus() const { return m_status; }
 
@@ -132,7 +128,6 @@ private:
     Receiver m_receiver;
     Broadcaster m_broadcaster;
     Status m_status;
-    bool m_is_receiving_data;
     bool m_is_initialized;
 };
 
@@ -195,9 +190,7 @@ public:
 
     void QueueClientForDisconnect(int client_id, const char *error, bool isError = true, bool doScriptCallback = true);
 
-    void queueMessage(int uid, int type, unsigned int streamid, char *data, unsigned int len);
-
-    void enableFlow(int id);
+    void ProcessMessage(Client* client, RoRnet::Header& header, RoRnet::Payload& payload);
 
     int sendMOTD(int id);
 

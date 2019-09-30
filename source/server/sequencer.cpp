@@ -43,27 +43,25 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #endif
 
-Client::Client(Sequencer *sequencer, kissnet::tcp_socket socket) noexcept :
+Client::Client(Sequencer *sequencer, kissnet::tcp_socket socket):
         m_socket(std::move(socket)),
-        m_receiver(sequencer),
+        m_receiver(sequencer, this),
         m_broadcaster(sequencer),
         m_status(Client::STATUS_USED),
-        m_is_receiving_data(false),
-        m_is_initialized(false) {
-    assert(m_socket.is_valid());
+        m_is_initialized(false)
+{
 }
 
 void Client::StartThreads() {
-    m_receiver.Start(this);
+    m_receiver.StartThread();
     m_broadcaster.Start(this);
 }
 
 void Client::Disconnect() {
-    // Signal threads to stop and wait for them to finish
+    // Signal broadcast thread to stop and wait for them to finish
     m_broadcaster.Stop();
-    m_receiver.Stop();
 
-    // Disconnect
+    // Disconnect - this will unblock receiver thread
     m_socket.close();
 }
 
@@ -260,12 +258,6 @@ void Sequencer::createClient(kissnet::tcp_socket sock, RoRnet::UserInfo user) {
     // count up unique id
     m_free_user_id++;
 
-    // add the client to the vector
-    m_clients.push_back(to_add);
-    // create one thread for the receiver
-    // and one for the broadcaster
-    to_add->StartThreads();
-
     Logger::Log(LOG_VERBOSE, "Sending welcome message to uid %i", client_id);
     if (Messaging::SendMessage(to_add->GetSocket(), RoRnet::MSG2_WELCOME, client_id, 0, sizeof(RoRnet::UserInfo),
                                (char *) &to_add->user)) {
@@ -273,12 +265,21 @@ void Sequencer::createClient(kissnet::tcp_socket sock, RoRnet::UserInfo user) {
         return;
     }
 
+    // create one thread for the receiver
+    // and one for the broadcaster
+    to_add->StartThreads();
+
+    this->sendMOTD(client_id);
+
     // Do script callback
 #ifdef WITH_ANGELSCRIPT
     if (m_script_engine != nullptr) {
         m_script_engine->playerAdded(client_id);
     }
 #endif //WITH_ANGELSCRIPT
+
+    // add the client to the vector
+    m_clients.push_back(to_add);
 
     // notify everyone of the new client
     // but blank out the user token and GUID
@@ -433,20 +434,6 @@ void Sequencer::QueueClientForDisconnect(int uid, const char *errormsg, bool isE
         m_num_disconnects_crash, m_num_disconnects_total);
 }
 
-//this is called from the listener thread initial handshake
-void Sequencer::enableFlow(int uid) {
-    MutexLocker scoped_lock(m_clients_mutex);
-
-    Client *client = this->FindClientById(static_cast<unsigned int>(uid));
-    if (client == nullptr) {
-        return;
-    }
-
-    client->SetReceiveData(true);
-}
-
-
-//this is called from the listener thread initial handshake
 int Sequencer::sendMOTD(int uid) {
     std::vector<std::string> lines;
     int res = Utils::ReadLinesFromFile(Config::getMOTDFile(), lines);
@@ -546,7 +533,6 @@ void Sequencer::serverSay(std::string msg, int uid, int type) {
     for (; itor != endi; ++itor) {
         Client *client = *itor;
         if ((client->GetStatus() == Client::STATUS_USED) &&
-            client->IsReceivingData() &&
             (uid == TO_ALL || ((int) client->user.uniqueid) == uid)) {
             std::string msg_valid = Str::SanitizeUtf8(msg.begin(), msg.end());
             client->QueueMessage(RoRnet::MSG2_UTF8_CHAT, -1, -1, msg_valid.length(), msg_valid.c_str());
@@ -699,13 +685,9 @@ void Sequencer::streamDebug() {
 }
 
 //this is called by the receivers threads, like crazy & concurrently
-void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *data, unsigned int len) {
+void Sequencer::ProcessMessage(Client* client, RoRnet::Header& header, RoRnet::Payload& payload)
+{
     MutexLocker scoped_lock(m_clients_mutex);
-
-    Client *client = this->FindClientById(static_cast<unsigned int>(uid));
-    if (client == nullptr) {
-        return;
-    }
 
     // check for full broadcaster queue
     {
@@ -725,6 +707,11 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
 
     int publishMode = BROADCAST_BLOCK;
 
+    const int type = header.command;
+    const int streamid = header.streamid;
+    const int uid = client->GetUserId();
+    const int len = header.size;
+
     if (type == RoRnet::MSG2_STREAM_DATA || type == RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
         client->NotifyAllVehicles(this);
 
@@ -732,7 +719,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
 
         // Simple data validation (needed due to bug in RoR 0.38)
         {
-            std::map<unsigned int, RoRnet::StreamRegister>::iterator it = client->streams.find(streamid);
+            std::map<unsigned int, RoRnet::StreamRegister>::iterator it = client->streams.find(header.streamid);
             if (it == client->streams.end())
                 publishMode = BROADCAST_BLOCK;
         }
@@ -755,7 +742,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
             publishMode = BROADCAST_BLOCK; // drop
         } else {
             publishMode = BROADCAST_NORMAL;
-            RoRnet::StreamRegister *reg = (RoRnet::StreamRegister *) data;
+            RoRnet::StreamRegister *reg = (RoRnet::StreamRegister *) payload.data();
 
 #ifdef WITH_ANGELSCRIPT
             // Do a script callback
@@ -825,7 +812,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
         }
     } else if (type == RoRnet::MSG2_STREAM_REGISTER_RESULT) {
         // forward message to the stream origin
-        RoRnet::StreamRegister *reg = (RoRnet::StreamRegister *) data;
+        RoRnet::StreamRegister *reg = (RoRnet::StreamRegister *) payload.data();
         Client *origin_client = this->FindClientById(reg->origin_sourceid);
         if (origin_client != nullptr) {
             origin_client->QueueMessage(type, uid, streamid, sizeof(RoRnet::StreamRegister), (char *) reg);
@@ -844,7 +831,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
         Logger::Log(LOG_INFO, "User disconnects on request: " + Str::SanitizeUtf8(client->user.username));
         QueueClientForDisconnect(client->user.uniqueid, "disconnected on request", false);
     } else if (type == RoRnet::MSG2_UTF8_CHAT) {
-        std::string str = Str::SanitizeUtf8(data);
+        std::string str = Str::SanitizeUtf8(reinterpret_cast<const char*>(payload.data()));
         Logger::Log(LOG_INFO, "CHAT| %s: %s", Str::SanitizeUtf8(client->user.username).c_str(), str.c_str());
         publishMode = BROADCAST_ALL;
 
@@ -1013,15 +1000,19 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
         // private chat message
         Client *dest_client = this->FindClientById(static_cast<unsigned int>(uid));
         if (dest_client != nullptr) {
-            char *chatmsg = data + sizeof(int);
-            int chatlen = len - sizeof(int);
+            char *chatmsg = reinterpret_cast<char*>(payload.data()) + sizeof(int);
+            int chatlen = header.size - sizeof(int);
             dest_client->QueueMessage(RoRnet::MSG2_UTF8_PRIVCHAT, uid, streamid, chatlen, chatmsg);
             publishMode = BROADCAST_BLOCK;
         }
     } else if (type == RoRnet::MSG2_GAME_CMD) {
         // script message
 #ifdef WITH_ANGELSCRIPT
-        if (m_script_engine) m_script_engine->gameCmd(client->user.uniqueid, std::string(data));
+        if (m_script_engine)
+        {
+            m_script_engine->gameCmd(client->user.uniqueid,
+                std::string(reinterpret_cast<char*>(payload.data())));
+        }
 #endif //WITH_ANGELSCRIPT
         publishMode = BROADCAST_BLOCK;
     }
@@ -1071,20 +1062,22 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
             // just push to all the present clients
             for (unsigned int i = 0; i < m_clients.size(); i++) {
                 Client *curr_client = m_clients[i];
-                if (curr_client->GetStatus() == Client::STATUS_USED && curr_client->IsReceivingData() &&
+                if (curr_client->GetStatus() == Client::STATUS_USED &&
                     (curr_client != client || toAll)) {
                     curr_client->streams_traffic[streamid].bandwidthOutgoing += len;
-                    curr_client->QueueMessage(type, client->user.uniqueid, streamid, len, data);
+                    curr_client->QueueMessage(type, client->user.uniqueid, streamid, len,
+                        reinterpret_cast<const char*>(payload.data()));
                 }
             }
         } else if (publishMode == BROADCAST_AUTHED) {
             // push to all bots and authed users above auth level 1
             for (unsigned int i = 0; i < m_clients.size(); i++) {
                 Client *curr_client = m_clients[i];
-                if (curr_client->GetStatus() == Client::STATUS_USED && curr_client->IsReceivingData() &&
+                if (curr_client->GetStatus() == Client::STATUS_USED &&
                     (curr_client != client) && (client->user.authstatus & RoRnet::AUTH_ADMIN)) {
                     curr_client->streams_traffic[streamid].bandwidthOutgoing += len;
-                    curr_client->QueueMessage(type, client->user.uniqueid, streamid, len, data);
+                    curr_client->QueueMessage(type, client->user.uniqueid, streamid, len,
+                        reinterpret_cast<const char*>(payload.data()));
                 }
             }
         }

@@ -46,7 +46,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 Client::Client(Sequencer *sequencer, kissnet::tcp_socket socket):
         m_socket(std::move(socket)),
         m_receiver(sequencer, this),
-        m_broadcaster(sequencer),
+        m_broadcaster(sequencer, this),
         m_status(Client::STATUS_USED),
         m_is_initialized(false)
 {
@@ -54,15 +54,12 @@ Client::Client(Sequencer *sequencer, kissnet::tcp_socket socket):
 
 void Client::StartThreads() {
     m_receiver.StartThread();
-    m_broadcaster.Start(this);
+    m_broadcaster.StartThread();
 }
 
 void Client::Disconnect() {
-    // Signal broadcast thread to stop and wait for them to finish
-    m_broadcaster.Stop();
-
-    // Disconnect - this will unblock receiver thread
-    m_socket.close();
+    m_socket.close(); // This unblocks receiver thread and instructs it to exit
+    m_broadcaster.SignalThread(); // Unblock broadcaster thread - it will exit since socket was closed
 }
 
 std::string Client::GetIpAddress() {

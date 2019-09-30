@@ -27,98 +27,77 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <map>
 #include <algorithm>
 
-void *StartBroadcasterThread(void *data) {
-    Broadcaster *broadcaster = static_cast<Broadcaster *>(data);
-    broadcaster->Thread();
-    return nullptr;
+Broadcaster::Broadcaster(Sequencer *sequencer, Client* client) :
+    m_sequencer(sequencer),
+    m_client(client),
+    m_is_dropping_packets(false),
+    m_packet_drop_counter(0),
+    m_packet_good_counter(0)
+{
 }
 
-Broadcaster::Broadcaster(Sequencer *sequencer) :
-        m_sequencer(sequencer),
-        m_client(nullptr),
-        m_is_dropping_packets(false),
-        m_packet_drop_counter(0),
-        m_packet_good_counter(0) {
+void Broadcaster::StartThread()
+{
+    m_thread = std::thread(&Broadcaster::Thread, this);
 }
 
-void Broadcaster::Start(Client* client) {
-    m_client = client;
-    m_is_dropping_packets = false;
-    m_packet_drop_counter = 0;
-    m_packet_good_counter = 0;
-    m_keep_running.store(true);
-    m_msg_queue.clear();
-
-    pthread_create(&m_thread, nullptr, StartBroadcasterThread, this);
+void Broadcaster::SignalThread()
+{
+    m_queue_cond.notify_all(); // Thread exits when socket is closed
 }
 
-void Broadcaster::Stop() {
-    const bool was_running = m_keep_running.exchange(false);
-    if (was_running) {
-        m_queue_cond.signal();
-        pthread_join(m_thread, nullptr);
-    }
-}
-
-void Broadcaster::Thread() {
+void Broadcaster::Thread()
+{
     Logger::Log(LOG_DEBUG, "Started broadcaster thread %u owned by client_id %d", ThreadID::getID(), m_client->GetUserId());
-    bool socket_error = false;
-    while (true) {
-        queue_entry_t msg;
-        // define a new scope and use a scope lock
-        {
-            MutexLocker scoped_lock(m_queue_mutex);
-            while (m_msg_queue.empty() && m_keep_running.load()) {
-                m_queue_mutex.wait(m_queue_cond);
-            }
 
-            if (!m_keep_running.load()) {
-                break;
-            }
-            else if (!m_msg_queue.empty()) { // This shouldn't be needed, but rorserver is haunted: https://github.com/RigsOfRods/ror-server/pull/90#issuecomment-500597467 ~ only_a_ptr, 06/2019
-                msg = m_msg_queue.front();
-                m_msg_queue.pop_front();
-            }
+    for (;;)
+    {
+        std::unique_lock lock(m_queue_mutex);
+        m_queue_cond.wait(lock); // Block until signalled from receiver thread
+
+        if (!m_client->GetSocket().is_valid())
+        {
+            // Closed socket is a signal to exit
+            Logger::Log(LOG_DEBUG, "Broadcaster thread %u (client_id %d) exits", ThreadID::getID(), m_client->GetUserId());
+            return;
         }
 
-        if (msg.type == RoRnet::MSG2_STREAM_DATA_DISCARDABLE)
+        while (!m_msg_queue.empty())
         {
-            msg.type = RoRnet::MSG2_STREAM_DATA;
-        }
+            queue_entry_t& msg = m_msg_queue.front();
+            if (msg.type == RoRnet::MSG2_STREAM_DATA_DISCARDABLE)
+            {
+                msg.type = RoRnet::MSG2_STREAM_DATA;
+            }
 
-        // TODO WARNING THE SOCKET IS NOT PROTECTED!!!
-        if (Messaging::SendMessage(m_client->GetSocket(), msg.type, msg.uid, msg.streamid, msg.datalen, msg.data) != 0) {
-            m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Broadcaster: Send error", true, true);
-            socket_error = true;
-            break;
+            int send_res = Messaging::SendMessage(m_client->GetSocket(),
+                msg.type, msg.uid, msg.streamid, msg.datalen, msg.data);
+            if (send_res != 0)
+            {
+                Logger::Log(LOG_ERROR, "Broadcaster thread %u (client_id %d) - error sending message (type %d, length %d)",
+                    ThreadID::getID(), m_client->GetUserId(), msg.type, msg.datalen);
+            }
+
+            m_msg_queue.pop_front();
         }
     }
-
-    if (!socket_error) {
-        MutexLocker scoped_lock(m_queue_mutex);
-        for (const auto& msg : m_msg_queue) {
-            if (msg.type != RoRnet::MSG2_STREAM_DATA && msg.type != RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
-                Messaging::SendMessage(m_client->GetSocket(), msg.type, msg.uid, msg.streamid, msg.datalen, msg.data);
-            }
-        }
-    }
-
-    Logger::Log(LOG_DEBUG, "Broadcaster thread %u (client_id %d) exits", ThreadID::getID(), m_client->GetUserId());
 }
 
 //this is called all the way from the receiver threads, we should process this swiftly
 //and keep in mind that it is called crazily and concurently from lots of threads
 //we MUST copy the data too
 //also, this function can be called by threads owning clients_mutex !!!
-void Broadcaster::QueueMessage(int type, int uid, unsigned int streamid, unsigned int len, const char *data) {
-    if (m_keep_running.load() == false) {
+void Broadcaster::QueueMessage(int type, int uid, unsigned int streamid, unsigned int len, const char *data)
+{
+    if (!m_client->GetSocket().is_valid()) {
         return;
     }
+
     queue_entry_t msg = {type, uid, streamid, len, ""};
     memcpy(msg.data, data, len);
 
     {
-        MutexLocker scoped_lock(m_queue_mutex);
+        std::lock_guard lock(m_queue_mutex);
         if (m_msg_queue.empty()) {
             m_packet_drop_counter = 0;
             m_is_dropping_packets = (++m_packet_good_counter > 3) ? false : m_is_dropping_packets;
@@ -137,6 +116,6 @@ void Broadcaster::QueueMessage(int type, int uid, unsigned int streamid, unsigne
         m_msg_queue.push_back(msg);
     }
 
-    m_queue_cond.signal();
+    m_queue_cond.notify_one();
 }
 

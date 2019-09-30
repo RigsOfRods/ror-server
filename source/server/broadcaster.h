@@ -20,17 +20,11 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "rornet.h"
-#include "mutexutils.h"
 #include "prerequisites.h"
 
-#include <atomic>
-#include <pthread.h>
+#include <thread>
+#include <mutex>
 #include <deque>
-
-class SWInetSocket;
-
-class Sequencer;
 
 struct queue_entry_t {
     int type;
@@ -40,20 +34,17 @@ struct queue_entry_t {
     char data[RORNET_MAX_MESSAGE_LENGTH];
 };
 
-void *StartBroadcasterThread(void *);
-
-class Broadcaster {
-    friend void *StartBroadcasterThread(void *);
+class Broadcaster
+{
 
 public:
     static const int QUEUE_SOFT_LIMIT = 100;
     static const int QUEUE_HARD_LIMIT = 300;
 
-    Broadcaster(Sequencer *sequencer);
+    Broadcaster(Sequencer *sequencer, Client* client);
 
-    void Start(Client* client);
-
-    void Stop();
+    void StartThread();
+    void SignalThread(); //< Thread exits when socket is closed
 
     void QueueMessage(int msg_type, int client_id, unsigned int streamid, unsigned int payload_len, const char *payload);
 
@@ -62,15 +53,14 @@ public:
 private:
     void Thread();
 
-    Sequencer *m_sequencer;
-    pthread_t m_thread;
-    Mutex m_queue_mutex;
-    Condition m_queue_cond;
+    Sequencer* m_sequencer;
     Client* m_client;
-    std::atomic<bool> m_keep_running;
+    std::thread m_thread;
+    std::mutex m_queue_mutex;
+    std::condition_variable m_queue_cond;
+    std::deque<queue_entry_t> m_msg_queue;
+
     bool m_is_dropping_packets;
     int  m_packet_drop_counter;
     int  m_packet_good_counter;
-
-    std::deque<queue_entry_t> m_msg_queue;
 };

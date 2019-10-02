@@ -89,12 +89,6 @@ struct stream_traffic_t {
 
 class Client {
 public:
-    enum Status {
-        STATUS_FREE = 0,
-        STATUS_BUSY = 1,
-        STATUS_USED = 2
-    };
-
     Client(Sequencer *sequencer, kissnet::tcp_socket socket);
 
     void StartThreads();
@@ -111,8 +105,6 @@ public:
 
     bool IsBroadcasterDroppingPackets() const { return m_broadcaster.IsDroppingPackets(); }
 
-    Status GetStatus() const { return m_status; }
-
     int GetUserId() const { return static_cast<int>(user.uniqueid); }
 
     RoRnet::UserInfo user;  //!< user information
@@ -127,24 +119,20 @@ private:
     kissnet::tcp_socket m_socket;
     Receiver m_receiver;
     Broadcaster m_broadcaster;
-    Status m_status;
     bool m_is_initialized;
 };
 
-struct WebserverClientInfo // Needed because Client cannot be trivially copied anymore due to presence of std::atomic<>
+struct WebserverClientInfo // Needed because Client cannot be trivially copied anymore due to presence of kissnet::socket<>
 {
     WebserverClientInfo(Client* c):
         user (c->user),
-        status(c->GetStatus()),
         ip_address(c->GetIpAddress()),
         streams(c->streams),
         streams_traffic(c->streams_traffic){
     }
-    Client::Status GetStatus() const { return status; }
     std::string GetIpAddress() const { return ip_address; }
 
     RoRnet::UserInfo user;  //!< Copy of user information
-    Client::Status status;
     std::string ip_address;
     std::map<unsigned int, RoRnet::StreamRegister> streams;
     std::map<unsigned int, stream_traffic_t> streams_traffic;
@@ -156,16 +144,6 @@ struct ban_t {
     char nickname[RORNET_MAX_USERNAME_LEN];          //!< Username, this is what they are called to
     char bannedby_nick[RORNET_MAX_USERNAME_LEN];     //!< Username, this is what they are called to	
     char banmsg[256];           //!< why he got banned
-};
-
-struct ClientInfo // for webserver
-{
-    Client::Status GetStatus() const { return status; }
-
-    std::map<unsigned int, RoRnet::StreamRegister> streams;
-    std::map<unsigned int, stream_traffic_t> streams_traffic;
-    Client::Status status;
-    RoRnet::UserInfo user;
 };
 
 class Sequencer {

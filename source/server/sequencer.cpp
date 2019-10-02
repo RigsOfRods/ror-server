@@ -79,18 +79,10 @@ void Client::NotifyAllVehicles(Sequencer *sequencer) {
     }
 }
 
-void *LaunchKillerThread(void *data) {
-    Sequencer *sequencer = static_cast<Sequencer *>(data);
-    sequencer->killerthreadstart();
-    return nullptr;
-}
-
 Sequencer::Sequencer() :
         m_script_engine(nullptr),
         m_auth_resolver(nullptr),
         m_clients_mutex(/*recursive=*/ true),
-        m_num_disconnects_total(0),
-        m_num_disconnects_crash(0),
         m_bot_count(0),
         m_free_user_id(1) {
     m_start_time = static_cast<int>(time(nullptr));
@@ -108,8 +100,6 @@ void Sequencer::Initialize() {
         m_script_engine->loadScript(Config::getScriptName());
     }
 #endif //WITH_ANGELSCRIPT
-
-    pthread_create(&m_killer_thread, NULL, LaunchKillerThread, this);
 
     m_auth_resolver = new UserAuth(Config::getAuthFile());
 }
@@ -141,9 +131,6 @@ void Sequencer::Close() {
         delete m_auth_resolver;
         m_auth_resolver = nullptr;
     }
-
-    pthread_cancel(m_killer_thread);
-    pthread_detach(m_killer_thread);
 }
 
 bool Sequencer::CheckNickIsUnique(std::string &nick) {
@@ -348,37 +335,12 @@ int Sequencer::AuthorizeNick(std::string token, std::string &nickname) {
     return m_auth_resolver->resolve(token, nickname, m_free_user_id);
 }
 
-void Sequencer::killerthreadstart() {
-    Logger::Log(LOG_DEBUG, "Killer thread ready");
-    while (1) {
-        Logger::Log(LOG_DEBUG, "Killer entering cycle");
-
-        m_killer_mutex.lock();
-        while (m_kill_queue.empty()) {
-            m_killer_mutex.wait(m_killer_cond);
-        }
-
-        //pop the kill queue
-        Client *to_del = m_kill_queue.front();
-        m_kill_queue.pop();
-        m_killer_mutex.unlock();
-
-        Logger::Log(LOG_DEBUG, "Killer called to kill %s", Str::SanitizeUtf8(to_del->user.username).c_str());
-        to_del->Disconnect();
-
-        delete to_del;
-        to_del = NULL;
-    }
-}
-
 void Sequencer::QueueClientForDisconnect(int uid, const char *errormsg, bool isError /*=true*/, bool doScriptCallback /*= true*/) {
     MutexLocker scoped_lock(m_clients_mutex);
 
     Client *client = this->FindClientById(static_cast<unsigned int>(uid));
     if (client == nullptr) {
-        Logger::Log(LOG_DEBUG,
-            "Sequencer::QueueClientForDisconnect() Internal error, got non-existent user ID: %d"
-            "(error message: '%s')", uid, errormsg);
+        // FIXME: Duplicate call from Receiver::Thread() after socket was closed.
         return;
     }
 
@@ -413,22 +375,7 @@ void Sequencer::QueueClientForDisconnect(int uid, const char *errormsg, bool isE
 
     printStats();
 
-    //this routine is a potential trouble maker as it can be called from many thread contexts
-    //so we use a killer thread
-    Logger::Log(LOG_VERBOSE, "Disconnecting client ID %d: %s", uid, errormsg);
-    Logger::Log(LOG_DEBUG, "adding client to kill queue, size: %d", m_kill_queue.size());
-    {
-        MutexLocker scoped_lock(m_killer_mutex);
-        m_kill_queue.push(client);
-    }
-    m_killer_cond.signal();
-
-    m_num_disconnects_total++;
-    if (isError) {
-        m_num_disconnects_crash++;
-    }
-    Logger::Log(LOG_INFO, "crash statistic: %zu of %zu deletes crashed",
-        m_num_disconnects_crash, m_num_disconnects_total);
+    client->Disconnect(); // Close socket and let threads exit
 }
 
 int Sequencer::sendMOTD(int uid) {

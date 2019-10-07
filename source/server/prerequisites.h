@@ -20,8 +20,13 @@ namespace Http {
     class Response;
 }
 
+// Common includes
+#include "config.h"
+#include "logger.h"
+
+// KISSnet: multiplatform sockets abstraction layer (C++17)
 #include <kissnet.hpp>
 
-#ifdef SendMessage // Kissnet leaks Win32 defines
+#ifdef SendMessage // Leaking Win32 defines
 #   undef SendMessage
 #endif

@@ -39,6 +39,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <vector>
 #include <map>
 
+#include <event2/bufferevent.h>
+
 
 
 // How many not-vehicles streams has every user by default? (e.g.: "default" and "chat" are not-vehicles streams)
@@ -129,7 +131,7 @@ public:
 
 private:
     kissnet::tcp_socket m_socket;
-    Receiver m_receiver;
+    ::bufferevent* m_buffer_event;
     Broadcaster m_broadcaster;
     Status m_status;
     bool m_is_receiving_data;
@@ -173,11 +175,7 @@ struct ClientInfo // for webserver
     RoRnet::UserInfo user;
 };
 
-void *LaunchKillerThread(void *);
-
 class Sequencer {
-    friend void *LaunchKillerThread(void *);
-
 public:
 
     Sequencer();
@@ -189,9 +187,6 @@ public:
 
     //! initilize client information
     void createClient(kissnet::tcp_socket socket, RoRnet::UserInfo user);
-
-    //! call to start the thread to disconnect clients from the server.
-    void killerthreadstart();
 
     void QueueClientForDisconnect(int client_id, const char *error, bool isError = true, bool doScriptCallback = true);
 
@@ -246,19 +241,13 @@ public:
     std::vector<WebserverClientInfo> GetClientListCopy();
 
 private:
-    pthread_t m_killer_thread;  //!< thread to handle the killing of clients
-    Condition m_killer_cond;    //!< wait condition that there are clients to kill
-    Mutex m_killer_mutex;   //!< mutex used for locking access to the killqueue
-    Mutex m_clients_mutex;  //!< Protects: m_clients, m_script_engine, m_auth_resolver, m_bot_count, m_num_disconnects_[total/crash]
+    Mutex m_clients_mutex;  //!< Protects: m_clients, m_script_engine, m_auth_resolver, m_bot_count
     ScriptEngine *m_script_engine;
     UserAuth *m_auth_resolver;
     int m_bot_count;      //!< Amount of registered bots on the server.
     unsigned int m_free_user_id;
     int m_start_time;
-    size_t m_num_disconnects_total; //!< Statistic
-    size_t m_num_disconnects_crash; //!< Statistic
 
-    std::queue<Client *> m_kill_queue; //!< holds pointer for client deletion
     std::vector<Client *> m_clients;
     std::vector<ban_t *> m_bans;
 

@@ -24,6 +24,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "sequencer.h"
 #include "logger.h"
 #include "config.h"
+#include "dispatcher.h"
 #include "webserver.h"
 #include "messaging.h"
 #include "listener.h"
@@ -59,7 +60,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 static Sequencer s_sequencer;
 static MasterServer::Client s_master_server;
-static bool s_exit_requested = false;
+static Dispatcher s_dispatcher(&s_sequencer, s_master_server);
+
 #ifndef _WIN32
 
 void handler(int signalnum) {
@@ -310,22 +312,15 @@ int main(int argc, char *argv[]) {
 #endif // ! _WIN32
 
 
-    Listener listener(&s_sequencer);
-    if (!listener.Initialize()) {
-        return -1;
-    }
     s_sequencer.Initialize();
-
-    if (!listener.WaitUntilReady()) {
-        return -1; // Error already logged
-    }
+    s_dispatcher.Initialize();
 
     // Listener is ready, let's register ourselves on serverlist (which will contact us back to check).
     if (server_mode != SERVER_LAN) {
         bool registered = s_master_server.Register();
         if (!registered && (server_mode == SERVER_INET)) {
             Logger::Log(LOG_ERROR, "Failed to register on serverlist. Exit");
-            listener.Shutdown();
+            s_sequencer.Close();
             return -1;
         } else if (!registered) // server_mode == SERVER_AUTO
         {
@@ -346,60 +341,13 @@ int main(int argc, char *argv[]) {
 #endif //WITH_WEBSERVER
 
     // start the main program loop
-    // if we need to communiate to the master user the notifier routine
-    if (server_mode != SERVER_LAN) {
-        //heartbeat
-        while (!s_exit_requested) {
-            Messaging::UpdateMinuteStats();
-            s_sequencer.UpdateMinuteStats();
+    s_dispatcher.RunDispatchLoop();
 
-            //every minute
-            Utils::SleepSeconds(Config::GetHeartbeatIntervalSec());
-
-            Logger::Log(LOG_VERBOSE, "Sending heartbeat...");
-            Json::Value user_list(Json::arrayValue);
-            s_sequencer.GetHeartbeatUserList(user_list);
-            if (!s_master_server.SendHeatbeat(user_list)) {
-                unsigned int timeout = Config::GetHeartbeatRetrySeconds();
-                unsigned int max_retries = Config::GetHeartbeatRetryCount();
-                Logger::Log(LOG_WARN, "A heartbeat failed! Retry in %d seconds.", timeout);
-                bool success = false;
-                for (unsigned int i = 0; i < max_retries; ++i) {
-                    Utils::SleepSeconds(timeout);
-                    success = s_master_server.SendHeatbeat(user_list);
-
-                    LogLevel log_level = (success ? LOG_INFO : LOG_ERROR);
-                    const char *log_result = (success ? "successful." : "failed.");
-                    Logger::Log(log_level, "Heartbeat retry %d/%d %s", i + 1, max_retries, log_result);
-                    if (success) {
-                        break;
-                    }
-                }
-                if (!success) {
-                    Logger::Log(LOG_ERROR, "Unable to send heartbeats, exit");
-                    s_exit_requested = true;
-                }
-            } else {
-                Logger::Log(LOG_VERBOSE, "Heartbeat sent OK");
-            }
-        }
-
-        if (s_master_server.IsRegistered()) {
-            s_master_server.UnRegister();
-        }
-    } else {
-        while (!s_exit_requested) {
-            Messaging::UpdateMinuteStats();
-            s_sequencer.UpdateMinuteStats();
-
-            // broadcast our "i'm here" signal
-            Messaging::broadcastLAN();
-
-            // sleep a minute
-            Utils::SleepSeconds(60);
-        }
+    if (s_master_server.IsRegistered()) {
+        s_master_server.UnRegister();
     }
 
+    s_dispatcher.Shutdown();
     s_sequencer.Close();
     return 0;
 }

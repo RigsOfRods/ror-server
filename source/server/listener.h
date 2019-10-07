@@ -20,29 +20,15 @@
 
 #pragma once
 
-#include "mutexutils.h"
 #include "prerequisites.h"
 
-#include <pthread.h>
-#include <atomic>
-
+///TODO: Remove this class, obsoleted by port to Libevent, only left here for nicer diff.
 class Listener {
 private:
-    pthread_t m_thread;
-    Threading::SimpleCond m_ready_cond;
     Sequencer *m_sequencer;
-    std::atomic_bool m_thread_shutdown;
 public:
     Listener(Sequencer *sequencer);
 
-    ~Listener(void);
-
-    void threadstart();
-
-    bool Initialize();
-
-    bool WaitUntilReady();
-
-    void Shutdown();
+    void HandleNewConnection(kissnet::tcp_socket socket);
 };
 

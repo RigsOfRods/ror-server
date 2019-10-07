@@ -67,8 +67,7 @@ void Receiver::Thread() {
     //okay, we are ready, we can receive data frames
     m_client->SetReceiveData(true);
 
-    //send motd
-    m_sequencer->sendMOTD(m_client->GetUserId());
+
 
     Logger::Log(LOG_VERBOSE, "UID %d is switching to FLOW", m_client->GetUserId());
 

@@ -38,84 +38,12 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #endif
 
-void *s_lsthreadstart(void *arg) {
-    Listener *listener = static_cast<Listener *>(arg);
-    listener->threadstart();
-    return nullptr;
-}
-
-
 Listener::Listener(Sequencer *sequencer) :
-        m_sequencer(sequencer),
-        m_thread_shutdown(false) {
+        m_sequencer(sequencer) {
 }
 
-Listener::~Listener(void) {
-    if (!m_thread_shutdown) {
-        this->Shutdown();
-    }
-}
-
-bool Listener::Initialize() {
-    if (!m_ready_cond.Initialize()) {
-        return false;
-    }
-    return (0 == pthread_create(&m_thread, NULL, s_lsthreadstart, this));
-}
-
-void Listener::Shutdown() {
-    Logger::Log(LOG_VERBOSE, "Stopping listener thread...");
-    m_thread_shutdown = true;
-    pthread_join(m_thread, nullptr);
-    Logger::Log(LOG_VERBOSE, "Listener thread stopped");
-}
-
-bool Listener::WaitUntilReady() {
-    int result = 0;
-    if (!m_ready_cond.Wait(&result)) {
-        Logger::Log(LOG_ERROR, "Internal: Error while starting listener thread");
-        return false;
-    }
-    if (result < 0) {
-        Logger::Log(LOG_ERROR, "Internal: Listerer thread failed to start");
-        return false;
-    }
-    return true;
-}
-
-void Listener::threadstart() {
-    Logger::Log(LOG_DEBUG, "Listener thread starting");
-
-    kissnet::tcp_socket listen_sock(
-        kissnet::endpoint("0.0.0.0", kissnet::port_t(Config::getListenPort())));
-    try
-    {
-        listen_sock.bind();
-        listen_sock.listen();
-        Logger::Log(LOG_VERBOSE, "Listener ready");
-        m_ready_cond.Signal(1);
-    }
-    catch (std::exception& e)
-    {
-        Logger::Log(LOG_ERROR, "FATAL Listener: %s", e.what());
-        return;
-    }
-
-    //await connections
-    while (!m_thread_shutdown)
-    {
-        Logger::Log(LOG_VERBOSE, "Listener awaiting connections");
-        kissnet::tcp_socket ts;
-        try
-        {
-            ts = listen_sock.accept();
-        }
-        catch (std::exception& e)
-        {
-            Logger::Log(LOG_ERROR, "Listener failed to accept connection: %s", e.what());
-            return;
-        }
-
+void Listener::HandleNewConnection(kissnet::tcp_socket ts) {
+    // FIXME: intentionally mis-indented for nicer Git diff
         Logger::Log(LOG_VERBOSE, "Listener got a new connection");
 
         //receive a magic
@@ -149,7 +77,7 @@ void Listener::threadstart() {
                 }
                 // close socket
                 ts.close();
-                continue;
+                return;
             }
 
             // compare the versions if they are compatible
@@ -232,5 +160,4 @@ void Listener::threadstart() {
             Logger::Log(LOG_ERROR, e.what());
             ts.close();
         }
-    }
 }

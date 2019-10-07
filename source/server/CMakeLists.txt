@@ -27,6 +27,10 @@ set(CMAKE_CXX_STANDARD 17)
 add_executable(rorserver ${server_src})
 
 # libraries
+find_package(Libevent)
+target_include_directories(rorserver PRIVATE ${LIBEVENT_INCLUDE_DIRS})
+target_link_libraries(rorserver PRIVATE ${LIBEVENT_STATIC_LIBRARIES})
+
 if (RORSERVER_WITH_ANGELSCRIPT)
     add_dependencies(rorserver angelscript)
     target_link_libraries(rorserver angelscript)

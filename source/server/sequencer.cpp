@@ -43,29 +43,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #endif
 
-Client::Client(Sequencer *sequencer, kissnet::tcp_socket socket) noexcept :
-        m_socket(std::move(socket)),
-        m_receiver(sequencer),
-        m_broadcaster(sequencer),
-        m_status(Client::STATUS_USED),
-        m_is_receiving_data(false),
-        m_is_initialized(false) {
-    assert(m_socket.is_valid());
-}
-
-void Client::StartThreads() {
-    m_receiver.Start(this);
-    m_broadcaster.Start(this);
-}
-
-void Client::Disconnect() {
-    // Signal threads to stop and wait for them to finish
-    m_broadcaster.Stop();
-    m_receiver.Stop();
-
-    // Disconnect
-    m_socket.close();
-}
 
 std::string Client::GetIpAddress() {
     return m_socket.get_recv_endpoint().address;
@@ -83,6 +60,8 @@ void Client::NotifyAllVehicles(Sequencer *sequencer) {
         m_is_initialized = true;
     }
 }
+
+// -------------------- Sequencer -------------------- //
 
 Sequencer::Sequencer() :
         m_script_engine(nullptr),

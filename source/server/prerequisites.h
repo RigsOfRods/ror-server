@@ -23,6 +23,7 @@ namespace Http {
 // Common includes
 #include "config.h"
 #include "logger.h"
+#include "utils.h"
 
 // KISSnet: multiplatform sockets abstraction layer (C++17)
 #include <kissnet.hpp>

@@ -35,6 +35,12 @@ namespace Utils {
 
     void SleepSeconds(unsigned int seconds);
 
+    template <typename Struct>
+    void ZeroOut(Struct& s)
+    {
+        std::memset(&s, 0, sizeof(Struct))
+    }
+
 } // namespace Utils
 
 void tokenize(const std::string &str,

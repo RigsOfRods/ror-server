@@ -89,7 +89,7 @@ struct stream_traffic_t {
     double bandwidthDropOutgoingRate;
 };
 
-class Client {
+class Client_OLD {
 public:
     enum Status {
         STATUS_FREE = 0,
@@ -97,7 +97,7 @@ public:
         STATUS_USED = 2
     };
 
-    Client(Sequencer *sequencer, kissnet::tcp_socket socket) noexcept;
+
 
     void StartThreads();
 
@@ -131,11 +131,13 @@ public:
 
 private:
     kissnet::tcp_socket m_socket;
-    ::bufferevent* m_buffer_event;
+    
     Broadcaster m_broadcaster;
     Status m_status;
     bool m_is_receiving_data;
     bool m_is_initialized;
+
+    
 };
 
 struct WebserverClientInfo // Needed because Client cannot be trivially copied anymore due to presence of std::atomic<>

@@ -18,9 +18,6 @@ along with "Rigs of Rods Server".
 If not, see <http://www.gnu.org/licenses/>.
 */
 
-/// @file Event dispatch loop
-/// @author Petr Ohlidal, 2019
-
 #include "listener.h" // Legacy
 #include "master-server.h"
 #include "messaging.h"
@@ -31,6 +28,7 @@ If not, see <http://www.gnu.org/licenses/>.
 #include <event2/event.h>
 #include <event2/listener.h>
 
+/// Event dispatch loop, manages all connections and data transmissions.
 class Dispatcher
 {
 public:
@@ -57,13 +55,13 @@ public:
     static void StatsCallback(::evutil_socket_t sock, short what, void* ptr);
 
 private:
-    kissnet::tcp_socket   m_socket;
-    ::event_base*         m_ev_base = nullptr;
-    ::evconnlistener*     m_ev_listener = nullptr;
-    ::event*              m_ev_heartbeat = nullptr;
-    ::event*              m_ev_stats = nullptr;
-    Listener              m_conn_handler;
-    MasterServer::Client& m_serverlist;
-    Sequencer*            m_sequencer = nullptr;
-    size_t                m_heartbeat_failcount = 0;
+    kissnet::tcp_socket    m_socket;
+    ::event_base*          m_ev_base = nullptr;
+    ::evconnlistener*      m_ev_listener = nullptr;
+    ::event*               m_ev_heartbeat = nullptr;
+    ::event*               m_ev_stats = nullptr;
+    Listener               m_conn_handler;
+    MasterServer::Client&  m_serverlist;
+    Sequencer*             m_sequencer = nullptr;
+    size_t                 m_heartbeat_failcount = 0;
 };

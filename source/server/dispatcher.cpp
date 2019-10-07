@@ -1,7 +1,7 @@
 /*
 This file is part of "Rigs of Rods Server" (Relay mode)
 
-Copyright 2019 Petr Ohlidal
+Copyright (c) 2019 Petr Ohlidal
 
 "Rigs of Rods Server" is free software: you can redistribute it
 and/or modify it under the terms of the GNU General Public License
@@ -18,10 +18,9 @@ along with "Rigs of Rods Server".
 If not, see <http://www.gnu.org/licenses/>.
 */
 
-/// @file Event dispatch loop using Libevent
-/// @author Petr Ohlidal, 2019
-
 #include "dispatcher.h"
+
+#include <event2/buffer.h>
 
 Dispatcher::Dispatcher(Sequencer* sequencer, MasterServer::Client& serverlist)
     : m_conn_handler(sequencer)
@@ -161,6 +160,7 @@ void Dispatcher::PerformHeartbeat()
 
 bool Dispatcher::RegisterClient(Client* client)
 {
+    // Create event-driven buffer
     ::bufferevent* buff_ev = ::bufferevent_socket_new(
         m_ev_base, client->GetSocket().get_native(), 0);
     if (!buff_ev)
@@ -168,6 +168,16 @@ bool Dispatcher::RegisterClient(Client* client)
         Logger::Log(LOG_ERROR, "Failed to register client with Dispatcher");
         return false;
     }
+
+    // Attach buffer callbacks
+    ::bufferevent_setcb(buff_ev,
+        &Dispatcher::BufReadCallback,
+        &Dispatcher::BufWriteCallback,
+        &Dispatcher::BufEventCallback,
+        client);
+
+    // Wait until whole header is buffered
+    ::bufferevent_setwatermark(buff_ev, EV_READ, sizeof(RoRnet::Header), 0);
 }
 
 void Dispatcher::RemoveClient(Client* client)

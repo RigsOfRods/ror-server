@@ -20,6 +20,8 @@ If not, see <http://www.gnu.org/licenses/>.
 
 #include "dispatcher.h"
 
+#include "client.h"
+
 #include <event2/buffer.h>
 
 Dispatcher::Dispatcher(Sequencer* sequencer, MasterServer::Client& serverlist)
@@ -171,13 +173,15 @@ bool Dispatcher::RegisterClient(Client* client)
 
     // Attach buffer callbacks
     ::bufferevent_setcb(buff_ev,
-        &Dispatcher::BufReadCallback,
-        &Dispatcher::BufWriteCallback,
-        &Dispatcher::BufEventCallback,
+        &Client::BufReadCallback,
+        &Client::BufWriteCallback,
+        &Client::BufEventCallback,
         client);
 
     // Wait until whole header is buffered
     ::bufferevent_setwatermark(buff_ev, EV_READ, sizeof(RoRnet::Header), 0);
+
+    m_sequencer->IntroduceNewClientToAllVehicles(client);
 }
 
 void Dispatcher::RemoveClient(Client* client)

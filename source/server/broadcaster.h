@@ -21,16 +21,11 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #pragma once
 
 #include "rornet.h"
-#include "mutexutils.h"
 #include "prerequisites.h"
 
 #include <atomic>
 #include <pthread.h>
 #include <deque>
-
-class SWInetSocket;
-
-class Sequencer;
 
 struct queue_entry_t {
     int type;
@@ -40,34 +35,17 @@ struct queue_entry_t {
     char data[RORNET_MAX_MESSAGE_LENGTH];
 };
 
-void *StartBroadcasterThread(void *);
-
 class Broadcaster {
-    friend void *StartBroadcasterThread(void *);
-
 public:
-    static const int QUEUE_SOFT_LIMIT = 100;
-    static const int QUEUE_HARD_LIMIT = 300;
-
-    Broadcaster(Sequencer *sequencer);
-
-    void Start(Client* client);
-
-    void Stop();
+    Broadcaster();
 
     void QueueMessage(int msg_type, int client_id, unsigned int streamid, unsigned int payload_len, const char *payload);
 
     bool IsDroppingPackets() const { return m_is_dropping_packets; }
 
-private:
-    void Thread();
+    bool PopMessageFromQueue(queue_entry_t& msg);
 
-    Sequencer *m_sequencer;
-    pthread_t m_thread;
-    Mutex m_queue_mutex;
-    Condition m_queue_cond;
-    Client* m_client;
-    std::atomic<bool> m_keep_running;
+private:
     bool m_is_dropping_packets;
     int  m_packet_drop_counter;
     int  m_packet_good_counter;

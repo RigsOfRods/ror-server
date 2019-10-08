@@ -20,9 +20,9 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "sequencer.h"
 
+#include "client.h"
 #include "messaging.h"
 #include "sha1_util.h"
-#include "receiver.h"
 #include "broadcaster.h"
 #include "userauth.h"
 #include "logger.h"
@@ -42,26 +42,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <stdlib.h>
 
 #endif
-
-
-std::string Client::GetIpAddress() {
-    return m_socket.get_recv_endpoint().address;
-}
-
-void Client::QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len,
-                          const char *payload) {
-    m_broadcaster.QueueMessage(msg_type, client_id, stream_id, payload_len, payload);
-}
-
-// Yes, this is weird. To be refactored.
-void Client::NotifyAllVehicles(Sequencer *sequencer) {
-    if (!m_is_initialized) {
-        sequencer->IntroduceNewClientToAllVehicles(this);
-        m_is_initialized = true;
-    }
-}
-
-// -------------------- Sequencer -------------------- //
 
 Sequencer::Sequencer() :
         m_script_engine(nullptr),
@@ -415,7 +395,7 @@ void Sequencer::IntroduceNewClientToAllVehicles(Client *new_client) {
 
     for (unsigned int i = 0; i < m_clients.size(); i++) {
         Client *client = m_clients[i];
-        if (client->GetStatus() == Client::STATUS_USED) {
+        {// USELESS BLOCK
             // new user to all others
             client->QueueMessage(RoRnet::MSG2_USER_INFO, new_client->user.uniqueid, 0, sizeof(RoRnet::UserInfo),
                                  (char *) &info_for_others);
@@ -622,7 +602,7 @@ bool Sequencer::IsBanned(const char *ip) {
 
 void Sequencer::streamDebug() {
     for (unsigned int i = 0; i < m_clients.size(); i++) {
-        if (m_clients[i]->GetStatus() == Client::STATUS_USED) {
+        {// USELESS BLOCK
             Logger::Log(LOG_VERBOSE, " * %d %s (slot %d):", m_clients[i]->user.uniqueid,
                         Str::SanitizeUtf8(m_clients[i]->user.username).c_str(), i);
             if (!m_clients[i]->streams.size())
@@ -669,7 +649,6 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
     int publishMode = BROADCAST_BLOCK;
 
     if (type == RoRnet::MSG2_STREAM_DATA || type == RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
-        client->NotifyAllVehicles(this);
 
         publishMode = BROADCAST_NORMAL;
 

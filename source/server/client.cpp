@@ -27,11 +27,11 @@ Client::Client(Sequencer* seq, kissnet::tcp_socket sock)
     : m_sequencer(seq)
 {
     Utils::ZeroOut(m_incoming_msg);
-    Utils::ZeroOut(m_user_info);
+    Utils::ZeroOut(this->user);
     m_socket = std::move(sock);
 }
 
-void Client::ProcessReceived()
+void Client::ProcessReceivedData()
 {
     // Thanks to libevent's watermarks we always know buffer has enough data
 
@@ -50,7 +50,7 @@ void Client::ProcessReceived()
         
         // Process message
         m_sequencer->queueMessage(
-            m_user_info.uniqueid, m_incoming_msg.command,
+            this->user.uniqueid, m_incoming_msg.command,
             m_incoming_msg.streamid, payload, m_incoming_msg.size);                 
 
         // Wait for next header
@@ -60,20 +60,39 @@ void Client::ProcessReceived()
     else
     {
         // We received bad data
-        m_sequencer->QueueClientForDisconnect(m_user_info.uniqueid, "Invalid messge from client");
+        m_sequencer->QueueClientForDisconnect(this->user.uniqueid, "Invalid messge from client");
     }
+}
+
+void Client::QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len,
+                          const char *payload) {
+    m_out_queue.QueueMessage(msg_type, client_id, stream_id, payload_len, payload);
+}
+
+void Client::TransmitQueuedData()
+{
+    queue_entry_t msg;
+    if (!m_out_queue.PopMessageFromQueue(msg))
+    {
+        return; // Nothing to send
+    }
+
+    //  ####   TODO: write to libevent's output buffer
 }
 
 // -------------------- Callbacks (static) -------------------- //
 
 void Client::BufReadCallback(::bufferevent* bev, void* ctx)
 {
-    static_cast<Client*>(ctx)->ProcessReceived();
+    static_cast<Client*>(ctx)->ProcessReceivedData();
 }
 
 void Client::BufWriteCallback(::bufferevent* bev, void* ctx)
 {
-    
+    static_cast<Client*>(ctx)->TransmitQueuedData();
 }
 
-void Client::BufEventCallback(::bufferevent* bev, short events, void* ctx);
+void Client::BufEventCallback(::bufferevent* bev, short events, void* ctx)
+{
+    //  ####   TODO
+}

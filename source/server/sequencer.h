@@ -24,7 +24,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h"
 #include "mutexutils.h"
 #include "broadcaster.h"
-#include "receiver.h"
 #include "json/json.h"
 
 #ifdef WITH_ANGELSCRIPT
@@ -87,57 +86,6 @@ struct stream_traffic_t {
     double bandwidthDropOutgoingLastMinute;
     double bandwidthDropIncomingRate;
     double bandwidthDropOutgoingRate;
-};
-
-class Client_OLD {
-public:
-    enum Status {
-        STATUS_FREE = 0,
-        STATUS_BUSY = 1,
-        STATUS_USED = 2
-    };
-
-
-
-    void StartThreads();
-
-    void Disconnect();
-
-    void QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len, const char *payload);
-
-    void NotifyAllVehicles(Sequencer *sequencer);
-
-    std::string GetIpAddress();
-
-    kissnet::tcp_socket& GetSocket() { return m_socket; }
-
-    bool IsBroadcasterDroppingPackets() const { return m_broadcaster.IsDroppingPackets(); }
-
-    void SetReceiveData(bool val) { m_is_receiving_data = val; }
-
-    bool IsReceivingData() const { return m_is_receiving_data; }
-
-    Status GetStatus() const { return m_status; }
-
-    int GetUserId() const { return static_cast<int>(user.uniqueid); }
-
-    RoRnet::UserInfo user;  //!< user information
-
-    int drop_state;             // dropping outgoing packets?
-
-    //things for the communication with the webserver below, not used in the main server code
-    std::map<unsigned int, RoRnet::StreamRegister> streams;
-    std::map<unsigned int, stream_traffic_t> streams_traffic;
-
-private:
-    kissnet::tcp_socket m_socket;
-    
-    Broadcaster m_broadcaster;
-    Status m_status;
-    bool m_is_receiving_data;
-    bool m_is_initialized;
-
-    
 };
 
 struct WebserverClientInfo // Needed because Client cannot be trivially copied anymore due to presence of std::atomic<>

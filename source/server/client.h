@@ -29,18 +29,36 @@ class Client
 public:
     Client(Sequencer* seq, kissnet::tcp_socket sock);
 
+    kissnet::tcp_socket& GetSocket() { return m_socket; }
+
+    std::string Client::GetIpAddress() {
+        return m_socket.get_recv_endpoint().address;
+    }
+
+    int GetUserId() const { return static_cast<int>(user.uniqueid); }
+
+    bool IsBroadcasterDroppingPackets() const { return m_broadcaster.IsDroppingPackets(); }
+
 // Messaging:
-    void ProcessReceived();
+    void ProcessReceivedData();
+    void TransmitQueuedData();
+    void QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len, const char *payload);
 
 // Callbacks:
     static void BufReadCallback(::bufferevent* bev, void* ctx);
     static void BufWriteCallback(::bufferevent* bev, void* ctx);
     static void BufEventCallback(::bufferevent* bev, short events, void* ctx);
 
+// Public vars (to be refactored)
+    RoRnet::UserInfo user;
+    int drop_state;             // dropping outgoing packets?
+    std::map<unsigned int, RoRnet::StreamRegister> streams;
+    std::map<unsigned int, stream_traffic_t> streams_traffic;
+
 private:
     kissnet::tcp_socket  m_socket;
-    ::bufferevent*       m_buffer_event = nullptr;
-    RoRnet::UserInfo     m_user_info;
+    ::bufferevent*       m_buffer_event = nullptr;    
     RoRnet::Header       m_incoming_msg;
     Sequencer*           m_sequencer = nullptr;
+    Broadcaster          m_out_queue;
 };

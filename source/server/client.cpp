@@ -31,6 +31,28 @@ Client::Client(Sequencer* seq, kissnet::tcp_socket sock)
     m_socket = std::move(sock);
 }
 
+Client::~Client()
+{
+    ::bufferevent_free(m_buffer_event);
+    m_socket.close();
+}
+
+void Client::SubscribeForEvents(::bufferevent* buff_ev)
+{
+    // Attach buffer callbacks
+    ::bufferevent_setcb(buff_ev,
+        &Client::BufReadCallback,
+        &Client::BufWriteCallback,
+        &Client::BufEventCallback,
+        this);
+
+    // Wait until whole header is buffered
+    Utils::ZeroOut(m_incoming_msg);
+    ::bufferevent_setwatermark(buff_ev, EV_READ, sizeof(RoRnet::Header), 0);
+
+    m_sequencer->IntroduceNewClientToAllVehicles(this);
+}
+
 void Client::ProcessReceivedData()
 {
     // Thanks to libevent's watermarks we always know buffer has enough data
@@ -41,7 +63,7 @@ void Client::ProcessReceivedData()
         ::bufferevent_read(m_buffer_event, &m_incoming_msg, sizeof(RoRnet::Header)); // Drain buffer
         ::bufferevent_setwatermark(m_buffer_event, EV_READ, m_incoming_msg.size, 0); // Wait for payload
     }
-    else if (m_incoming_msg.command >= RoRnet::MSG2_HELLO &
+    else if (m_incoming_msg.command >= RoRnet::MSG2_HELLO &&
              m_incoming_msg.command <= RoRnet::MSG2_STREAM_DATA_DISCARDABLE)
     {
         // We received valid payload
@@ -66,13 +88,13 @@ void Client::ProcessReceivedData()
 
 void Client::QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len,
                           const char *payload) {
-    m_out_queue.QueueMessage(msg_type, client_id, stream_id, payload_len, payload);
+    m_broadcaster.QueueMessage(msg_type, client_id, stream_id, payload_len, payload);
 }
 
 void Client::TransmitQueuedData()
 {
     queue_entry_t msg;
-    if (!m_out_queue.PopMessageFromQueue(msg))
+    if (!m_broadcaster.PopMessageFromQueue(msg))
     {
         return; // Nothing to send
     }

@@ -312,7 +312,7 @@ int main(int argc, char *argv[]) {
 #endif // ! _WIN32
 
 
-    s_sequencer.Initialize();
+    s_sequencer.Initialize(&s_dispatcher);
     s_dispatcher.Initialize();
 
     // Listener is ready, let's register ourselves on serverlist (which will contact us back to check).

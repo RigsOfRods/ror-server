@@ -38,7 +38,7 @@ namespace Utils {
     template <typename Struct>
     void ZeroOut(Struct& s)
     {
-        std::memset(&s, 0, sizeof(Struct))
+        std::memset(&s, 0, sizeof(Struct));
     }
 
 } // namespace Utils

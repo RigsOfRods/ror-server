@@ -24,6 +24,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h"
 #include "mutexutils.h"
 #include "broadcaster.h"
+#include "client.h"
 #include "json/json.h"
 
 #ifdef WITH_ANGELSCRIPT
@@ -40,13 +41,9 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include <event2/bufferevent.h>
 
-
-
 // How many not-vehicles streams has every user by default? (e.g.: "default" and "chat" are not-vehicles streams)
 // This is used for the vehicle-limit
 #define NON_VEHICLE_STREAMS 2
-
-#define SEQUENCER Sequencer::Instance()
 
 #define VERSION "$Rev$"
 
@@ -70,38 +67,17 @@ enum broadcastType {
 // constant for functions that receive an uid for sending something
 static const int TO_ALL = -1;
 
-struct stream_traffic_t {
-    // normal bandwidth
-    double bandwidthIncoming;
-    double bandwidthOutgoing;
-    double bandwidthIncomingLastMinute;
-    double bandwidthOutgoingLastMinute;
-    double bandwidthIncomingRate;
-    double bandwidthOutgoingRate;
-
-    // drop bandwidth
-    double bandwidthDropIncoming;
-    double bandwidthDropOutgoing;
-    double bandwidthDropIncomingLastMinute;
-    double bandwidthDropOutgoingLastMinute;
-    double bandwidthDropIncomingRate;
-    double bandwidthDropOutgoingRate;
-};
-
 struct WebserverClientInfo // Needed because Client cannot be trivially copied anymore due to presence of std::atomic<>
 {
     WebserverClientInfo(Client* c):
         user (c->user),
-        status(c->GetStatus()),
         ip_address(c->GetIpAddress()),
         streams(c->streams),
         streams_traffic(c->streams_traffic){
     }
-    Client::Status GetStatus() const { return status; }
     std::string GetIpAddress() const { return ip_address; }
 
     RoRnet::UserInfo user;  //!< Copy of user information
-    Client::Status status;
     std::string ip_address;
     std::map<unsigned int, RoRnet::StreamRegister> streams;
     std::map<unsigned int, stream_traffic_t> streams_traffic;
@@ -115,22 +91,12 @@ struct ban_t {
     char banmsg[256];           //!< why he got banned
 };
 
-struct ClientInfo // for webserver
-{
-    Client::Status GetStatus() const { return status; }
-
-    std::map<unsigned int, RoRnet::StreamRegister> streams;
-    std::map<unsigned int, stream_traffic_t> streams_traffic;
-    Client::Status status;
-    RoRnet::UserInfo user;
-};
-
 class Sequencer {
 public:
 
     Sequencer();
 
-    void Initialize();
+    void Initialize(Dispatcher* dispatcher);
 
     //! destructor call, used for clean up
     void Close();
@@ -141,8 +107,6 @@ public:
     void QueueClientForDisconnect(int client_id, const char *error, bool isError = true, bool doScriptCallback = true);
 
     void queueMessage(int uid, int type, unsigned int streamid, char *data, unsigned int len);
-
-    void enableFlow(int id);
 
     int sendMOTD(int id);
 
@@ -197,6 +161,7 @@ private:
     int m_bot_count;      //!< Amount of registered bots on the server.
     unsigned int m_free_user_id;
     int m_start_time;
+    Dispatcher* m_dispatcher;
 
     std::vector<Client *> m_clients;
     std::vector<ban_t *> m_bans;

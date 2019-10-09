@@ -21,6 +21,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "sequencer.h"
 
 #include "client.h"
+#include "dispatcher.h"
 #include "messaging.h"
 #include "sha1_util.h"
 #include "broadcaster.h"
@@ -55,7 +56,8 @@ Sequencer::Sequencer() :
 /**
  * Initialize, needs to be called before the class is used
  */
-void Sequencer::Initialize() {
+void Sequencer::Initialize(Dispatcher* dispatcher) {
+    m_dispatcher = dispatcher; // Legacy
     m_clients.reserve(Config::getMaxClients());
 
 #ifdef WITH_ANGELSCRIPT
@@ -338,38 +340,9 @@ void Sequencer::QueueClientForDisconnect(int uid, const char *errormsg, bool isE
 
     printStats();
 
-    //this routine is a potential trouble maker as it can be called from many thread contexts
-    //so we use a killer thread
-    Logger::Log(LOG_VERBOSE, "Disconnecting client ID %d: %s", uid, errormsg);
-    Logger::Log(LOG_DEBUG, "adding client to kill queue, size: %d", m_kill_queue.size());
-    {
-        MutexLocker scoped_lock(m_killer_mutex);
-        m_kill_queue.push(client);
-    }
-    m_killer_cond.signal();
-
-    m_num_disconnects_total++;
-    if (isError) {
-        m_num_disconnects_crash++;
-    }
-    Logger::Log(LOG_INFO, "crash statistic: %zu of %zu deletes crashed",
-        m_num_disconnects_crash, m_num_disconnects_total);
+    delete client;
 }
 
-//this is called from the listener thread initial handshake
-void Sequencer::enableFlow(int uid) {
-    MutexLocker scoped_lock(m_clients_mutex);
-
-    Client *client = this->FindClientById(static_cast<unsigned int>(uid));
-    if (client == nullptr) {
-        return;
-    }
-
-    client->SetReceiveData(true);
-}
-
-
-//this is called from the listener thread initial handshake
 int Sequencer::sendMOTD(int uid) {
     std::vector<std::string> lines;
     int res = Utils::ReadLinesFromFile(Config::getMOTDFile(), lines);
@@ -468,9 +441,7 @@ void Sequencer::serverSay(std::string msg, int uid, int type) {
     auto endi = m_clients.end();
     for (; itor != endi; ++itor) {
         Client *client = *itor;
-        if ((client->GetStatus() == Client::STATUS_USED) &&
-            client->IsReceivingData() &&
-            (uid == TO_ALL || ((int) client->user.uniqueid) == uid)) {
+        if ((uid == TO_ALL || ((int) client->user.uniqueid) == uid)) {
             std::string msg_valid = Str::SanitizeUtf8(msg.begin(), msg.end());
             client->QueueMessage(RoRnet::MSG2_UTF8_CHAT, -1, -1, msg_valid.length(), msg_valid.c_str());
         }
@@ -993,8 +964,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
             // just push to all the present clients
             for (unsigned int i = 0; i < m_clients.size(); i++) {
                 Client *curr_client = m_clients[i];
-                if (curr_client->GetStatus() == Client::STATUS_USED && curr_client->IsReceivingData() &&
-                    (curr_client != client || toAll)) {
+                if ((curr_client != client || toAll)) {
                     curr_client->streams_traffic[streamid].bandwidthOutgoing += len;
                     curr_client->QueueMessage(type, client->user.uniqueid, streamid, len, data);
                 }
@@ -1003,8 +973,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
             // push to all bots and authed users above auth level 1
             for (unsigned int i = 0; i < m_clients.size(); i++) {
                 Client *curr_client = m_clients[i];
-                if (curr_client->GetStatus() == Client::STATUS_USED && curr_client->IsReceivingData() &&
-                    (curr_client != client) && (client->user.authstatus & RoRnet::AUTH_ADMIN)) {
+                if ((curr_client != client) && (client->user.authstatus & RoRnet::AUTH_ADMIN)) {
                     curr_client->streams_traffic[streamid].bandwidthOutgoing += len;
                     curr_client->QueueMessage(type, client->user.uniqueid, streamid, len, data);
                 }
@@ -1025,7 +994,7 @@ void Sequencer::UpdateMinuteStats() {
     MutexLocker scoped_lock(m_clients_mutex);
 
     for (unsigned int i = 0; i < m_clients.size(); i++) {
-        if (m_clients[i]->GetStatus() == Client::STATUS_USED) {
+        { // USELESS BLOCK
             for (std::map<unsigned int, stream_traffic_t>::iterator it = m_clients[i]->streams_traffic.begin();
                  it != m_clients[i]->streams_traffic.end(); it++) {
                 it->second.bandwidthIncomingRate =
@@ -1060,15 +1029,7 @@ void Sequencer::printStats() {
             if (m_clients[i]->user.authstatus & RoRnet::AUTH_BANNED) strcat(authst, "X");
 
             // construct screen
-            if (m_clients[i]->GetStatus() == Client::STATUS_FREE)
-                Logger::Log(LOG_INFO, "%4i Free", i);
-            else if (m_clients[i]->GetStatus() == Client::STATUS_BUSY)
-                Logger::Log(LOG_INFO, "%4i Busy %5i %-16s % 4s %d, %s", i,
-                            m_clients[i]->user.uniqueid, "-",
-                            authst,
-                            m_clients[i]->user.colournum,
-                            Str::SanitizeUtf8(m_clients[i]->user.username).c_str());
-            else
+            // TODO: FIX INDENT
                 Logger::Log(LOG_INFO, "%4i Used %5i %-16s % 4s %d, %s", i,
                             m_clients[i]->user.uniqueid,
                             m_clients[i]->GetIpAddress().c_str(),

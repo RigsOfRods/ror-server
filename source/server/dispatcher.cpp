@@ -25,7 +25,7 @@ If not, see <http://www.gnu.org/licenses/>.
 #include <event2/buffer.h>
 
 Dispatcher::Dispatcher(Sequencer* sequencer, MasterServer::Client& serverlist)
-    : m_conn_handler(sequencer)
+    : m_listener(sequencer)
     , m_serverlist(serverlist)
     , m_sequencer(sequencer)
 {}
@@ -45,7 +45,7 @@ void Dispatcher::Initialize()
     {
         throw std::runtime_error("Fatal: failed to set up heartbeat timer, event_new() returned null");
     }
-    ::timeval timeout = {Config::GetHeartbeatIntervalSec(), 0};
+    ::timeval timeout = {static_cast<long>(Config::GetHeartbeatIntervalSec()), 0l};
     ::evtimer_add(m_ev_heartbeat, &timeout); // Will fire once; callback will restart it as needed.
 
     // Create listening socket
@@ -108,11 +108,6 @@ void Dispatcher::Shutdown()
     }
 }
 
-void Dispatcher::HandleNewConnection(kissnet::tcp_socket socket)
-{
-    return m_conn_handler.HandleNewConnection(std::move(socket));
-}
-
 void Dispatcher::UpdateStats()
 {
     Messaging::UpdateMinuteStats();
@@ -121,11 +116,11 @@ void Dispatcher::UpdateStats()
 
 void Dispatcher::PerformHeartbeat()
 {
-    ::timeval next_timeout = {Config::GetHeartbeatIntervalSec(), 0};
+    ::timeval next_timeout = {static_cast<long>(Config::GetHeartbeatIntervalSec()), 0};
     if (Config::getServerMode() == SERVER_LAN)
     {
         // broadcast our "i'm here" signal
-        Messaging::broadcastLAN();            
+        Messaging::broadcastLAN();
     }
     else
     {
@@ -143,7 +138,7 @@ void Dispatcher::PerformHeartbeat()
             }
             else
             {
-                next_timeout.tv_sec = Config::GetHeartbeatRetrySeconds();
+                next_timeout.tv_sec = static_cast<long>(Config::GetHeartbeatRetrySeconds());
                 Logger::Log(
                     LOG_WARN, "A heartbeat failed! Count: %u/%u, Retry in %ld sec.",
                     m_heartbeat_failcount, max_failcount, next_timeout);
@@ -171,32 +166,19 @@ bool Dispatcher::RegisterClient(Client* client)
         return false;
     }
 
-    // Attach buffer callbacks
-    ::bufferevent_setcb(buff_ev,
-        &Client::BufReadCallback,
-        &Client::BufWriteCallback,
-        &Client::BufEventCallback,
-        client);
-
-    // Wait until whole header is buffered
-    ::bufferevent_setwatermark(buff_ev, EV_READ, sizeof(RoRnet::Header), 0);
-
-    m_sequencer->IntroduceNewClientToAllVehicles(client);
-}
-
-void Dispatcher::RemoveClient(Client* client)
-{
-    
+    // Pass buffer to client
+    client->SubscribeForEvents(buff_ev);
+    return true;
 }
 
 // -------------------- Callbacks (static) -------------------- //
 
 void Dispatcher::ConnAcceptCallback(::evconnlistener* listener,
-                                ::evutil_socket_t sock,
-                                sockaddr* addr, int socklen, void* ptr)
+                                    ::evutil_socket_t sock,
+                                    ::sockaddr* addr, int socklen, void* ptr)
 {
     kissnet::tcp_socket socket(sock, addr);
-    static_cast<Dispatcher*>(ptr)->HandleNewConnection(std::move(socket));
+    static_cast<Dispatcher*>(ptr)->GetListener().HandleNewConnection(std::move(socket));
 }
 
 void Dispatcher::ConnErrorCallback(::evconnlistener* listener, void* ptr)

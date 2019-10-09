@@ -18,25 +18,27 @@ along with "Rigs of Rods Server".
 If not, see <http://www.gnu.org/licenses/>.
 */
 
+#pragma once
+
+#include "broadcaster.h"
 #include "prerequisites.h"
 #include "rornet.h" // For RORNET_MAX_MESSAGE_LENGTH
 
 #include <event2/bufferevent.h>
+#include <map>
 
 /// Sends/recvs all client data, updates user status
 class Client
 {
 public:
     Client(Sequencer* seq, kissnet::tcp_socket sock);
+    ~Client();
+    void SubscribeForEvents(::bufferevent* bev);
 
+// Legacy getters (to be refactored)
     kissnet::tcp_socket& GetSocket() { return m_socket; }
-
-    std::string Client::GetIpAddress() {
-        return m_socket.get_recv_endpoint().address;
-    }
-
+    std::string GetIpAddress() { return m_socket.get_recv_endpoint().address; }
     int GetUserId() const { return static_cast<int>(user.uniqueid); }
-
     bool IsBroadcasterDroppingPackets() const { return m_broadcaster.IsDroppingPackets(); }
 
 // Messaging:
@@ -57,8 +59,8 @@ public:
 
 private:
     kissnet::tcp_socket  m_socket;
-    ::bufferevent*       m_buffer_event = nullptr;    
+    ::bufferevent*       m_buffer_event = nullptr;
     RoRnet::Header       m_incoming_msg;
     Sequencer*           m_sequencer = nullptr;
-    Broadcaster          m_out_queue;
+    Broadcaster          m_broadcaster; // Legacy
 };

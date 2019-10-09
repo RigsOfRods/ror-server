@@ -34,17 +34,18 @@ class Dispatcher
 public:
     Dispatcher(Sequencer* sequencer, MasterServer::Client& serverlist);
 
+// Legacy:
+    Listener& GetListener() { return m_listener; }
+
 // Lifecycle:
     void Initialize();
     void RunDispatchLoop();
     void Shutdown();
 
 // Operations:
-    void HandleNewConnection(kissnet::tcp_socket socket);
     void UpdateStats();
     void PerformHeartbeat();
-    bool RegisterClient(Client* client);
-    void RemoveClient(Client* client);
+    bool RegisterClient(Client* client); //< Removal is done by Client::~Client()
 
 // Callbacks:
     static void ConnAcceptCallback(::evconnlistener* listener,
@@ -60,7 +61,7 @@ private:
     ::evconnlistener*      m_ev_listener = nullptr;
     ::event*               m_ev_heartbeat = nullptr;
     ::event*               m_ev_stats = nullptr;
-    Listener               m_conn_handler;
+    Listener               m_listener; // Legacy
     MasterServer::Client&  m_serverlist;
     Sequencer*             m_sequencer = nullptr;
     size_t                 m_heartbeat_failcount = 0;

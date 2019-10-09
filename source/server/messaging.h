@@ -21,8 +21,25 @@ If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "sequencer.h"
 #include "prerequisites.h"
+
+struct stream_traffic_t {
+    // normal bandwidth
+    double bandwidthIncoming;
+    double bandwidthOutgoing;
+    double bandwidthIncomingLastMinute;
+    double bandwidthOutgoingLastMinute;
+    double bandwidthIncomingRate;
+    double bandwidthOutgoingRate;
+
+    // drop bandwidth
+    double bandwidthDropIncoming;
+    double bandwidthDropOutgoing;
+    double bandwidthDropIncomingLastMinute;
+    double bandwidthDropOutgoingLastMinute;
+    double bandwidthDropIncomingRate;
+    double bandwidthDropOutgoingRate;
+};
 
 namespace Messaging {
 

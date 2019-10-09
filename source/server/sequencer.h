@@ -96,7 +96,7 @@ public:
 
     Sequencer();
 
-    void Initialize(Dispatcher* dispatcher);
+    void Initialize();
 
     //! destructor call, used for clean up
     void Close();
@@ -161,7 +161,6 @@ private:
     int m_bot_count;      //!< Amount of registered bots on the server.
     unsigned int m_free_user_id;
     int m_start_time;
-    Dispatcher* m_dispatcher;
 
     std::vector<Client *> m_clients;
     std::vector<ban_t *> m_bans;

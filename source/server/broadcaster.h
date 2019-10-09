@@ -32,7 +32,7 @@ struct queue_entry_t {
     int uid;
     unsigned int streamid;
     unsigned int datalen;
-    char data[RORNET_MAX_MESSAGE_LENGTH];
+    char data[RORNET_MAX_MESSAGE_LENGTH - sizeof(RoRnet::Header)];
 };
 
 class Broadcaster {

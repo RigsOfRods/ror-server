@@ -45,6 +45,7 @@ public:
     void ProcessReceivedData();
     void TransmitQueuedData();
     void QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len, const char *payload);
+    void HandleSocketEvent(short events);
 
 // Callbacks:
     static void BufReadCallback(::bufferevent* bev, void* ctx);

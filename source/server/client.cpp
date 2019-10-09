@@ -94,12 +94,37 @@ void Client::QueueMessage(int msg_type, int client_id, unsigned int stream_id, u
 void Client::TransmitQueuedData()
 {
     queue_entry_t msg;
-    if (!m_broadcaster.PopMessageFromQueue(msg))
+    while (m_broadcaster.PopMessageFromQueue(msg))
     {
-        return; // Nothing to send
-    }
+        // Write header
+        RoRnet::Header head;
+        head.command  = msg.type;
+        head.source   = msg.uid;
+        head.size     = msg.datalen;
+        head.streamid = msg.streamid;
+        ::bufferevent_write(m_buffer_event, &head, sizeof(RoRnet::Header));
 
-    //  ####   TODO: write to libevent's output buffer
+        // Write payload
+        ::bufferevent_write(m_buffer_event, &msg.data, msg.datalen);
+    }
+}
+
+void Client::HandleSocketEvent(short events)
+{
+    if (events & BEV_EVENT_ERROR)
+    {
+        const char* error_msg = ::evutil_socket_error_to_string(EVUTIL_SOCKET_ERROR());
+        Logger::Log(LOG_ERROR, "Client %d (%s) connection failure: %s",
+            this->user.uniqueid, this->user.username, error_msg);
+
+        std::string reason_msg = std::string("Connection failure: ") + error_msg;
+        m_sequencer->QueueClientForDisconnect(this->user.uniqueid, reason_msg.c_str(), true);
+    }
+    else if (events & BEV_EVENT_EOF)
+    {
+        Logger::Log(LOG_INFO, "Client %d (%s) disconnected", this->user.uniqueid, this->user.username);
+        m_sequencer->QueueClientForDisconnect(this->user.uniqueid, "Connection closed", true);
+    }
 }
 
 // -------------------- Callbacks (static) -------------------- //
@@ -116,5 +141,5 @@ void Client::BufWriteCallback(::bufferevent* bev, void* ctx)
 
 void Client::BufEventCallback(::bufferevent* bev, short events, void* ctx)
 {
-    //  ####   TODO
+    static_cast<Client*>(ctx)->HandleSocketEvent(events);
 }

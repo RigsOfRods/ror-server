@@ -38,12 +38,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <stdexcept>
 #include <sstream>
 
-#ifdef __GNUC__
-
-#include <stdlib.h>
-
-#endif
-
 Sequencer::Sequencer() :
         m_script_engine(nullptr),
         m_auth_resolver(nullptr),
@@ -56,8 +50,7 @@ Sequencer::Sequencer() :
 /**
  * Initialize, needs to be called before the class is used
  */
-void Sequencer::Initialize(Dispatcher* dispatcher) {
-    m_dispatcher = dispatcher; // Legacy
+void Sequencer::Initialize() {
     m_clients.reserve(Config::getMaxClients());
 
 #ifdef WITH_ANGELSCRIPT

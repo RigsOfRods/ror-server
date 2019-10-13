@@ -36,6 +36,7 @@ void Dispatcher::Initialize()
     kissnet::endpoint endpoint("0.0.0.0", kissnet::port_t(Config::getListenPort()));
     m_socket = kissnet::tcp_socket(endpoint);
     m_socket.bind();
+    m_socket.set_non_blocking();
 
     // Create libevent `base` object
     m_ev_base = ::event_base_new();
@@ -154,22 +155,6 @@ void Dispatcher::PerformHeartbeat()
     ::event_add(m_ev_heartbeat, &next_timeout);
 }
 
-bool Dispatcher::RegisterClient(Client* client)
-{
-    // Create event-driven buffer
-    ::bufferevent* buff_ev = ::bufferevent_socket_new(
-        m_ev_base, client->GetSocket().get_native(), 0);
-    if (!buff_ev)
-    {
-        Logger::Log(LOG_ERROR, "Failed to register client with Dispatcher");
-        return false;
-    }
-
-    // Pass buffer to client
-    client->SubscribeForEvents(buff_ev);
-    return true;
-}
-
 // -------------------- Callbacks (static) -------------------- //
 
 void Dispatcher::ConnAcceptCallback(::evconnlistener* listener,
@@ -182,7 +167,7 @@ void Dispatcher::ConnAcceptCallback(::evconnlistener* listener,
     if (client) // Error already logged
     {
         Logger::Log(LOG_DEBUG, "Dispatcher: new client OK, registering for network events");
-        dispatcher->RegisterClient(client);
+        client->SubscribeForEvents(dispatcher);
     }    
 }
 

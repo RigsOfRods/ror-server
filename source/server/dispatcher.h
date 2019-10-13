@@ -34,18 +34,14 @@ class Dispatcher
 public:
     Dispatcher(Sequencer* sequencer, MasterServer::Client& serverlist);
 
-// Legacy:
-    Listener& GetListener() { return m_listener; }
+// Getters:
+    Listener&     GetListener()  { return m_listener; }
+    ::event_base* GetEventBase() { return m_ev_base;  }
 
 // Lifecycle:
     void Initialize();
     void RunDispatchLoop();
     void Shutdown();
-
-// Operations:
-    void UpdateStats();
-    void PerformHeartbeat();
-    bool RegisterClient(Client* client); //< Removal is done by Client::~Client()
 
 // Callbacks:
     static void ConnAcceptCallback(::evconnlistener* listener,
@@ -56,6 +52,9 @@ public:
     static void StatsCallback(::evutil_socket_t sock, short what, void* ptr);
 
 private:
+    void UpdateStats();
+    void PerformHeartbeat();
+
     kissnet::tcp_socket    m_socket;
     ::event_base*          m_ev_base = nullptr;
     ::evconnlistener*      m_ev_listener = nullptr;

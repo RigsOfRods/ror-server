@@ -19,6 +19,7 @@ If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "client.h"
+#include "dispatcher.h"
 #include "sequencer.h"
 
 #include <event2/event.h>
@@ -37,20 +38,37 @@ Client::~Client()
     m_socket.close();
 }
 
-void Client::SubscribeForEvents(::bufferevent* buff_ev)
+bool Client::SubscribeForEvents(Dispatcher* dispatcher)
 {
+    assert(m_socket.is_valid());
+
+    // Create event-driven buffer
+    m_buffer_event = ::bufferevent_socket_new(
+        dispatcher->GetEventBase(), m_socket.get_native(), 0);
+    if (!m_buffer_event)
+    {
+        Logger::Log(LOG_ERROR, "Failed to register client with Dispatcher");
+        return false;
+    }
+
     // Attach buffer callbacks
-    ::bufferevent_setcb(buff_ev,
+    ::bufferevent_setcb(m_buffer_event,
         &Client::BufReadCallback,
         &Client::BufWriteCallback,
         &Client::BufEventCallback,
         this);
 
-    // Wait until whole header is buffered
+    // Set buffer to wait for header
     Utils::ZeroOut(m_incoming_msg);
-    ::bufferevent_setwatermark(buff_ev, EV_READ, sizeof(RoRnet::Header), 0);
+    ::bufferevent_setwatermark(m_buffer_event, EV_READ, sizeof(RoRnet::Header), 0);
 
     m_sequencer->IntroduceNewClientToAllVehicles(this);
+
+    // Start receiving data
+    m_socket.set_non_blocking();
+    ::bufferevent_enable(m_buffer_event, EV_READ|EV_WRITE);
+
+    return true;
 }
 
 void Client::ProcessReceivedData()

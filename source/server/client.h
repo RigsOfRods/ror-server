@@ -33,7 +33,7 @@ class Client
 public:
     Client(Sequencer* seq, kissnet::tcp_socket sock);
     ~Client();
-    void SubscribeForEvents(::bufferevent* bev);
+    bool SubscribeForEvents(Dispatcher* dispatcher);
 
 // Legacy getters (to be refactored)
     kissnet::tcp_socket& GetSocket() { return m_socket; }

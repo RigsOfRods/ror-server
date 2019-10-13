@@ -587,7 +587,7 @@ void Sequencer::streamDebug() {
 
 //this is called by the receivers threads, like crazy & concurrently
 void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *data, unsigned int len) {
-    MutexLocker scoped_lock(m_clients_mutex);
+
 
     Client *client = this->FindClientById(static_cast<unsigned int>(uid));
     if (client == nullptr) {

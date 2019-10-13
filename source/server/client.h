@@ -62,6 +62,7 @@ private:
     kissnet::tcp_socket  m_socket;
     ::bufferevent*       m_buffer_event = nullptr;
     RoRnet::Header       m_incoming_msg;
+    bool                 m_sender_idle = true;
     Sequencer*           m_sequencer = nullptr;
     Broadcaster          m_broadcaster; // Legacy
 };

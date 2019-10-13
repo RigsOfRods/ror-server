@@ -107,23 +107,42 @@ void Client::ProcessReceivedData()
 void Client::QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len,
                           const char *payload) {
     m_broadcaster.QueueMessage(msg_type, client_id, stream_id, payload_len, payload);
+    if (m_buffer_event && m_sender_idle)
+    {
+        this->TransmitQueuedData();
+    }
 }
 
 void Client::TransmitQueuedData()
 {
+    m_sender_idle = true;
     queue_entry_t msg;
     while (m_broadcaster.PopMessageFromQueue(msg))
     {
+        m_sender_idle = false;
+
         // Write header
         RoRnet::Header head;
         head.command  = msg.type;
         head.source   = msg.uid;
         head.size     = msg.datalen;
         head.streamid = msg.streamid;
-        ::bufferevent_write(m_buffer_event, &head, sizeof(RoRnet::Header));
+        int res = ::bufferevent_write(m_buffer_event, &head, sizeof(RoRnet::Header));
+        if (res != 0)
+        {
+            Logger::Log(LOG_WARN,
+                "Client %d: Error sending msg header; bufferevent_write() return code %d",
+                this->user.uniqueid, res);
+        }
 
         // Write payload
-        ::bufferevent_write(m_buffer_event, &msg.data, msg.datalen);
+        res = ::bufferevent_write(m_buffer_event, &msg.data, msg.datalen);
+        if (res != 0)
+        {
+            Logger::Log(LOG_WARN,
+                "Client %d: Error sending msg payload; bufferevent_write() return code %d",
+                this->user.uniqueid, res);
+        }
     }
 }
 

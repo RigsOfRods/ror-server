@@ -29,6 +29,7 @@ private:
 public:
     Listener(Sequencer *sequencer);
 
-    void HandleNewConnection(kissnet::tcp_socket socket);
+    /// Returns null on failure
+    Client* HandleNewConnection(kissnet::tcp_socket socket) noexcept;
 };
 

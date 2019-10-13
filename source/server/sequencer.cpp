@@ -125,8 +125,7 @@ int Sequencer::GetFreePlayerColour() {
     }
 }
 
-//this is called by the Listener thread
-void Sequencer::createClient(kissnet::tcp_socket sock, RoRnet::UserInfo user) {
+Client* Sequencer::CreateClient(kissnet::tcp_socket sock, RoRnet::UserInfo user) {
     //we have a confirmed client that wants to play
     //try to find a place for him
     Logger::Log(LOG_DEBUG, "got instance in createClient()");
@@ -139,7 +138,7 @@ void Sequencer::createClient(kissnet::tcp_socket sock, RoRnet::UserInfo user) {
     if (this->IsBanned(ip_addr.c_str())) {
         Logger::Log(LOG_VERBOSE, "rejected banned IP %s", ip_addr.c_str());
         Messaging::SendMessage(sock, RoRnet::MSG2_BANNED, 0, 0, 0, 0);
-        return;
+        return nullptr;
     }
 
     // check if server is full
@@ -208,7 +207,7 @@ void Sequencer::createClient(kissnet::tcp_socket sock, RoRnet::UserInfo user) {
     if (Messaging::SendMessage(to_add->GetSocket(), RoRnet::MSG2_WELCOME, client_id, 0, sizeof(RoRnet::UserInfo),
                                (char *) &to_add->user)) {
         this->QueueClientForDisconnect(client_id, "error sending welcome message");
-        return;
+        return nullptr;
     }
 
     //send motd
@@ -235,6 +234,7 @@ void Sequencer::createClient(kissnet::tcp_socket sock, RoRnet::UserInfo user) {
 
     // done!
     Logger::Log(LOG_VERBOSE, "Sequencer: New client added");
+    return to_add;
 }
 
 // Only used by scripting

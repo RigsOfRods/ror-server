@@ -32,6 +32,11 @@ Dispatcher::Dispatcher(Sequencer* sequencer, MasterServer::Client& serverlist)
 
 void Dispatcher::Initialize()
 {
+    // Create listening socket [must be done first on MSWindows]
+    kissnet::endpoint endpoint("0.0.0.0", kissnet::port_t(Config::getListenPort()));
+    m_socket = kissnet::tcp_socket(endpoint);
+    m_socket.bind();
+
     // Create libevent `base` object
     m_ev_base = ::event_base_new();
     if (!m_ev_base)
@@ -48,15 +53,9 @@ void Dispatcher::Initialize()
     ::timeval timeout = {static_cast<long>(Config::GetHeartbeatIntervalSec()), 0l};
     ::evtimer_add(m_ev_heartbeat, &timeout); // Will fire once; callback will restart it as needed.
 
-    // Create listening socket
-    m_socket = kissnet::tcp_socket(
-        kissnet::endpoint("0.0.0.0", kissnet::port_t(Config::getListenPort())));
-    m_socket.bind();
-    m_socket.listen();
-
     // Set up listener event
     const int flags = LEV_OPT_LEAVE_SOCKETS_BLOCKING; // RoRServer's client-welcome logic is synchronous
-    const int backlog = 0; // `listen()` already invoked on socket
+    const int backlog = -1; // Autodetect max. num. pending connections //// `listen()` already invoked on socket
     m_ev_listener = ::evconnlistener_new(
         m_ev_base, &Dispatcher::ConnAcceptCallback, this, flags, backlog, m_socket.get_native());
     if (!m_ev_listener)
@@ -178,7 +177,13 @@ void Dispatcher::ConnAcceptCallback(::evconnlistener* listener,
                                     ::sockaddr* addr, int socklen, void* ptr)
 {
     kissnet::tcp_socket socket(sock, addr);
-    static_cast<Dispatcher*>(ptr)->GetListener().HandleNewConnection(std::move(socket));
+    Dispatcher* dispatcher = static_cast<Dispatcher*>(ptr);
+    Client* client = dispatcher->GetListener().HandleNewConnection(std::move(socket));
+    if (client) // Error already logged
+    {
+        Logger::Log(LOG_DEBUG, "Dispatcher: new client OK, registering for network events");
+        dispatcher->RegisterClient(client);
+    }    
 }
 
 void Dispatcher::ConnErrorCallback(::evconnlistener* listener, void* ptr)

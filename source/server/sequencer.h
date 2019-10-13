@@ -102,7 +102,7 @@ public:
     void Close();
 
     //! initilize client information
-    void createClient(kissnet::tcp_socket socket, RoRnet::UserInfo user);
+    Client* CreateClient(kissnet::tcp_socket socket, RoRnet::UserInfo user);
 
     void QueueClientForDisconnect(int client_id, const char *error, bool isError = true, bool doScriptCallback = true);
 

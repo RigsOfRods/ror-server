@@ -42,8 +42,10 @@ Listener::Listener(Sequencer *sequencer) :
         m_sequencer(sequencer) {
 }
 
-void Listener::HandleNewConnection(kissnet::tcp_socket ts) {
-    // FIXME: intentionally mis-indented for nicer Git diff
+Client* Listener::HandleNewConnection(kissnet::tcp_socket ts) noexcept
+{
+    // FIXME: USELESS BLOCK
+    {
         Logger::Log(LOG_VERBOSE, "Listener got a new connection");
 
         //receive a magic
@@ -77,7 +79,7 @@ void Listener::HandleNewConnection(kissnet::tcp_socket ts) {
                 }
                 // close socket
                 ts.close();
-                return;
+                return nullptr;
             }
 
             // compare the versions if they are compatible
@@ -153,11 +155,12 @@ void Listener::HandleNewConnection(kissnet::tcp_socket ts) {
 
             //create a new client
             assert(ts.is_valid());
-            m_sequencer->createClient(std::move(ts), *user); // copy the user info, since the buffer will be cleared soon
-            Logger::Log(LOG_DEBUG, "listener returned!");
+            return m_sequencer->CreateClient(std::move(ts), *user); // copy the user info, since the buffer will be cleared soon
         }
         catch (std::runtime_error &e) {
             Logger::Log(LOG_ERROR, e.what());
             ts.close();
+            return nullptr;
         }
+    } // FIXME: useless block
 }

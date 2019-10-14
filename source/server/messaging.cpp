@@ -24,17 +24,18 @@ If not, see <http://www.gnu.org/licenses/>.
 #include "sequencer.h"
 #include "rornet.h"
 #include "logger.h"
-#include "SocketW.h"
 #include "config.h"
 #include "http.h"
+#include "prerequisites.h"
 #include "UnicodeStrings.h"
 
 #include <cstring>
+#include <cstddef>
 #include <stdarg.h>
 #include <time.h>
 #include <errno.h>
 #include <assert.h>
-
+#include <array>
 #include <mutex>
 
 static stream_traffic_t s_traffic = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -93,21 +94,17 @@ namespace Messaging {
  * @param content Payload
  * @return 0 on success
  */
-    int SendMessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len,
+    int SendMessage(kissnet::tcp_socket& socket, int type, int source, unsigned int streamid, unsigned int len,
                     const char *content) {
-        assert(socket != nullptr);
 
-        SWBaseSocket::SWBaseError error;
         RoRnet::Header head;
 
-        const int msgsize = sizeof(RoRnet::Header) + len;
+        const size_t msgsize = sizeof(RoRnet::Header) + len;
 
         if (msgsize >= RORNET_MAX_MESSAGE_LENGTH) {
             Logger::Log(LOG_ERROR, "UID: %d - attempt to send too long message", source);
             return -4;
         }
-
-        char buffer[RORNET_MAX_MESSAGE_LENGTH];
 
         memset(&head, 0, sizeof(RoRnet::Header));
         head.command = type;
@@ -116,15 +113,30 @@ namespace Messaging {
         head.streamid = streamid;
 
         // construct buffer
+        std::byte buffer[RORNET_MAX_MESSAGE_LENGTH];
         memset(buffer, 0, RORNET_MAX_MESSAGE_LENGTH);
-        memcpy(buffer, (char *) &head, sizeof(RoRnet::Header));
+        memcpy(buffer, (void *)&head, sizeof(RoRnet::Header));
         memcpy(buffer + sizeof(RoRnet::Header), content, len);
 
-        if (socket->fsend(buffer, msgsize, &error) < msgsize)
+        try
         {
-            Logger::Log(LOG_ERROR, "send error -1: %s", error.get_error().c_str());
+            auto [sent_len, sock_state] = socket.send(buffer, msgsize);
+            if (sock_state == kissnet::socket_status::cleanly_disconnected)
+            {
+                return -2;
+            }
+            else if (sock_state != kissnet::socket_status::valid)
+            {
+                Logger::Log(LOG_ERROR, "send error - invalid socket");
+                return -3;
+            }
+        }
+        catch (std::exception& e)
+        {
+            Logger::Log(LOG_ERROR, "send error: %s", e.what());
             return -1;
         }
+
         StatsAddOutgoing(msgsize);
         return 0;
     }
@@ -135,49 +147,80 @@ namespace Messaging {
  * @return                0 on success, negative number on error.
  */
     int ReceiveMessage(
-            SWInetSocket *socket,
+            kissnet::tcp_socket& socket,
             int *out_type,
             int *out_source,
             unsigned int *out_stream_id,
             unsigned int *out_payload_len,
             char *out_payload,
-            unsigned int payload_buf_len) {
-        assert(socket != nullptr);
+            unsigned int payload_buf_len)
+    {
+
         assert(out_type != nullptr);
         assert(out_source != nullptr);
         assert(out_stream_id != nullptr);
         assert(out_payload != nullptr);
 
-        SWBaseSocket::SWBaseError error;
-
-        RoRnet::Header head;
-        if (socket->frecv((char*)&head, sizeof(RoRnet::Header), &error) < sizeof(RoRnet::Header))
+        try
         {
-            // this also happens when the connection is canceled
-            return -2;
-        }
+            RoRnet::Header header;
+            size_t header_recv = 0;
+            while (header_recv < sizeof(RoRnet::Header))
+            {
+                const auto [recv_len, sock_state] = socket.recv(
+                    reinterpret_cast<std::byte*>(&header), sizeof(RoRnet::Header));
 
-        *out_type = head.command;
-        *out_source = head.source;
-        *out_payload_len = head.size;
-        *out_stream_id = head.streamid;
+                if (sock_state != kissnet::socket_status::valid)
+                {
+                    throw kissnet::socket_status(sock_state);
+                }
+                header_recv += recv_len;
+            }
 
-        if ( head.size > payload_buf_len) {
-            Logger::Log(LOG_ERROR, "ReceiveMessage(): payload too long: %d b (max. is %d b)", head.size,
-                        payload_buf_len);
-            return -3;
-        }
+            *out_type = header.command;
+            *out_source = header.source;
+            *out_payload_len = header.size;
+            *out_stream_id = header.streamid;
 
-        if (head.size > 0) {
-            //read the rest
+            if (header.size > payload_buf_len)
+            {
+                Logger::Log(LOG_ERROR,
+                    "ReceiveMessage(): payload too long: %u (buffer cap: %u)",
+                    header.size, payload_buf_len);
+                return -3;
+            }
+
             std::memset(out_payload, 0, payload_buf_len);
-            if (socket->frecv(out_payload, head.size, &error) < head.size) {
+            size_t payload_recv = 0;
+            while (payload_recv < header.size)
+            {
+                const auto [recv_len, sock_state] = socket.recv(
+                    reinterpret_cast<std::byte*>(out_payload) + payload_recv,
+                    payload_buf_len - payload_recv);
+
+                if (sock_state != kissnet::socket_status::valid)
+                {
+                    throw kissnet::socket_status(sock_state);
+                }
+                payload_recv += recv_len;
+            }
+
+            StatsAddIncoming(sizeof(RoRnet::Header) + header.size);
+            return 0;
+        }
+        catch (kissnet::socket_status& sock_e)
+        {
+            if (sock_e == kissnet::socket_status::cleanly_disconnected)
+            {
+                Logger::Log(LOG_VERBOSE, "ReceiveMessage(): disconnect while receiving data");
                 return -1;
             }
+            else
+            {
+                Logger::Log(LOG_ERROR, "ReceiveMessage(): Invalid socket state: %d", static_cast<int>(sock_e));
+                return -2;
+            }
         }
-
-        StatsAddIncoming(sizeof(RoRnet::Header) + head.size);
-        return 0;
     }
 
     int getTime() { return (int) time(NULL); }

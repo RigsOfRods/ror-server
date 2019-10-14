@@ -23,7 +23,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h"
 #include "messaging.h"
 #include "sequencer.h"
-#include "SocketW.h"
 #include "logger.h"
 #include "config.h"
 #include "UnicodeStrings.h"
@@ -39,88 +38,15 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #endif
 
-void *s_lsthreadstart(void *arg) {
-    Listener *listener = static_cast<Listener *>(arg);
-    listener->threadstart();
-    return nullptr;
+Listener::Listener(Sequencer *sequencer) :
+        m_sequencer(sequencer) {
 }
 
-
-Listener::Listener(Sequencer *sequencer, int port) :
-        m_listen_port(port),
-        m_sequencer(sequencer),
-        m_thread_shutdown(false) {
-}
-
-Listener::~Listener(void) {
-    if (!m_thread_shutdown) {
-        this->Shutdown();
-    }
-}
-
-bool Listener::Initialize() {
-    if (!m_ready_cond.Initialize()) {
-        return false;
-    }
-    return (0 == pthread_create(&m_thread, NULL, s_lsthreadstart, this));
-}
-
-void Listener::Shutdown() {
-    Logger::Log(LOG_VERBOSE, "Stopping listener thread...");
-    m_thread_shutdown = true;
-    m_listen_socket.disconnect();
-    pthread_join(m_thread, nullptr);
-    Logger::Log(LOG_VERBOSE, "Listener thread stopped");
-}
-
-bool Listener::WaitUntilReady() {
-    int result = 0;
-    if (!m_ready_cond.Wait(&result)) {
-        Logger::Log(LOG_ERROR, "Internal: Error while starting listener thread");
-        return false;
-    }
-    if (result < 0) {
-        Logger::Log(LOG_ERROR, "Internal: Listerer thread failed to start");
-        return false;
-    }
-    return true;
-}
-
-void Listener::threadstart() {
-    Logger::Log(LOG_DEBUG, "Listerer thread starting");
-    //here we start
-    SWBaseSocket::SWBaseError error;
-
-    //manage the listening socket
-    m_listen_socket.bind(m_listen_port, &error);
-    if (error != SWBaseSocket::ok) {
-        //this is an error!
-        Logger::Log(LOG_ERROR, "FATAL Listerer: %s", error.get_error().c_str());
-        //there is nothing we can do here
-        return;
-        // exit(1);
-    }
-    m_listen_socket.listen();
-
-    Logger::Log(LOG_VERBOSE, "Listener ready");
-    m_ready_cond.Signal(1);
-
-    //await connections
-    while (!m_thread_shutdown) {
-        Logger::Log(LOG_VERBOSE, "Listener awaiting connections");
-        SWInetSocket *ts = (SWInetSocket *) m_listen_socket.accept(&error);
-
-        if (error != SWBaseSocket::ok) {
-            if (m_thread_shutdown) {
-                Logger::Log(LOG_ERROR, "INFO Listener shutting down");
-            } else {
-                Logger::Log(LOG_ERROR, "ERROR Listener: %s", error.get_error().c_str());
-            }
-        }
-
+Client* Listener::HandleNewConnection(kissnet::tcp_socket ts) noexcept
+{
+    // FIXME: USELESS BLOCK
+    {
         Logger::Log(LOG_VERBOSE, "Listener got a new connection");
-
-        ts->set_timeout(5, 0);
 
         //receive a magic
         int type;
@@ -129,7 +55,9 @@ void Listener::threadstart() {
         unsigned int streamid;
         char buffer[RORNET_MAX_MESSAGE_LENGTH];
 
-        try {
+        try
+        {
+
             // this is the start of it all, it all starts with a simple hello
             if (Messaging::ReceiveMessage(ts, &type, &source, &streamid, &len, buffer, RORNET_MAX_MESSAGE_LENGTH))
                 throw std::runtime_error("ERROR Listener: receiving first message");
@@ -150,9 +78,8 @@ void Listener::threadstart() {
                     throw std::runtime_error("ERROR Listener: sending master info");
                 }
                 // close socket
-                ts->disconnect(&error);
-                delete ts;
-                continue;
+                ts.close();
+                return nullptr;
             }
 
             // compare the versions if they are compatible
@@ -227,13 +154,13 @@ void Listener::threadstart() {
             }
 
             //create a new client
-            m_sequencer->createClient(ts, *user); // copy the user info, since the buffer will be cleared soon
-            Logger::Log(LOG_DEBUG, "listener returned!");
+            assert(ts.is_valid());
+            return m_sequencer->CreateClient(std::move(ts), *user); // copy the user info, since the buffer will be cleared soon
         }
         catch (std::runtime_error &e) {
             Logger::Log(LOG_ERROR, e.what());
-            ts->disconnect(&error);
-            delete ts;
+            ts.close();
+            return nullptr;
         }
-    }
+    } // FIXME: useless block
 }

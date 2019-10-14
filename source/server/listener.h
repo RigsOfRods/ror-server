@@ -20,32 +20,16 @@
 
 #pragma once
 
-#include "SocketW.h"
-#include "mutexutils.h"
 #include "prerequisites.h"
 
-#include <pthread.h>
-#include <atomic>
-
+///TODO: Remove this class, obsoleted by port to Libevent, only left here for nicer diff.
 class Listener {
 private:
-    pthread_t m_thread;
-    SWInetSocket m_listen_socket;
-    int m_listen_port;
-    Threading::SimpleCond m_ready_cond;
     Sequencer *m_sequencer;
-    std::atomic_bool m_thread_shutdown;
 public:
-    Listener(Sequencer *sequencer, int port);
+    Listener(Sequencer *sequencer);
 
-    ~Listener(void);
-
-    void threadstart();
-
-    bool Initialize();
-
-    bool WaitUntilReady();
-
-    void Shutdown();
+    /// Returns null on failure
+    Client* HandleNewConnection(kissnet::tcp_socket socket) noexcept;
 };
 

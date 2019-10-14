@@ -24,7 +24,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h"
 #include "mutexutils.h"
 #include "broadcaster.h"
-#include "receiver.h"
+#include "client.h"
 #include "json/json.h"
 
 #ifdef WITH_ANGELSCRIPT
@@ -39,13 +39,11 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <vector>
 #include <map>
 
-
+#include <event2/bufferevent.h>
 
 // How many not-vehicles streams has every user by default? (e.g.: "default" and "chat" are not-vehicles streams)
 // This is used for the vehicle-limit
 #define NON_VEHICLE_STREAMS 2
-
-#define SEQUENCER Sequencer::Instance()
 
 #define VERSION "$Rev$"
 
@@ -69,87 +67,17 @@ enum broadcastType {
 // constant for functions that receive an uid for sending something
 static const int TO_ALL = -1;
 
-struct stream_traffic_t {
-    // normal bandwidth
-    double bandwidthIncoming;
-    double bandwidthOutgoing;
-    double bandwidthIncomingLastMinute;
-    double bandwidthOutgoingLastMinute;
-    double bandwidthIncomingRate;
-    double bandwidthOutgoingRate;
-
-    // drop bandwidth
-    double bandwidthDropIncoming;
-    double bandwidthDropOutgoing;
-    double bandwidthDropIncomingLastMinute;
-    double bandwidthDropOutgoingLastMinute;
-    double bandwidthDropIncomingRate;
-    double bandwidthDropOutgoingRate;
-};
-
-class Client {
-public:
-    enum Status {
-        STATUS_FREE = 0,
-        STATUS_BUSY = 1,
-        STATUS_USED = 2
-    };
-
-    Client(Sequencer *sequencer, SWInetSocket *socket);
-
-    void StartThreads();
-
-    void Disconnect();
-
-    void QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len, const char *payload);
-
-    void NotifyAllVehicles(Sequencer *sequencer);
-
-    std::string GetIpAddress();
-
-    SWInetSocket *GetSocket() { return m_socket; }
-
-    bool IsBroadcasterDroppingPackets() const { return m_broadcaster.IsDroppingPackets(); }
-
-    void SetReceiveData(bool val) { m_is_receiving_data = val; }
-
-    bool IsReceivingData() const { return m_is_receiving_data; }
-
-    Status GetStatus() const { return m_status; }
-
-    int GetUserId() const { return static_cast<int>(user.uniqueid); }
-
-    RoRnet::UserInfo user;  //!< user information
-
-    int drop_state;             // dropping outgoing packets?
-
-    //things for the communication with the webserver below, not used in the main server code
-    std::map<unsigned int, RoRnet::StreamRegister> streams;
-    std::map<unsigned int, stream_traffic_t> streams_traffic;
-
-private:
-    SWInetSocket *m_socket;
-    Receiver m_receiver;
-    Broadcaster m_broadcaster;
-    Status m_status;
-    bool m_is_receiving_data;
-    bool m_is_initialized;
-};
-
 struct WebserverClientInfo // Needed because Client cannot be trivially copied anymore due to presence of std::atomic<>
 {
     WebserverClientInfo(Client* c):
         user (c->user),
-        status(c->GetStatus()),
         ip_address(c->GetIpAddress()),
         streams(c->streams),
         streams_traffic(c->streams_traffic){
     }
-    Client::Status GetStatus() const { return status; }
     std::string GetIpAddress() const { return ip_address; }
 
     RoRnet::UserInfo user;  //!< Copy of user information
-    Client::Status status;
     std::string ip_address;
     std::map<unsigned int, RoRnet::StreamRegister> streams;
     std::map<unsigned int, stream_traffic_t> streams_traffic;
@@ -163,11 +91,7 @@ struct ban_t {
     char banmsg[256];           //!< why he got banned
 };
 
-void *LaunchKillerThread(void *);
-
 class Sequencer {
-    friend void *LaunchKillerThread(void *);
-
 public:
 
     Sequencer();
@@ -178,16 +102,11 @@ public:
     void Close();
 
     //! initilize client information
-    void createClient(SWInetSocket *sock, RoRnet::UserInfo user);
-
-    //! call to start the thread to disconnect clients from the server.
-    void killerthreadstart();
+    Client* CreateClient(kissnet::tcp_socket socket, RoRnet::UserInfo user);
 
     void QueueClientForDisconnect(int client_id, const char *error, bool isError = true, bool doScriptCallback = true);
 
     void queueMessage(int uid, int type, unsigned int streamid, char *data, unsigned int len);
-
-    void enableFlow(int id);
 
     int sendMOTD(int id);
 
@@ -236,19 +155,13 @@ public:
     std::vector<WebserverClientInfo> GetClientListCopy();
 
 private:
-    pthread_t m_killer_thread;  //!< thread to handle the killing of clients
-    Condition m_killer_cond;    //!< wait condition that there are clients to kill
-    Mutex m_killer_mutex;   //!< mutex used for locking access to the killqueue
-    Mutex m_clients_mutex;  //!< Protects: m_clients, m_script_engine, m_auth_resolver, m_bot_count, m_num_disconnects_[total/crash]
+    Mutex m_clients_mutex;  //!< Protects: m_clients, m_script_engine, m_auth_resolver, m_bot_count
     ScriptEngine *m_script_engine;
     UserAuth *m_auth_resolver;
     int m_bot_count;      //!< Amount of registered bots on the server.
     unsigned int m_free_user_id;
     int m_start_time;
-    size_t m_num_disconnects_total; //!< Statistic
-    size_t m_num_disconnects_crash; //!< Statistic
 
-    std::queue<Client *> m_kill_queue; //!< holds pointer for client deletion
     std::vector<Client *> m_clients;
     std::vector<ban_t *> m_bans;
 

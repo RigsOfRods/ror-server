@@ -21,13 +21,32 @@ If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "sequencer.h"
 #include "prerequisites.h"
+
+struct stream_traffic_t {
+    // normal bandwidth
+    double bandwidthIncoming;
+    double bandwidthOutgoing;
+    double bandwidthIncomingLastMinute;
+    double bandwidthOutgoingLastMinute;
+    double bandwidthIncomingRate;
+    double bandwidthOutgoingRate;
+
+    // drop bandwidth
+    double bandwidthDropIncoming;
+    double bandwidthDropOutgoing;
+    double bandwidthDropIncomingLastMinute;
+    double bandwidthDropOutgoingLastMinute;
+    double bandwidthDropIncomingRate;
+    double bandwidthDropOutgoingRate;
+};
 
 namespace Messaging {
 
+    enum class Result { SUCCESS, DISCONNECT, FAILURE };
+
     int SendMessage(
-            SWInetSocket *socket,
+            kissnet::tcp_socket& socket,
             int msg_type,
             int msg_client_id,
             unsigned int msg_stream_id,
@@ -35,7 +54,7 @@ namespace Messaging {
             const char *payload);
 
     int ReceiveMessage(
-            SWInetSocket *socket,
+            kissnet::tcp_socket& socket,
             int *out_msg_type,
             int *out_client_id,
             unsigned int *out_stream_id,

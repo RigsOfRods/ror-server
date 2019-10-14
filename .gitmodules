@@ -1,0 +1,3 @@
+[submodule "dependencies/kissnet"]
+	path = dependencies/kissnet
+	url = https://github.com/Ybalrid/kissnet.git

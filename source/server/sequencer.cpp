@@ -20,12 +20,12 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "sequencer.h"
 
+#include "client.h"
+#include "dispatcher.h"
 #include "messaging.h"
 #include "sha1_util.h"
-#include "receiver.h"
 #include "broadcaster.h"
 #include "userauth.h"
-#include "SocketW.h"
 #include "logger.h"
 #include "config.h"
 #include "utils.h"
@@ -38,80 +38,10 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <stdexcept>
 #include <sstream>
 
-#ifdef __GNUC__
-
-#include <stdlib.h>
-
-#endif
-
-Client::Client(Sequencer *sequencer, SWInetSocket *socket) :
-        m_socket(socket),
-        m_receiver(sequencer),
-        m_broadcaster(sequencer),
-        m_status(Client::STATUS_USED),
-        m_is_receiving_data(false),
-        m_is_initialized(false) {
-}
-
-void Client::StartThreads() {
-    m_receiver.Start(this);
-    m_broadcaster.Start(this);
-}
-
-void Client::Disconnect() {
-    // Signal threads to stop and wait for them to finish
-    m_broadcaster.Stop();
-    m_receiver.Stop();
-
-    // Disconnect the socket
-    SWBaseSocket::SWBaseError result;
-    bool disconnected_ok = m_socket->disconnect(&result);
-    if (!disconnected_ok || (result != SWBaseSocket::base_error::ok)) {
-        Logger::Log(
-                LOG_ERROR,
-                "Internal: Error while disconnecting client - failed to disconnect socket. Message: %s",
-                result.get_error().c_str());
-    }
-    delete m_socket;
-}
-
-std::string Client::GetIpAddress() {
-    SWBaseSocket::SWBaseError result;
-    std::string ip = m_socket->get_peerAddr(&result);
-    if (result != SWBaseSocket::base_error::ok) {
-        Logger::Log(
-                LOG_ERROR,
-                "Internal: Error while getting client IP address. Message: %s",
-                result.get_error().c_str());
-    }
-    return ip;
-}
-
-void Client::QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len,
-                          const char *payload) {
-    m_broadcaster.QueueMessage(msg_type, client_id, stream_id, payload_len, payload);
-}
-
-// Yes, this is weird. To be refactored.
-void Client::NotifyAllVehicles(Sequencer *sequencer) {
-    if (!m_is_initialized) {
-        sequencer->IntroduceNewClientToAllVehicles(this);
-        m_is_initialized = true;
-    }
-}
-
-void *LaunchKillerThread(void *data) {
-    Sequencer *sequencer = static_cast<Sequencer *>(data);
-    sequencer->killerthreadstart();
-    return nullptr;
-}
-
 Sequencer::Sequencer() :
         m_script_engine(nullptr),
         m_auth_resolver(nullptr),
         m_clients_mutex(/*recursive=*/ true),
-        m_num_disconnects_total(0),
-        m_num_disconnects_crash(0),
         m_bot_count(0),
         m_free_user_id(1) {
     m_start_time = static_cast<int>(time(nullptr));
@@ -129,8 +59,6 @@ void Sequencer::Initialize() {
         m_script_engine->loadScript(Config::getScriptName());
     }
 #endif //WITH_ANGELSCRIPT
-
-    pthread_create(&m_killer_thread, NULL, LaunchKillerThread, this);
 
     m_auth_resolver = new UserAuth(Config::getAuthFile());
 }
@@ -162,9 +90,6 @@ void Sequencer::Close() {
         delete m_auth_resolver;
         m_auth_resolver = nullptr;
     }
-
-    pthread_cancel(m_killer_thread);
-    pthread_detach(m_killer_thread);
 }
 
 bool Sequencer::CheckNickIsUnique(std::string &nick) {
@@ -200,20 +125,20 @@ int Sequencer::GetFreePlayerColour() {
     }
 }
 
-//this is called by the Listener thread
-void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
+Client* Sequencer::CreateClient(kissnet::tcp_socket sock, RoRnet::UserInfo user) {
     //we have a confirmed client that wants to play
     //try to find a place for him
     Logger::Log(LOG_DEBUG, "got instance in createClient()");
 
     MutexLocker scoped_lock(m_clients_mutex);
+    assert(sock.is_valid());
 
     // check if banned
-    SWBaseSocket::SWBaseError error;
-    if (Sequencer::IsBanned(sock->get_peerAddr(&error).c_str())) {
-        Logger::Log(LOG_VERBOSE, "rejected banned IP %s", sock->get_peerAddr(&error).c_str());
+    std::string ip_addr = sock.get_recv_endpoint().address;
+    if (this->IsBanned(ip_addr.c_str())) {
+        Logger::Log(LOG_VERBOSE, "rejected banned IP %s", ip_addr.c_str());
         Messaging::SendMessage(sock, RoRnet::MSG2_BANNED, 0, 0, 0, 0);
-        return;
+        return nullptr;
     }
 
     // check if server is full
@@ -221,9 +146,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
     if (m_clients.size() >= (Config::getMaxClients() + m_bot_count)) {
         Logger::Log(LOG_WARN, "join request from '%s' on full server: rejecting!",
                     Str::SanitizeUtf8(user.username).c_str());
-        // set a low time out because we don't want to cause a back up of
-        // connecting clients
-        sock->set_timeout(10, 0);
+
         Messaging::SendMessage(sock, RoRnet::MSG2_FULL, 0, 0, 0, 0);
         throw std::runtime_error("Server is full");
     }
@@ -255,7 +178,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
         m_bot_count++;
 
     //okay, create the client slot
-    Client *to_add = new Client(this, sock);
+    Client *to_add = new Client(this, std::move(sock));
     to_add->user = user;
     to_add->user.colournum = Sequencer::GetFreePlayerColour();
     to_add->user.authstatus = user.authstatus;
@@ -279,16 +202,16 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
 
     // add the client to the vector
     m_clients.push_back(to_add);
-    // create one thread for the receiver
-    // and one for the broadcaster
-    to_add->StartThreads();
 
     Logger::Log(LOG_VERBOSE, "Sending welcome message to uid %i", client_id);
-    if (Messaging::SendMessage(sock, RoRnet::MSG2_WELCOME, client_id, 0, sizeof(RoRnet::UserInfo),
+    if (Messaging::SendMessage(to_add->GetSocket(), RoRnet::MSG2_WELCOME, client_id, 0, sizeof(RoRnet::UserInfo),
                                (char *) &to_add->user)) {
         this->QueueClientForDisconnect(client_id, "error sending welcome message");
-        return;
+        return nullptr;
     }
+
+    //send motd
+    this->sendMOTD(to_add->GetUserId());
 
     // Do script callback
 #ifdef WITH_ANGELSCRIPT
@@ -311,6 +234,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
 
     // done!
     Logger::Log(LOG_VERBOSE, "Sequencer: New client added");
+    return to_add;
 }
 
 // Only used by scripting
@@ -367,29 +291,6 @@ int Sequencer::AuthorizeNick(std::string token, std::string &nickname) {
     return m_auth_resolver->resolve(token, nickname, m_free_user_id);
 }
 
-void Sequencer::killerthreadstart() {
-    Logger::Log(LOG_DEBUG, "Killer thread ready");
-    while (1) {
-        Logger::Log(LOG_DEBUG, "Killer entering cycle");
-
-        m_killer_mutex.lock();
-        while (m_kill_queue.empty()) {
-            m_killer_mutex.wait(m_killer_cond);
-        }
-
-        //pop the kill queue
-        Client *to_del = m_kill_queue.front();
-        m_kill_queue.pop();
-        m_killer_mutex.unlock();
-
-        Logger::Log(LOG_DEBUG, "Killer called to kill %s", Str::SanitizeUtf8(to_del->user.username).c_str());
-        to_del->Disconnect();
-
-        delete to_del;
-        to_del = NULL;
-    }
-}
-
 void Sequencer::QueueClientForDisconnect(int uid, const char *errormsg, bool isError /*=true*/, bool doScriptCallback /*= true*/) {
     MutexLocker scoped_lock(m_clients_mutex);
 
@@ -432,38 +333,9 @@ void Sequencer::QueueClientForDisconnect(int uid, const char *errormsg, bool isE
 
     printStats();
 
-    //this routine is a potential trouble maker as it can be called from many thread contexts
-    //so we use a killer thread
-    Logger::Log(LOG_VERBOSE, "Disconnecting client ID %d: %s", uid, errormsg);
-    Logger::Log(LOG_DEBUG, "adding client to kill queue, size: %d", m_kill_queue.size());
-    {
-        MutexLocker scoped_lock(m_killer_mutex);
-        m_kill_queue.push(client);
-    }
-    m_killer_cond.signal();
-
-    m_num_disconnects_total++;
-    if (isError) {
-        m_num_disconnects_crash++;
-    }
-    Logger::Log(LOG_INFO, "crash statistic: %zu of %zu deletes crashed",
-        m_num_disconnects_crash, m_num_disconnects_total);
+    delete client;
 }
 
-//this is called from the listener thread initial handshake
-void Sequencer::enableFlow(int uid) {
-    MutexLocker scoped_lock(m_clients_mutex);
-
-    Client *client = this->FindClientById(static_cast<unsigned int>(uid));
-    if (client == nullptr) {
-        return;
-    }
-
-    client->SetReceiveData(true);
-}
-
-
-//this is called from the listener thread initial handshake
 int Sequencer::sendMOTD(int uid) {
     std::vector<std::string> lines;
     int res = Utils::ReadLinesFromFile(Config::getMOTDFile(), lines);
@@ -489,7 +361,7 @@ void Sequencer::IntroduceNewClientToAllVehicles(Client *new_client) {
 
     for (unsigned int i = 0; i < m_clients.size(); i++) {
         Client *client = m_clients[i];
-        if (client->GetStatus() == Client::STATUS_USED) {
+        {// USELESS BLOCK
             // new user to all others
             client->QueueMessage(RoRnet::MSG2_USER_INFO, new_client->user.uniqueid, 0, sizeof(RoRnet::UserInfo),
                                  (char *) &info_for_others);
@@ -562,9 +434,7 @@ void Sequencer::serverSay(std::string msg, int uid, int type) {
     auto endi = m_clients.end();
     for (; itor != endi; ++itor) {
         Client *client = *itor;
-        if ((client->GetStatus() == Client::STATUS_USED) &&
-            client->IsReceivingData() &&
-            (uid == TO_ALL || ((int) client->user.uniqueid) == uid)) {
+        if ((uid == TO_ALL || ((int) client->user.uniqueid) == uid)) {
             std::string msg_valid = Str::SanitizeUtf8(msg.begin(), msg.end());
             client->QueueMessage(RoRnet::MSG2_UTF8_CHAT, -1, -1, msg_valid.length(), msg_valid.c_str());
         }
@@ -696,7 +566,7 @@ bool Sequencer::IsBanned(const char *ip) {
 
 void Sequencer::streamDebug() {
     for (unsigned int i = 0; i < m_clients.size(); i++) {
-        if (m_clients[i]->GetStatus() == Client::STATUS_USED) {
+        {// USELESS BLOCK
             Logger::Log(LOG_VERBOSE, " * %d %s (slot %d):", m_clients[i]->user.uniqueid,
                         Str::SanitizeUtf8(m_clients[i]->user.username).c_str(), i);
             if (!m_clients[i]->streams.size())
@@ -717,7 +587,7 @@ void Sequencer::streamDebug() {
 
 //this is called by the receivers threads, like crazy & concurrently
 void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *data, unsigned int len) {
-    MutexLocker scoped_lock(m_clients_mutex);
+
 
     Client *client = this->FindClientById(static_cast<unsigned int>(uid));
     if (client == nullptr) {
@@ -743,7 +613,6 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
     int publishMode = BROADCAST_BLOCK;
 
     if (type == RoRnet::MSG2_STREAM_DATA || type == RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
-        client->NotifyAllVehicles(this);
 
         publishMode = BROADCAST_NORMAL;
 
@@ -1088,8 +957,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
             // just push to all the present clients
             for (unsigned int i = 0; i < m_clients.size(); i++) {
                 Client *curr_client = m_clients[i];
-                if (curr_client->GetStatus() == Client::STATUS_USED && curr_client->IsReceivingData() &&
-                    (curr_client != client || toAll)) {
+                if ((curr_client != client || toAll)) {
                     curr_client->streams_traffic[streamid].bandwidthOutgoing += len;
                     curr_client->QueueMessage(type, client->user.uniqueid, streamid, len, data);
                 }
@@ -1098,8 +966,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
             // push to all bots and authed users above auth level 1
             for (unsigned int i = 0; i < m_clients.size(); i++) {
                 Client *curr_client = m_clients[i];
-                if (curr_client->GetStatus() == Client::STATUS_USED && curr_client->IsReceivingData() &&
-                    (curr_client != client) && (client->user.authstatus & RoRnet::AUTH_ADMIN)) {
+                if ((curr_client != client) && (client->user.authstatus & RoRnet::AUTH_ADMIN)) {
                     curr_client->streams_traffic[streamid].bandwidthOutgoing += len;
                     curr_client->QueueMessage(type, client->user.uniqueid, streamid, len, data);
                 }
@@ -1120,7 +987,7 @@ void Sequencer::UpdateMinuteStats() {
     MutexLocker scoped_lock(m_clients_mutex);
 
     for (unsigned int i = 0; i < m_clients.size(); i++) {
-        if (m_clients[i]->GetStatus() == Client::STATUS_USED) {
+        { // USELESS BLOCK
             for (std::map<unsigned int, stream_traffic_t>::iterator it = m_clients[i]->streams_traffic.begin();
                  it != m_clients[i]->streams_traffic.end(); it++) {
                 it->second.bandwidthIncomingRate =
@@ -1155,15 +1022,7 @@ void Sequencer::printStats() {
             if (m_clients[i]->user.authstatus & RoRnet::AUTH_BANNED) strcat(authst, "X");
 
             // construct screen
-            if (m_clients[i]->GetStatus() == Client::STATUS_FREE)
-                Logger::Log(LOG_INFO, "%4i Free", i);
-            else if (m_clients[i]->GetStatus() == Client::STATUS_BUSY)
-                Logger::Log(LOG_INFO, "%4i Busy %5i %-16s % 4s %d, %s", i,
-                            m_clients[i]->user.uniqueid, "-",
-                            authst,
-                            m_clients[i]->user.colournum,
-                            Str::SanitizeUtf8(m_clients[i]->user.username).c_str());
-            else
+            // TODO: FIX INDENT
                 Logger::Log(LOG_INFO, "%4i Used %5i %-16s % 4s %d, %s", i,
                             m_clients[i]->user.uniqueid,
                             m_clients[i]->GetIpAddress().c_str(),

@@ -622,6 +622,7 @@ void Sequencer::RecordBan(int user_id,
 
     b->uid = user_id;
     strncpy(b->banmsg, banmsg.c_str(), /* copy max: */255);
+    strncpy(b->ip, ip_addr.c_str(), 16); 
     strncpy(b->nickname, nickname.c_str(), /* copy max: */RORNET_MAX_USERNAME_LEN - 1);
     strncpy(b->bannedby_nick, by_nickname.c_str(), /* copy max: */RORNET_MAX_USERNAME_LEN - 1);
 
@@ -660,7 +661,7 @@ void Sequencer::SilentBan(int buid, const char *msg, bool doScriptCallback /*= t
     m_blacklist.SaveBlacklistToFile(); // Persist the ban
 
     std::string kick_msg = msg + std::string(" (banned)");
-    disconnect(banned_client->user.uniqueid, kick_msg.c_str(), false, doScriptCallback);
+    QueueClientForDisconnect(banned_client->user.uniqueid, kick_msg.c_str(), false, doScriptCallback);
 }
 
 bool Sequencer::UnBan(int buid) {

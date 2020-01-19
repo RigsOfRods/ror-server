@@ -23,7 +23,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "logger.h"
 #include <string>
 #include <vector>
-
+#include <fstream>
 #include <stdlib.h>
 #include <string.h>
 #include <cstdio>
@@ -94,6 +94,14 @@ namespace Utils {
 #else
         Sleep(seconds * 1000);
 #endif
+    }
+
+    bool IsEmptyFile(std::ifstream& f)
+    {
+        f.seekg(0, std::ios_base::end); // Seek to end
+        std::streampos g = f.tellg();
+        f.seekg(0, std::ios_base::beg); // Seek back to beginning
+        return g == 0;
     }
 
 } // namespace Utils

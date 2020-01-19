@@ -22,6 +22,7 @@ along with Rigs of Rods Server. If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #include "logger.h"
 #include "sequencer.h"
+#include "utils.h"
 
 #include <fstream>
 #include <json/json.h>
@@ -71,6 +72,15 @@ bool Blacklist::LoadBlacklistFromFile()
     {
         Logger::Log(LogLevel::LOG_WARN,
                     "Couldn't open the local blacklist file ('%s'). No bans were loaded.",
+                    Config::getBlacklistFile().c_str());
+        return false;
+    }
+
+    if (Utils::IsEmptyFile(f))
+    {
+        f.close();
+        Logger::Log(LogLevel::LOG_WARN,
+                    "Local blacklist file ('%s') is empty.",
                     Config::getBlacklistFile().c_str());
         return false;
     }

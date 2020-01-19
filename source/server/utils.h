@@ -35,6 +35,8 @@ namespace Utils {
 
     void SleepSeconds(unsigned int seconds);
 
+    bool IsEmptyFile(std::ifstream& f);
+
 } // namespace Utils
 
 void tokenize(const std::string &str,

@@ -74,11 +74,32 @@ int UserAuth::readConfig(const char *authFile) {
         }
         int authmode = RoRnet::AUTH_NONE;
         char token[256];
-        char user_nick[40] = "";
-        int res = sscanf(line, "%d %s %s", &authmode, token, user_nick);
-        if (res != 3 && res != 2) {
+        const int NICK_LEN = 40;
+        char user_nick[NICK_LEN] = "";
+        int res = sscanf(line, "%d %s", &authmode, token);
+        if (res != 2) {
             Logger::Log(LOG_ERROR, "error parsing authorizations file: " + std::string(line));
             continue;
+        }
+
+        // Seek to username
+        char* c = line;
+        int state = 0; // 0=authmode, 1=spaces, 2=token, 3=spaces, 4=nick
+        while ((state != 4) && (*c != '\0')) {
+            if      (state == 0 &&  isspace(*c)) { state = 1; ++c; }
+            else if (state == 1 && !isspace(*c)) { state = 2; ++c; }
+            else if (state == 2 &&  isspace(*c)) { state = 3; ++c; }
+            else if (state == 3 && !isspace(*c)) { state = 4; }
+            else { ++c; }
+        }
+
+        // Read username if present
+        if (state == 4) {
+            strncpy(user_nick, c, NICK_LEN);
+            int rpos = strnlen(user_nick, NICK_LEN) - 1;
+            while (isspace(user_nick[rpos])) {
+                user_nick[rpos--] = '\0'; // Trim trailing whitespace
+            }
         }
 
         // Not every auth mode is allowed to be set using the configuration file

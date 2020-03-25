@@ -893,8 +893,9 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                 serverSay(std::string(tmp2), uid);
             }
         } else if (str.substr(0, 5) == "!bans") {
-            serverSay(std::string("uid | IP              | nickname             | banned by"), uid);
-            for (unsigned int i = 0; i < m_bans.size(); i++) {
+            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+				serverSay(std::string("uid | IP              | nickname             | banned by"), uid);
+				for (unsigned int i = 0; i < m_bans.size(); i++) {
                 char tmp[256] = "";
                 sprintf(tmp, "% 3d | %-15s | %-20s | %-20s",
                         m_bans[i]->uid,
@@ -902,6 +903,10 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                         m_bans[i]->nickname,
                         m_bans[i]->bannedby_nick);
                 serverSay(std::string(tmp), uid);
+            }
+            } else {
+                // not allowed
+                serverSay(std::string("You are not authorized to use this command!"), uid);
             }
         } else if (str.substr(0, 7) == "!unban ") {
             if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {

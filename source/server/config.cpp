@@ -63,7 +63,6 @@ static std::string s_serverlist_path("");
 static std::string s_resourcedir(RESOURCE_DIR);
 
 static unsigned int s_max_vehicles(20);
-static unsigned int s_webserver_port(0);
 static unsigned int s_listen_port(0);
 static unsigned int s_max_clients(16);
 static unsigned int s_heartbeat_retry_count(5);
@@ -71,7 +70,6 @@ static unsigned int s_heartbeat_retry_seconds(15);
 static unsigned int s_heartbeat_interval_sec(60);
 
 static bool s_print_stats(false);
-static bool s_webserver_enabled(false);
 static bool s_foreground(false);
 static bool s_show_version(false);
 static bool s_show_help(false);
@@ -109,8 +107,6 @@ namespace Config {
                         " -log-file <server.log>       Sets the filename of the log\n"
                         " -script-file <script.as>     Server script to execute\n"
                         " -print-stats                 Prints stats to the console\n"
-                        " -use-webserver               Enables the built-in webserver\n"
-                        " -webserver-port <number>     Sets up the port for the webserver, default is game port + 100\n"
                         " -version                     Prints the server version numbers\n"
                         " -fg                          Starts the server in the foreground (background by default)\n"
                         " -resource-dir <path>         Sets the path to the resource directory\n"
@@ -152,11 +148,6 @@ namespace Config {
         if (!getListenPort()) {
             Logger::Log(LOG_WARN, "No port supplied, randomly generating one");
             setListenPort(Utils::generateRandomPortNumber());
-        }
-
-        if (getWebserverEnabled() && !getWebserverPort()) {
-            Logger::Log(LOG_WARN, "No Webserver port supplied, using listen port + 100: %d", getListenPort() + 100);
-            setWebserverPort(getListenPort() + 100);
         }
 
         Logger::Log(LOG_INFO, "port:       %d", getListenPort());
@@ -259,12 +250,10 @@ namespace Config {
             HANDLE_ARG_VALUE("c", { config_file = value; });
 
             HANDLE_ARG_VALUE("max-clients", { setMaxClients(atoi(value)); });
-            HANDLE_ARG_VALUE("webserver-port", { setWebserverPort(atoi(value)); });
             HANDLE_ARG_VALUE("vehicle-limit", { setMaxVehicles(atoi(value)); });
             HANDLE_ARG_VALUE("port", { setListenPort(atoi(value)); });
 
             HANDLE_ARG_FLAG ("print-stats", { setPrintStats(true); });
-            HANDLE_ARG_FLAG ("use-webserver", { setWebserverEnabled(true); });
             HANDLE_ARG_FLAG ("foreground", { setForeground(true); });
             HANDLE_ARG_FLAG ("fg", { setForeground(true); });
             HANDLE_ARG_FLAG ("inet", { setServerMode(SERVER_INET); });
@@ -311,10 +300,6 @@ namespace Config {
     ServerType getServerMode() { return s_server_mode; }
 
     bool getPrintStats() { return s_print_stats; }
-
-    bool getWebserverEnabled() { return s_webserver_enabled; }
-
-    unsigned int getWebserverPort() { return s_webserver_port; }
 
     bool getForeground() { return s_foreground; }
 
@@ -402,10 +387,6 @@ namespace Config {
         return true;
     }
 
-    void setWebserverPort(unsigned int port) { s_webserver_port = port; }
-
-    void setWebserverEnabled(bool webserver) { s_webserver_enabled = webserver; }
-
     void setPrintStats(bool value) { s_print_stats = value; }
 
     void setAuthFile(const std::string &file) { s_authfile = file; }
@@ -483,8 +464,6 @@ namespace Config {
         else if (strcmp(key, "port") == 0) { setListenPort(VAL_INT (value)); }
         else if (strcmp(key, "mode") == 0) { SetConfServerMode(VAL_STR (value)); }
         else if (strcmp(key, "printstats") == 0) { setPrintStats(VAL_BOOL(value)); }
-        else if (strcmp(key, "webserver") == 0) { setWebserverEnabled(VAL_BOOL(value)); }
-        else if (strcmp(key, "webserverport") == 0) { setWebserverPort(VAL_INT (value)); }
         else if (strcmp(key, "foreground") == 0) { setForeground(VAL_BOOL(value)); }
         else if (strcmp(key, "resdir") == 0) { setResourceDir(VAL_STR (value)); }
         else if (strcmp(key, "logfilename") == 0) { Logger::SetOutputFile(VAL_STR (value)); }

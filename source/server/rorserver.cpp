@@ -24,7 +24,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "sequencer.h"
 #include "logger.h"
 #include "config.h"
-#include "webserver.h"
 #include "messaging.h"
 #include "listener.h"
 #include "master-server.h"
@@ -335,15 +334,6 @@ int main(int argc, char *argv[]) {
             Logger::Log(LOG_INFO, "Registration successful");
         }
     }
-
-#ifdef WITH_WEBSERVER
-    // start webserver if used
-    if (Config::getWebserverEnabled()) {
-        int port = Config::getWebserverPort();
-        Logger::Log(LOG_INFO, "starting webserver on port %d ...", port);
-        StartWebserver(port, &s_sequencer, s_master_server.IsRegistered(), s_master_server.GetTrustLevel());
-    }
-#endif //WITH_WEBSERVER
 
     // start the main program loop
     // if we need to communiate to the master user the notifier routine

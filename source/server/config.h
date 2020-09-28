@@ -105,6 +105,11 @@ namespace Config {
     unsigned int getMaxVehicles();
     int getSpawnIntervalSec();
     int getMaxSpawnRate();
+
+    // Spam filter
+    int getSpamFilterMsgIntervalSec();
+    int getSpamFilterMsgCount();
+    int getSpamFilterGagDurationSec();
 //!@}
 
 //! setter functions
@@ -155,6 +160,11 @@ namespace Config {
     void setMaxVehicles(unsigned int num);
     void setSpawnIntervalSec(int sec);
     void setMaxSpawnRate(int num);
+
+    // Spam filter
+    void setSpamFilterMsgIntervalSec(int sec);
+    void setSpamFilterMsgCount(int count);
+    void setSpamFilterGagDurationSec(int sec);
 //!@}
 
 } // namespace Config

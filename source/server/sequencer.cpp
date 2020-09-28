@@ -51,6 +51,7 @@ Client::Client(Sequencer *sequencer, SWInetSocket *socket) :
         m_broadcaster(sequencer),
         m_sequencer(sequencer),
         m_status(Client::STATUS_USED),
+        m_spamfilter(sequencer, this),
         m_is_receiving_data(false),
         m_is_initialized(false) {
 }
@@ -598,6 +599,7 @@ void Sequencer::serverSay(std::string msg, int uid, int type) {
             break;
     }
 
+    std::string msg_valid = Str::SanitizeUtf8(msg.begin(), msg.end());
     auto itor = m_clients.begin();
     auto endi = m_clients.end();
     for (; itor != endi; ++itor) {
@@ -605,7 +607,6 @@ void Sequencer::serverSay(std::string msg, int uid, int type) {
         if ((client->GetStatus() == Client::STATUS_USED) &&
             client->IsReceivingData() &&
             (uid == TO_ALL || ((int) client->user.uniqueid) == uid)) {
-            std::string msg_valid = Str::SanitizeUtf8(msg.begin(), msg.end());
             client->QueueMessage(RoRnet::MSG2_UTF8_CHAT, -1, -1, msg_valid.length(), msg_valid.c_str());
         }
     }
@@ -910,10 +911,14 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
     } else if (type == RoRnet::MSG2_UTF8_CHAT) {
         std::string str = Str::SanitizeUtf8(data);
         Logger::Log(LOG_INFO, "CHAT| %s: %s", Str::SanitizeUtf8(client->user.username).c_str(), str.c_str());
-        publishMode = BROADCAST_ALL;
 
-        // no broadcast of server commands!
-        if (str[0] == '!') publishMode = BROADCAST_BLOCK;
+        publishMode = BROADCAST_ALL;
+        if (str[0] == '!') {
+            publishMode = BROADCAST_BLOCK; // no broadcast of server commands!
+        } else if (SpamFilter::IsActive() &&
+                   client->GetSpamFilter().CheckForSpam(str)) {
+            publishMode = BROADCAST_BLOCK; // Client is gagged
+        }
 
 #ifdef WITH_ANGELSCRIPT
         if (m_script_engine) {

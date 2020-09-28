@@ -151,10 +151,28 @@ logverbosity = 1
 ## Debug: Time in seconds, default 60.
 # heartbeat-interval =
 
+## Spam filter: time span (in seconds) to check for repeated messages.
+## Default: 0 = disables spam filter.
+# spamfilter-msg-interval =
+
+## Spam filter: minimum number of repeated messages (within defined interval) to consider spam and penalize the player.
+## Default: 0 = disables spam filter.
+# spamfilter-msg-count =
+
+## Spam filter: Gag time awarded for each detected spam message.
+## Default: 10 seconds.
+# spamfilter-gag-duration = 10
 ```
 
 Notes:
 By default, if neither `-lan` nor `-inet` is used the server will try to register at the master server and fall back to LAN mode in case it fails.
+
+## Chat spam filtering
+
+The spam filter operates by caching player's chat messages for a defined period of time (see config file) and looking for repeated messages (see config file).
+If spam is detected, the player is silenced for some time (see config file) and server responds (to each message) `"You are gagged. Time remaining: N seconds."`.
+The spam detection is continuous, and for each new spam message, the gag time is increased by the configured value.
+Finally, if player behaves, the gag lapses and server displays (upon first passing message) `"Your gag has expired. Chat nicely!"`.
 
 ## Vehicle spawn limits
 

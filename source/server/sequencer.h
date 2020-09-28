@@ -26,6 +26,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "mutexutils.h"
 #include "broadcaster.h"
 #include "receiver.h"
+#include "spamfilter.h"
 #include "json/json.h"
 
 #ifdef WITH_ANGELSCRIPT
@@ -92,6 +93,7 @@ struct stream_traffic_t {
 
 class Client {
 public:
+
     enum Status {
         STATUS_FREE = 0,
         STATUS_BUSY = 1,
@@ -126,6 +128,10 @@ public:
 
     std::string GetUsername() const { return Str::SanitizeUtf8(user.username); }
 
+    SpamFilter& GetSpamFilter() { return m_spamfilter; }
+
+    Sequencer* GetSequencer() {  }
+
     RoRnet::UserInfo user;  //!< user information
 
     int drop_state;             // dropping outgoing packets?
@@ -139,7 +145,8 @@ private:
     Receiver m_receiver;
     Broadcaster m_broadcaster;
     Status m_status;
-    Sequencer *m_sequencer;
+    SpamFilter m_spamfilter;
+    Sequencer* m_sequencer;
     bool m_is_receiving_data;
     bool m_is_initialized;
     std::vector<std::chrono::system_clock::time_point> m_stream_reg_timestamps; //!< To limit spawn rate
@@ -214,7 +221,7 @@ public:
 
     void UpdateMinuteStats();
 
-    void serverSay(std::string msg, int notto = -1, int type = 0);
+    void serverSay(std::string msg, int uid = -1, int type = 0);
 
     int sendGameCommand(int uid, std::string cmd);
 

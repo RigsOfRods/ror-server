@@ -23,6 +23,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "logger.h"
 #include "sequencer.h"
 #include "sha1_util.h"
+#include "spamfilter.h"
 #include "utils.h"
 
 #include <cmath>
@@ -79,6 +80,10 @@ static int    s_spawn_interval_sec(0);
 static int    s_max_spawn_rate(0);
 
 static ServerType s_server_mode(SERVER_AUTO);
+
+static int s_spamfilter_msg_interval_sec(0); // 0 disables spamfilter
+static int s_spamfilter_msg_count(0); // 0 disables spamfilter
+static int s_spamfilter_gag_duration_sec(10);
 
 // ============================== Functions ===================================
 
@@ -182,6 +187,8 @@ namespace Config {
             Logger::Log(LOG_ERROR, "The vehicle-limit cannot be less than 1!");
             return 0;
         }
+
+        SpamFilter::CheckConfig();
 
         Logger::Log(LOG_INFO, "server is%s password protected",
                     getPublicPassword().empty() ? " NOT" : "");
@@ -342,9 +349,16 @@ namespace Config {
     unsigned int GetHeartbeatIntervalSec() { return s_heartbeat_interval_sec; }
 
     unsigned int getMaxVehicles() { return s_max_vehicles; }
+
     int getSpawnIntervalSec() { return s_spawn_interval_sec; }
+
     int getMaxSpawnRate() { return s_max_spawn_rate; }
 
+    int getSpamFilterMsgIntervalSec() { return s_spamfilter_msg_interval_sec; }
+
+    int getSpamFilterMsgCount() { return s_spamfilter_msg_count; }
+
+    int getSpamFilterGagDurationSec() { return s_spamfilter_gag_duration_sec; }
 
     bool setScriptName(const std::string &name) {
         if (name.empty()) return false;
@@ -419,6 +433,12 @@ namespace Config {
 
     void setVoIP(const std::string &voip) { s_voip = voip; }
 
+    void setSpamFilterMsgIntervalSec(int sec) { s_spamfilter_msg_interval_sec = sec; }
+
+    void setSpamFilterMsgCount(int count) { s_spamfilter_msg_count = count; }
+
+    void setSpamFilterGagDurationSec(int sec) { s_spamfilter_gag_duration_sec = sec; }
+
     void setHeartbeatIntervalSec(unsigned sec) {
         s_heartbeat_interval_sec = sec;
         Logger::Log(LOG_VERBOSE, "Hearbeat interval is %d seconds", sec);
@@ -490,10 +510,17 @@ namespace Config {
         else if (strcmp(key, "verbosity") == 0) { Logger::SetLogLevel(LOGTYPE_DISPLAY, (LogLevel) VAL_INT(value)); }
         else if (strcmp(key, "logverbosity") == 0) { Logger::SetLogLevel(LOGTYPE_FILE, (LogLevel) VAL_INT(value)); }
         else if (strcmp(key, "heartbeat-interval") == 0) { setHeartbeatIntervalSec(VAL_INT(value)); }
+
         // Vehicle spawn limits
         else if (strcmp(key, "vehiclelimit") == 0) { setMaxVehicles(VAL_INT (value)); }
         else if (strcmp(key, "vehicle-spawn-interval") == 0) { setSpawnIntervalSec(VAL_INT (value)); }
         else if (strcmp(key, "vehicle-max-spawn-rate") == 0) { setMaxSpawnRate(VAL_INT (value)); }
+
+        // Spam filter
+        else if (strcmp(key, "spamfilter-msg-interval") == 0) { setSpamFilterMsgIntervalSec(VAL_INT(value)); }
+        else if (strcmp(key, "spamfilter-msg-count")    == 0) { setSpamFilterMsgCount(VAL_INT(value)); }
+        else if (strcmp(key, "spamfilter-gag-duration") == 0) { setSpamFilterGagDurationSec(VAL_INT(value)); }
+
         else {
             Logger::Log(LOG_WARN, "Unknown key '%s' (value: '%s') in config file.", key, value);
         }

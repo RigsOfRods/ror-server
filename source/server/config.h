@@ -77,8 +77,6 @@ namespace Config {
 
     const std::string &getBlacklistFile();
 
-    unsigned int getMaxVehicles();
-
     const std::string &getOwner();
 
     const std::string &getWebsite();
@@ -102,6 +100,11 @@ namespace Config {
     bool GetShowHelp();
 
     bool GetShowVersion();
+
+    // Vehicle spawn limits
+    unsigned int getMaxVehicles();
+    int getSpawnIntervalSec();
+    int getMaxSpawnRate();
 //!@}
 
 //! setter functions
@@ -140,8 +143,6 @@ namespace Config {
 
     void setBlacklistFile(const std::string &blacklistFile);
 
-    void setMaxVehicles(unsigned int num);
-
     void setOwner(const std::string &owner);
 
     void setWebsite(const std::string &website);
@@ -149,6 +150,11 @@ namespace Config {
     void setIRC(const std::string &irc);
 
     void setVoIP(const std::string &voip);
+
+    // Vehicle spawn limits
+    void setMaxVehicles(unsigned int num);
+    void setSpawnIntervalSec(int sec);
+    void setMaxSpawnRate(int num);
 //!@}
 
 } // namespace Config

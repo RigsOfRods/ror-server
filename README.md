@@ -86,6 +86,14 @@ mode = inet
 ## syntax: vehicles = <number greater than 0>
 # vehiclelimit = 5
 
+## The maximum rate (num. spawns per interval) of spawning new vehicles.
+## Default: 0 = not limited
+# vehicle-max-spawn-rate = 
+
+## The time interval (in seconds) to evaluate max. spawn rate of new vehicles.
+## Default: 0 = spawn rate not limited
+# vehicle-spawn-interval =
+
 ## The location of the message of the day file
 ## syntax: motdfile = <path-to-file>
 motdfile = /etc/rorserver/simple.motd
@@ -147,6 +155,17 @@ logverbosity = 1
 
 Notes:
 By default, if neither `-lan` nor `-inet` is used the server will try to register at the master server and fall back to LAN mode in case it fails.
+
+## Vehicle spawn limits
+
+Server can limit the total number of vehicles the player spawns, as well as the rate at which they spawn.
+  Exceeding the limits results in auto-kick.
+
+The maximum vehicle count is specified in config file or command line.
+  Player receives informational messages about the limit and current usage.
+
+The spawn rate is specified in config file as a time interval and maximum number of spawns within the interval.
+  When player uses 70% of the limit they begin getting warning messages.
 
 ## Bandwidth used by the server:
 The RoR server uses large amounts of bandwidth. The general formula to compute bandwidth is:  

@@ -33,6 +33,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include <stdio.h>
 #include <time.h>
+#include <chrono>
 #include <string>
 #include <iostream>
 #include <stdexcept>
@@ -48,6 +49,7 @@ Client::Client(Sequencer *sequencer, SWInetSocket *socket) :
         m_socket(socket),
         m_receiver(sequencer),
         m_broadcaster(sequencer),
+        m_sequencer(sequencer),
         m_status(Client::STATUS_USED),
         m_is_receiving_data(false),
         m_is_initialized(false) {
@@ -73,6 +75,41 @@ void Client::Disconnect() {
                 result.get_error().c_str());
     }
     delete m_socket;
+}
+
+bool Client::CheckSpawnRate()
+{
+    std::chrono::seconds spawn_interval(Config::getSpawnIntervalSec());
+    if (spawn_interval.count() == 0 || Config::getMaxSpawnRate() == 0) {
+        return true; // Spawn rate not limited
+    }
+
+    // Determine current rate
+    int rate = 0;
+    std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+    auto itor = m_stream_reg_timestamps.begin();
+    while (itor != m_stream_reg_timestamps.end()) {
+        if (*itor < now - spawn_interval) {
+            itor = m_stream_reg_timestamps.erase(itor);
+        } else {
+            ++rate;
+            ++itor;
+        }
+    }
+
+    // Evaluate current rate
+    float rate_f = (float)rate / (float)Config::getMaxSpawnRate();
+    if (rate_f > 0.7) {
+        char msg[400];
+        snprintf(msg, 400, "Do not spawn more than %d vehicles in %d seconds. Already spawned %d",
+            Config::getMaxSpawnRate(), Config::getSpawnIntervalSec(), rate);
+        m_sequencer->serverSay(msg, this->user.uniqueid, FROM_SERVER);
+    }
+
+    // Add current time
+    m_stream_reg_timestamps.push_back(std::chrono::system_clock::now());
+
+    return rate <= Config::getMaxSpawnRate();
 }
 
 std::string Client::GetIpAddress() {
@@ -747,6 +784,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                 publishMode = BROADCAST_BLOCK;
         }
     } else if (type == RoRnet::MSG2_STREAM_REGISTER) {
+        RoRnet::StreamRegister *reg = (RoRnet::StreamRegister *) data;
         if (client->streams.size() >= Config::getMaxVehicles() + NON_VEHICLE_STREAMS) {
             // This user has too many vehicles, we drop the stream and then disconnect the user
             Logger::Log(LOG_INFO, "%s(%d) has too many streams. Stream dropped, user kicked.",
@@ -761,11 +799,27 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
             sprintf(sayMsg, "%s was auto-kicked for having too many vehicles (limit: %d)",
                     Str::SanitizeUtf8(client->user.username).c_str(), Config::getMaxVehicles());
             serverSay(sayMsg, TO_ALL, FROM_SERVER);
+
             QueueClientForDisconnect(client->user.uniqueid, "You have too many vehicles. Please rejoin.", false);
+            publishMode = BROADCAST_BLOCK; // drop
+        } else if (reg->type == STREAM_REG_TYPE_VEHICLE && !client->CheckSpawnRate()) {
+            // This user spawns vehicles too fast, we drop the stream and then disconnect the user
+            Logger::Log(LOG_INFO, "%s(%d) spawns vehicles too fast. Stream dropped, user kicked.",
+                        client->GetUsername().c_str(), client->user.uniqueid);
+
+            // broadcast a general message that this user was auto-kicked
+            char sayMsg[300] = "";
+            snprintf(sayMsg, 300, "%s was auto-kicked for spawning vehicles too fast (limit: %d spawns per %d sec)",
+                    client->GetUsername().c_str(), Config::getMaxSpawnRate(), Config::getSpawnIntervalSec());
+            serverSay(sayMsg, TO_ALL, FROM_SERVER);
+
+            // disconnect the user with a message
+            snprintf(sayMsg, 300, "You were auto-kicked for spawning vehicles too fast (limit: %d spawns per %d sec). Please rejoin.",
+                    Config::getMaxSpawnRate(), Config::getSpawnIntervalSec());
+            QueueClientForDisconnect(client->user.uniqueid, sayMsg, false);
             publishMode = BROADCAST_BLOCK; // drop
         } else {
             publishMode = BROADCAST_NORMAL;
-            RoRnet::StreamRegister *reg = (RoRnet::StreamRegister *) data;
 
 #ifdef WITH_ANGELSCRIPT
             // Do a script callback

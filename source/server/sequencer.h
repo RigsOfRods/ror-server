@@ -36,6 +36,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "UnicodeStrings.h"
 
+#include <chrono>
 #include <queue>
 #include <vector>
 #include <map>
@@ -43,6 +44,9 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 // How many not-vehicles streams has every user by default? (e.g.: "default" and "chat" are not-vehicles streams)
 // This is used for the vehicle-limit
 #define NON_VEHICLE_STREAMS 2
+
+// Specified by RoR; used for spawn-rate limit
+#define STREAM_REG_TYPE_VEHICLE 0
 
 #define SEQUENCER Sequencer::Instance()
 
@@ -104,6 +108,8 @@ public:
 
     void NotifyAllVehicles(Sequencer *sequencer);
 
+    bool CheckSpawnRate(); //!< True if OK to spawn, false if exceeded maximum
+
     std::string GetIpAddress();
 
     SWInetSocket *GetSocket() { return m_socket; }
@@ -124,8 +130,8 @@ public:
 
     int drop_state;             // dropping outgoing packets?
 
-    //things for the communication with the webserver below, not used in the main server code
     std::map<unsigned int, RoRnet::StreamRegister> streams;
+
     std::map<unsigned int, stream_traffic_t> streams_traffic;
 
 private:
@@ -133,8 +139,10 @@ private:
     Receiver m_receiver;
     Broadcaster m_broadcaster;
     Status m_status;
+    Sequencer *m_sequencer;
     bool m_is_receiving_data;
     bool m_is_initialized;
+    std::vector<std::chrono::system_clock::time_point> m_stream_reg_timestamps; //!< To limit spawn rate
 };
 
 struct WebserverClientInfo // Needed because Client cannot be trivially copied anymore due to presence of std::atomic<>

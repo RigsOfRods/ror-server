@@ -62,7 +62,6 @@ static std::string s_serverlist_host("api.rigsofrods.org");
 static std::string s_serverlist_path("");
 static std::string s_resourcedir(RESOURCE_DIR);
 
-static unsigned int s_max_vehicles(20);
 static unsigned int s_listen_port(0);
 static unsigned int s_max_clients(16);
 static unsigned int s_heartbeat_retry_count(5);
@@ -73,6 +72,11 @@ static bool s_print_stats(false);
 static bool s_foreground(false);
 static bool s_show_version(false);
 static bool s_show_help(false);
+
+// Vehicle spawn limits
+static size_t s_max_vehicles(20);
+static int    s_spawn_interval_sec(0);
+static int    s_max_spawn_rate(0);
 
 static ServerType s_server_mode(SERVER_AUTO);
 
@@ -313,8 +317,6 @@ namespace Config {
 
     const std::string &getRulesFile() { return s_rulesfile; }
 
-    unsigned int getMaxVehicles() { return s_max_vehicles; }
-
     const std::string &getOwner() { return s_owner; }
 
     const std::string &getWebsite() { return s_website; }
@@ -338,6 +340,10 @@ namespace Config {
     unsigned int GetHeartbeatRetrySeconds() { return s_heartbeat_retry_seconds; }
 
     unsigned int GetHeartbeatIntervalSec() { return s_heartbeat_interval_sec; }
+
+    unsigned int getMaxVehicles() { return s_max_vehicles; }
+    int getSpawnIntervalSec() { return s_spawn_interval_sec; }
+    int getMaxSpawnRate() { return s_max_spawn_rate; }
 
 
     bool setScriptName(const std::string &name) {
@@ -398,6 +404,10 @@ namespace Config {
     void setBlacklistFile(const std::string &file) { s_blacklistfile = file; }
 
     void setMaxVehicles(unsigned int num) { s_max_vehicles = num; }
+
+    void setSpawnIntervalSec(int sec) { s_spawn_interval_sec = sec; }
+
+    void setMaxSpawnRate(int num) { s_max_spawn_rate = num; }
 
     void setOwner(const std::string &owner) { s_owner = owner; }
 
@@ -471,7 +481,6 @@ namespace Config {
         else if (strcmp(key, "motdfile") == 0) { setMOTDFile(VAL_STR (value)); }
         else if (strcmp(key, "rulesfile") == 0) { setRulesFile(VAL_STR (value)); }
         else if (strcmp(key, "blacklistfile") == 0) { setBlacklistFile(VAL_STR(value)); }
-        else if (strcmp(key, "vehiclelimit") == 0) { setMaxVehicles(VAL_INT (value)); }
         else if (strcmp(key, "owner") == 0) { setOwner(VAL_STR (value)); }
         else if (strcmp(key, "website") == 0) { setWebsite(VAL_STR (value)); }
         else if (strcmp(key, "irc") == 0) { setIRC(VAL_STR (value)); }
@@ -481,6 +490,10 @@ namespace Config {
         else if (strcmp(key, "verbosity") == 0) { Logger::SetLogLevel(LOGTYPE_DISPLAY, (LogLevel) VAL_INT(value)); }
         else if (strcmp(key, "logverbosity") == 0) { Logger::SetLogLevel(LOGTYPE_FILE, (LogLevel) VAL_INT(value)); }
         else if (strcmp(key, "heartbeat-interval") == 0) { setHeartbeatIntervalSec(VAL_INT(value)); }
+        // Vehicle spawn limits
+        else if (strcmp(key, "vehiclelimit") == 0) { setMaxVehicles(VAL_INT (value)); }
+        else if (strcmp(key, "vehicle-spawn-interval") == 0) { setSpawnIntervalSec(VAL_INT (value)); }
+        else if (strcmp(key, "vehicle-max-spawn-rate") == 0) { setMaxSpawnRate(VAL_INT (value)); }
         else {
             Logger::Log(LOG_WARN, "Unknown key '%s' (value: '%s') in config file.", key, value);
         }

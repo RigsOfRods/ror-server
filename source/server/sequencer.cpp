@@ -29,7 +29,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "logger.h"
 #include "config.h"
 #include "utils.h"
-#include "ScriptEngine.h"
+#include "script-engine.h"
 
 #include <stdio.h>
 #include <time.h>

@@ -23,7 +23,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "SocketW.h"
 #include "sequencer.h"
 #include "messaging.h"
-#include "ScriptEngine.h"
+#include "script-engine.h"
 #include "logger.h"
 
 void *LaunchReceiverThread(void *data) {

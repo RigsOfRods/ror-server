@@ -51,8 +51,8 @@ namespace Http {
         SWInetSocket::SWBaseError result;
         if (!socket.connect(80, host, &result) || (result != SWInetSocket::ok)) {
             Logger::Log(LOG_ERROR,
-                        "Could not process HTTP %s request %s%s failed, error: ",
-                        method, host, url, result.get_error().c_str());
+                        "Could not process HTTP %s request %s%s, error: %s",
+                        method.c_str(), host.c_str(), url.c_str(), result.get_error().c_str());
             return "";
         }
 
@@ -61,8 +61,8 @@ namespace Http {
 
         if (socket.fsendmsg(query, &result) < 0) {
             Logger::Log(LOG_ERROR,
-                        "Could not process HTTP %s request %s%s failed, error: ",
-                        method, host, url, result.get_error().c_str());
+                        "Could not process HTTP %s request %s%s, error: %s",
+                        method.c_str(), host.c_str(), url.c_str(), result.get_error().c_str());
             return "";
         }
 
@@ -70,7 +70,7 @@ namespace Http {
         if (result != SWInetSocket::ok) {
             Logger::Log(LOG_ERROR,
                         "Could not process HTTP %s request %s%s failed, invalid response length, error message: ",
-                        method, host, url, result.get_error().c_str());
+                        method.c_str(), host.c_str(), url.c_str(), result.get_error().c_str());
             return "";
         }
 

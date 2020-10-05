@@ -21,3 +21,7 @@ class ScriptEngine;
 namespace Http {
     class Response;
 }
+
+#ifdef WITH_ANGELSCRIPT
+class asIScriptEngine;
+#endif // WITH_ANGELSCRIPT

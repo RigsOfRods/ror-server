@@ -21,6 +21,7 @@ see <http://www.gnu.org/licenses/>.
 
 #ifdef WITH_ANGELSCRIPT
 
+#include "http.h"
 #include "script-engine.h"
 
 class ServerScript {
@@ -110,6 +111,12 @@ public:
     int rangeRandomInt(int from, int to);
 
     void broadcastUserInfo(int uid);
+
+    Http::Response httpRequest( std::string method,
+                                std::string host,
+                                std::string url,
+                                std::string content_type,
+                                std::string payload);
 
     static void Register(asIScriptEngine* engine);
 };

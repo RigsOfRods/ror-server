@@ -22,6 +22,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "utils.h"
 #include "logger.h"
+
+#include <angelscript.h>
 #include "SocketW.h"
 
 #include <assert.h>
@@ -100,6 +102,8 @@ namespace Http {
         return response->GetCode();
     }
 
+    // ================== class Response =====================
+
     Response::Response() :
             m_response_code(0) {
     }
@@ -164,6 +168,43 @@ namespace Http {
             m_headermap["body"] = tmp[0];
         }
         return true;
+    }
+
+    // ================ Scripting interface =====================
+
+    static void HttpResponse_DefaultConstructor(void* memory)
+    {
+        new (memory) Http::Response();
+    }
+
+    static void HttpResponse_DefaultDestructor(Http::Response* obj)
+    {
+        obj->~Response();
+    }
+
+    void Register(asIScriptEngine* engine)
+    {
+        // ** Only the Response class is registered here
+        // ** Request is sent via `ServerScript::httpRequest()`
+
+        // The class
+        engine->RegisterObjectType("HttpResponse", sizeof(Http::Response), asOBJ_VALUE | asGetTypeTraits<Http::Response>());
+
+        // Behaviors
+        engine->RegisterObjectBehaviour("HttpResponse", asBEHAVE_CONSTRUCT, "void f()",
+                                        asFUNCTION(HttpResponse_DefaultConstructor), asCALL_CDECL_OBJLAST);
+        engine->RegisterObjectBehaviour("HttpResponse", asBEHAVE_DESTRUCT, "void f()",
+                                        asFUNCTION(HttpResponse_DefaultDestructor), asCALL_CDECL_OBJLAST);
+
+        // Operators
+        engine->RegisterObjectMethod("HttpResponse", "HttpResponse &opAssign(const HttpResponse &in)",
+                                     asMETHODPR(Http::Response, operator =, (const Http::Response &), Http::Response&), asCALL_THISCALL);
+
+        // Member functions
+        engine->RegisterObjectMethod("HttpResponse", "string getBody()",
+                                              asMETHOD(Http::Response, GetBody), asCALL_THISCALL);
+        engine->RegisterObjectMethod("HttpResponse", "int getCode()",
+                                              asMETHOD(Http::Response, GetCode), asCALL_THISCALL);
     }
 
 } // namespace Http

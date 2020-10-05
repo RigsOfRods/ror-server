@@ -23,6 +23,7 @@ see <http://www.gnu.org/licenses/>.
 
 #include "config.h"
 #include "logger.h"
+#include "http.h"
 #include "messaging.h"
 #include "sequencer.h"
 #include "server-script.h"
@@ -228,6 +229,17 @@ void ServerScript::broadcastUserInfo(int uid) {
     seq->broadcastUserInfo(uid);
 }
 
+Http::Response ServerScript::httpRequest(std::string method,
+                                         std::string host,
+                                         std::string url,
+                                         std::string content_type,
+                                         std::string payload)
+{
+    Http::Response response;
+    Http::Request(method, host, url, content_type, payload, &response);
+    return response;
+}
+
 // ============================== Static methods and helpers ===================================
 
 // Stream_register_t wrapper
@@ -239,6 +251,10 @@ void ServerScript::Register(asIScriptEngine* engine)
 {
     int result = 0;
 
+    // Register HttpResponse class
+    Http::Register(engine);
+
+    // Register ServerScript class itself
     result = engine->RegisterObjectType("ServerScriptClass", sizeof(ServerScript), asOBJ_REF | asOBJ_NOCOUNT);
     assert(result >= 0);
     result = engine->RegisterObjectMethod("ServerScriptClass", "void Log(const string &in)",
@@ -354,6 +370,10 @@ void ServerScript::Register(asIScriptEngine* engine)
     result = engine->RegisterObjectMethod("ServerScriptClass", "int rangeRandomInt(int, int)",
                                           asMETHOD(ServerScript, rangeRandomInt), asCALL_THISCALL);
     assert(result >= 0);
+    result = engine->RegisterObjectMethod("ServerScriptClass",
+                                          "HttpResponse httpRequest(string, string, string, string, string)",
+                                          asMETHOD(ServerScript, httpRequest), asCALL_THISCALL);
+    assert(result >= 0);
 
     // Register RoRnet::StreamRegister class
     result = engine->RegisterObjectType("StreamRegister", sizeof(RoRnet::StreamRegister),
@@ -374,7 +394,6 @@ void ServerScript::Register(asIScriptEngine* engine)
     result = engine->RegisterObjectProperty("StreamRegister", "int origin_streamid",
                                             offsetof(RoRnet::StreamRegister, origin_streamid));
     assert(result >= 0);
-
 
     // Register ServerType enum for the server.serverMode attribute
     result = engine->RegisterEnum("ServerType");

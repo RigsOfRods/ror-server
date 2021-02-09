@@ -300,14 +300,15 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
     to_add->user = user;
     to_add->user.colournum = Sequencer::GetFreePlayerColour();
     to_add->user.authstatus = user.authstatus;
+    std::string ip = to_add->GetIpAddress();
 
     // log some info about this client (in UTF8)
     char buf[3000];
     if (strlen(user.usertoken) > 0)
-        sprintf(buf, "New client: %s (%s), using %s %s, with token %s", user.username, user.language, user.clientname,
+        sprintf(buf, "New client: %s (%s), with IP %s, using %s %s, with token %s", user.username, user.language, ip.data(), user.clientname,
                 user.clientversion, std::string(user.usertoken, 40).c_str());
     else
-        sprintf(buf, "New client: %s (%s), using %s %s, without token", user.username, user.language, user.clientname,
+        sprintf(buf, "New client: %s (%s), with IP %s, using %s %s, without token", user.username, user.language, ip.data(), user.clientname,
                 user.clientversion);
     Logger::Log(LOG_INFO, Str::SanitizeUtf8(buf));
 

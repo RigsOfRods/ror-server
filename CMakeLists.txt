@@ -1,9 +1,5 @@
 # ensure cmake features we need
-CMAKE_MINIMUM_REQUIRED(VERSION 2.6.0)
-if (COMMAND cmake_policy)
-    cmake_policy(SET CMP0003 NEW)
-endif (COMMAND cmake_policy)
-# done with cmake check
+CMAKE_MINIMUM_REQUIRED(VERSION 3.1)
 
 project(rorserver)
 
@@ -13,6 +9,9 @@ SET(LIBRARY_OUTPUT_DIRECTORY "${rorserver_SOURCE_DIR}/lib/")
 SET(ARCHIVE_OUTPUT_DIRECTORY "${rorserver_SOURCE_DIR}/lib/")
 SET(EXECUTABLE_OUTPUT_PATH ${RUNTIME_OUTPUT_DIRECTORY})
 SET(LIBRARY_OUTPUT_PATH ${RUNTIME_OUTPUT_DIRECTORY})
+
+#options
+option(RORSERVER_WITH_ANGELSCRIPT "adds scripting support" FALSE)
 
 # hide some settings
 mark_as_advanced(
@@ -35,7 +34,7 @@ if (WIN32)
     set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE}        /DEBUG /LTCG /OPT:REF")
     set(CMAKE_EXE_LINKER_FLAGS_MINSIZEREL "${CMAKE_EXE_LINKER_FLAGS_MINSIZEREL}     /DEBUG /LTCG /OPT:REF")
     set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /DEBUG /LTCG /OPT:REF")
-ELSEIF (UNIX)
+elseif (UNIX)
     set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}          -Og -g -Wall")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}        -O2 -DNDEBUG -Wno-deprecated-declarations -Wno-attributes")
@@ -57,23 +56,18 @@ SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${RUNTIME_OUTPUT_DIRECTORY})
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${RUNTIME_OUTPUT_DIRECTORY})
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${RUNTIME_OUTPUT_DIRECTORY})
 
-# some additional compiler flags
-IF (NOT WIN32)
-    ADD_DEFINITIONS(-Wall)
-endif ()
 
-#options
-option(RORSERVER_WITH_ANGELSCRIPT "adds scripting support" FALSE)
-
-
-IF (NOT WIN32)
+if (WIN32)
+    add_subdirectory(dependencies/win32_pthread)
+else ()
+    add_definitions(-Wall)
     option(RORSERVER_CRASHHANDLER "enables linux startup script crashhandling" FALSE)
 
     FIND_PROGRAM(GDB_EXECUTABLE gdb)
-    IF (NOT GDB_EXECUTABLE)
+    if (NOT GDB_EXECUTABLE)
         message("gdb not found, crashhandler disabled")
         set(RORSERVER_CRASHHANDLER FALSE)
-    ENDIF ()
+    endif ()
     mark_as_advanced(GDB_EXECUTABLE)
 endif ()
 

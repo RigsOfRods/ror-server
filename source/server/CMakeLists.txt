@@ -1,40 +1,37 @@
-FILE(GLOB_RECURSE server_src *.cpp *.c *.h *.rc)
-
-# general flags
-include_directories(${rorserver_SOURCE_DIR}/dependencies/socketw)
-include_directories(${rorserver_SOURCE_DIR}/dependencies/)
-include_directories(${rorserver_SOURCE_DIR}/source/protocol/)
-include_directories(${rorserver_SOURCE_DIR}/source/common/)
-include_directories(${rorserver_SOURCE_DIR}/dependencies/jsoncpp/include/)
-
-if (RORSERVER_WITH_ANGELSCRIPT)
-    add_definitions("-DWITH_ANGELSCRIPT")
-    include_directories(${rorserver_SOURCE_DIR}/dependencies/angelscript/include)
-    include_directories(${rorserver_SOURCE_DIR}/dependencies/angelscript/add_on)
-endif (RORSERVER_WITH_ANGELSCRIPT)
+FILE(GLOB_RECURSE server_src CONFIGURE_DEPENDS *.cpp *.c *.h *.rc)
 
 # the final lib
-add_executable(rorserver ${server_src})
+add_executable(${PROJECT_NAME} ${server_src})
+
+target_include_directories(${PROJECT_NAME} PRIVATE
+        ${CMAKE_SOURCE_DIR}/dependencies/socketw/
+        ${CMAKE_SOURCE_DIR}/dependencies/
+        ${CMAKE_SOURCE_DIR}/source/protocol/
+        ${CMAKE_SOURCE_DIR}/source/common/
+        ${CMAKE_SOURCE_DIR}/dependencies/jsoncpp/include/
+        )
 
 # libraries
 if (RORSERVER_WITH_ANGELSCRIPT)
-    add_dependencies(rorserver angelscript)
-    target_link_libraries(rorserver angelscript)
-endif (RORSERVER_WITH_ANGELSCRIPT)
+    add_dependencies(${PROJECT_NAME} angelscript)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE WITH_ANGELSCRIPT)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/angelscript/include)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/angelscript/add_on)
+    target_link_libraries(${PROJECT_NAME} PRIVATE angelscript)
+endif ()
 
 IF (WIN32)
-    add_definitions("/wd4251")
-    include_directories(${rorserver_SOURCE_DIR}/dependencies/win32_pthread)
-    target_link_libraries(rorserver ${rorserver_SOURCE_DIR}/dependencies/win32_pthread/pthreadVC2.lib)
-    target_link_libraries(rorserver mysocketw jsoncpp)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE PTW32_STATIC_LIB)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/win32_pthread/include)
+    target_link_libraries(${PROJECT_NAME} PRIVATE mysocketw jsoncpp pthread)
 ELSEIF (UNIX)
     #add_definitions("-DAS_MAX_PORTABILITY")
-    target_link_libraries(rorserver mysocketw pthread dl jsoncpp)
+    target_link_libraries(${PROJECT_NAME} PRIVATE mysocketw pthread dl jsoncpp)
 ELSEIF (APPLE)
 ENDIF (WIN32)
 
 # install the library
-INSTALL(TARGETS rorserver
+INSTALL(TARGETS ${PROJECT_NAME}
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
@@ -44,7 +41,7 @@ IF (WIN32)
 ELSEIF (UNIX)
     # install the files required for the runtime
     INSTALL(
-            DIRECTORY ${rorserver_SOURCE_DIR}/bin/resources/
+            DIRECTORY ${CMAKE_SOURCE_DIR}/bin/resources/
             DESTINATION share/rorserver/
             FILES_MATCHING PATTERN "*"
             PATTERN ".svn" EXCLUDE
@@ -52,39 +49,39 @@ ELSEIF (UNIX)
     )
 
     # configure and install init script
-    CONFIGURE_FILE(${rorserver_SOURCE_DIR}/contrib/rorserver-initscript.in
-            ${rorserver_SOURCE_DIR}/contrib/rorserver-initscript
+    CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/contrib/rorserver-initscript.in
+            ${CMAKE_SOURCE_DIR}/contrib/rorserver-initscript
             @ONLY
             )
-    INSTALL(FILES ${rorserver_SOURCE_DIR}/contrib/rorserver-initscript
+    INSTALL(FILES ${CMAKE_SOURCE_DIR}/contrib/rorserver-initscript
             DESTINATION /etc/init.d
             RENAME rorserver
             PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
             )
 
     # add example server configuration
-    INSTALL(FILES ${rorserver_SOURCE_DIR}/contrib/example-config.cfg
+    INSTALL(FILES ${CMAKE_SOURCE_DIR}/contrib/example-config.cfg
             DESTINATION /etc/rorserver/
             RENAME simple.cfg.example
             PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
             )
 
     # add example server authorization file
-    INSTALL(FILES ${rorserver_SOURCE_DIR}/contrib/example-auth.auth
+    INSTALL(FILES ${CMAKE_SOURCE_DIR}/contrib/example-auth.auth
             DESTINATION /etc/rorserver/
             RENAME simple.auth.example
             PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
             )
 
     # add example server message of the day (MOTD) file
-    INSTALL(FILES ${rorserver_SOURCE_DIR}/contrib/example-motd.motd
+    INSTALL(FILES ${CMAKE_SOURCE_DIR}/contrib/example-motd.motd
             DESTINATION /etc/rorserver/
             RENAME simple.motd.example
             PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
             )
 
     # add example rules file
-    INSTALL(FILES ${rorserver_SOURCE_DIR}/contrib/example-rules.rules
+    INSTALL(FILES ${CMAKE_SOURCE_DIR}/contrib/example-rules.rules
             DESTINATION /etc/rorserver/
             RENAME simple.rules.example
             PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE

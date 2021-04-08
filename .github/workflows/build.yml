@@ -15,17 +15,23 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
+      - name: Enable Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1.7.0
+
       - name: Get latest CMake and ninja
         uses: lukka/get-cmake@latest
 
       - name: Build with CMake
         uses: lukka/run-cmake@v3.3
         with:
-          cmakeGenerator: 'Ninja'
           cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
           cmakeAppendedArgs: >
-            -DRORSERVER_GUI=OFF
+            -GNinja
+            -DCMAKE_BUILD_TYPE=Release
             -DRORSERVER_WITH_ANGELSCRIPT=ON
-            -DRORSERVER_WITH_WEBSERVER=ON
 
-
+      - name: Upload bin folder
+        uses: actions/upload-artifact@v2
+        with:
+          name: ror-server-${{ matrix.os }}
+          path: bin

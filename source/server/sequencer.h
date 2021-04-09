@@ -172,7 +172,7 @@ struct WebserverClientInfo // Needed because Client cannot be trivially copied a
 };
 
 struct ban_t {
-    unsigned int uid;           //!< userid
+	unsigned int bid;			//!< id of ban, not the user id
     char ip[40];                //!< ip of banned client
     char nickname[RORNET_MAX_USERNAME_LEN];          //!< Username, this is what they are called to
     char bannedby_nick[RORNET_MAX_USERNAME_LEN];     //!< Username, this is what they are called to	
@@ -235,7 +235,7 @@ public:
 
     bool Kick(int to_kick_uid, int modUID, const char *msg = 0);
 
-    void RecordBan(int user_id, std::string const& ip_addr,
+    void RecordBan(int bid, std::string const& ip_addr,
         std::string const& nickname, std::string const& by_nickname,
         std::string const& banmsg);
 
@@ -243,7 +243,7 @@ public:
 
     void SilentBan(int to_ban_uid, const char *msg = 0, bool doScriptCallback = true);
 
-    bool UnBan(int buid);
+    bool UnBan(int bid);
 
     bool IsBanned(const char *ip);
 

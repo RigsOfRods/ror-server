@@ -50,6 +50,7 @@ void Blacklist::SaveBlacklistToFile()
     for (ban_t& ban : bans)
     {
         Json::Value j_ban(Json::objectValue);
+		j_ban["bid"] = ban.bid;
         j_ban["ip"] = ban.ip;
         j_ban["nickname"] = ban.nickname;
         j_ban["banned_by_nickname"] = ban.bannedby_nick;
@@ -99,7 +100,7 @@ bool Blacklist::LoadBlacklistFromFile()
     for (Json::Value& j_ban: j_doc["bans"])
     {
         m_database->RecordBan(
-            -1, // User ID
+			j_ban["bid"].asInt(),
             j_ban["ip"].asString(),
             j_ban["nickname"].asString(),
             j_ban["banned_by_nickname"].asString(),

@@ -30,15 +30,16 @@ ELSEIF (UNIX)
 ELSEIF (APPLE)
 ENDIF (WIN32)
 
-# install the library
-INSTALL(TARGETS ${PROJECT_NAME}
-        RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib
-        )
 
 IF (WIN32)
+    install(TARGETS ${PROJECT_NAME} DESTINATION .)
 ELSEIF (UNIX)
+    # install the library
+    INSTALL(TARGETS ${PROJECT_NAME}
+            RUNTIME DESTINATION bin
+            LIBRARY DESTINATION lib
+            ARCHIVE DESTINATION lib
+    )
     # install the files required for the runtime
     INSTALL(
             DIRECTORY ${CMAKE_SOURCE_DIR}/bin/resources/

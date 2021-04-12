@@ -12,25 +12,28 @@ add_library(mysocketw SHARED ${socketw_src})
 set_target_properties(mysocketw PROPERTIES COMPILE_FLAGS "-w")
 
 # libraries
-IF(WIN32)
-	target_link_libraries(mysocketw Ws2_32.lib)
-ELSEIF(UNIX)
-ELSEIF(APPLE)
-ENDIF(WIN32)
+IF (WIN32)
+    target_link_libraries(mysocketw Ws2_32.lib)
+ELSEIF (UNIX)
+ELSEIF (APPLE)
+ENDIF (WIN32)
 
-# install the library
-INSTALL(TARGETS mysocketw
-	RUNTIME DESTINATION bin
-	LIBRARY DESTINATION lib
-	ARCHIVE DESTINATION lib
-)
+if (WIN32)
+    install(TARGETS mysocketw RUNTIME DESTINATION .)
+else ()
+    # install the library
+    INSTALL(TARGETS mysocketw
+            RUNTIME DESTINATION bin
+            LIBRARY DESTINATION lib
+            ARCHIVE DESTINATION lib
+            )
 
-# install the headers: both source and build headers
-INSTALL(
-	DIRECTORY ${socketw_SOURCE_DIR}/ 
-	DESTINATION include/socketw 
-	FILES_MATCHING PATTERN "*.h" 
-	PATTERN ".svn" EXCLUDE
-	PATTERN "CMakeFiles" EXCLUDE
-)
-
+    # install the headers: both source and build headers
+    INSTALL(
+            DIRECTORY ${socketw_SOURCE_DIR}/
+            DESTINATION include/socketw
+            FILES_MATCHING PATTERN "*.h"
+            PATTERN ".svn" EXCLUDE
+            PATTERN "CMakeFiles" EXCLUDE
+    )
+endif ()

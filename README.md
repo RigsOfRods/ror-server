@@ -1,9 +1,6 @@
 # Rigs of Rods Server 
 
-|  Build status 	|                                                                                                                                                                             	|
-|---------------	|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|
-| Linux:        	| [![travis build Status](https://img.shields.io/travis/RigsOfRods/ror-server.svg?style=flat-square)](https://travis-ci.org/RigsOfRods/ror-server)                            	|
-| Windows:      	| [![appveyor build Status](https://img.shields.io/appveyor/ci/AnotherFoxGuy/ror-server.svg?style=flat-square)](https://ci.appveyor.com/project/AnotherFoxGuy/ror-server)    	|
+[![Build server](https://github.com/RigsOfRods/ror-server/workflows/Build%20server/badge.svg)](https://github.com/RigsOfRods/ror-server/actions?query=workflow%3A%22Build+server%22)
 
 ## Description
 

@@ -940,7 +940,10 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
         }
 
         if (str == "!version") {
-            serverSay(std::string(VERSION), uid);
+            std::string ver (VERSION);
+            ver += " "; 
+            ver += RORNET_VERSION; 
+            serverSay(std::string(ver), uid);
         } else if (str == "!list") {
             serverSay(std::string(" uid | auth   | nick"), uid);
             for (unsigned int i = 0; i < m_clients.size(); i++) {

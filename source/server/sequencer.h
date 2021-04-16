@@ -51,7 +51,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #define SEQUENCER Sequencer::Instance()
 
-#define VERSION "$Rev$"
+#define VERSION __DATE__
 
 // This is used to define who says it, when the server says something
 enum serverSayType {

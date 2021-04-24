@@ -826,6 +826,21 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                     Config::getMaxSpawnRate(), Config::getSpawnIntervalSec());
             QueueClientForDisconnect(client->user.uniqueid, sayMsg, false);
             publishMode = BROADCAST_BLOCK; // drop
+        } else if (reg->type == STREAM_REG_TYPE_VEHICLE && !Utils::isValidVehicleFileName(reg->name)) {
+            // This user spawned vehicle with empty or malformed name, we drop the stream and then disconnect the user
+            Logger::Log(LOG_INFO, "%s(%d) spawned vehicle with empty/malformed name. Stream dropped, user kicked.",
+                        client->GetUsername().c_str(), client->user.uniqueid);
+
+            // broadcast a general message that this user was auto-kicked
+            char sayMsg[300] = "";
+            snprintf(sayMsg, 300, "%s was auto-kicked for spawning vehicle with empty/malformed name", client->GetUsername().c_str());
+            serverSay(sayMsg, TO_ALL, FROM_SERVER);
+
+            // disconnect the user with a message
+            snprintf(sayMsg, 300, "You were auto-kicked for spawning invalid vehicle");
+
+            QueueClientForDisconnect(client->user.uniqueid, sayMsg, false);
+            publishMode = BROADCAST_BLOCK; // drop
         } else {
             publishMode = BROADCAST_NORMAL;
 

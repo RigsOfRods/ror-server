@@ -104,6 +104,25 @@ namespace Utils {
         return g == 0;
     }
 
+    // For checking STREAM_REGISTER messages
+    bool isValidVehicleFileName(std::string name)
+    {
+        if (name == "")
+            return false;
+
+        bool all_spaces = true; // We accept spaces in the name, but not name with only spaces.
+        for (char c: name)
+        {
+            if (!isprint(c))
+                return false; // Unacceptable character
+
+            if (!isspace(c))
+                all_spaces = false;
+        }
+
+        return !all_spaces;
+    }
+
 } // namespace Utils
 
 using namespace std;

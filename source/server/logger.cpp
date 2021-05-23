@@ -43,51 +43,34 @@ static const char *s_log_level_names[] = {"STACK", "DEBUG", "VERBO", "INFO", "WA
 static std::string s_log_filename = "server.log";
 static Mutex s_log_mutex;
 
-// take care about mutexes: only manual lock in the Logger, otherwise you 
-// could possibly start a recursion that ends in a deadlock
-
-// shamelessly taken from http://senzee.blogspot.com/2006/05/c-formatting-stdstring.html
-std::string format_arg_list(const char *fmt, va_list args) {
-    if (!fmt) {
-        return "";
-    }
-    int result = -1, length = 256;
-    char *buffer = 0;
-    while (result == -1) {
-        if (buffer) {
-            delete[] buffer;
-        }
-        buffer = new char[length + 1];
-        memset(buffer, 0, length + 1);
-        result = vsnprintf(buffer, length, fmt, args);
-        length *= 2;
-    }
-    std::string s = Str::SanitizeUtf8(buffer);
-    delete[] buffer;
-    return s;
-}
-
 namespace Logger {
 
-    void Log(const LogLevel &level, const char *format, ...) {
+    void Log(LogLevel level, const char *format, ...) {
+        // Format the message
+        const int BUF_LEN = 4000; // hard limit
+        char buffer[BUF_LEN] = {}; // zeroed memory
         va_list args;
         va_start(args, format);
-        Logger::Log(level, format_arg_list(format, args));
+        vsnprintf(buffer, BUF_LEN, format, args);
         va_end(args);
+        // Log the message
+        LogWrite(level, buffer);
     }
 
-    void Log(const LogLevel &level, const std::string &msg) {
+    void Log(LogLevel level, std::string const& msg) {
+        LogWrite(level, msg.c_str());
+    }
+
+    void LogWrite(LogLevel level, const char* msg) {
         time_t current_time = time(nullptr);
         char time_str[] = "DD-MM-YYYY hh:mm:ss"; // Placeholder
         strftime(time_str, 20, "%d-%m-%Y %H:%M:%S", localtime(&current_time));
         const char *level_str = s_log_level_names[(int) level];
 
         if (level >= s_log_level[LOGTYPE_DISPLAY]) {
-            printf("%s|t%02d|%5s|%s\n", time_str, ThreadID::getID(), level_str, msg.c_str());
+            printf("%s|t%02d|%5s|%s\n", time_str, ThreadID::getID(), level_str, msg);
         }
 
-        // do not use the class for locking, otherwise you get recursion because of STACKLOG
-        // UPDATE: 2016/05 only_a_ptr: STACKLOG was removed, TODO verify this
         pthread_mutex_lock(s_log_mutex.getRaw());
 
         if (s_file && level >= s_log_level[LOGTYPE_FILE]) {
@@ -100,7 +83,7 @@ namespace Logger {
             freopen(s_log_filename.c_str(), "a+", s_file);
         }
 #endif // _WIN32
-            fprintf(s_file, "%s|t%02d|%5s| %s\n", time_str, ThreadID::getID(), level_str, msg.c_str());
+            fprintf(s_file, "%s|t%02d|%5s| %s\n", time_str, ThreadID::getID(), level_str, msg);
             fflush(s_file);
         }
 

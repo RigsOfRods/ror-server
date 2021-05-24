@@ -27,68 +27,73 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "logger.h"
 
 #include <cstring>
+#include <cassert>
 
-void *LaunchReceiverThread(void *data) {
-    Receiver *receiver = static_cast<Receiver *>(data);
-    receiver->Thread();
-    return nullptr;
-}
 
-Receiver::Receiver(Sequencer *sequencer) :
-        m_client(nullptr),
-        m_sequencer(sequencer) {
+Receiver::Receiver(Sequencer *sequencer):
+    m_sequencer(sequencer)
+{
 }
 
 Receiver::~Receiver() {
-    this->Stop();
+    assert(m_thread_state == ThreadState::NOT_RUNNING);
 }
 
 void Receiver::Start(Client* client) {
-    m_client = client;
-    m_keep_running.store(true);
+    std::lock_guard<std::mutex> lock(m_mutex); // Scoped
 
-    pthread_create(&m_thread, nullptr, LaunchReceiverThread, this);
+    assert(m_thread_state == ThreadState::NOT_RUNNING);
+    m_client = client;
+    m_thread = std::thread(&Receiver::ThreadMain, this);
+    m_thread_state = ThreadState::RUNNING;
 }
 
 void Receiver::Stop() {
-    bool was_running = m_keep_running.exchange(false);
-    if (was_running) {
-        //TODO: how do I signal the thread to stop waiting for the socket?
-        //      For now I stick to the existing solution - I just don't ~ only_a_ptr, 03/2019
-        pthread_join(m_thread, nullptr);
+    {
+        std::lock_guard<std::mutex> lock(m_mutex); // Scoped
+        if (m_thread_state != ThreadState::RUNNING)
+            return;
+        m_thread_state = ThreadState::STOP_REQUESTED;
+    }
+
+    m_thread.join();
+
+    {
+        std::lock_guard<std::mutex> lock(m_mutex); // Scoped
+        m_thread_state = ThreadState::NOT_RUNNING;
     }
 }
 
-void Receiver::Thread() {
-    Logger::Log(LOG_DEBUG, "Started receiver thread %d owned by user ID %d", ThreadID::getID(), m_client->GetUserId());
+Receiver::ThreadState Receiver::GetThreadState()
+{
+    std::lock_guard<std::mutex> lock(m_mutex); // Scoped
+    return m_thread_state;
+}
 
-    //okay, we are ready, we can receive data frames
+void Receiver::ThreadMain() {
+    Logger::Log(LOG_DEBUG, "Started receiver thread (user ID %d)", m_client->GetUserId());
+
+
+    m_sequencer->sendMOTD(m_client->GetUserId()); // send MOTD
+
+    m_client->GetSocket()->set_timeout((Uint32)60, 0); // 60sec
+
     m_client->SetReceiveData(true);
-
-    //send motd
-    m_sequencer->sendMOTD(m_client->GetUserId());
-
     Logger::Log(LOG_VERBOSE, "UID %d is switching to FLOW", m_client->GetUserId());
 
-    // this prevents the socket from hangingwhen sending data
-    // which is the cause of threads getting blocked
-    m_client->GetSocket()->set_timeout(60, 0);
-    while (true) {
+    while (this->GetThreadState() == ThreadState::RUNNING) {
         if (!this->ThreadReceiveMessage()) {
             m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Game connection closed");
             break;
         }
 
-        if (m_keep_running.load() == false)
-            break;
-
         if (m_recv_header.command != RoRnet::MSG2_STREAM_DATA &&
             m_recv_header.command != RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
             Logger::Log(LOG_VERBOSE, "got message: type: %d, source: %d:%d, len: %d",
-                        (int)m_recv_header.command, m_recv_header.source, m_recv_header.streamid, m_recv_header.size);
+                        (int)m_recv_header.command, (int)m_recv_header.source, (int)m_recv_header.streamid, (int)m_recv_header.size);
         }
 
-        if (m_recv_header.command < 1000 || m_recv_header.command > 1050) {
+        if (m_recv_header.command < 1000u || m_recv_header.command > 1050u) {
             m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Protocol error 3");
             break;
         }
@@ -97,7 +102,7 @@ void Receiver::Thread() {
             (int)m_recv_header.command, m_recv_header.streamid, m_recv_payload, m_recv_header.size);
     }
 
-    Logger::Log(LOG_DEBUG, "Receiver thread %d (user ID %d) exits", ThreadID::getID(), m_client->GetUserId());
+    Logger::Log(LOG_DEBUG, "Receiver thread (user ID %d) exits", m_client->GetUserId());
 }
 
 bool Receiver::ThreadReceiveMessage()

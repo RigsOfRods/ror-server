@@ -23,34 +23,32 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h" // For RORNET_MAX_MESSAGE_LENGTH
 #include "prerequisites.h"
 
-#include <atomic>
-#include <pthread.h>
+#include <mutex>
 
-class SWInetSocket;
 
-class Sequencer;
-
-void *LaunchReceiverThread(void *);
-
+/// Provides a receiver thread for a single client.
 class Receiver {
-    friend void *LaunchReceiverThread(void *);
-
 public:
-    Receiver(Sequencer *sequencer);
+    enum State {
+        NOT_RUNNING,      // Initial/terminal state - thread not running, nothing waiting on socket.
+        RUNNING,          // Thread running, may be blocked by socket.
+        STOP_REQUESTED,   // Thread running, may be blocked by socket.
+    };
 
+    Receiver(Sequencer *sequencer);
     ~Receiver();
 
     void Start(Client* client);
-
     void Stop();
 
 private:
     void Thread();
 
-    pthread_t m_thread;
-    Client* m_client;
-    char m_dbuffer[RORNET_MAX_MESSAGE_LENGTH]; // Keep here to be allocated on heap (along with Client)
-    std::atomic<bool> m_keep_running;
-    Sequencer *m_sequencer;
+    Sequencer*  m_sequencer = nullptr; // global
+    Client*     m_client = nullptr;    // data owner
+    char        m_dbuffer[RORNET_MAX_MESSAGE_LENGTH] = {}; // Keep here to be allocated on heap (along with Client)
+    std::mutex  m_mutex;
+    State       m_state = NOT_RUNNING;
+    std::thread m_thread;
 };
 

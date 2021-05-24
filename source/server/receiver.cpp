@@ -26,67 +26,73 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "ScriptEngine.h"
 #include "logger.h"
 
-void *LaunchReceiverThread(void *data) {
-    Receiver *receiver = static_cast<Receiver *>(data);
-    receiver->Thread();
-    return nullptr;
-}
+#include <assert.h>
 
-Receiver::Receiver(Sequencer *sequencer) :
-        m_client(nullptr),
-        m_sequencer(sequencer) {
+Receiver::Receiver(Sequencer *sequencer):
+    m_sequencer(sequencer)
+{
 }
 
 Receiver::~Receiver() {
-    this->Stop();
+    assert(m_state == NOT_RUNNING);
 }
 
 void Receiver::Start(Client* client) {
-    m_client = client;
-    m_keep_running.store(true);
+    std::lock_guard<std::mutex> lock(m_mutex); // Scoped
 
-    pthread_create(&m_thread, nullptr, LaunchReceiverThread, this);
+    assert(m_state == NOT_RUNNING);
+    m_client = client;
+    m_thread = std::thread(&Receiver::Thread, this);
+    m_state = RUNNING;
 }
 
 void Receiver::Stop() {
-    bool was_running = m_keep_running.exchange(false);
-    if (was_running) {
-        //TODO: how do I signal the thread to stop waiting for the socket?
-        //      For now I stick to the existing solution - I just don't ~ only_a_ptr, 03/2019
-        pthread_join(m_thread, nullptr);
+    {
+        std::lock_guard<std::mutex> lock(m_mutex); // Scoped
+        if (m_state != RUNNING)
+            return;
+        m_state = STOP_REQUESTED;
+    }
+
+    m_thread.join();
+
+    {
+        std::lock_guard<std::mutex> lock(m_mutex); // Scoped
+        m_state = NOT_RUNNING;
     }
 }
 
 void Receiver::Thread() {
-    Logger::Log(LOG_DEBUG, "Started receiver thread %d owned by user ID %d", ThreadID::getID(), m_client->GetUserId());
-    //get the vehicle description
-    int type;
-    int source;
-    unsigned int streamid;
-    unsigned int len;
-    //okay, we are ready, we can receive data frames
+    Logger::Log(LOG_DEBUG, "Started receiver thread %u owned by user ID %d", ThreadID::getID(), m_client->GetUserId());
+
+    m_sequencer->sendMOTD(m_client->GetUserId()); // send MOTD
+
+    m_client->GetSocket()->set_timeout((Uint32)60, 0); // 60sec
+
     m_client->SetReceiveData(true);
-
-    //send motd
-    m_sequencer->sendMOTD(m_client->GetUserId());
-
     Logger::Log(LOG_VERBOSE, "UID %d is switching to FLOW", m_client->GetUserId());
 
-    // this prevents the socket from hangingwhen sending data
-    // which is the cause of threads getting blocked
-    m_client->GetSocket()->set_timeout(60, 0);
     while (true) {
+        int type;
+        int source;
+        unsigned int streamid;
+        unsigned int len;
         if (Messaging::ReceiveMessage(m_client->GetSocket(), &type, &source, &streamid, &len, m_dbuffer,
                                       RORNET_MAX_MESSAGE_LENGTH)) {
             m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Game connection closed");
             break;
         }
 
-        if (m_keep_running.load() == false)
-            break;
+        {
+            std::lock_guard<std::mutex> lock(m_mutex); // Scoped
+            if (m_state == STOP_REQUESTED)
+            {
+                break;
+            }
+        }
 
         if (type != RoRnet::MSG2_STREAM_DATA && type != RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
-            Logger::Log(LOG_VERBOSE, "got message: type: %d, source: %d:%d, len: %d", type, source, streamid, len);
+            Logger::Log(LOG_VERBOSE, "got message: type: %d, source: %d:%u, len: %u", type, source, streamid, len);
         }
 
         if (type < 1000 || type > 1050) {
@@ -96,5 +102,5 @@ void Receiver::Thread() {
         m_sequencer->queueMessage(m_client->GetUserId(), type, streamid, m_dbuffer, len);
     }
 
-    Logger::Log(LOG_DEBUG, "Receiver thread %d (user ID %d) exits", ThreadID::getID(), m_client->GetUserId());
+    Logger::Log(LOG_DEBUG, "Receiver thread %u (user ID %d) exits", ThreadID::getID(), m_client->GetUserId());
 }

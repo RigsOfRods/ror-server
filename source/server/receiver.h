@@ -43,6 +43,10 @@ public:
 
 private:
     void Thread();
+    void ThreadStartup();
+    bool ThreadReceiveMessage(int *out_type, int *out_source, unsigned int *out_streamid, unsigned int *out_payload_len); //!< @return false to exit thread.
+    bool ThreadProcessMessage(int type, int source, unsigned streamid, unsigned payload_len); //!< @return false to exit thread.
+    void ThreadShutdown();
 
     Sequencer*  m_sequencer = nullptr; // global
     Client*     m_client = nullptr;    // data owner

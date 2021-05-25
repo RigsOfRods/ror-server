@@ -63,6 +63,35 @@ void Receiver::Stop() {
 }
 
 void Receiver::Thread() {
+    this->ThreadStartup();
+
+    while (true) {
+        int type;
+        int source;
+        unsigned int streamid;
+        unsigned int len;
+
+        if (!this->ThreadReceiveMessage(&type, &source, &streamid, &len)) {
+            break;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(m_mutex); // Scoped
+            if (m_state == STOP_REQUESTED) {
+                break;
+            }
+        }
+
+        if (!this->ThreadProcessMessage(type, source, streamid, len)) {
+            break;
+        }
+    }
+
+    this->ThreadShutdown();
+}
+
+void Receiver::ThreadStartup()
+{
     Logger::Log(LOG_DEBUG, "Started receiver thread %u owned by user ID %d", ThreadID::getID(), m_client->GetUserId());
 
     m_sequencer->sendMOTD(m_client->GetUserId()); // send MOTD
@@ -71,36 +100,36 @@ void Receiver::Thread() {
 
     m_client->SetReceiveData(true);
     Logger::Log(LOG_VERBOSE, "UID %d is switching to FLOW", m_client->GetUserId());
+}
 
-    while (true) {
-        int type;
-        int source;
-        unsigned int streamid;
-        unsigned int len;
-        if (Messaging::ReceiveMessage(m_client->GetSocket(), &type, &source, &streamid, &len, m_dbuffer,
-                                      RORNET_MAX_MESSAGE_LENGTH)) {
-            m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Game connection closed");
-            break;
-        }
+bool Receiver::ThreadReceiveMessage(int *out_type, int *out_source, unsigned int *out_streamid, unsigned int *out_payload_len)
+{
+    int res = Messaging::ReceiveMessage(m_client->GetSocket(),
+        out_type, out_source, out_streamid, out_payload_len, m_dbuffer, RORNET_MAX_MESSAGE_LENGTH);
 
-        {
-            std::lock_guard<std::mutex> lock(m_mutex); // Scoped
-            if (m_state == STOP_REQUESTED)
-            {
-                break;
-            }
-        }
+    if (res != 0)
+    {
+        m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Game connection closed");
+        return false; // Exit thread
+    }
+    return true; // Keep running
+}
 
-        if (type != RoRnet::MSG2_STREAM_DATA && type != RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
-            Logger::Log(LOG_VERBOSE, "got message: type: %d, source: %d:%u, len: %u", type, source, streamid, len);
-        }
-
-        if (type < 1000 || type > 1050) {
-            m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Protocol error 3");
-            break;
-        }
-        m_sequencer->queueMessage(m_client->GetUserId(), type, streamid, m_dbuffer, len);
+bool Receiver::ThreadProcessMessage(int type, int source, unsigned streamid, unsigned payload_len)
+{
+    if (type != RoRnet::MSG2_STREAM_DATA && type != RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
+        Logger::Log(LOG_VERBOSE, "got message: type: %d, source: %d:%u, len: %u", type, source, streamid, payload_len);
     }
 
+    if (type < 1000 || type > 1050) {
+        m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Protocol error 3");
+        return false; // Exit thread
+    }
+    m_sequencer->queueMessage(m_client->GetUserId(), type, streamid, m_dbuffer, payload_len);
+    return true; // Keep running
+}
+
+void Receiver::ThreadShutdown()
+{
     Logger::Log(LOG_DEBUG, "Receiver thread %u (user ID %d) exits", ThreadID::getID(), m_client->GetUserId());
 }

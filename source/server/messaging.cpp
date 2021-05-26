@@ -163,7 +163,7 @@ namespace Messaging {
         *out_stream_id = head.streamid;
 
         if ( head.size > payload_buf_len) {
-            Logger::Log(LOG_ERROR, "ReceiveMessage(): payload too long: %d b (max. is %d b)", head.size,
+            Logger::Log(LOG_ERROR, "ReceiveMessage(): payload too long: %u b (max. is %u b)", head.size,
                         payload_buf_len);
             return -3;
         }
@@ -171,7 +171,7 @@ namespace Messaging {
         if (head.size > 0) {
             //read the rest
             std::memset(out_payload, 0, payload_buf_len);
-            if (socket->frecv(out_payload, head.size, &error) < head.size) {
+            if (socket->frecv(out_payload, head.size, &error) < (int)head.size) {
                 return -1;
             }
         }

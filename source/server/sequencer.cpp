@@ -778,394 +778,45 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
         }
     }
 
-    int publishMode = BROADCAST_BLOCK;
+    broadcastType publishMode = BROADCAST_BLOCK;
 
-    if (type == RoRnet::MSG2_STREAM_DATA || type == RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
-        client->NotifyAllVehicles(this);
-
-        publishMode = BROADCAST_NORMAL;
-
-        // Simple data validation (needed due to bug in RoR 0.38)
-        {
-            std::map<unsigned int, RoRnet::StreamRegister>::iterator it = client->streams.find(streamid);
-            if (it == client->streams.end())
-                publishMode = BROADCAST_BLOCK;
-        }
-    } else if (type == RoRnet::MSG2_STREAM_REGISTER) {
-        RoRnet::StreamRegister *reg = (RoRnet::StreamRegister *) data;
-        if (client->streams.size() >= Config::getMaxVehicles() + NON_VEHICLE_STREAMS) {
-            // This user has too many vehicles, we drop the stream and then disconnect the user
-            Logger::Log(LOG_INFO, "%s(%d) has too many streams. Stream dropped, user kicked.",
-                        Str::SanitizeUtf8(client->user.username).c_str(), client->user.uniqueid);
-
-            // send a message to the user.
-            serverSay("You are now being kicked for having too many vehicles. Please rejoin.", client->user.uniqueid,
-                      FROM_SERVER);
-
-            // broadcast a general message that this user was auto-kicked
-            char sayMsg[128] = "";
-            sprintf(sayMsg, "%s was auto-kicked for having too many vehicles (limit: %d)",
-                    Str::SanitizeUtf8(client->user.username).c_str(), Config::getMaxVehicles());
-            serverSay(sayMsg, TO_ALL, FROM_SERVER);
-
-            QueueClientForDisconnect(client->user.uniqueid, "You have too many vehicles. Please rejoin.", false);
-            publishMode = BROADCAST_BLOCK; // drop
-        } else if (reg->type == STREAM_REG_TYPE_VEHICLE && !client->CheckSpawnRate()) {
-            // This user spawns vehicles too fast, we drop the stream and then disconnect the user
-            Logger::Log(LOG_INFO, "%s(%d) spawns vehicles too fast. Stream dropped, user kicked.",
-                        client->GetUsername().c_str(), client->user.uniqueid);
-
-            // broadcast a general message that this user was auto-kicked
-            char sayMsg[300] = "";
-            snprintf(sayMsg, 300, "%s was auto-kicked for spawning vehicles too fast (limit: %d spawns per %d sec)",
-                    client->GetUsername().c_str(), Config::getMaxSpawnRate(), Config::getSpawnIntervalSec());
-            serverSay(sayMsg, TO_ALL, FROM_SERVER);
-
-            // disconnect the user with a message
-            snprintf(sayMsg, 300, "You were auto-kicked for spawning vehicles too fast (limit: %d spawns per %d sec). Please rejoin.",
-                    Config::getMaxSpawnRate(), Config::getSpawnIntervalSec());
-            QueueClientForDisconnect(client->user.uniqueid, sayMsg, false);
-            publishMode = BROADCAST_BLOCK; // drop
-        } else if (reg->type == STREAM_REG_TYPE_VEHICLE && !Utils::isValidVehicleFileName(reg->name)) {
-            // This user spawned vehicle with empty or malformed name, we drop the stream and then disconnect the user
-            Logger::Log(LOG_INFO, "%s(%d) spawned vehicle with empty/malformed name. Stream dropped, user kicked.",
-                        client->GetUsername().c_str(), client->user.uniqueid);
-
-            // broadcast a general message that this user was auto-kicked
-            char sayMsg[300] = "";
-            snprintf(sayMsg, 300, "%s was auto-kicked for spawning vehicle with empty/malformed name", client->GetUsername().c_str());
-            serverSay(sayMsg, TO_ALL, FROM_SERVER);
-
-            // disconnect the user with a message
-            snprintf(sayMsg, 300, "You were auto-kicked for spawning invalid vehicle");
-
-            QueueClientForDisconnect(client->user.uniqueid, sayMsg, false);
-            publishMode = BROADCAST_BLOCK; // drop
-        } else {
-            publishMode = BROADCAST_NORMAL;
-
-#ifdef WITH_ANGELSCRIPT
-            // Do a script callback
-            if (m_script_engine) {
-                int scriptpub = m_script_engine->streamAdded(client->user.uniqueid, reg);
-
-                // We only support blocking and normal at the moment. Other modes are not supported.
-                switch (scriptpub) {
-                    case BROADCAST_AUTO:
-                        break;
-
-                    case BROADCAST_BLOCK:
-                        publishMode = BROADCAST_BLOCK;
-                        break;
-
-                    case BROADCAST_NORMAL:
-                        publishMode = BROADCAST_NORMAL;
-                        break;
-
-                    default:
-                        Logger::Log(LOG_ERROR, "Stream broadcasting mode not supported.");
-                        break;
-                }
-            }
-#endif //WITH_ANGELSCRIPT
-
-            if (publishMode != BROADCAST_BLOCK) {
-                // Add the stream
-                reg->name[127] = 0;
-                Logger::Log(LOG_VERBOSE, " * new stream registered: %d:%d, type: %d, name: '%s', status: %d",
-                            client->user.uniqueid, streamid, reg->type, reg->name, reg->status);
-                client->streams[streamid] = *reg;
-
-                // send an event if user is rankend and if we are a official server
-                if (m_auth_resolver && (client->user.authstatus & RoRnet::AUTH_RANKED))
-                    m_auth_resolver->sendUserEvent(std::string(client->user.usertoken, 40), std::string("newvehicle"),
-                                                   std::string(reg->name), std::string());
-
-                // Notify the user about the vehicle limit
-                if ((client->streams.size() >= Config::getMaxVehicles() + NON_VEHICLE_STREAMS - 3) &&
-                    (client->streams.size() > NON_VEHICLE_STREAMS)) {
-                    // we start warning the user as soon as he has only 3 vehicles left before he will get kicked (that's why we do minus three in the 'if' statement above).
-                    char sayMsg[128] = "";
-
-                    // special case if the user has exactly 1 vehicle
-                    if (client->streams.size() == NON_VEHICLE_STREAMS + 1)
-                        sprintf(sayMsg, "You now have 1 vehicle. The vehicle limit on this server is set to %d.",
-                                Config::getMaxVehicles());
-                    else
-                        sprintf(sayMsg, "You now have %lu vehicles. The vehicle limit on this server is set to %d.",
-                                (client->streams.size() - NON_VEHICLE_STREAMS), Config::getMaxVehicles());
-
-                    serverSay(sayMsg, client->user.uniqueid, FROM_SERVER);
-                }
-
-                this->streamDebug();
-
-                // reset some stats
-                // streams_traffic limited through streams map
-                client->streams_traffic[streamid].bandwidthIncoming = 0;
-                client->streams_traffic[streamid].bandwidthIncomingLastMinute = 0;
-                client->streams_traffic[streamid].bandwidthIncomingRate = 0;
-                client->streams_traffic[streamid].bandwidthOutgoing = 0;
-                client->streams_traffic[streamid].bandwidthOutgoingLastMinute = 0;
-                client->streams_traffic[streamid].bandwidthOutgoingRate = 0;
-            }
-        }
-    } else if (type == RoRnet::MSG2_STREAM_REGISTER_RESULT) {
-        // forward message to the stream origin
-        RoRnet::StreamRegister *reg = (RoRnet::StreamRegister *) data;
-        Client *origin_client = this->FindClientById(reg->origin_sourceid);
-        if (origin_client != nullptr) {
-            origin_client->QueueMessage(type, uid, streamid, sizeof(RoRnet::StreamRegister), (char *) reg);
-            Logger::Log(LOG_VERBOSE, "stream registration result for stream %03d:%03d from user %03d: %d",
-                        reg->origin_sourceid, reg->origin_streamid, uid, reg->status);
-        }
-        publishMode = BROADCAST_BLOCK;
-    } else if (type == RoRnet::MSG2_STREAM_UNREGISTER) {
-        // Remove the stream
-        if (client->streams.erase(streamid) > 0) {
-            Logger::Log(LOG_VERBOSE, " * stream deregistered: %d:%d", client->user.uniqueid, streamid);
-            publishMode = BROADCAST_ALL;
-        }
-    } else if (type == RoRnet::MSG2_USER_LEAVE) {
-        // from client
-        Logger::Log(LOG_INFO, "User disconnects on request: " + Str::SanitizeUtf8(client->user.username));
-        QueueClientForDisconnect(client->user.uniqueid, "disconnected on request", false);
-    } else if (type == RoRnet::MSG2_UTF8_CHAT) {
-        std::string str = Str::SanitizeUtf8(data);
-        Logger::Log(LOG_INFO, "CHAT| %s: %s", Str::SanitizeUtf8(client->user.username).c_str(), str.c_str());
-
-        publishMode = BROADCAST_ALL;
-        if (str[0] == '!') {
-            publishMode = BROADCAST_BLOCK; // no broadcast of server commands!
-        } else if (SpamFilter::IsActive() &&
-                   client->GetSpamFilter().CheckForSpam(str)) {
-            publishMode = BROADCAST_BLOCK; // Client is gagged
-        }
-
-#ifdef WITH_ANGELSCRIPT
-        if (m_script_engine) {
-            int scriptpub = m_script_engine->playerChat(client->user.uniqueid, str);
-            if (scriptpub != BROADCAST_AUTO) publishMode = scriptpub;
-        }
-#endif //WITH_ANGELSCRIPT
-        if (str == "!help") {
-            serverSay(std::string("builtin commands:"), uid);
-            serverSay(std::string("!version, !list, !say, !bans, !ban, !unban, !kick, !vehiclelimit"), uid);
-            serverSay(std::string("!website, !irc, !owner, !voip, !rules, !motd"), uid);
-        }
-
-        if (str == "!version") {
-            std::string ver (VERSION);
-            ver += " "; 
-            ver += RORNET_VERSION; 
-            serverSay(std::string(ver), uid);
-        } else if (str == "!list") {
-            serverSay(std::string(" uid | auth   | nick"), uid);
-            for (unsigned int i = 0; i < m_clients.size(); i++) {
-                if (i >= m_clients.size())
-                    break;
-                char authst[10] = "";
-                if (m_clients[i]->user.authstatus & RoRnet::AUTH_ADMIN) strcat(authst, "A");
-                if (m_clients[i]->user.authstatus & RoRnet::AUTH_MOD) strcat(authst, "M");
-                if (m_clients[i]->user.authstatus & RoRnet::AUTH_RANKED) strcat(authst, "R");
-                if (m_clients[i]->user.authstatus & RoRnet::AUTH_BOT) strcat(authst, "B");
-                if (m_clients[i]->user.authstatus & RoRnet::AUTH_BANNED) strcat(authst, "X");\
-
-                char tmp2[256] = "";
-                sprintf(tmp2, "% 3d | %-6s | %-20s", m_clients[i]->user.uniqueid, authst,
-                        Str::SanitizeUtf8(m_clients[i]->user.username).c_str());
-                serverSay(std::string(tmp2), uid);
-            }
-        } else if (str.substr(0, 5) == "!bans") {
-            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
-				serverSay(std::string("id | IP              | nickname             | banned by"), uid);
-				if (m_bans.empty()) {
-					serverSay(std::string("There are no bans recorded!"), uid);
-				} else {
-					for (unsigned int i = 0; i < m_bans.size(); i++) {
-						char tmp[256] = "";
-						sprintf(tmp, "% 3d | %-15s | %-20s | %-20s",
-							m_bans[i]->bid,
-							m_bans[i]->ip,
-							m_bans[i]->nickname,
-							m_bans[i]->bannedby_nick);
-						serverSay(std::string(tmp), uid);
-					}
-				}
-            } else {
-                // not allowed
-                serverSay(std::string("You are not authorized to use this command!"), uid);
-            }
-        } else if (str.substr(0, 7) == "!unban ") {
-            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
-				int bid = -1;
-                int res = sscanf(str.substr(7).c_str(), "%d", &bid);
-                if (res != 1 || bid == -1) {
-                    serverSay(std::string("usage: !unban <bid>"), uid);
-                    serverSay(std::string("example: !unban 3"), uid);
-                } else {
-                    if (UnBan(bid))
-                        serverSay(std::string("ban removed"), uid);
-                    else
-                        serverSay(std::string("ban not removed: error"), uid);
-                }
-            } else {
-                // not allowed
-                serverSay(std::string("You are not authorized to unban people!"), uid);
-            }
-        } else if (str.substr(0, 5) == "!ban ") {
-            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
-                int buid = -1;
-                char banmsg_tmp[256] = "";
-                int res = sscanf(str.substr(5).c_str(), "%d %s", &buid, banmsg_tmp);
-                std::string banMsg = std::string(banmsg_tmp);
-                banMsg = trim(banMsg);
-                if (res != 2 || buid == -1 || !banMsg.size()) {
-                    serverSay(std::string("usage: !ban <uid> <message>"), uid);
-                    serverSay(std::string("example: !ban 3 swearing"), uid);
-                } else {
-                    bool banned = Ban(buid, uid, str.substr(6 + intlen(buid), 256).c_str());
-                    if (!banned)
-                        serverSay(std::string("kick + ban not successful: uid not found!"), uid);
-                }
-            } else {
-                // not allowed
-                serverSay(std::string("You are not authorized to ban people!"), uid);
-            }
-        } else if (str.substr(0, 6) == "!kick ") {
-            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
-                int kuid = -1;
-                char kickmsg_tmp[256] = "";
-                int res = sscanf(str.substr(6).c_str(), "%d %s", &kuid, kickmsg_tmp);
-                std::string kickMsg = std::string(kickmsg_tmp);
-                kickMsg = trim(kickMsg);
-                if (res != 2 || kuid == -1 || !kickMsg.size()) {
-                    serverSay(std::string("usage: !kick <uid> <message>"), uid);
-                    serverSay(std::string("example: !kick 3 bye!"), uid);
-                } else {
-                    bool kicked = Kick(kuid, uid, str.substr(7 + intlen(kuid), 256).c_str());
-                    if (!kicked)
-                        serverSay(std::string("kick not successful: uid not found!"), uid);
-                }
-            } else {
-                // not allowed
-                serverSay(std::string("You are not authorized to kick people!"), uid);
-            }
-        } else if (str == "!vehiclelimit") {
-            char sayMsg[128] = "";
-            sprintf(sayMsg, "The vehicle-limit on this server is set on %d", Config::getMaxVehicles());
-            serverSay(sayMsg, uid, FROM_SERVER);
-        } else if (str.substr(0, 5) == "!say ") {
-            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
-                int kuid = -2;
-                char saymsg_tmp[256] = "";
-                int res = sscanf(str.substr(5).c_str(), "%d %s", &kuid, saymsg_tmp);
-                std::string sayMsg = std::string(saymsg_tmp);
-
-                sayMsg = trim(sayMsg);
-                if (res != 2 || kuid < -1 || !sayMsg.size()) {
-                    serverSay(std::string("usage: !say <uid> <message> (use uid -1 for general broadcast)"), uid);
-                    serverSay(std::string("example: !say 3 Wecome to this server!"), uid);
-                } else {
-                    serverSay(str.substr(6 + intlen(kuid), 256), kuid, FROM_HOST);
-                }
-
-            } else {
-                // not allowed
-                serverSay(std::string("You are not authorized to use this command!"), uid);
-            }
-        } else if (str == "!website" || str == "!www") {
-            if (!Config::getWebsite().empty()) {
-                char sayMsg[256] = "";
-                sprintf(sayMsg, "Further information can be found online at %s", Config::getWebsite().c_str());
-                serverSay(sayMsg, uid, FROM_SERVER);
-            }
-        } else if (str == "!irc") {
-            if (!Config::getIRC().empty()) {
-                char sayMsg[256] = "";
-                sprintf(sayMsg, "IRC: %s", Config::getIRC().c_str());
-                serverSay(sayMsg, uid, FROM_SERVER);
-            }
-        } else if (str == "!owner") {
-            if (!Config::getOwner().empty()) {
-                char sayMsg[256] = "";
-                sprintf(sayMsg, "This server is run by %s", Config::getOwner().c_str());
-                serverSay(sayMsg, uid, FROM_SERVER);
-            }
-        } else if (str == "!voip") {
-            if (!Config::getVoIP().empty()) {
-                char sayMsg[256] = "";
-                sprintf(sayMsg, "This server's official VoIP: %s", Config::getVoIP().c_str());
-                serverSay(sayMsg, uid, FROM_SERVER);
-            }
-        } else if (str == "!rules") {
-            if (!Config::getRulesFile().empty()) {
-                std::vector<std::string> lines;
-                int res = Utils::ReadLinesFromFile(Config::getRulesFile(), lines);
-                if (!res) {
-                    std::vector<std::string>::iterator it;
-                    for (it = lines.begin(); it != lines.end(); it++) {
-                        serverSay(*it, uid, FROM_RULES);
-                    }
-                }
-            }
-        } else if (str == "!motd") {
-            this->sendMOTD(uid);
-        }
-    } else if (type == RoRnet::MSG2_UTF8_PRIVCHAT) {
-        // private chat message
-        Client *dest_client = this->FindClientById(static_cast<unsigned int>(uid));
-        if (dest_client != nullptr) {
-            char *chatmsg = data + sizeof(int);
-            int chatlen = len - sizeof(int);
-            dest_client->QueueMessage(RoRnet::MSG2_UTF8_PRIVCHAT, uid, streamid, chatlen, chatmsg);
-            publishMode = BROADCAST_BLOCK;
-        }
-    } else if (type == RoRnet::MSG2_GAME_CMD) {
-        // script message
-#ifdef WITH_ANGELSCRIPT
-        if (m_script_engine) m_script_engine->gameCmd(client->user.uniqueid, std::string(data));
-#endif //WITH_ANGELSCRIPT
-        publishMode = BROADCAST_BLOCK;
-    }
-#if 0
-    // replaced with stream_data
-    else if (type==RoRnet::MSG2_VEHICLE_DATA)
+    switch (type)
     {
-#ifdef WITH_ANGELSCRIPT
-        float* fpt=(float*)(data+sizeof(RoRnet::TruckState));
-        client->position=Vector3(fpt[0], fpt[1], fpt[2]);
-#endif //WITH_ANGELSCRIPT
-        /*
-        char hex[255]="";
-        SHA1FromBuffer(hex, data, len);
-        printf("R > %s\n", hex);
+    case RoRnet::MSG2_STREAM_DATA:
+    case RoRnet::MSG2_STREAM_DATA_DISCARDABLE:
+        publishMode = this->ProcessStreamData(client, type, streamid, data, len);
+        break;
 
-        std::string hexc = hexdump(data, len);
-        printf("RH> %s\n", hexc.c_str());
-        */
+    case RoRnet::MSG2_STREAM_REGISTER:
+        publishMode = this->ProcessStreamRegister(client, type, streamid, data, len);
+        break;
 
-        publishMode=BROADCAST_NORMAL;
+    case RoRnet::MSG2_STREAM_REGISTER_RESULT:
+        publishMode = this->ProcessStreamRegisterResult(client, type, streamid, data, len);
+        break;
+
+    case RoRnet::MSG2_STREAM_UNREGISTER:
+        publishMode = this->ProcessStreamUnRegister(client, type, streamid, data, len);
+        break;
+
+    case RoRnet::MSG2_USER_LEAVE:
+        publishMode = this->ProcessUserLeave(client, type, streamid, data, len);
+        break;
+
+    case RoRnet::MSG2_UTF8_CHAT:
+        publishMode = this->ProcessUtf8Chat(client, type, streamid, data, len);
+        break;
+
+    case RoRnet::MSG2_UTF8_PRIVCHAT:
+        publishMode = this->ProcessUtf8PrivChat(client, type, streamid, data, len);
+        break;
+
+    case RoRnet::MSG2_GAME_CMD:
+        publishMode = this->ProcessGameCmd(client, type, streamid, data, len);
+
+    default:;
     }
-#endif //0
-#if 0
-    else if (type==RoRnet::MSG2_FORCE)
-    {
-        //this message is to be sent to only one destination
-        unsigned int destuid=((netforce_t*)data)->target_uid;
-        for ( unsigned int i = 0; i < m_clients.size(); i++)
-        {
-            if(i >= m_clients.size())
-                break;
-            if (m_clients[i]->status == USED &&
-                m_clients[i]->flow &&
-                m_clients[i]->user.uniqueid==destuid)
-                m_clients[i]->queueMessage(
-                        client->user.uniqueid, type, len, data);
-        }
-        publishMode=BROADCAST_BLOCK;
-    }
-#endif //0
+
     if (publishMode < BROADCAST_BLOCK) {
         client->streams_traffic[streamid].bandwidthIncoming += len;
 
@@ -1310,3 +961,386 @@ std::vector<ban_t> Sequencer::GetBanListCopy()
     return output;
 }
 
+    // -------------------------------------------------- //
+    //              RoRnet message handling               //
+    // -------------------------------------------------- //
+
+broadcastType Sequencer::ProcessStreamData(Client* client, int type, unsigned int streamid, char *data, unsigned int len)
+{
+    client->NotifyAllVehicles(this);
+
+    broadcastType publishMode = BROADCAST_NORMAL;
+
+    // Simple data validation (needed due to bug in RoR 0.38)
+    {
+        std::map<unsigned int, RoRnet::StreamRegister>::iterator it = client->streams.find(streamid);
+        if (it == client->streams.end())
+            publishMode = BROADCAST_BLOCK;
+    }
+
+    return publishMode;
+}
+
+broadcastType Sequencer::ProcessStreamRegister(Client* client, int type, unsigned int streamid, char *data, unsigned int len)
+{
+    broadcastType publishMode = BROADCAST_BLOCK;
+
+    RoRnet::StreamRegister *reg = (RoRnet::StreamRegister *) data;
+    if (client->streams.size() >= Config::getMaxVehicles() + NON_VEHICLE_STREAMS) {
+        // This user has too many vehicles, we drop the stream and then disconnect the user
+        Logger::Log(LOG_INFO, "%s(%d) has too many streams. Stream dropped, user kicked.",
+                    client->GetUsername().c_str(), client->GetUserId());
+
+        // send a message to the user.
+        serverSay("You are now being kicked for having too many vehicles. Please rejoin.", client->GetUserId(),
+                    FROM_SERVER);
+
+        // broadcast a general message that this user was auto-kicked
+        char sayMsg[128] = "";
+        sprintf(sayMsg, "%s was auto-kicked for having too many vehicles (limit: %u)",
+                client->GetUsername().c_str(), Config::getMaxVehicles());
+        serverSay(sayMsg, TO_ALL, FROM_SERVER);
+
+        QueueClientForDisconnect(client->GetUserId(), "You have too many vehicles. Please rejoin.", false);
+        publishMode = BROADCAST_BLOCK; // drop
+    } else if (reg->type == STREAM_REG_TYPE_VEHICLE && !client->CheckSpawnRate()) {
+        // This user spawns vehicles too fast, we drop the stream and then disconnect the user
+        Logger::Log(LOG_INFO, "%s(%d) spawns vehicles too fast. Stream dropped, user kicked.",
+                    client->GetUsername().c_str(), client->GetUserId());
+
+        // broadcast a general message that this user was auto-kicked
+        char sayMsg[300] = "";
+        snprintf(sayMsg, 300, "%s was auto-kicked for spawning vehicles too fast (limit: %d spawns per %d sec)",
+                client->GetUsername().c_str(), Config::getMaxSpawnRate(), Config::getSpawnIntervalSec());
+        serverSay(sayMsg, TO_ALL, FROM_SERVER);
+
+        // disconnect the user with a message
+        snprintf(sayMsg, 300, "You were auto-kicked for spawning vehicles too fast (limit: %d spawns per %d sec). Please rejoin.",
+                Config::getMaxSpawnRate(), Config::getSpawnIntervalSec());
+        QueueClientForDisconnect(client->GetUserId(), sayMsg, false);
+        publishMode = BROADCAST_BLOCK; // drop
+    } else if (reg->type == STREAM_REG_TYPE_VEHICLE && !Utils::isValidVehicleFileName(reg->name)) {
+        // This user spawned vehicle with empty or malformed name, we drop the stream and then disconnect the user
+        Logger::Log(LOG_INFO, "%s(%d) spawned vehicle with empty/malformed name. Stream dropped, user kicked.",
+                    client->GetUsername().c_str(), client->GetUserId());
+
+        // broadcast a general message that this user was auto-kicked
+        char sayMsg[300] = "";
+        snprintf(sayMsg, 300, "%s was auto-kicked for spawning vehicle with empty/malformed name", client->GetUsername().c_str());
+        serverSay(sayMsg, TO_ALL, FROM_SERVER);
+
+        // disconnect the user with a message
+        snprintf(sayMsg, 300, "You were auto-kicked for spawning invalid vehicle");
+
+        QueueClientForDisconnect(client->GetUserId(), sayMsg, false);
+        publishMode = BROADCAST_BLOCK; // drop
+    } else {
+        publishMode = BROADCAST_NORMAL;
+
+#ifdef WITH_ANGELSCRIPT
+        // Do a script callback
+        if (m_script_engine) {
+            int scriptpub = m_script_engine->streamAdded(client->GetUserId(), reg);
+
+            // We only support blocking and normal at the moment. Other modes are not supported.
+            switch (scriptpub) {
+                case BROADCAST_AUTO:
+                    break;
+
+                case BROADCAST_BLOCK:
+                    publishMode = BROADCAST_BLOCK;
+                    break;
+
+                case BROADCAST_NORMAL:
+                    publishMode = BROADCAST_NORMAL;
+                    break;
+
+                default:
+                    Logger::Log(LOG_ERROR, "Stream broadcasting mode not supported.");
+                    break;
+            }
+        }
+#endif //WITH_ANGELSCRIPT
+
+        if (publishMode != BROADCAST_BLOCK) {
+            // Add the stream
+            reg->name[127] = 0;
+            Logger::Log(LOG_VERBOSE, " * new stream registered: %d:%u, type: %d, name: '%s', status: %d",
+                        client->GetUserId(), streamid, reg->type, reg->name, reg->status);
+            client->streams[streamid] = *reg;
+
+            // send an event if user is rankend and if we are a official server
+            if (m_auth_resolver && (client->user.authstatus & RoRnet::AUTH_RANKED))
+                m_auth_resolver->sendUserEvent(std::string(client->user.usertoken, 40), std::string("newvehicle"),
+                                                std::string(reg->name), std::string());
+
+            // Notify the user about the vehicle limit
+            if ((client->streams.size() >= Config::getMaxVehicles() + NON_VEHICLE_STREAMS - 3) &&
+                (client->streams.size() > NON_VEHICLE_STREAMS)) {
+                // we start warning the user as soon as he has only 3 vehicles left before he will get kicked (that's why we do minus three in the 'if' statement above).
+                char sayMsg[128] = "";
+
+                // special case if the user has exactly 1 vehicle
+                if (client->streams.size() == NON_VEHICLE_STREAMS + 1)
+                    sprintf(sayMsg, "You now have 1 vehicle. The vehicle limit on this server is set to %u.",
+                            Config::getMaxVehicles());
+                else
+                    sprintf(sayMsg, "You now have %lu vehicles. The vehicle limit on this server is set to %u.",
+                            (client->streams.size() - NON_VEHICLE_STREAMS), Config::getMaxVehicles());
+
+                serverSay(sayMsg, client->GetUserId(), FROM_SERVER);
+            }
+
+            this->streamDebug();
+
+            // reset some stats
+            // streams_traffic limited through streams map
+            client->streams_traffic[streamid].bandwidthIncoming = 0;
+            client->streams_traffic[streamid].bandwidthIncomingLastMinute = 0;
+            client->streams_traffic[streamid].bandwidthIncomingRate = 0;
+            client->streams_traffic[streamid].bandwidthOutgoing = 0;
+            client->streams_traffic[streamid].bandwidthOutgoingLastMinute = 0;
+            client->streams_traffic[streamid].bandwidthOutgoingRate = 0;
+        }
+    }
+
+    return publishMode;
+}
+
+broadcastType Sequencer::ProcessStreamRegisterResult(Client* client, int type, unsigned int streamid, char *data, unsigned int len)
+{
+    // forward message to the stream origin
+    RoRnet::StreamRegister *reg = (RoRnet::StreamRegister *) data;
+    Client *origin_client = this->FindClientById(reg->origin_sourceid);
+    if (origin_client != nullptr) {
+        origin_client->QueueMessage(type, client->GetUserId(), streamid, sizeof(RoRnet::StreamRegister), (char *) reg);
+        Logger::Log(LOG_VERBOSE, "stream registration result for stream %03d:%03d from user %03d: %d",
+                    reg->origin_sourceid, reg->origin_streamid, client->GetUserId(), reg->status);
+    }
+    return BROADCAST_BLOCK;
+}
+
+broadcastType Sequencer::ProcessStreamUnRegister(Client* client, int type, unsigned int streamid, char *data, unsigned int len)
+{
+    if (client->streams.erase(streamid) > 0) {
+        Logger::Log(LOG_VERBOSE, " * stream deregistered: %d:%u", client->GetUserId(), streamid);
+        return BROADCAST_ALL;
+    } else {
+        return BROADCAST_BLOCK;
+    }
+}
+
+broadcastType Sequencer::ProcessUserLeave(Client* client, int type, unsigned int streamid, char *data, unsigned int len)
+{
+    // from client
+    Logger::Log(LOG_INFO, "User disconnects on request: " + client->GetUsername());
+    this->QueueClientForDisconnect(client->GetUserId(), "disconnected on request", false);
+    return BROADCAST_BLOCK;
+}
+
+broadcastType Sequencer::ProcessUtf8Chat(Client* client, int type, unsigned int streamid, char *data, unsigned int len)
+{
+    std::string str = Str::SanitizeUtf8(data);
+    Logger::Log(LOG_INFO, "CHAT| %s: %s", client->GetUsername(), str.c_str());
+
+    broadcastType publishMode = BROADCAST_ALL;
+    if (str[0] == '!') {
+        publishMode = BROADCAST_BLOCK; // no broadcast of server commands!
+    } else if (SpamFilter::IsActive() &&
+                client->GetSpamFilter().CheckForSpam(str)) {
+        publishMode = BROADCAST_BLOCK; // Client is gagged
+    }
+
+#ifdef WITH_ANGELSCRIPT
+    if (m_script_engine) {
+        int scriptpub = m_script_engine->playerChat(client->GetUserId(), str);
+        if (scriptpub != BROADCAST_AUTO) publishMode = scriptpub;
+    }
+#endif //WITH_ANGELSCRIPT
+    if (str == "!help") {
+        serverSay(std::string("builtin commands:"), client->GetUserId());
+        serverSay(std::string("!version, !list, !say, !bans, !ban, !unban, !kick, !vehiclelimit"), client->GetUserId());
+        serverSay(std::string("!website, !irc, !owner, !voip, !rules, !motd"), client->GetUserId());
+    }
+
+    if (str == "!version") {
+        std::string ver (VERSION);
+        ver += " "; 
+        ver += RORNET_VERSION; 
+        serverSay(std::string(ver), client->GetUserId());
+    } else if (str == "!list") {
+        serverSay(std::string(" client->GetUserId() | auth   | nick"), client->GetUserId());
+        for (unsigned int i = 0; i < m_clients.size(); i++) {
+            if (i >= m_clients.size())
+                break;
+            char authst[10] = "";
+            if (m_clients[i]->user.authstatus & RoRnet::AUTH_ADMIN) strcat(authst, "A");
+            if (m_clients[i]->user.authstatus & RoRnet::AUTH_MOD) strcat(authst, "M");
+            if (m_clients[i]->user.authstatus & RoRnet::AUTH_RANKED) strcat(authst, "R");
+            if (m_clients[i]->user.authstatus & RoRnet::AUTH_BOT) strcat(authst, "B");
+            if (m_clients[i]->user.authstatus & RoRnet::AUTH_BANNED) strcat(authst, "X");\
+
+            char tmp2[256] = "";
+            sprintf(tmp2, "% 3d | %-6s | %-20s", m_clients[i]->GetUserId(), authst, client->GetUsername().c_str());
+            serverSay(std::string(tmp2), client->GetUserId());
+        }
+    } else if (str.substr(0, 5) == "!bans") {
+        if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+            serverSay(std::string("id | IP              | nickname             | banned by"), client->GetUserId());
+            if (m_bans.empty()) {
+                serverSay(std::string("There are no bans recorded!"), client->GetUserId());
+            } else {
+                for (unsigned int i = 0; i < m_bans.size(); i++) {
+                    char tmp[256] = "";
+                    sprintf(tmp, "% 3u | %-15s | %-20s | %-20s",
+                        m_bans[i]->bid,
+                        m_bans[i]->ip,
+                        m_bans[i]->nickname,
+                        m_bans[i]->bannedby_nick);
+                    serverSay(std::string(tmp), client->GetUserId());
+                }
+            }
+        } else {
+            // not allowed
+            serverSay(std::string("You are not authorized to use this command!"), client->GetUserId());
+        }
+    } else if (str.substr(0, 7) == "!unban ") {
+        if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+            int bid = -1;
+            int res = sscanf(str.substr(7).c_str(), "%d", &bid);
+            if (res != 1 || bid == -1) {
+                serverSay(std::string("usage: !unban <bid>"), client->GetUserId());
+                serverSay(std::string("example: !unban 3"), client->GetUserId());
+            } else {
+                if (UnBan(bid))
+                    serverSay(std::string("ban removed"), client->GetUserId());
+                else
+                    serverSay(std::string("ban not removed: error"), client->GetUserId());
+            }
+        } else {
+            // not allowed
+            serverSay(std::string("You are not authorized to unban people!"), client->GetUserId());
+        }
+    } else if (str.substr(0, 5) == "!ban ") {
+        if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+            int buid = -1;
+            char banmsg_tmp[256] = "";
+            int res = sscanf(str.substr(5).c_str(), "%d %s", &buid, banmsg_tmp);
+            std::string banMsg = std::string(banmsg_tmp);
+            banMsg = trim(banMsg);
+            if (res != 2 || buid == -1 || !banMsg.size()) {
+                serverSay(std::string("usage: !ban <client->GetUserId()> <message>"), client->GetUserId());
+                serverSay(std::string("example: !ban 3 swearing"), client->GetUserId());
+            } else {
+                bool banned = Ban(buid, client->GetUserId(), str.substr(6 + intlen(buid), 256).c_str());
+                if (!banned)
+                    serverSay(std::string("kick + ban not successful: client->GetUserId() not found!"), client->GetUserId());
+            }
+        } else {
+            // not allowed
+            serverSay(std::string("You are not authorized to ban people!"), client->GetUserId());
+        }
+    } else if (str.substr(0, 6) == "!kick ") {
+        if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+            int kuid = -1;
+            char kickmsg_tmp[256] = "";
+            int res = sscanf(str.substr(6).c_str(), "%d %s", &kuid, kickmsg_tmp);
+            std::string kickMsg = std::string(kickmsg_tmp);
+            kickMsg = trim(kickMsg);
+            if (res != 2 || kuid == -1 || !kickMsg.size()) {
+                serverSay(std::string("usage: !kick <client->GetUserId()> <message>"), client->GetUserId());
+                serverSay(std::string("example: !kick 3 bye!"), client->GetUserId());
+            } else {
+                bool kicked = Kick(kuid, client->GetUserId(), str.substr(7 + intlen(kuid), 256).c_str());
+                if (!kicked)
+                    serverSay(std::string("kick not successful: client->GetUserId() not found!"), client->GetUserId());
+            }
+        } else {
+            // not allowed
+            serverSay(std::string("You are not authorized to kick people!"), client->GetUserId());
+        }
+    } else if (str == "!vehiclelimit") {
+        char sayMsg[128] = "";
+        sprintf(sayMsg, "The vehicle-limit on this server is set on %d", Config::getMaxVehicles());
+        serverSay(sayMsg, client->GetUserId(), FROM_SERVER);
+    } else if (str.substr(0, 5) == "!say ") {
+        if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+            int kuid = -2;
+            char saymsg_tmp[256] = "";
+            int res = sscanf(str.substr(5).c_str(), "%d %s", &kuid, saymsg_tmp);
+            std::string sayMsg = std::string(saymsg_tmp);
+
+            sayMsg = trim(sayMsg);
+            if (res != 2 || kuid < -1 || !sayMsg.size()) {
+                serverSay(std::string("usage: !say <client->GetUserId()> <message> (use client->GetUserId() -1 for general broadcast)"), client->GetUserId());
+                serverSay(std::string("example: !say 3 Wecome to this server!"), client->GetUserId());
+            } else {
+                serverSay(str.substr(6 + intlen(kuid), 256), kuid, FROM_HOST);
+            }
+
+        } else {
+            // not allowed
+            serverSay(std::string("You are not authorized to use this command!"), client->GetUserId());
+        }
+    } else if (str == "!website" || str == "!www") {
+        if (!Config::getWebsite().empty()) {
+            char sayMsg[256] = "";
+            sprintf(sayMsg, "Further information can be found online at %s", Config::getWebsite().c_str());
+            serverSay(sayMsg, client->GetUserId(), FROM_SERVER);
+        }
+    } else if (str == "!irc") {
+        if (!Config::getIRC().empty()) {
+            char sayMsg[256] = "";
+            sprintf(sayMsg, "IRC: %s", Config::getIRC().c_str());
+            serverSay(sayMsg, client->GetUserId(), FROM_SERVER);
+        }
+    } else if (str == "!owner") {
+        if (!Config::getOwner().empty()) {
+            char sayMsg[256] = "";
+            sprintf(sayMsg, "This server is run by %s", Config::getOwner().c_str());
+            serverSay(sayMsg, client->GetUserId(), FROM_SERVER);
+        }
+    } else if (str == "!voip") {
+        if (!Config::getVoIP().empty()) {
+            char sayMsg[256] = "";
+            sprintf(sayMsg, "This server's official VoIP: %s", Config::getVoIP().c_str());
+            serverSay(sayMsg, client->GetUserId(), FROM_SERVER);
+        }
+    } else if (str == "!rules") {
+        if (!Config::getRulesFile().empty()) {
+            std::vector<std::string> lines;
+            int res = Utils::ReadLinesFromFile(Config::getRulesFile(), lines);
+            if (!res) {
+                std::vector<std::string>::iterator it;
+                for (it = lines.begin(); it != lines.end(); it++) {
+                    serverSay(*it, client->GetUserId(), FROM_RULES);
+                }
+            }
+        }
+    } else if (str == "!motd") {
+        this->sendMOTD(client->GetUserId());
+    }
+
+    return publishMode;
+}
+
+broadcastType Sequencer::ProcessUtf8PrivChat(Client* client, int type, unsigned int streamid, char *data, unsigned int len)
+{
+    // private chat message
+    int destuid = *(int*)data;
+    Client *dest_client = this->FindClientById(static_cast<unsigned int>(destuid));
+    if (dest_client != nullptr) {
+        char *chatmsg = data + sizeof(int);
+        int chatlen = len - sizeof(int);
+        dest_client->QueueMessage(RoRnet::MSG2_UTF8_PRIVCHAT, client->GetUserId(), streamid, chatlen, chatmsg);
+    }
+    return BROADCAST_BLOCK;
+}
+
+broadcastType Sequencer::ProcessGameCmd(Client* client, int type, unsigned int streamid, char *data, unsigned int len)
+{
+#ifdef WITH_ANGELSCRIPT
+    if (m_script_engine) m_script_engine->gameCmd(client->GetUserId(), std::string(data));
+#endif //WITH_ANGELSCRIPT
+    return BROADCAST_BLOCK;
+}

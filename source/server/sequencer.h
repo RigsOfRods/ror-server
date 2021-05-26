@@ -260,6 +260,19 @@ public:
     static unsigned int connCrash, connCount;
 
 private:
+    // RoRnet message handling
+    broadcastType ProcessStreamData(Client* client, int type, unsigned int streamid, char *data, unsigned int len);
+    broadcastType ProcessStreamRegister(Client* client, int type, unsigned int streamid, char *data, unsigned int len);
+    broadcastType ProcessStreamRegisterResult(Client* client, int type, unsigned int streamid, char *data, unsigned int len);
+    broadcastType ProcessStreamUnRegister(Client* client, int type, unsigned int streamid, char *data, unsigned int len);
+    broadcastType ProcessUserLeave(Client* client, int type, unsigned int streamid, char *data, unsigned int len);
+    broadcastType ProcessUtf8Chat(Client* client, int type, unsigned int streamid, char *data, unsigned int len);
+    broadcastType ProcessUtf8PrivChat(Client* client, int type, unsigned int streamid, char *data, unsigned int len);
+    broadcastType ProcessGameCmd(Client* client, int type, unsigned int streamid, char *data, unsigned int len);
+
+    // Utility
+    Client *FindClientById(unsigned int client_id);
+
     pthread_t m_killer_thread;  //!< thread to handle the killing of clients
     Condition m_killer_cond;    //!< wait condition that there are clients to kill
     Mutex m_killer_mutex;   //!< mutex used for locking access to the killqueue
@@ -276,7 +289,5 @@ private:
     std::queue<Client *> m_kill_queue; //!< holds pointer for client deletion
     std::vector<Client *> m_clients;
     std::vector<ban_t *> m_bans;
-
-    Client *FindClientById(unsigned int client_id);
 };
 

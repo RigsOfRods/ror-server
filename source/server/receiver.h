@@ -24,7 +24,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "prerequisites.h"
 
 #include <mutex>
-
+#include <thread>
 
 /// Provides a receiver thread for a single client.
 class Receiver {

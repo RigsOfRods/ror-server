@@ -130,8 +130,6 @@ public:
 
     SpamFilter& GetSpamFilter() { return m_spamfilter; }
 
-    Sequencer* GetSequencer() {  }
-
     RoRnet::UserInfo user;  //!< user information
 
     int drop_state;             // dropping outgoing packets?
@@ -141,14 +139,14 @@ public:
     std::map<unsigned int, stream_traffic_t> streams_traffic;
 
 private:
-    SWInetSocket *m_socket;
-    Receiver m_receiver;
-    Broadcaster m_broadcaster;
-    Status m_status;
-    SpamFilter m_spamfilter;
-    Sequencer* m_sequencer;
-    bool m_is_receiving_data;
-    bool m_is_initialized;
+    SWInetSocket*  m_socket = nullptr;
+    Receiver       m_receiver;
+    Broadcaster    m_broadcaster;
+    Status         m_status = STATUS_USED;
+    Sequencer*     m_sequencer = nullptr;
+    SpamFilter     m_spamfilter;
+    bool           m_is_receiving_data = false;
+    bool           m_is_initialized = false;
     std::vector<std::chrono::system_clock::time_point> m_stream_reg_timestamps; //!< To limit spawn rate
 };
 
@@ -175,7 +173,7 @@ struct ban_t {
 	unsigned int bid;			//!< id of ban, not the user id
     char ip[40];                //!< ip of banned client
     char nickname[RORNET_MAX_USERNAME_LEN];          //!< Username, this is what they are called to
-    char bannedby_nick[RORNET_MAX_USERNAME_LEN];     //!< Username, this is what they are called to	
+    char bannedby_nick[RORNET_MAX_USERNAME_LEN];     //!< Username, this is what they are called to
     char banmsg[256];           //!< why he got banned
 };
 
@@ -277,13 +275,13 @@ private:
     Condition m_killer_cond;    //!< wait condition that there are clients to kill
     Mutex m_killer_mutex;   //!< mutex used for locking access to the killqueue
     Mutex m_clients_mutex;  //!< Protects: m_clients, m_script_engine, m_auth_resolver, m_bot_count, m_num_disconnects_[total/crash]
-    ScriptEngine *m_script_engine;
-    UserAuth *m_auth_resolver;
-    int m_bot_count;      //!< Amount of registered bots on the server.
-    unsigned int m_free_user_id;
-    int m_start_time;
-    size_t m_num_disconnects_total; //!< Statistic
-    size_t m_num_disconnects_crash; //!< Statistic
+    ScriptEngine *m_script_engine = nullptr;
+    UserAuth *m_auth_resolver = nullptr;
+    int m_bot_count = 0;      //!< Number of registered bots on the server.
+    unsigned int m_free_user_id = 1;
+    int m_start_time = 0;
+    size_t m_num_disconnects_total = 0; //!< Statistic
+    size_t m_num_disconnects_crash = 0; //!< Statistic
     Blacklist m_blacklist;
 
     std::queue<Client *> m_kill_queue; //!< holds pointer for client deletion

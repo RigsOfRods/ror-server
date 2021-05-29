@@ -70,6 +70,7 @@ bool Listener::Start() {
     // Start thread
     m_thread = std::thread(&Listener::Thread, this);
     m_state = RUNNING;
+    return true;
 }
 
 
@@ -195,10 +196,10 @@ void Listener::ThreadHandleConnection(SWInetSocket* ts) {
         RoRnet::ServerInfo settings;
         memset(&settings, 0, sizeof(RoRnet::ServerInfo));
         settings.has_password = !Config::getPublicPassword().empty();
-        strncpy(settings.info, motd_str.c_str(), motd_str.size());
-        strncpy(settings.protocolversion, RORNET_VERSION, strlen(RORNET_VERSION));
-        strncpy(settings.servername, Config::getServerName().c_str(), Config::getServerName().size());
-        strncpy(settings.terrain, Config::getTerrainName().c_str(), Config::getTerrainName().size());
+        strncpy(settings.info, motd_str.c_str(), sizeof(settings.info));
+        strncpy(settings.protocolversion, RORNET_VERSION, sizeof(settings.protocolversion));
+        strncpy(settings.servername, Config::getServerName().c_str(), sizeof(settings.servername));
+        strncpy(settings.terrain, Config::getTerrainName().c_str(), sizeof(settings.terrain));
 
         if (Messaging::SendMessage(ts, RoRnet::MSG2_HELLO, 0, 0, (unsigned int) sizeof(RoRnet::ServerInfo),
                                     (char *) &settings))

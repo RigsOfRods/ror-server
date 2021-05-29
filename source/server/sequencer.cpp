@@ -50,10 +50,7 @@ Client::Client(Sequencer *sequencer, SWInetSocket *socket) :
         m_receiver(sequencer),
         m_broadcaster(sequencer),
         m_sequencer(sequencer),
-        m_status(Client::STATUS_USED),
-        m_spamfilter(sequencer, this),
-        m_is_receiving_data(false),
-        m_is_initialized(false) {
+        m_spamfilter(sequencer, this){
 }
 
 void Client::StartThreads() {
@@ -145,14 +142,8 @@ void *LaunchKillerThread(void *data) {
 }
 
 Sequencer::Sequencer() :
-        m_script_engine(nullptr),
-        m_auth_resolver(nullptr),
         m_clients_mutex(/*recursive=*/ true),
-        m_num_disconnects_total(0),
-        m_num_disconnects_crash(0),
-        m_blacklist(this),
-        m_bot_count(0),
-        m_free_user_id(1) {
+        m_blacklist(this) {
     m_start_time = static_cast<int>(time(nullptr));
 }
 
@@ -666,7 +657,7 @@ void Sequencer::RecordBan(int bid,
 		b->bid = m_bans.size();
 	}
     strncpy(b->banmsg, banmsg.c_str(), /* copy max: */255);
-    strncpy(b->ip, ip_addr.c_str(), 16); 
+    strncpy(b->ip, ip_addr.c_str(), 16);
     strncpy(b->nickname, nickname.c_str(), /* copy max: */RORNET_MAX_USERNAME_LEN - 1);
     strncpy(b->bannedby_nick, by_nickname.c_str(), /* copy max: */RORNET_MAX_USERNAME_LEN - 1);
 
@@ -710,7 +701,7 @@ void Sequencer::SilentBan(int buid, const char *msg, bool doScriptCallback /*= t
 
 bool Sequencer::UnBan(int bid) {
     for (unsigned int i = 0; i < m_bans.size(); i++) {
-        if (m_bans[i]->bid == bid) {
+        if (m_bans[i]->bid == (unsigned int)bid) {
             m_bans.erase(m_bans.begin() + i);
 			m_blacklist.SaveBlacklistToFile(); // Remove from the blacklist file
             Logger::Log(LOG_VERBOSE, "ban removed: %d", bid);
@@ -933,7 +924,7 @@ Client *Sequencer::FindClientById(unsigned int client_id) {
     auto endi = m_clients.end();
     for (; itor != endi; ++itor) {
         Client *client = *itor;
-        if (client->GetUserId() == client_id) {
+        if (client->GetUserId() == (int)client_id) {
             return client;
         }
     }
@@ -1165,8 +1156,8 @@ broadcastType Sequencer::ProcessUtf8Chat(Client* client, int type, unsigned int 
 
     if (str == "!version") {
         std::string ver (VERSION);
-        ver += " "; 
-        ver += RORNET_VERSION; 
+        ver += " ";
+        ver += RORNET_VERSION;
         serverSay(std::string(ver), client->GetUserId());
     } else if (str == "!list") {
         serverSay(std::string(" client->GetUserId() | auth   | nick"), client->GetUserId());
@@ -1192,7 +1183,7 @@ broadcastType Sequencer::ProcessUtf8Chat(Client* client, int type, unsigned int 
             } else {
                 for (unsigned int i = 0; i < m_bans.size(); i++) {
                     char tmp[256] = "";
-                    sprintf(tmp, "% 3u | %-15s | %-20s | %-20s",
+                    sprintf(tmp, "%3u | %-15s | %-20s | %-20s",
                         m_bans[i]->bid,
                         m_bans[i]->ip,
                         m_bans[i]->nickname,

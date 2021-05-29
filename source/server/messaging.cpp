@@ -15,7 +15,7 @@ warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with "Rigs of Rods Server". 
+along with "Rigs of Rods Server".
 If not, see <http://www.gnu.org/licenses/>.
 */
 
@@ -151,7 +151,7 @@ namespace Messaging {
         SWBaseSocket::SWBaseError error;
 
         RoRnet::Header head;
-        if (socket->frecv((char*)&head, sizeof(RoRnet::Header), &error) < sizeof(RoRnet::Header))
+        if (socket->frecv((char*)&head, sizeof(RoRnet::Header), &error) < (int)sizeof(RoRnet::Header))
         {
             // this also happens when the connection is canceled
             return -2;
@@ -253,7 +253,7 @@ namespace Messaging {
         closesocket(sockfd);
 
         Logger::Log(LOG_DEBUG, "LAN broadcast successful");
-#endif // _WIN32	
+#endif // _WIN32
         return 0;
     }
 

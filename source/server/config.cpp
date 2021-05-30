@@ -64,6 +64,7 @@ static std::string s_serverlist_path("");
 static std::string s_resourcedir(RESOURCE_DIR);
 
 static unsigned int s_listen_port(0);
+static unsigned int s_listen_queue_len(10);
 static unsigned int s_max_clients(16);
 static unsigned int s_heartbeat_retry_count(5);
 static unsigned int s_heartbeat_retry_seconds(15);
@@ -307,6 +308,8 @@ namespace Config {
     bool getEnableScripting() { return (s_scriptname != ""); }
 
     unsigned int getListenPort() { return s_listen_port; }
+
+    unsigned int getListenQueueLen() { return s_listen_queue_len; }
 
     ServerType getServerMode() { return s_server_mode; }
 

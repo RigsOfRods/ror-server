@@ -1132,7 +1132,7 @@ broadcastType Sequencer::ProcessUserLeave(Client* client, int type, unsigned int
 broadcastType Sequencer::ProcessUtf8Chat(Client* client, int type, unsigned int streamid, char *data, unsigned int len)
 {
     std::string str = Str::SanitizeUtf8(data);
-    Logger::Log(LOG_INFO, "CHAT| %s: %s", client->GetUsername(), str.c_str());
+    Logger::Log(LOG_INFO, "CHAT| %s: %s", client->GetUsername().c_str(), str.c_str());
 
     broadcastType publishMode = BROADCAST_ALL;
     if (str[0] == '!') {

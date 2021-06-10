@@ -59,6 +59,8 @@ namespace Config {
 
     unsigned int getListenPort();
 
+    unsigned int getListenQueueLen(); // How many connections can wait on listen-socket before server starts rejecting them?
+
     ServerType getServerMode();
 
     bool getPrintStats();

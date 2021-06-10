@@ -15,7 +15,7 @@ warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with "Rigs of Rods Server". 
+along with "Rigs of Rods Server".
 If not, see <http://www.gnu.org/licenses/>.
 */
 
@@ -151,7 +151,7 @@ namespace Messaging {
         SWBaseSocket::SWBaseError error;
 
         RoRnet::Header head;
-        if (socket->frecv((char*)&head, sizeof(RoRnet::Header), &error) < sizeof(RoRnet::Header))
+        if (socket->frecv((char*)&head, sizeof(RoRnet::Header), &error) < (int)sizeof(RoRnet::Header))
         {
             // this also happens when the connection is canceled
             return -2;
@@ -163,7 +163,7 @@ namespace Messaging {
         *out_stream_id = head.streamid;
 
         if ( head.size > payload_buf_len) {
-            Logger::Log(LOG_ERROR, "ReceiveMessage(): payload too long: %d b (max. is %d b)", head.size,
+            Logger::Log(LOG_ERROR, "ReceiveMessage(): payload too long: %u b (max. is %u b)", head.size,
                         payload_buf_len);
             return -3;
         }
@@ -171,7 +171,7 @@ namespace Messaging {
         if (head.size > 0) {
             //read the rest
             std::memset(out_payload, 0, payload_buf_len);
-            if (socket->frecv(out_payload, head.size, &error) < head.size) {
+            if (socket->frecv(out_payload, head.size, &error) < (int)head.size) {
                 return -1;
             }
         }
@@ -253,7 +253,7 @@ namespace Messaging {
         closesocket(sockfd);
 
         Logger::Log(LOG_DEBUG, "LAN broadcast successful");
-#endif // _WIN32	
+#endif // _WIN32
         return 0;
     }
 

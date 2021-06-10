@@ -65,7 +65,9 @@ enum MessageType
     MSG2_STREAM_DATA_DISCARDABLE,      //!< stream data that is allowed to be discarded
 
     // Legacy values (RoRnet_2.38 and earlier)
-    MSG2_WRONG_VER_LEGACY = 1003       //!< Wrong version
+    MSG2_WRONG_VER_LEGACY = 1003,      //!< Wrong version
+
+    MSG2_INVALID = 0                   //!< Not to be transmitted
 };
 
 enum UserAuth
@@ -100,7 +102,7 @@ enum Netmask
     NETMASK_CLIGHT10     = BITMASK(18), //!< custom light 10 on
     NETMASK_POLICEAUDIO  = BITMASK(19), //!< police siren on
     NETMASK_PARTICLE     = BITMASK(20), //!< custom particles on
-    NETMASK_PBRAKE       = BITMASK(21), //!< custom particles on
+    NETMASK_PBRAKE       = BITMASK(21), //!< parking brake on
     NETMASK_TC_ACTIVE    = BITMASK(22), //!< traction control light on?
     NETMASK_ALB_ACTIVE   = BITMASK(23), //!< anti lock brake light on?
     NETMASK_ENGINE_CONT  = BITMASK(24), //!< ignition on?

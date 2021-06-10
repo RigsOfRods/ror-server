@@ -40,9 +40,11 @@ enum LogType {
 
 namespace Logger {
 
-    void Log(const LogLevel &level, const char *format, ...);
+    void Log(LogLevel level, const char *format, ...);
 
-    void Log(const LogLevel &level, const std::string &msg);
+    void Log(LogLevel level, std::string const& msg);
+
+    void LogWrite(LogLevel level, const char* message);
 
     void SetOutputFile(const std::string &filename);
 

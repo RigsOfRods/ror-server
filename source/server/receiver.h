@@ -23,34 +23,36 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h" // For RORNET_MAX_MESSAGE_LENGTH
 #include "prerequisites.h"
 
-#include <atomic>
-#include <pthread.h>
+#include <mutex>
+#include <thread>
 
-class SWInetSocket;
-
-class Sequencer;
-
-void *LaunchReceiverThread(void *);
-
+/// Provides a receiver thread for a single client.
 class Receiver {
-    friend void *LaunchReceiverThread(void *);
-
 public:
-    Receiver(Sequencer *sequencer);
+    enum State {
+        NOT_RUNNING,      // Initial/terminal state - thread not running, nothing waiting on socket.
+        RUNNING,          // Thread running, may be blocked by socket.
+        STOP_REQUESTED,   // Thread running, may be blocked by socket.
+    };
 
+    Receiver(Sequencer *sequencer);
     ~Receiver();
 
     void Start(Client* client);
-
     void Stop();
 
 private:
     void Thread();
+    void ThreadStartup();
+    bool ThreadReceiveMessage(int *out_type, int *out_source, unsigned int *out_streamid, unsigned int *out_payload_len); //!< @return false to exit thread.
+    bool ThreadProcessMessage(int type, int source, unsigned streamid, unsigned payload_len); //!< @return false to exit thread.
+    void ThreadShutdown();
 
-    pthread_t m_thread;
-    Client* m_client;
-    char m_dbuffer[RORNET_MAX_MESSAGE_LENGTH]; // Keep here to be allocated on heap (along with Client)
-    std::atomic<bool> m_keep_running;
-    Sequencer *m_sequencer;
+    Sequencer*  m_sequencer = nullptr; // global
+    Client*     m_client = nullptr;    // data owner
+    char        m_dbuffer[RORNET_MAX_MESSAGE_LENGTH] = {}; // Keep here to be allocated on heap (along with Client)
+    std::mutex  m_mutex;
+    State       m_state = NOT_RUNNING;
+    std::thread m_thread;
 };
 

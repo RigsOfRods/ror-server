@@ -48,8 +48,8 @@ void SpamFilter::CheckConfig()
 // Instance functions
 
 SpamFilter::SpamFilter(Sequencer* seq, Client* c)
-    : m_sequencer(seq)
-    , m_client(c)
+    : m_client(c)
+    , m_sequencer(seq)
 {}
 
 bool SpamFilter::CheckForSpam(std::string const& msg) {

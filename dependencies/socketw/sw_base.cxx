@@ -96,26 +96,15 @@ void WSA_exit(void)
 //== Error handling mode
 //====================================================================
 bool sw_DoThrow = false;
-bool sw_Verbose = true;
 
 void sw_setThrowMode(bool throw_errors)
 {
 	sw_DoThrow = throw_errors;
 }
 
-void sw_setVerboseMode(bool verbose)
-{
-	sw_Verbose = verbose;
-}
-
 bool sw_getThrowMode(void)
 {
 	return sw_DoThrow;
-}
-
-bool sw_getVerboseMode(void)
-{
-	return sw_Verbose;
 }
 
 
@@ -178,7 +167,6 @@ SWBaseSocket::SWBaseSocket()
 	recv_close = false;	
 	
 	//init values
-	error_string = "";
 	block_mode = blocking;
 	fsend_ready = true;
 	frecv_ready = true;
@@ -292,7 +280,9 @@ bool SWBaseSocket::disconnect(SWBaseError *error)
 	}
 
 	if( n != 0 ){
-		set_error(error, err, error_string);
+		char err_str[100];
+		snprintf(err_str, 100, "SWBaseSocket::disconnect() - recv() failed with code %d", n);
+		set_error(error, err, err_str);
 		return false; //error
 	}
 	
@@ -633,12 +623,6 @@ bool SWBaseSocket::waitWrite(SWBaseError *error)
 	return waitIO(tmp, error);
 }
 
-void SWBaseSocket::print_error()
-{
-	if( error_string.size() > 0 )
-		fprintf(stderr, "%s!\n", error_string.c_str());
-}
-
 void SWBaseSocket::handle_errno(SWBaseError *error, string msg)
 {
 	#ifndef _WIN32
@@ -745,24 +729,16 @@ void SWBaseSocket::no_error(SWBaseError *error)
 
 void SWBaseSocket::set_error(SWBaseError *error, SWBaseError name, string msg)
 {
-	error_string = msg;
-
-	if(error != NULL){
+	if( sw_DoThrow ){
+		SWBaseError e;
+		e = name;
+		e.error_string = msg;
+		e.failed_class = this;
+		throw e;
+	} else if(error != NULL){
 		*error = name;
 		error->error_string = msg;
 		error->failed_class = this;
-	}else{
-		if( sw_Verbose )
-			print_error();
-		
-		if( sw_DoThrow ){
-			SWBaseError e;
-			e = name;
-			e.error_string = msg;
-			e.failed_class = this;
-			throw e;
-		}else
-			exit(-1);	
 	}
 }
 

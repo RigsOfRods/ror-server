@@ -20,7 +20,9 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
+#include "prerequisites.h"
 #include "UnicodeStrings.h"
+
 #include <map>
 #include <vector>
 
@@ -64,6 +66,8 @@ namespace Http {
             std::string content_type,
             std::string payload,
             Response *out_response);
+
+    void Register(asIScriptEngine* engine);
 
 } // namespace Http
 

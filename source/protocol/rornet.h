@@ -25,12 +25,16 @@
 
 namespace RoRnet {
 
-#define RORNET_MAX_PEERS            64     //!< maximum clients connected at the same time
-#define RORNET_MAX_MESSAGE_LENGTH   8192   //!< maximum size of a RoR message. 8192 bytes = 8 kibibytes
-#define RORNET_LAN_BROADCAST_PORT   13000  //!< port used to send the broadcast announcement in LAN mode
-#define RORNET_MAX_USERNAME_LEN     40     //!< port used to send the broadcast announcement in LAN mode
+#define RORNET_MAX_PEERS             64     //!< maximum clients connected at the same time
+#define RORNET_MAX_MESSAGE_LENGTH    8192   //!< maximum size of a RoR message. 8192 bytes = 8 kibibytes
+#define RORNET_LAN_BROADCAST_PORT    13000  //!< port used to send the broadcast announcement in LAN mode
+#define RORNET_MAX_USERNAME_LEN      40     //!< port used to send the broadcast announcement in LAN mode
 
-#define RORNET_VERSION              "RoRnet_2.43"
+#define RORNET_VERSION               "RoRnet_2.43"
+
+#define RORNET_STREAM_TYPE_VEHICLE   0
+#define RORNET_STREAM_TYPE_CHARACTER 1
+#define RORNET_STREAM_TYPE_NETCHAT   3
 
 enum MessageType
 {
@@ -129,7 +133,7 @@ struct Header                      //!< Common header for every packet
 
 struct StreamRegister              //!< Sent from the client to server and vice versa, to broadcast a new stream
 {
-    int32_t type;                  //!< stream type (0 = Actor, 1 = Character, 3 = ChatSystem)
+    int32_t type;                  //!< stream type (RORNET_STREAM_TYPE_*)
     int32_t status;                //!< initial stream status
     int32_t origin_sourceid;       //!< origin sourceid
     int32_t origin_streamid;       //!< origin streamid

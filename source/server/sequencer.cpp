@@ -803,7 +803,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
         }
     } else if (type == RoRnet::MSG2_STREAM_REGISTER) {
         RoRnet::StreamRegister *reg = (RoRnet::StreamRegister *) data;
-        const int numVehicles = client->countStreamsByType(0); // type 0 = vehicle
+        const int numVehicles = client->countStreamsByType(RORNET_STREAM_TYPE_VEHICLE);
         if (numVehicles >= Config::getMaxVehicles()) {
             // This user has too many vehicles, we drop the stream and then disconnect the user
             Logger::Log(LOG_INFO, "%s(%d) has too many streams. Stream dropped, user kicked.",
@@ -821,7 +821,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
 
             QueueClientForDisconnect(client->user.uniqueid, "You have too many vehicles. Please rejoin.", false);
             publishMode = BROADCAST_BLOCK; // drop
-        } else if (reg->type == STREAM_REG_TYPE_VEHICLE && !client->CheckSpawnRate()) {
+        } else if (reg->type == RORNET_STREAM_TYPE_VEHICLE && !client->CheckSpawnRate()) {
             // This user spawns vehicles too fast, we drop the stream and then disconnect the user
             Logger::Log(LOG_INFO, "%s(%d) spawns vehicles too fast. Stream dropped, user kicked.",
                         client->GetUsername().c_str(), client->user.uniqueid);
@@ -837,7 +837,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                     Config::getMaxSpawnRate(), Config::getSpawnIntervalSec());
             QueueClientForDisconnect(client->user.uniqueid, sayMsg, false);
             publishMode = BROADCAST_BLOCK; // drop
-        } else if (reg->type == STREAM_REG_TYPE_VEHICLE && !Utils::isValidVehicleFileName(reg->name)) {
+        } else if (reg->type == RORNET_STREAM_TYPE_VEHICLE && !Utils::isValidVehicleFileName(reg->name)) {
             // This user spawned vehicle with empty or malformed name, we drop the stream and then disconnect the user
             Logger::Log(LOG_INFO, "%s(%d) spawned vehicle with empty/malformed name. Stream dropped, user kicked.",
                         client->GetUsername().c_str(), client->user.uniqueid);
@@ -893,7 +893,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                                                    std::string(reg->name), std::string());
 
                 // Notify the user about the vehicle limit
-                const int numVehicles = client->countStreamsByType(0); // type 0 = vehicle
+                const int numVehicles = client->countStreamsByType(RORNET_STREAM_TYPE_VEHICLE);
                 // we start warning the user as soon as he has only 3 vehicles left before he will get kicked
                 if (numVehicles >= (Config::getMaxVehicles() - 3)) {
                     char sayMsg[128] = "";

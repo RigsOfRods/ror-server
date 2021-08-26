@@ -42,9 +42,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <vector>
 #include <map>
 
-// Specified by RoR; used for spawn-rate limit
-#define STREAM_REG_TYPE_VEHICLE 0
-
 #define SEQUENCER Sequencer::Instance()
 
 #define VERSION __DATE__

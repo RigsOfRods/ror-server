@@ -102,7 +102,7 @@ namespace Config {
     bool GetShowVersion();
 
     // Vehicle spawn limits
-    unsigned int getMaxVehicles();
+    int getMaxVehicles();
     int getSpawnIntervalSec();
     int getMaxSpawnRate();
 

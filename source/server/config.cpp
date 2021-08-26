@@ -75,9 +75,9 @@ static bool s_show_version(false);
 static bool s_show_help(false);
 
 // Vehicle spawn limits
-static size_t s_max_vehicles(20);
-static int    s_spawn_interval_sec(0);
-static int    s_max_spawn_rate(0);
+static int s_max_vehicles(20);
+static int s_spawn_interval_sec(0);
+static int s_max_spawn_rate(0);
 
 static ServerType s_server_mode(SERVER_AUTO);
 
@@ -348,7 +348,7 @@ namespace Config {
 
     unsigned int GetHeartbeatIntervalSec() { return s_heartbeat_interval_sec; }
 
-    unsigned int getMaxVehicles() { return s_max_vehicles; }
+    int getMaxVehicles() { return s_max_vehicles; }
 
     int getSpawnIntervalSec() { return s_spawn_interval_sec; }
 

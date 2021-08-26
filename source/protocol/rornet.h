@@ -129,7 +129,7 @@ struct Header                      //!< Common header for every packet
 
 struct StreamRegister              //!< Sent from the client to server and vice versa, to broadcast a new stream
 {
-    int32_t type;                  //!< stream type
+    int32_t type;                  //!< stream type (0 = Actor, 1 = Character, 3 = ChatSystem)
     int32_t status;                //!< initial stream status
     int32_t origin_sourceid;       //!< origin sourceid
     int32_t origin_streamid;       //!< origin streamid

@@ -42,10 +42,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <vector>
 #include <map>
 
-// How many not-vehicles streams has every user by default? (e.g.: "default" and "chat" are not-vehicles streams)
-// This is used for the vehicle-limit
-#define NON_VEHICLE_STREAMS 2
-
 // Specified by RoR; used for spawn-rate limit
 #define STREAM_REG_TYPE_VEHICLE 0
 
@@ -130,7 +126,7 @@ public:
 
     SpamFilter& GetSpamFilter() { return m_spamfilter; }
 
-    Sequencer* GetSequencer() {  }
+    int countStreamsByType(int type);
 
     RoRnet::UserInfo user;  //!< user information
 

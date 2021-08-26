@@ -113,6 +113,16 @@ bool Client::CheckSpawnRate()
     return rate <= Config::getMaxSpawnRate();
 }
 
+int Client::countStreamsByType(int type)
+{
+    int count = 0;
+    for (auto& pair: streams) {
+        if (pair.second.type == type)
+            count++;
+    }
+    return count;
+}
+
 std::string Client::GetIpAddress() {
     SWBaseSocket::SWBaseError result;
     std::string ip = m_socket->get_peerAddr(&result);
@@ -793,7 +803,8 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
         }
     } else if (type == RoRnet::MSG2_STREAM_REGISTER) {
         RoRnet::StreamRegister *reg = (RoRnet::StreamRegister *) data;
-        if (client->streams.size() >= Config::getMaxVehicles() + NON_VEHICLE_STREAMS) {
+        const int numVehicles = client->countStreamsByType(0); // type 0 = vehicle
+        if (numVehicles >= Config::getMaxVehicles()) {
             // This user has too many vehicles, we drop the stream and then disconnect the user
             Logger::Log(LOG_INFO, "%s(%d) has too many streams. Stream dropped, user kicked.",
                         Str::SanitizeUtf8(client->user.username).c_str(), client->user.uniqueid);
@@ -882,19 +893,12 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                                                    std::string(reg->name), std::string());
 
                 // Notify the user about the vehicle limit
-                if ((client->streams.size() >= Config::getMaxVehicles() + NON_VEHICLE_STREAMS - 3) &&
-                    (client->streams.size() > NON_VEHICLE_STREAMS)) {
-                    // we start warning the user as soon as he has only 3 vehicles left before he will get kicked (that's why we do minus three in the 'if' statement above).
+                const int numVehicles = client->countStreamsByType(0); // type 0 = vehicle
+                // we start warning the user as soon as he has only 3 vehicles left before he will get kicked
+                if (numVehicles >= (Config::getMaxVehicles() - 3)) {
                     char sayMsg[128] = "";
-
-                    // special case if the user has exactly 1 vehicle
-                    if (client->streams.size() == NON_VEHICLE_STREAMS + 1)
-                        sprintf(sayMsg, "You now have 1 vehicle. The vehicle limit on this server is set to %d.",
-                                Config::getMaxVehicles());
-                    else
-                        sprintf(sayMsg, "You now have %lu vehicles. The vehicle limit on this server is set to %d.",
-                                (client->streams.size() - NON_VEHICLE_STREAMS), Config::getMaxVehicles());
-
+                    sprintf(sayMsg, "You now have %d vehicle(s). The vehicle limit on this server is set to %d.",
+                            numVehicles, (int)Config::getMaxVehicles());
                     serverSay(sayMsg, client->user.uniqueid, FROM_SERVER);
                 }
 

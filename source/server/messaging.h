@@ -45,6 +45,8 @@ namespace Messaging {
 
     int broadcastLAN();
 
+    void StatsAddIncoming(int bytes);
+
     void StatsAddIncomingDrop(int bytes);
 
     void StatsAddOutgoingDrop(int bytes);

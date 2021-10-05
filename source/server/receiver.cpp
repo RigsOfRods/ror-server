@@ -59,11 +59,7 @@ void Receiver::Stop() {
 
 void Receiver::Thread() {
     Logger::Log(LOG_DEBUG, "Started receiver thread %d owned by user ID %d", ThreadID::getID(), m_client->GetUserId());
-    //get the vehicle description
-    int type;
-    int source;
-    unsigned int streamid;
-    unsigned int len;
+
     //okay, we are ready, we can receive data frames
     m_client->SetReceiveData(true);
 
@@ -76,8 +72,7 @@ void Receiver::Thread() {
     // which is the cause of threads getting blocked
     m_client->GetSocket()->set_timeout(60, 0);
     while (true) {
-        if (Messaging::ReceiveMessage(m_client->GetSocket(), &type, &source, &streamid, &len, m_dbuffer,
-                                      RORNET_MAX_MESSAGE_LENGTH)) {
+        if (!this->ThreadReceiveMessage()) {
             m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Game connection closed");
             break;
         }
@@ -85,16 +80,74 @@ void Receiver::Thread() {
         if (m_keep_running.load() == false)
             break;
 
-        if (type != RoRnet::MSG2_STREAM_DATA && type != RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
-            Logger::Log(LOG_VERBOSE, "got message: type: %d, source: %d:%d, len: %d", type, source, streamid, len);
+        if (m_recv_header.command != RoRnet::MSG2_STREAM_DATA &&
+            m_recv_header.command != RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
+            Logger::Log(LOG_VERBOSE, "got message: type: %d, source: %d:%d, len: %d",
+                        (int)m_recv_header.command, m_recv_header.source, m_recv_header.streamid, m_recv_header.size);
         }
 
-        if (type < 1000 || type > 1050) {
+        if (m_recv_header.command < 1000 || m_recv_header.command > 1050) {
             m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Protocol error 3");
             break;
         }
-        m_sequencer->queueMessage(m_client->GetUserId(), type, streamid, m_dbuffer, len);
+
+        m_sequencer->queueMessage(m_client->GetUserId(),
+            (int)m_recv_header.command, m_recv_header.streamid, m_recv_payload, m_recv_header.size);
     }
 
     Logger::Log(LOG_DEBUG, "Receiver thread %d (user ID %d) exits", ThreadID::getID(), m_client->GetUserId());
+}
+
+bool Receiver::ThreadReceiveMessage()
+{
+    if (!this->ThreadReceiveHeader())
+    {
+        return false; // Stop thread.
+    }
+
+    if (m_recv_header.size > 0)
+    {
+        if (!this->ThreadReceivePayload())
+        {
+            return false; // Stop thread.
+        }
+    }
+
+    Messaging::StatsAddIncoming((int)sizeof(RoRnet::Header) + (int)m_recv_header.size);
+    return true; // Continue receiving.
+}
+
+bool Receiver::ThreadReceiveHeader() //!< @return false if thread should be stopped, true to continue.
+{
+    SWBaseSocket::SWBaseError error;
+
+    std::memset((void*)&m_recv_header, 0, sizeof(RoRnet::Header));
+    if (m_client->GetSocket()->frecv((char*)&m_recv_header, (int)sizeof(RoRnet::Header), &error) <= 0)
+    {
+        Logger::Log(LOG_WARN, "Receiver: error getting header: %s", error.get_error().c_str());
+        return false; // stop thread.
+    }
+
+    if (m_recv_header.size > RORNET_MAX_MESSAGE_LENGTH)
+    {
+        // Oversized payload
+        Logger::Log(LOG_WARN, "Receiver: payload too long: %d/ max. %d bytes", (int)m_recv_header.size, RORNET_MAX_MESSAGE_LENGTH);
+        return false; // Stop thread.
+    }
+
+    return true; // continue receiving.
+}
+
+bool Receiver::ThreadReceivePayload() //!< @return false if thread should be stopped, true to continue.
+{
+    SWBaseSocket::SWBaseError error;
+
+    std::memset(m_recv_payload, 0, RORNET_MAX_MESSAGE_LENGTH);
+    if (m_client->GetSocket()->frecv(m_recv_payload, (int)m_recv_header.size, &error) <= 0)
+    {
+        Logger::Log(LOG_WARN, "Receiver: error getting payload: %s", error.get_error().c_str());
+        return false; // stop thread.
+    }
+
+    return true; // continue receiving.
 }

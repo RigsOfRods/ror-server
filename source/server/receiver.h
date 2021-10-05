@@ -46,11 +46,17 @@ public:
 
 private:
     void Thread();
+    bool ThreadReceiveMessage(); //!< @return false if thread should be stopped, true to continue.
+    bool ThreadReceiveHeader(); //!< @return false if thread should be stopped, true to continue.
+    bool ThreadReceivePayload(); //!< @return false if thread should be stopped, true to continue.
 
     pthread_t m_thread;
     Client* m_client;
-    char m_dbuffer[RORNET_MAX_MESSAGE_LENGTH]; // Keep here to be allocated on heap (along with Client)
     std::atomic<bool> m_keep_running;
     Sequencer *m_sequencer;
+
+    // Received data buffers -- Keep here to be allocated on heap (along with Client)
+    RoRnet::Header m_recv_header;
+    char           m_recv_payload[RORNET_MAX_MESSAGE_LENGTH];
 };
 

@@ -1,4 +1,3 @@
----
 name: Build server
 
 on: [ push, pull_request ]
@@ -21,14 +20,11 @@ jobs:
       - name: Get latest CMake and ninja
         uses: lukka/get-cmake@latest
 
-      - name: Build with CMake
-        uses: lukka/run-cmake@v3.4
-        with:
-          cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
-          cmakeAppendedArgs: >
-            -GNinja
-            -DCMAKE_BUILD_TYPE=Release
-            -DRORSERVER_WITH_ANGELSCRIPT=ON
+      - name: Configure
+        run: cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DRORSERVER_WITH_ANGELSCRIPT=ON .
+
+      - name: Build
+        run: ninja
 
       - name: Upload bin folder
         uses: actions/upload-artifact@v2

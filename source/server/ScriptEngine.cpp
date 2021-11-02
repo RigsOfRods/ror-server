@@ -86,14 +86,16 @@ ScriptEngine::ScriptEngine(Sequencer *seq) : seq(seq),
 }
 
 ScriptEngine::~ScriptEngine() {
+ // Stop thread first
+    if (frameStepThreadRunning) {
+        exit = true; // signal thread to exit. TODO: protect by mutex.
+        pthread_join(timer_thread, NULL);
+    }
+
     // Clean up
-    exit = true;
     deleteAllCallbacks();
     if (engine) engine->Release();
     if (context) context->Release();
-    if (frameStepThreadRunning) {
-        pthread_join(timer_thread, NULL);
-    }
 }
 
 void ScriptEngine::deleteAllCallbacks() {
@@ -633,10 +635,7 @@ int ScriptEngine::framestep(float dt) {
     }
 
     // Collect garbage
-    if (!exit)
-    {
-        engine->GarbageCollect(asGC_ONE_STEP);
-    }
+    engine->GarbageCollect(asGC_ONE_STEP);
 
     return 0;
 }

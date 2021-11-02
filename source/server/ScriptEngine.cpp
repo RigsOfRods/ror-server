@@ -633,7 +633,10 @@ int ScriptEngine::framestep(float dt) {
     }
 
     // Collect garbage
-    engine->GarbageCollect(asGC_ONE_STEP);
+    if (!exit)
+    {
+        engine->GarbageCollect(asGC_ONE_STEP);
+    }
 
     return 0;
 }

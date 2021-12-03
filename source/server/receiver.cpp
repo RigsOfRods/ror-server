@@ -26,6 +26,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "ScriptEngine.h"
 #include "logger.h"
 
+#include <cstring>
+
 void *LaunchReceiverThread(void *data) {
     Receiver *receiver = static_cast<Receiver *>(data);
     receiver->Thread();

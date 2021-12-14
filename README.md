@@ -5,7 +5,7 @@
 ## Description
 
 The Rigs of Rods Server is a game server for Rigs of Rods (https://www.rigsofrods.org/).
-It is compabible with RoR clients version 0.4.8.0+, and any future client using the RoRNet protocol version 2.40+
+It is compabible with RoR clients version 2021.04+, and any future client using the RoRNet protocol version 2.43+
 
 ## Installation
 

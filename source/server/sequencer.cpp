@@ -960,7 +960,15 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
             ver += RORNET_VERSION; 
             serverSay(std::string(ver), uid);
         } else if (str == "!list") {
-            serverSay(std::string(" uid | auth   | nick"), uid);
+            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN)
+            {
+                serverSay(std::string(" uid | auth   | nick   | ip"), uid);
+            }
+            else
+            {
+                serverSay(std::string(" uid | auth   | nick"), uid);
+            }
+
             for (unsigned int i = 0; i < m_clients.size(); i++) {
                 if (i >= m_clients.size())
                     break;
@@ -972,8 +980,16 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                 if (m_clients[i]->user.authstatus & RoRnet::AUTH_BANNED) strcat(authst, "X");\
 
                 char tmp2[256] = "";
-                sprintf(tmp2, "% 3d | %-6s | %-20s", m_clients[i]->user.uniqueid, authst,
-                        Str::SanitizeUtf8(m_clients[i]->user.username).c_str());
+                if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN)
+                {
+                    sprintf(tmp2, "% 3d | %-6s | %-20s | %-6s", m_clients[i]->user.uniqueid, authst,
+                            Str::SanitizeUtf8(m_clients[i]->user.username).c_str(), m_clients[i]->GetIpAddress().c_str());
+                }
+                else
+                {
+                    sprintf(tmp2, "% 3d | %-6s | %-20s", m_clients[i]->user.uniqueid, authst,
+                            Str::SanitizeUtf8(m_clients[i]->user.username).c_str());
+                }
                 serverSay(std::string(tmp2), uid);
             }
         } else if (str.substr(0, 5) == "!bans") {

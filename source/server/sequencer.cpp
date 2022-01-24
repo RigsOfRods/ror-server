@@ -40,9 +40,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <sstream>
 
 #ifdef __GNUC__
-
 #include <stdlib.h>
-
 #endif
 
 Client::Client(Sequencer *sequencer, SWInetSocket *socket) :
@@ -187,7 +185,7 @@ void Sequencer::Close() {
     for (unsigned int i = 0; i < m_clients.size(); i++) {
         // HACK-ISH override all thread stuff and directly send it!
         Client *client = m_clients[i];
-        Messaging::SendMessage(client->GetSocket(), RoRnet::MSG2_USER_LEAVE, client->user.uniqueid, 0, strlen(str),
+        Messaging::SWSendMessage(client->GetSocket(), RoRnet::MSG2_USER_LEAVE, client->user.uniqueid, 0, strlen(str),
                                str);
     }
     Logger::Log(LOG_INFO, "all clients disconnected. exiting.");
@@ -254,7 +252,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
     SWBaseSocket::SWBaseError error;
     if (Sequencer::IsBanned(sock->get_peerAddr(&error).c_str())) {
         Logger::Log(LOG_WARN, "rejected banned client '%s' with IP %s", nick.c_str(), sock->get_peerAddr(&error).c_str());
-        Messaging::SendMessage(sock, RoRnet::MSG2_BANNED, 0, 0, 0, 0);
+        Messaging::SWSendMessage(sock, RoRnet::MSG2_BANNED, 0, 0, 0, 0);
         return;
     }
 
@@ -266,7 +264,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
         // set a low time out because we don't want to cause a back up of
         // connecting clients
         sock->set_timeout(10, 0);
-        Messaging::SendMessage(sock, RoRnet::MSG2_FULL, 0, 0, 0, 0);
+        Messaging::SWSendMessage(sock, RoRnet::MSG2_FULL, 0, 0, 0, 0);
         throw std::runtime_error("Server is full");
     }
 
@@ -326,7 +324,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
     to_add->StartThreads();
 
     Logger::Log(LOG_VERBOSE, "Sending welcome message to uid %i", client_id);
-    if (Messaging::SendMessage(sock, RoRnet::MSG2_WELCOME, client_id, 0, sizeof(RoRnet::UserInfo),
+    if (Messaging::SWSendMessage(sock, RoRnet::MSG2_WELCOME, client_id, 0, sizeof(RoRnet::UserInfo),
                                (char *) &to_add->user)) {
         this->QueueClientForDisconnect(client_id, "error sending welcome message");
         return;

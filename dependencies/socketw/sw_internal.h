@@ -30,12 +30,6 @@
   
   #define F_SETFL FIONBIO
   #define O_NONBLOCK 1
-
-  // Rigs of Rods HACK by `only_a_ptr`, 2016/05
-  // This macro blocks us from having a `Messaging::SendMessage` function.
-  #ifdef SendMessage
-    #undef SendMessage
-  #endif
 #endif
 
 #ifndef _SDL_H
@@ -62,22 +56,6 @@ COMPILE_TIME_ASSERT(sint32, sizeof(Sint32) == 4);
 
 #endif /* _SDL_H */
 
-// Some compilers use a special export keyword
-#ifndef DECLSPEC
-  #ifdef __BEOS__
-    #if defined(__GNUC__)
-      #define DECLSPEC __declspec(dllexport)
-    #else
-      #define DECLSPEC __declspec(export)
-    #endif
-  #else
-    #ifdef _WIN32
-      #define DECLSPEC __declspec(dllexport)
-    #else
-      #define DECLSPEC
-    #endif
-  #endif
-#endif
 
 
 #endif /* sw_internal_H */

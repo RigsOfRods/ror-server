@@ -22,7 +22,7 @@
 #include <string>
 
 // Simple streaming Unix class
-class DECLSPEC SWUnixSocket : public SWBaseSocket
+class SWUnixSocket : public SWBaseSocket
 {
 public:
 	SWUnixSocket(block_type block=blocking);

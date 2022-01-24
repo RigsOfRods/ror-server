@@ -1,39 +1,20 @@
-FILE(GLOB_RECURSE socketw_src *.cxx *.h)
-
 project(socketw)
 
-# general flags
-add_definitions("-DMYSOCKETW_EXPORTS -D_USRDLL -D_CRT_SECURE_NO_WARNINGS")
+find_package(OpenSSL)
 
-# the final lib
-add_library(mysocketw SHARED ${socketw_src})
+set(_HAVE_SSL ${OpenSSL_FOUND})
+configure_file(sw_config.h.in sw_config.h)
+
+FILE(GLOB socketw_src *.cxx *.h)
+
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
+add_library(socketw STATIC ${socketw_src})
+
+if (OpenSSL_FOUND)
+    include_directories(${OPENSSL_INCLUDE_DIR})
+    target_link_libraries(socketw PRIVATE OpenSSL::SSL)
+endif ()
 
 # ignore warnings
-set_target_properties(mysocketw PROPERTIES COMPILE_FLAGS "-w")
-
-# libraries
-IF (WIN32)
-    target_link_libraries(mysocketw Ws2_32.lib)
-ELSEIF (UNIX)
-ELSEIF (APPLE)
-ENDIF (WIN32)
-
-if (WIN32)
-    install(TARGETS mysocketw RUNTIME DESTINATION .)
-else ()
-    # install the library
-    INSTALL(TARGETS mysocketw
-            RUNTIME DESTINATION bin
-            LIBRARY DESTINATION lib
-            ARCHIVE DESTINATION lib
-            )
-
-    # install the headers: both source and build headers
-    INSTALL(
-            DIRECTORY ${socketw_SOURCE_DIR}/
-            DESTINATION include/socketw
-            FILES_MATCHING PATTERN "*.h"
-            PATTERN ".svn" EXCLUDE
-            PATTERN "CMakeFiles" EXCLUDE
-    )
-endif ()
+set_target_properties(socketw PROPERTIES COMPILE_FLAGS "-w")

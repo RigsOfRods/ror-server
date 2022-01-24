@@ -1,0 +1,2 @@
+/* build SSL class? */
+#cmakedefine _HAVE_SSL

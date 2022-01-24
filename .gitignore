@@ -1,10 +1,7 @@
 # Ignore everything under /bin except where specified
 bin/*
 !bin/resources/*
-!bin/pthreadVC2.dll
 _build
 build
-
-cmake-build-debug/
-
+cmake-build-*/
 \.idea/

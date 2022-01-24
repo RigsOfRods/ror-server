@@ -93,7 +93,7 @@ namespace Messaging {
  * @param content Payload
  * @return 0 on success
  */
-    int SendMessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len,
+    int SWSendMessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len,
                     const char *content) {
         assert(socket != nullptr);
 
@@ -134,7 +134,7 @@ namespace Messaging {
  * @param out_source      Magic. Value 5000 used by serverlist to check this server.
  * @return                0 on success, negative number on error.
  */
-    int ReceiveMessage(
+    int SWReceiveMessage(
             SWInetSocket *socket,
             int *out_type,
             int *out_source,

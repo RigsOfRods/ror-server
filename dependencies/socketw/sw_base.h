@@ -18,9 +18,10 @@
 
 #include "sw_internal.h"
 
-#ifndef _WIN32 // Microsoft Visual Studio has no <unistd.h>
-#   include <unistd.h>
-#endif
+#ifndef _WIN32
+  #include <unistd.h>
+#endif // _WIN32
+
 #include <string>
 
 // Set error handling mode
@@ -30,11 +31,13 @@
 //
 // Default is throw_errors == false and verbose == true
 void sw_setThrowMode(bool throw_errors);
+void sw_setVerboseMode(bool verbose);
 bool sw_getThrowMode(void);
+bool sw_getVerboseMode(void);
 
 
 // Abstract base class for streaming sockets
-class DECLSPEC SWBaseSocket
+class SWBaseSocket
 {
 public:	
 	SWBaseSocket();
@@ -54,7 +57,7 @@ public:
 	// interrupted  - operation was interrupted by a nonblocked signal
 	enum base_error{ok, fatal, notReady, portInUse, notConnected, msgTooLong, terminated, noResponse, timeout, interrupted};
 	
-	class DECLSPEC SWBaseError
+	class SWBaseError
 	{
 	public:
 		SWBaseError();
@@ -149,6 +152,10 @@ public:
 	// and others that use those, i.e. all frecvmsg().
 	void set_timeout(Uint32 sec, Uint32 usec){ tsec = sec, tusec = usec; }
 	
+	// Error handling
+	virtual void print_error(); //prints the last error if any to stderr
+	virtual std::string get_error(){return error_string;}  //returns a human readable error string
+
 protected:
 	// get a new socket if myfd < 0
 	virtual void get_socket()=0;
@@ -172,6 +179,9 @@ protected:
 
 	// our socket descriptor
 	int myfd;
+	
+	// last error
+	std::string error_string;
 
 	// data for fsend
 	bool fsend_ready;

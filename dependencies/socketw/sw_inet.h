@@ -21,7 +21,7 @@
 #include <string>
 
 // Simple streaming TCP/IP class
-class DECLSPEC SWInetSocket : public SWBaseSocket
+class SWInetSocket : public SWBaseSocket
 {
 public:
 	SWInetSocket(block_type block=blocking);

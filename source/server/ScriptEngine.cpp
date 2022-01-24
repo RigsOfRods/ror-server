@@ -876,7 +876,7 @@ void ScriptEngine::addCallbackScript(const std::string &type, const std::string 
     asIScriptFunction *func;
     if (obj) {
         // search for a method in the class
-        asIObjectType *objType = obj->GetObjectType();
+        asITypeInfo *objType = obj->GetObjectType();
         func = objType->GetMethodByDecl(funcDecl.c_str());
         if (!func) {
             // give a nice error message that says that the method was not found.
@@ -964,7 +964,7 @@ void ScriptEngine::deleteCallbackScript(const std::string &type, const std::stri
     asIScriptFunction *func;
     if (obj) {
         // search for a method in the class
-        asIObjectType *objType = obj->GetObjectType();
+        asITypeInfo *objType = obj->GetObjectType();
         func = objType->GetMethodByDecl(funcDecl.c_str());
         if (!func) {
             // give a nice error message that says that the method was not found.

@@ -4,28 +4,22 @@ FILE(GLOB_RECURSE server_src CONFIGURE_DEPENDS *.cpp *.c *.h *.rc)
 add_executable(${PROJECT_NAME} ${server_src})
 
 target_include_directories(${PROJECT_NAME} PRIVATE
-        ${CMAKE_SOURCE_DIR}/dependencies/socketw/
-        ${CMAKE_SOURCE_DIR}/dependencies/
         ${CMAKE_SOURCE_DIR}/source/protocol/
         ${CMAKE_SOURCE_DIR}/source/common/
-        ${CMAKE_SOURCE_DIR}/dependencies/jsoncpp/include/
-        )
-
+)
 # libraries
 if (RORSERVER_WITH_ANGELSCRIPT)
-    add_dependencies(${PROJECT_NAME} angelscript)
     target_compile_definitions(${PROJECT_NAME} PRIVATE WITH_ANGELSCRIPT)
-    target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/angelscript/include)
-    target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/angelscript/add_on)
-    target_link_libraries(${PROJECT_NAME} PRIVATE angelscript)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/source/angelscript_add_on)
+    target_link_libraries(${PROJECT_NAME} PRIVATE Angelscript::angelscript angelscript_addons)
 endif ()
 
 IF (WIN32)
-    target_link_libraries(${PROJECT_NAME} PRIVATE mysocketw jsoncpp)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE PTW32_STATIC_LIB)
+    target_link_libraries(${PROJECT_NAME} PRIVATE SocketW::SocketW jsoncpp)
 ELSEIF (UNIX)
     #add_definitions("-DAS_MAX_PORTABILITY")
-    #NOTE: pthread is needed for AngelScript to link.
-    target_link_libraries(${PROJECT_NAME} PRIVATE mysocketw pthread dl jsoncpp)
+    target_link_libraries(${PROJECT_NAME} PRIVATE SocketW::SocketW dl jsoncpp_lib)
 ELSEIF (APPLE)
 ENDIF (WIN32)
 

@@ -34,72 +34,75 @@ ENDIF (WIN32)
 IF (WIN32)
     install(TARGETS ${PROJECT_NAME} DESTINATION .)
 ELSEIF (UNIX)
+    include(GNUInstallDirs)
+
     # install the library
     INSTALL(TARGETS ${PROJECT_NAME}
-            RUNTIME DESTINATION bin
-            LIBRARY DESTINATION lib
-            ARCHIVE DESTINATION lib
-    )
-    # install the files required for the runtime
-    INSTALL(
-            DIRECTORY ${CMAKE_SOURCE_DIR}/bin/resources/
-            DESTINATION share/rorserver/
-            FILES_MATCHING PATTERN "*"
-            PATTERN ".svn" EXCLUDE
-            PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     )
 
     # configure and install init script
     CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/contrib/rorserver-initscript.in
-            ${CMAKE_SOURCE_DIR}/contrib/rorserver-initscript
+            ${CMAKE_BINARY_DIR}/contrib/rorserver-initscript
             @ONLY
             )
-    INSTALL(FILES ${CMAKE_SOURCE_DIR}/contrib/rorserver-initscript
-            DESTINATION /etc/init.d
+    INSTALL(FILES ${CMAKE_BINARY_DIR}/contrib/rorserver-initscript
+            DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/init.d
             RENAME rorserver
             PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
             )
 
     # add example server configuration
     INSTALL(FILES ${CMAKE_SOURCE_DIR}/contrib/example-config.cfg
-            DESTINATION /etc/rorserver/
+            DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/rorserver/
             RENAME simple.cfg.example
             PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
             )
 
     # add example server authorization file
     INSTALL(FILES ${CMAKE_SOURCE_DIR}/contrib/example-auth.auth
-            DESTINATION /etc/rorserver/
+            DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/rorserver/
             RENAME simple.auth.example
             PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
             )
 
     # add example server message of the day (MOTD) file
     INSTALL(FILES ${CMAKE_SOURCE_DIR}/contrib/example-motd.motd
-            DESTINATION /etc/rorserver/
+            DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/rorserver/
             RENAME simple.motd.example
             PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
             )
 
     # add example rules file
     INSTALL(FILES ${CMAKE_SOURCE_DIR}/contrib/example-rules.rules
-            DESTINATION /etc/rorserver/
+            DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/rorserver/
             RENAME simple.rules.example
             PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
             )
 
-    # create user
-    INSTALL(CODE "execute_process(COMMAND useradd -s /bin/false rorserver)")
-
-    # create installation directories
-    INSTALL(CODE "execute_process(COMMAND mkdir -p /etc/rorserver)")
-    INSTALL(CODE "execute_process(COMMAND mkdir -p /var/log/rorserver)")
-    INSTALL(CODE "execute_process(COMMAND mkdir -p /var/run/rorserver)")
-
-    INSTALL(CODE "execute_process(COMMAND chown rorserver:rorserver -R /etc/rorserver)")
-    INSTALL(CODE "execute_process(COMMAND chown rorserver:rorserver -R /var/log/rorserver)")
-    INSTALL(CODE "execute_process(COMMAND chown rorserver:rorserver -R /var/run/rorserver)")
-
-    INSTALL(CODE "message(\"example configuration added: /etc/rorserver/simple.cfg.example please configure this file to your likings and rename it to simple.cfg\")")
-    INSTALL(CODE "message(\"after you have configured your server, you can start it with: /etc/init.d/rorserver start\")")
+    CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/contrib/postinst.in
+            ${CMAKE_BINARY_DIR}/contrib/postinst
+            @ONLY
+            )
+    if(NOT PACKAGING)
+        # execute install script
+        INSTALL(CODE "execute_process(COMMAND bash ${CMAKE_BINARY_DIR}/contrib/postinst configure )")
+    endif()
 ENDIF (WIN32)
+
+set(CPACK_PACKAGE_DESCRIPTION "The Rigs of Rods Server is a game server for Rigs of Rods (rigsofrods.org)")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Dedicated server software for Rigs of Rods")
+set(CPACK_PACKAGE_CONTACT "Edgar@AnotherFoxGuy.com")
+set(CPACK_PACKAGE_VENDOR "AnotherFoxGuy")
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_BINARY_DIR}/contrib/postinst")
+
+if (WIN32)
+    set(CPACK_GENERATOR NSIS;ZIP)
+elseif (UNIX)
+    set(CPACK_GENERATOR DEB;ZIP)
+endif ()
+
+include(CPack)

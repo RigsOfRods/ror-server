@@ -1,0 +1,24 @@
+#!/bin/bash -e
+
+if [ "$1" = "configure" ] && [ -z "$2" ]; then
+    
+    if id rorserver &>/dev/null; then
+        echo -e "\033[0;31m rorserver user already exists"
+        exit 0       
+    fi
+
+    # create user
+    useradd -s /bin/false rorserver
+
+    # create installation directories
+    mkdir -p /etc/rorserver
+    mkdir -p /var/log/rorserver
+    mkdir -p /var/run/rorserver
+
+    chown rorserver:rorserver -R /etc/rorserver
+    chown rorserver:rorserver -R /var/log/rorserver
+    chown rorserver:rorserver -R /var/run/rorserver
+
+    echo -e "\033[0;32m example configuration added: /etc/rorserver/simple.cfg.example please configure this file to your likings and rename it to simple.cfg"
+    echo -e " after you have configured your server, you can start it with: /etc/init.d/rorserver start \033[0m"
+fi

@@ -1,7 +1,7 @@
 # ensure cmake features we need
 CMAKE_MINIMUM_REQUIRED(VERSION 3.1)
 
-project(rorserver)
+project(rorserver VERSION "2021.10")
 
 # setup paths
 SET(RUNTIME_OUTPUT_DIRECTORY "${rorserver_SOURCE_DIR}/bin/")

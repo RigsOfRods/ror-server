@@ -16,13 +16,4 @@ if (NOT WIN32)
             LIBRARY DESTINATION lib
             ARCHIVE DESTINATION lib
             )
-
-    # install the headers: both source and build headers
-    INSTALL(
-            DIRECTORY ${jsoncpp_SOURCE_DIR}/include/json
-            DESTINATION include/jsoncpp
-            FILES_MATCHING PATTERN "*.h"
-            PATTERN ".svn" EXCLUDE
-            PATTERN "CMakeFiles" EXCLUDE
-    )
 endif ()

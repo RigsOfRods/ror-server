@@ -27,13 +27,4 @@ else ()
             LIBRARY DESTINATION lib
             ARCHIVE DESTINATION lib
             )
-
-    # install the headers: both source and build headers
-    INSTALL(
-            DIRECTORY ${socketw_SOURCE_DIR}/
-            DESTINATION include/socketw
-            FILES_MATCHING PATTERN "*.h"
-            PATTERN ".svn" EXCLUDE
-            PATTERN "CMakeFiles" EXCLUDE
-    )
 endif ()

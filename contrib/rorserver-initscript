@@ -1,0 +1,171 @@
+#!/bin/bash
+### BEGIN INIT INFO
+# Provides:          rorserver
+# Required-Start:    $remote_fs $syslog $network
+# Required-Stop:     $remote_fs $syslog $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Rigs of Rods multiplayer server
+# Description:       rorserver is a server for the Rigs of Rods Game
+### END INIT INFO
+
+PATH=/usr/local:/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+NAME=rorserver
+DESC="Rigs of Rods Multiplayer Server"
+
+# if you set CRASHREPORTS=1 then the init script will use gdb to catch errors.
+# you should use Debug compile mode. Look in /var/log/rorserver/ for the results
+CRASHREPORTS="OFF"
+
+USERNAME=rorserver
+DAEMON=/usr/local/bin/rorserver
+CFGDIR=/etc/rorserver
+LOGDIR=/var/log/rorserver
+PIDDIR=/var/run/rorserver
+RESDIR=/usr/local/share/rorserver/
+
+[ -x "$DAEMON" ] || exit 0
+[ -d "$CFGDIR" ] || exit 0
+[ -d "$LOGDIR" ] || exit 0
+[ -d "$PIDDIR" ] || exit 0
+[ -d "$RESDIR" ] || exit 0
+
+. /lib/lsb/init-functions
+
+case "$1" in
+  start)
+	CONFIGS=$(ls ${CFGDIR}/*.cfg 2>/dev/null)
+	if [[ "${CONFIGS}" == "" ]]
+	then
+		log_daemon_msg "no configurations found in ${CFGDIR}"
+		log_end_msg 1
+		exit 0
+	fi
+	for CONFIG in ${CONFIGS}
+	do
+		SRVNAME=$(basename ${CONFIG} | awk -F. '{ print $1 }')
+		PIDFILE=${PIDDIR}/${SRVNAME}.pid
+		LOGFILE=${LOGDIR}/${SRVNAME}.log
+		RUNNING=0
+		if [[ -f ${PIDFILE} ]]
+		then
+			PIDNUM=$(cat ${PIDFILE})
+			RUNNING=$(ps -p ${PIDNUM} 2>/dev/null | wc -l)
+		fi
+		if [[ "${RUNNING}" != "2" ]]
+		then
+			# start
+			rm -f ${PIDFILE} >>/dev/null 2>&1
+			log_daemon_msg "starting ${NAME} with config ${SRVNAME}"
+			echo "LOG STARTED" > ${LOGFILE}
+			chown $USERNAME:$USERNAME ${LOGFILE}
+			if [[ "${CRASHREPORTS}" == "OFF" ]]
+			then
+				# normal startup, no gdb
+				start-stop-daemon --start --background --user ${USERNAME} --chuid ${USERNAME} --name ${NAME}-${SRVNAME} --exec ${DAEMON} --make-pidfile --pidfile ${PIDFILE}  -- -c ${CONFIG} -resdir ${RESDIR} -logfilename ${LOGFILE} -inet
+				log_end_msg $?
+			else
+				# gdb startup
+				DATENOW=$(date +%s)
+				GDB=/usr/bin/gdb
+				GDBCMDFILE=${LOGFILE}.${DATENOW}.gdb.cmds
+				GDBLOG=${LOGFILE}.${DATENOW}.gdb.log
+				GDBCORE=${LOGFILE}.${DATENOW}.gdb.core
+				echo "" > ${GDBCMDFILE}
+				# now create the gdb command script
+				echo "set logging file ${GDBLOG}" >> ${GDBCMDFILE}
+				echo "set logging on" >> ${GDBCMDFILE}
+				# prevent output wrapping and pagination
+				echo "set trace-commands on" >> ${GDBCMDFILE}
+				echo "set width 0" >> ${GDBCMDFILE}
+				echo "set height 0" >> ${GDBCMDFILE}
+				echo "set pagination off" >> ${GDBCMDFILE}
+				echo "set confirm off" >> ${GDBCMDFILE}
+				# improve verbosity of the log
+				echo "set follow-fork-mode child" >> ${GDBCMDFILE}
+				echo "set verbose on" >> ${GDBCMDFILE}
+				echo "set print elements 0" >> ${GDBCMDFILE}
+				echo "set print address on" >> ${GDBCMDFILE}
+				echo "set print symbol-filename on" >> ${GDBCMDFILE}
+				echo "set print array on" >> ${GDBCMDFILE}
+				echo "set print pretty on" >> ${GDBCMDFILE}
+				echo "set print union on" >> ${GDBCMDFILE}
+				echo "set print demangle on" >> ${GDBCMDFILE}
+				echo "set print asm-demangle on" >> ${GDBCMDFILE}
+				echo "set print object on" >> ${GDBCMDFILE}
+				echo "set print vtbl on" >> ${GDBCMDFILE}
+				echo "set listsize 60" >> ${GDBCMDFILE}
+				# add the directory as source lookup path
+				echo "directory /workspaces/ror-server/source/server/" >> ${GDBCMDFILE}
+				echo "pwd" >> ${GDBCMDFILE}
+				# set program arguments
+				echo "set args -c ${CONFIG} -resdir ${RESDIR} -logfilename ${LOGFILE}" >> ${GDBCMDFILE}
+				# now start the application
+				echo "run" >> ${GDBCMDFILE}
+				# upon crash, print out the callstack
+				echo "bt full" >> ${GDBCMDFILE}
+				echo "thread apply all backtrace full" >> ${GDBCMDFILE}
+				echo "show paths" >> ${GDBCMDFILE}
+				echo "show environment" >> ${GDBCMDFILE}
+				echo "info threads" >> ${GDBCMDFILE}
+				echo "info all-registers" >> ${GDBCMDFILE}
+				echo "info float" >> ${GDBCMDFILE}
+				echo "info vector" >> ${GDBCMDFILE}
+				echo "info mem" >> ${GDBCMDFILE}
+				echo "info frame" >> ${GDBCMDFILE}
+				echo "info args" >> ${GDBCMDFILE}
+				echo "info locals" >> ${GDBCMDFILE}
+				echo "info catch" >> ${GDBCMDFILE}
+				echo "info frame 2" >> ${GDBCMDFILE}
+				echo "info frame 3" >> ${GDBCMDFILE}
+				echo "info sources" >> ${GDBCMDFILE}
+				echo "info functions" >> ${GDBCMDFILE}
+				echo "info variables" >> ${GDBCMDFILE}
+				echo "info classes" >> ${GDBCMDFILE}
+				echo "show osabi" >> ${GDBCMDFILE}
+				echo "show architecture" >> ${GDBCMDFILE}
+				echo "show cp-abi" >> ${GDBCMDFILE}
+				# now produce core file
+				echo "generate-core-file ${GDBCORE}" >> ${GDBCMDFILE}
+				# kill the client process
+				echo "kill" >> ${GDBCMDFILE}
+				# quit gdb (and the client app)
+				echo "quit" >> ${GDBCMDFILE}
+
+				start-stop-daemon --start --background --user ${USERNAME} --name ${NAME}-${SRVNAME} --exec ${GDB} --make-pidfile --pidfile ${PIDFILE}  -- ${DAEMON} -x ${GDBCMDFILE}
+				log_end_msg $?
+			fi
+		else
+			log_daemon_msg "${NAME} with config ${SRVNAME} already running"
+			log_end_msg 0
+		fi
+	done
+	;;
+  stop)
+	PIDS=$(ls ${PIDDIR}/*.pid 2>/dev/null)
+	if [[ "${PIDS}" == "" ]]
+	then
+		log_daemon_msg "no rorservers detected running"
+		log_end_msg 1
+		exit 0
+	fi
+	for PID in ${PIDS}
+	do
+		PIDNAME=$(basename ${PID})
+ 		log_daemon_msg "Stopping ${NAME} - ${PIDNAME}"
+		start-stop-daemon --stop --pidfile ${PID} --retry=TERM/30/KILL/5
+		RES=$?
+		rm ${PID} >>/dev/null 2>&1
+		log_end_msg ${RES}
+	done
+	;;
+  restart)
+	$0 stop && $0 start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

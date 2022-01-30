@@ -6,12 +6,17 @@ jobs:
   build:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    env:
+      BUILD_TOOLS_PATH: C:\apps\build-tools\
     strategy:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, windows-latest ]
 
     steps:
+      - run: echo $env:BUILD_TOOLS_PATH | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        if: startsWith(matrix.os, 'windows')
+
       - uses: actions/checkout@v4
 
       - name: Enable Developer Command Prompt
@@ -20,8 +25,21 @@ jobs:
       - name: Get latest CMake and ninja
         uses: lukka/get-cmake@latest
 
+      - name: Install dependencies (Ubuntu)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          curl "https://raw.githubusercontent.com/AnotherFoxGuy/ci-scripts/main/install-conan.sh" | sudo bash
+
+      - name: Install dependencies (Windows)
+        if: startsWith(matrix.os, 'windows')
+        shell: cmake -P {0}
+        run: |
+          file(MAKE_DIRECTORY $ENV{BUILD_TOOLS_PATH})
+          file(DOWNLOAD http://prdownloads.sourceforge.net/rigs-of-rods/build-tools.zip "$ENV{TMP}/build-tools.zip" SHOW_PROGRESS)
+          execute_process(COMMAND ${CMAKE_COMMAND} -E tar xzf "$ENV{TMP}/build-tools.zip" WORKING_DIRECTORY "$ENV{BUILD_TOOLS_PATH}")
+
       - name: Configure
-        run: cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DRORSERVER_WITH_ANGELSCRIPT=ON .
+        run: cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DUSE_PACKAGE_MANAGER=ON .
 
       - name: Build
         run: ninja

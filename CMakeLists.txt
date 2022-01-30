@@ -7,9 +7,56 @@ include(FeatureSummary)
 
 project(rorserver VERSION "2021.10")
 
-find_package(Angelscript)
-find_package(jsoncpp REQUIRED)
-find_package(SocketW REQUIRED)
+# Options
+option(USE_PACKAGE_MANAGER "Use conan" OFF)
+
+if (USE_PACKAGE_MANAGER)
+    include(conan)
+
+    set(RORSERVER_WITH_ANGELSCRIPT ON)
+
+    set(
+            _BASE_DEPS
+            angelscript/2.35.1@anotherfoxguy/stable
+            jsoncpp/1.9.5
+            socketw/3.10.27@anotherfoxguy/stable
+    )
+
+    if (WIN32)
+        list(APPEND _BASE_DEPS pthread-win/3.0.3.1@anotherfoxguy/stable)
+    endif ()
+
+    conan_cmake_configure(REQUIRES ${_BASE_DEPS} GENERATORS cmake_multi)
+
+    conan_cmake_autodetect(settings)
+
+    conan_cmake_install(PATH_OR_REFERENCE . BUILD missing SETTINGS ${settings})
+
+    include(${CMAKE_BINARY_DIR}/conanbuildinfo_multi.cmake)
+    conan_define_targets()
+
+    set_target_properties(CONAN_PKG::angelscript PROPERTIES IMPORTED_GLOBAL TRUE)
+    set_target_properties(CONAN_PKG::socketw PROPERTIES IMPORTED_GLOBAL TRUE)
+    set_target_properties(CONAN_PKG::jsoncpp PROPERTIES IMPORTED_GLOBAL TRUE)
+
+    add_library(Angelscript::angelscript ALIAS CONAN_PKG::angelscript)
+    add_library(SocketW::SocketW ALIAS CONAN_PKG::socketw)
+    add_library(jsoncpp_lib ALIAS CONAN_PKG::jsoncpp)
+    if (WIN32)
+        add_library(pthread ALIAS CONAN_PKG::pthread-win)
+    endif ()
+
+else ()
+    find_package(Angelscript)
+    find_package(jsoncpp REQUIRED)
+    find_package(SocketW REQUIRED)
+    if (WIN32)
+        find_package(pthread REQUIRED)
+    endif ()
+
+    cmake_dependent_option(RORSERVER_WITH_ANGELSCRIPT "Adds scripting support" ON "AngelScript_FOUND" OFF)
+endif ()
+
 
 # setup paths
 SET(RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/")
@@ -18,8 +65,6 @@ SET(ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/")
 SET(EXECUTABLE_OUTPUT_PATH ${RUNTIME_OUTPUT_DIRECTORY})
 SET(LIBRARY_OUTPUT_PATH ${RUNTIME_OUTPUT_DIRECTORY})
 
-#options
-cmake_dependent_option(RORSERVER_WITH_ANGELSCRIPT  "adds scripting support" ON "AngelScript_FOUND" OFF)
 
 # hide some settings
 mark_as_advanced(

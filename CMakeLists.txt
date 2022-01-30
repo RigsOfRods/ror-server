@@ -9,9 +9,12 @@ project(rorserver VERSION "2021.10")
 
 # Options
 option(USE_PACKAGE_MANAGER "Use conan" OFF)
+set(ROR_DEPENDENCY_DIR "${CMAKE_SOURCE_DIR}/dependencies/build" CACHE PATH "Path to the dependencies")
 
 if (USE_PACKAGE_MANAGER)
     include(conan)
+
+    conan_add_remote(NAME rigs-of-rods-deps-V2 URL https://artifactory.anotherfoxguy.com/artifactory/api/conan/rigs-of-rods VERIFY_SSL True)
 
     set(RORSERVER_WITH_ANGELSCRIPT ON)
 
@@ -47,11 +50,14 @@ if (USE_PACKAGE_MANAGER)
     endif ()
 
 else ()
+    set(CMAKE_PREFIX_PATH ${ROR_DEPENDENCY_DIR} ${CMAKE_PREFIX_PATH})
+
     find_package(Angelscript)
     find_package(jsoncpp REQUIRED)
     find_package(SocketW REQUIRED)
     if (WIN32)
-        find_package(pthread REQUIRED)
+        find_package(PThread REQUIRED)
+        add_library(pthread ALIAS PThread::PThread)
     endif ()
 
     cmake_dependent_option(RORSERVER_WITH_ANGELSCRIPT "Adds scripting support" ON "AngelScript_FOUND" OFF)
@@ -122,8 +128,9 @@ if (UNIX)
     mark_as_advanced(GDB_EXECUTABLE)
 endif ()
 
-add_subdirectory("source/angelscript_add_on")
-
+if (RORSERVER_WITH_ANGELSCRIPT)
+    add_subdirectory("source/angelscript_add_on")
+endif ()
 add_subdirectory("source/server")
 
 feature_summary(WHAT ALL)

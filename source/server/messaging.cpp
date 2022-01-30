@@ -93,7 +93,7 @@ namespace Messaging {
  * @param content Payload
  * @return 0 on success
  */
-    int SendMessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len,
+    int SWSendMessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len,
                     const char *content) {
         assert(socket != nullptr);
 
@@ -134,7 +134,7 @@ namespace Messaging {
  * @param out_source      Magic. Value 5000 used by serverlist to check this server.
  * @return                0 on success, negative number on error.
  */
-    int ReceiveMessage(
+    int SWReceiveMessage(
             SWInetSocket *socket,
             int *out_type,
             int *out_source,
@@ -163,7 +163,7 @@ namespace Messaging {
         *out_stream_id = head.streamid;
 
         if ( head.size > payload_buf_len) {
-            Logger::Log(LOG_ERROR, "ReceiveMessage(): payload too long: %d b (max. is %d b)", head.size,
+            Logger::Log(LOG_ERROR, "SWReceiveMessage(): payload too long: %d b (max. is %d b)", head.size,
                         payload_buf_len);
             return -3;
         }

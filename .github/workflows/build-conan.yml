@@ -1,6 +1,6 @@
 name: Build server
 
-on: [ push, pull_request ]
+on: [push, pull_request]
 
 jobs:
   build:
@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, windows-latest ]
+        os: [ubuntu-latest, windows-latest]
 
     steps:
       - run: echo $env:BUILD_TOOLS_PATH | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
@@ -22,27 +22,23 @@ jobs:
       - name: Enable Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1.13.0
 
-      - name: Get latest CMake and ninja
-        uses: lukka/get-cmake@latest
-
       - name: Install dependencies (Ubuntu)
         if: startsWith(matrix.os, 'ubuntu')
-        run: |
-          curl "https://raw.githubusercontent.com/AnotherFoxGuy/ci-scripts/main/install-conan.sh" | sudo bash
+        run: curl "https://raw.githubusercontent.com/AnotherFoxGuy/ci-scripts/main/install-conan.sh" | sudo bash
 
       - name: Install dependencies (Windows)
         if: startsWith(matrix.os, 'windows')
         shell: cmake -P {0}
         run: |
           file(MAKE_DIRECTORY $ENV{BUILD_TOOLS_PATH})
-          file(DOWNLOAD http://prdownloads.sourceforge.net/rigs-of-rods/build-tools.zip "$ENV{TMP}/build-tools.zip" SHOW_PROGRESS)
+          file(DOWNLOAD https://cdn.anotherfoxguy.com/build-tools.zip "$ENV{TMP}/build-tools.zip" SHOW_PROGRESS)
           execute_process(COMMAND ${CMAKE_COMMAND} -E tar xzf "$ENV{TMP}/build-tools.zip" WORKING_DIRECTORY "$ENV{BUILD_TOOLS_PATH}")
 
       - name: Configure
-        run: cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DUSE_PACKAGE_MANAGER=ON .
+        run: cmake -DCMAKE_BUILD_TYPE=Release -DUSE_PACKAGE_MANAGER=ON .
 
       - name: Build
-        run: ninja
+        run: make -j4
 
       - name: Upload bin folder
         uses: actions/upload-artifact@v4

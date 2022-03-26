@@ -12,6 +12,12 @@ option(USE_PACKAGE_MANAGER "Use conan" OFF)
 set(ROR_DEPENDENCY_DIR "${CMAKE_SOURCE_DIR}/dependencies/build" CACHE PATH "Path to the dependencies")
 
 if (USE_PACKAGE_MANAGER)
+
+    macro(_conan_install build_type)
+        conan_cmake_autodetect(settings BUILD_TYPE ${build_type})
+        conan_cmake_install(PATH_OR_REFERENCE . BUILD missing SETTINGS ${settings})
+    endmacro()
+
     include(conan)
 
     conan_add_remote(NAME rigs-of-rods-deps-V2 URL https://artifactory.anotherfoxguy.com/artifactory/api/conan/rigs-of-rods VERIFY_SSL True)
@@ -20,9 +26,9 @@ if (USE_PACKAGE_MANAGER)
 
     set(
             _BASE_DEPS
-            angelscript/2.35.1@anotherfoxguy/stable
+            angelscript/2.35.0
             jsoncpp/1.9.5
-            socketw/3.10.27@anotherfoxguy/stable
+            socketw/3.11.0@anotherfoxguy/stable
     )
 
     if (WIN32)
@@ -31,9 +37,13 @@ if (USE_PACKAGE_MANAGER)
 
     conan_cmake_configure(REQUIRES ${_BASE_DEPS} GENERATORS cmake_multi)
 
-    conan_cmake_autodetect(settings)
-
-    conan_cmake_install(PATH_OR_REFERENCE . BUILD missing SETTINGS ${settings})
+    if (MSVC OR XCODE AND NOT DEFINED CMAKE_BUILD_TYPE)
+        foreach (TYPE ${CMAKE_CONFIGURATION_TYPES})
+            _conan_install(${TYPE})
+        endforeach ()
+    else ()
+        _conan_install(${CMAKE_BUILD_TYPE})
+    endif ()
 
     include(${CMAKE_BINARY_DIR}/conanbuildinfo_multi.cmake)
     conan_define_targets()

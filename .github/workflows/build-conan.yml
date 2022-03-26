@@ -19,6 +19,12 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      - name: Cache conan
+        uses: actions/cache@v3
+        with:
+          key: conan-${{ hashFiles('CMakeLists.txt') }}
+          path: ~/.conan/
+
       - name: Enable Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1.13.0
 
@@ -38,7 +44,7 @@ jobs:
         run: cmake -DCMAKE_BUILD_TYPE=Release -DUSE_PACKAGE_MANAGER=ON .
 
       - name: Build
-        run: make -j4
+        run: cmake --build .
 
       - name: Upload bin folder
         uses: actions/upload-artifact@v4

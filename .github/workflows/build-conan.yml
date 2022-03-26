@@ -30,7 +30,10 @@ jobs:
 
       - name: Install dependencies (Ubuntu)
         if: startsWith(matrix.os, 'ubuntu')
-        run: curl "https://raw.githubusercontent.com/AnotherFoxGuy/ci-scripts/main/install-conan.sh" | sudo bash
+        run: | 
+          curl "https://raw.githubusercontent.com/AnotherFoxGuy/ci-scripts/main/install-conan.sh" | sudo bash
+          sudo apt-get update
+          sudo apt-get -y install ninja-build
 
       - name: Install dependencies (Windows)
         if: startsWith(matrix.os, 'windows')
@@ -41,10 +44,10 @@ jobs:
           execute_process(COMMAND ${CMAKE_COMMAND} -E tar xzf "$ENV{TMP}/build-tools.zip" WORKING_DIRECTORY "$ENV{BUILD_TOOLS_PATH}")
 
       - name: Configure
-        run: cmake -DCMAKE_BUILD_TYPE=Release -DUSE_PACKAGE_MANAGER=ON .
+        run: cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DUSE_PACKAGE_MANAGER=ON .
 
       - name: Build
-        run: cmake --build .
+        run: ninja
 
       - name: Upload bin folder
         uses: actions/upload-artifact@v4

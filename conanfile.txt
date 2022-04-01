@@ -1,0 +1,13 @@
+[requires]
+poco/1.11.1
+
+[generators]
+cmake_find_package_multi
+virtualrunenv
+
+[imports]
+bin, *.dll -> ./bin/ @ keep_path=False
+lib, *.dll -> ./bin/ @ keep_path=False
+
+[options]
+poco:enable_pagecompiler=True

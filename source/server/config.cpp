@@ -63,6 +63,7 @@ static std::string s_serverlist_host("api.rigsofrods.org");
 static std::string s_serverlist_path("");
 static std::string s_resourcedir(RESOURCE_DIR);
 
+static unsigned int s_webserver_port(0);
 static unsigned int s_listen_port(0);
 static unsigned int s_max_clients(16);
 static unsigned int s_heartbeat_retry_count(5);
@@ -73,6 +74,7 @@ static bool s_print_stats(false);
 static bool s_foreground(false);
 static bool s_show_version(false);
 static bool s_show_help(false);
+static bool s_webserver_enabled(false);
 
 // Vehicle spawn limits
 static size_t s_max_vehicles(20);
@@ -263,8 +265,10 @@ namespace Config {
             HANDLE_ARG_VALUE("max-clients", { setMaxClients(atoi(value)); });
             HANDLE_ARG_VALUE("vehicle-limit", { setMaxVehicles(atoi(value)); });
             HANDLE_ARG_VALUE("port", { setListenPort(atoi(value)); });
+            HANDLE_ARG_VALUE("webserver-port", { setWebserverPort(atoi(value)); });
 
             HANDLE_ARG_FLAG ("print-stats", { setPrintStats(true); });
+            HANDLE_ARG_FLAG ("use-webserver", { setWebserverEnabled(true); });
             HANDLE_ARG_FLAG ("foreground", { setForeground(true); });
             HANDLE_ARG_FLAG ("fg", { setForeground(true); });
             HANDLE_ARG_FLAG ("inet", { setServerMode(SERVER_INET); });
@@ -309,6 +313,10 @@ namespace Config {
     unsigned int getListenPort() { return s_listen_port; }
 
     ServerType getServerMode() { return s_server_mode; }
+
+    bool getWebserverEnabled() { return s_webserver_enabled; }
+
+    unsigned int getWebserverPort() { return s_webserver_port; }
 
     bool getPrintStats() { return s_print_stats; }
 
@@ -407,6 +415,10 @@ namespace Config {
         return true;
     }
 
+    void setWebserverPort(unsigned int port) { s_webserver_port = port; }
+
+    void setWebserverEnabled(bool webserver) { s_webserver_enabled = webserver; }
+
     void setPrintStats(bool value) { s_print_stats = value; }
 
     void setAuthFile(const std::string &file) { s_authfile = file; }
@@ -494,6 +506,8 @@ namespace Config {
         else if (strcmp(key, "port") == 0) { setListenPort(VAL_INT (value)); }
         else if (strcmp(key, "mode") == 0) { SetConfServerMode(VAL_STR (value)); }
         else if (strcmp(key, "printstats") == 0) { setPrintStats(VAL_BOOL(value)); }
+        else if (strcmp(key, "webserver") == 0) { setWebserverEnabled(VAL_BOOL(value)); }
+        else if (strcmp(key, "webserverport") == 0) { setWebserverPort(VAL_INT (value)); }
         else if (strcmp(key, "foreground") == 0) { setForeground(VAL_BOOL(value)); }
         else if (strcmp(key, "resdir") == 0) { setResourceDir(VAL_STR (value)); }
         else if (strcmp(key, "logfilename") == 0) { Logger::SetOutputFile(VAL_STR (value)); }

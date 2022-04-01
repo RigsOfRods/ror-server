@@ -65,6 +65,10 @@ namespace Config {
 
     bool getEnableScripting();
 
+    bool getWebserverEnabled();
+
+    unsigned int getWebserverPort();
+
     bool getForeground();
 
     const std::string &getResourceDir();
@@ -129,6 +133,10 @@ namespace Config {
     bool setListenPort(unsigned int port);
 
     bool setServerMode(ServerType mode);
+
+    void setWebserverEnabled(bool value);
+
+    void setWebserverPort(unsigned int port);
 
     void setPrintStats(bool value);
 

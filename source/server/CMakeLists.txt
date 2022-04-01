@@ -1,5 +1,19 @@
 FILE(GLOB_RECURSE server_src CONFIGURE_DEPENDS *.cpp *.c *.h *.rc)
 
+if (RORSERVER_WITH_WEBSERVER)
+    include(PageCompiler)
+
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/web)
+
+    PageCompiler("${CMAKE_SOURCE_DIR}/source/web/index.cpsp" "${CMAKE_CURRENT_BINARY_DIR}/web/index.cpp")
+    PageCompiler("${CMAKE_SOURCE_DIR}/source/web/playerlist.cpsp" "${CMAKE_CURRENT_BINARY_DIR}/web/playerlist.cpp")
+    set(
+            server_src ${server_src}
+            "${CMAKE_CURRENT_BINARY_DIR}/web/index.cpp"
+            "${CMAKE_CURRENT_BINARY_DIR}/web/playerlist.cpp"
+    )
+endif (RORSERVER_WITH_WEBSERVER)
+
 # the final lib
 add_executable(${PROJECT_NAME} ${server_src})
 
@@ -20,6 +34,12 @@ if (RORSERVER_WITH_ANGELSCRIPT)
     target_link_libraries(${PROJECT_NAME} PRIVATE angelscript)
 endif ()
 
+if (RORSERVER_WITH_WEBSERVER)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE WITH_WEBSERVER)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+    target_link_libraries(${PROJECT_NAME} PRIVATE Poco::Poco)
+endif (RORSERVER_WITH_WEBSERVER)
+
 IF (WIN32)
     target_compile_definitions(${PROJECT_NAME} PRIVATE PTW32_STATIC_LIB)
     target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/win32_pthread/include)
@@ -39,7 +59,7 @@ ELSEIF (UNIX)
             RUNTIME DESTINATION bin
             LIBRARY DESTINATION lib
             ARCHIVE DESTINATION lib
-    )
+            )
     # install the files required for the runtime
     INSTALL(
             DIRECTORY ${CMAKE_SOURCE_DIR}/bin/resources/

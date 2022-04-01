@@ -1,5 +1,7 @@
 # ensure cmake features we need
 CMAKE_MINIMUM_REQUIRED(VERSION 3.1)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/cmake)
+set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${CMAKE_BINARY_DIR})
 
 project(rorserver)
 
@@ -12,6 +14,12 @@ SET(LIBRARY_OUTPUT_PATH ${RUNTIME_OUTPUT_DIRECTORY})
 
 #options
 option(RORSERVER_WITH_ANGELSCRIPT "adds scripting support" FALSE)
+option(RORSERVER_WITH_WEBSERVER "adds the webserver" FALSE)
+
+
+if (RORSERVER_WITH_WEBSERVER)
+    find_package(Poco REQUIRED)
+endif ()
 
 # hide some settings
 mark_as_advanced(
@@ -58,7 +66,7 @@ SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${RUNTIME_OUTPUT_DIRECTORY})
 
 
 if (WIN32)
-    add_subdirectory(dependencies/win32_pthread)
+    add_subdirectory(dependencies/win32_pthread EXCLUDE_FROM_ALL)
 else ()
     add_definitions(-Wall)
     option(RORSERVER_CRASHHANDLER "enables linux startup script crashhandling" FALSE)
@@ -71,12 +79,11 @@ else ()
     mark_as_advanced(GDB_EXECUTABLE)
 endif ()
 
-
-add_subdirectory("dependencies/socketw")
-add_subdirectory("dependencies/jsoncpp")
-
-add_subdirectory("source/server")
+add_subdirectory(dependencies/socketw EXCLUDE_FROM_ALL)
+add_subdirectory(dependencies/jsoncpp EXCLUDE_FROM_ALL)
 
 if (RORSERVER_WITH_ANGELSCRIPT)
-    add_subdirectory("dependencies/angelscript")
-endif (RORSERVER_WITH_ANGELSCRIPT)
+    add_subdirectory(dependencies/angelscript EXCLUDE_FROM_ALL)
+endif ()
+
+add_subdirectory(source/server)

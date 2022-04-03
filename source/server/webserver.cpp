@@ -39,6 +39,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 #include "web/index.h"
 #include "web/playerlist.h"
+#include "web/playerlist_test.h"
 
 using namespace Poco;
 using namespace Poco::Net;
@@ -144,6 +145,8 @@ class RequestHandlerFactory : public HTTPRequestHandlerFactory
             return new IndexHandler();
         else if (request.getURI() == "/playerlist")
             return new PlayerlistHandler();
+        else if (request.getURI() == "/playerlist-test")
+            return new Playerlist_testHandler(s_sequencer->GetClientListCopy());
         else if (request.getURI() == "/api/playerlist")
             return new APIPlayerListHandler();
         else if (request.getURI() == "/api/config")

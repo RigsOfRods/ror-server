@@ -7,10 +7,12 @@ if (RORSERVER_WITH_WEBSERVER)
 
     PageCompiler("${CMAKE_SOURCE_DIR}/source/web/index.cpsp" "${CMAKE_CURRENT_BINARY_DIR}/web/index.cpp")
     PageCompiler("${CMAKE_SOURCE_DIR}/source/web/playerlist.cpsp" "${CMAKE_CURRENT_BINARY_DIR}/web/playerlist.cpp")
+    PageCompiler("${CMAKE_SOURCE_DIR}/source/web/playerlist_test.cpsp" "${CMAKE_CURRENT_BINARY_DIR}/web/playerlist_test.cpp")
     set(
             server_src ${server_src}
             "${CMAKE_CURRENT_BINARY_DIR}/web/index.cpp"
             "${CMAKE_CURRENT_BINARY_DIR}/web/playerlist.cpp"
+            "${CMAKE_CURRENT_BINARY_DIR}/web/playerlist_test.cpp"
     )
 endif (RORSERVER_WITH_WEBSERVER)
 

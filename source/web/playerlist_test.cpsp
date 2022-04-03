@@ -5,8 +5,8 @@
 <%!!
 #include <vector>
 #include "../server/sequencer.h"
+#include "../server/macros.h"
 %>
-
 
 <table class="table table-striped">
     <thead>
@@ -18,15 +18,14 @@
     </tr>
     </thead>
     <tbody>
-<% for (auto it = _context.begin(); it != _context.end(); it++){ %>
+<% BEGIN_HTML_ITERATOR(_context.begin(), _context.end()) %>
     <tr>
         <td>USED</td>
         <td><%= it->user.uniqueid %></td>
         <td><%= it->user.username %></td>
         <td><%= it->GetIpAddress() %></td>
     </tr>
-<% } %>
-
+<% END_HTML_ITERATOR %>
     </tbody>
 </table>
 

@@ -5,6 +5,6 @@ bin/*
 _build
 build
 
-cmake-build-debug/
+cmake-build-*/
 
 \.idea/

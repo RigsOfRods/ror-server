@@ -1052,6 +1052,26 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                 // not allowed
                 serverSay(std::string("You are not authorized to ban people!"), uid);
             }
+        } else if (str.substr(0, 12) == "!banvehicle ") {
+            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+                int buid = -1;
+                int vehicle_streamid = -1;
+                char banmsg_tmp[1000] = {};
+                int res = sscanf(str.substr(12).c_str(), "%d %d %s", &buid, &vehicle_streamid, banmsg_tmp);
+                std::string banMsg = std::string(banmsg_tmp);
+                banMsg = trim(banMsg);
+                if (res != 3 || buid == -1 || vehicle_streamid == -1 || !banMsg.size()) {
+                    serverSay(std::string("usage: !banvehicle <uid> <streamid> <message>"), uid);
+                    serverSay(std::string("example: !banvehicle 3 6 stolen meshes"), uid);
+                } else {
+                    bool banned = banVehicle(buid, uid, vehicle_streamid, banMsg);
+                    if (!banned)
+                        serverSay(std::string("vehicle ban not successful"), uid);
+                }
+            } else {
+                // not allowed
+                serverSay(std::string("You are not authorized to ban vehicles!"), uid);
+            }
         } else if (str.substr(0, 6) == "!kick ") {
             if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
                 int kuid = -1;
@@ -1328,5 +1348,56 @@ std::vector<ban_t> Sequencer::GetBanListCopy()
         output.push_back(*b);
     }
     return output;
+}
+
+// ------------------------------------------------------------------
+// Vehicle bans
+
+void Sequencer::recordVehicleBan(std::string const& filename, std::string const& by_nickname, std::string const& banmsg)
+{
+    vehicleban_t* vb = new vehicleban_t;
+    vb->filename = filename;
+    vb->bannedby_nick = by_nickname;
+    vb->banmsg = banmsg;
+    vb->vbid = static_cast<int>(m_vehiclebans.size());
+
+    Logger::Log(LOG_DEBUG, "adding vehicle-ban, size: %u", m_vehiclebans.size());
+    m_vehiclebans.push_back(vb);
+    Logger::Log(LOG_VERBOSE, "new vehicle-ban added: '%s' by '%s'", filename.c_str(), by_nickname.c_str());
+}
+
+bool Sequencer::banVehicle(int to_ban_uid, int mod_uid, int to_ban_vehicle_streamid, std::string const& msg)
+{
+    Client *offending_client = this->FindClientById(static_cast<unsigned int>(to_ban_uid));
+    if (offending_client == nullptr) {
+        serverSay(std::string("!banvehicle failed: uid not found!"), to_ban_uid);
+        return false;
+    }
+
+    Client *mod_client = this->FindClientById(static_cast<unsigned int>(mod_uid));
+    if (mod_client == nullptr) {
+        serverSay(std::string("!banvehicle failed: mod_uid not found!"), mod_uid);
+        return false;
+    }
+
+    auto offending_stream_iterator = offending_client->streams.find(static_cast<unsigned int>(to_ban_vehicle_streamid));
+    if (offending_stream_iterator == offending_client->streams.end())
+    {
+        serverSay(std::string("!banvehicle failed: streamid not found!"), to_ban_vehicle_streamid);
+        return false;
+    }
+    RoRnet::StreamRegister& reg = offending_stream_iterator->second;
+
+    if (reg.type != RORNET_STREAM_TYPE_VEHICLE)
+    {
+        serverSay(std::string("!banvehicle failed: streamid is not a vehicle!"), to_ban_vehicle_streamid);
+        return false;
+    }
+
+    this->recordVehicleBan(reg.name, mod_client->GetUsername(), msg);
+    m_blacklist.SaveBlacklistToFile(); // Persist the ban
+
+    std::string kick_msg = msg + std::string(" (vehicle banned)");
+    return Kick(to_ban_uid, mod_uid, kick_msg.c_str());  
 }
 

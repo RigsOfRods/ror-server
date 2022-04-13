@@ -172,6 +172,13 @@ struct ban_t {
     char banmsg[256];           //!< why he got banned
 };
 
+struct vehicleban_t {
+	int vbid = -1;			      //!< id of vehicle-ban
+    std::string filename;         //!< banned file name with extension
+    std::string bannedby_nick;    //!< Username, this is what they are called to	
+    std::string banmsg;           //!< why he got banned
+};
+
 void *LaunchKillerThread(void *);
 
 class Sequencer {
@@ -250,6 +257,15 @@ public:
 
     std::vector<ban_t> GetBanListCopy();
 
+    /// @name Vehicle bans
+    /// @{
+    void recordVehicleBan(std::string const& filename, std::string const& bannedby_nick, std::string const& banmsg);
+    bool banVehicle(int to_ban_uid, int mod_uid, int to_ban_vehicle_streamid, std::string const& msg);
+    bool unBanVehicle(int bid);
+    bool isTruckFileBanned(std::string const& filename);
+    std::vector<vehicleban_t> getVehicleBanListCopy();
+    /// @}
+
     static unsigned int connCrash, connCount;
 
 private:
@@ -269,6 +285,7 @@ private:
     std::queue<Client *> m_kill_queue; //!< holds pointer for client deletion
     std::vector<Client *> m_clients;
     std::vector<ban_t *> m_bans;
+    std::vector<vehicleban_t *> m_vehiclebans;
 
     Client *FindClientById(unsigned int client_id);
 };

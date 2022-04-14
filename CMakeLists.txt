@@ -1,7 +1,11 @@
 # ensure cmake features we need
 CMAKE_MINIMUM_REQUIRED(VERSION 3.1)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/cmake)
+set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${CMAKE_BINARY_DIR})
 
 project(rorserver)
+
+find_package(Poco REQUIRED COMPONENTS Foundation JSON)
 
 # setup paths
 SET(RUNTIME_OUTPUT_DIRECTORY "${rorserver_SOURCE_DIR}/bin/")
@@ -71,9 +75,7 @@ else ()
     mark_as_advanced(GDB_EXECUTABLE)
 endif ()
 
-
 add_subdirectory("dependencies/socketw")
-add_subdirectory("dependencies/jsoncpp")
 
 add_subdirectory("source/server")
 

@@ -27,7 +27,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "broadcaster.h"
 #include "receiver.h"
 #include "spamfilter.h"
-#include "json/json.h"
+#include <Poco/JSON/Array.h>
 
 #ifdef WITH_ANGELSCRIPT
 
@@ -41,6 +41,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <queue>
 #include <vector>
 #include <map>
+
 
 // How many not-vehicles streams has every user by default? (e.g.: "default" and "chat" are not-vehicles streams)
 // This is used for the vehicle-limit
@@ -214,7 +215,7 @@ public:
     int getNumClients(); //! number of clients connected to this server
     Client *getClient(int uid);
 
-    void GetHeartbeatUserList(Json::Value &out_array);
+    void GetHeartbeatUserList(Poco::JSON::Array &out_array);
 
     //! prints the Stats view, of who is connected and what slot they are in
     void printStats();

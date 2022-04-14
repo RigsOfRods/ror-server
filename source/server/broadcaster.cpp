@@ -88,7 +88,7 @@ void Broadcaster::Thread() {
         }
 
         // TODO WARNING THE SOCKET IS NOT PROTECTED!!!
-        if (Messaging::SendMessage(m_client->GetSocket(), msg.type, msg.uid, msg.streamid, msg.datalen, msg.data) != 0) {
+        if (Messaging::SWSendMessage(m_client->GetSocket(), msg.type, msg.uid, msg.streamid, msg.datalen, msg.data) != 0) {
             m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Broadcaster: Send error", true, true);
             socket_error = true;
             break;
@@ -99,7 +99,7 @@ void Broadcaster::Thread() {
         MutexLocker scoped_lock(m_queue_mutex);
         for (const auto& msg : m_msg_queue) {
             if (msg.type != RoRnet::MSG2_STREAM_DATA && msg.type != RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
-                Messaging::SendMessage(m_client->GetSocket(), msg.type, msg.uid, msg.streamid, msg.datalen, msg.data);
+                Messaging::SWSendMessage(m_client->GetSocket(), msg.type, msg.uid, msg.streamid, msg.datalen, msg.data);
             }
         }
     }

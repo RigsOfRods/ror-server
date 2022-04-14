@@ -26,7 +26,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "broadcaster.h"
 #include "receiver.h"
 #include "spamfilter.h"
-#include "json/json.h"
+#include <Poco/JSON/Array.h>
 
 #ifdef WITH_ANGELSCRIPT
 
@@ -43,6 +43,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <map>
 #include <thread>
 #include <condition_variable>
+
 
 // How many not-vehicles streams has every user by default? (e.g.: "default" and "chat" are not-vehicles streams)
 // This is used for the vehicle-limit
@@ -214,7 +215,7 @@ public:
     void queueMessage(int uid, int type, unsigned int streamid, char *data, unsigned int len);
     void sendMOTDSynchronized(int uid);
     void frameStepScripts(float dt);
-    void GetHeartbeatUserList(Json::Value &out_array);
+    void GetHeartbeatUserList(Poco::JSON::Array &out_array);
     void UpdateMinuteStats();
     int AuthorizeNick(std::string token, std::string &nickname);
     std::vector<WebserverClientInfo> GetClientListCopy();

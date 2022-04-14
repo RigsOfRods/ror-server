@@ -24,10 +24,11 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h"
 #include "logger.h"
 #include "http.h"
-#include "json/json.h"
+#include "utils.h"
 
 #include <stdexcept>
 #include <cstdio>
+#include <Poco/Dynamic/Struct.h>
 
 #ifdef __GNUC__
 
@@ -158,24 +159,24 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
     // contact the master server
     char url[512];
     sprintf(url, "/%s/users", Config::GetServerlistPath().c_str());
-    Logger::Log(LOG_INFO, "Attempting user authentication (%s)", url);
+    Logger::Log(LOG_INFO, "Attempting user authentication (%s%s)", Config::GetServerlistHostC(), url);
 
-    Json::Value data(Json::objectValue);
+    Poco::DynamicStruct data;
     data["username"] = user_nick;
     data["user_token"] = user_token;
-    std::string json_str = data.toStyledString();
+    auto json_str = JsonToString(data);
 
     Http::Response resp;
     int result_code = Http::Request(Http::METHOD_GET,
                                     Config::GetServerlistHostC(), url, "application/json",
-                                    json_str.c_str(), &resp);
+                                    json_str, &resp);
 
     // 200 means success!
     if (result_code == 200) {
         Logger::Log(LOG_INFO, "User authentication success, result code: %d", result_code);
         authlevel = RoRnet::AUTH_RANKED;
     } else {
-        Logger::Log(LOG_INFO, "User authentication failed, result code: %d", result_code);
+        Logger::Log(LOG_INFO, "User authentication failed: %s, result code: %d",resp.GetBody().c_str(), result_code);
     }
 
     //then check for overrides in the authorizations file (server admins, etc)

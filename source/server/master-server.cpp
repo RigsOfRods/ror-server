@@ -24,9 +24,21 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h"
 #include "logger.h"
 #include "http.h"
-#include "json/json.h"
+#include "utils.h"
 
 #include <assert.h>
+
+#include <Poco/JSON/Array.h>
+#include <Poco/JSON/Object.h>
+#include <Poco/JSON/Stringifier.h>
+#include <Poco/JSON/Parser.h>
+#include <Poco/JSON/ParseHandler.h>
+#include <Poco/JSON/JSONException.h>
+#include <Poco/Dynamic/Var.h>
+
+using namespace Poco;
+using namespace Poco::JSON;
+using namespace Poco::Dynamic;
 
 namespace MasterServer {
 
@@ -35,7 +47,7 @@ namespace MasterServer {
             m_is_registered(false) {}
 
     bool Client::Register() {
-        Json::Value data(Json::objectValue);
+        DynamicStruct data;
         data["ip"] = Config::getIPAddr();
         data["port"] = Config::getListenPort();
         data["name"] = Config::getServerName();
@@ -46,9 +58,11 @@ namespace MasterServer {
 
         m_server_path = "/" + Config::GetServerlistPath() + "/server-list";
 
+        auto json_str = JsonToString(data);
+
         Logger::Log(LOG_INFO, "Attempting to register on serverlist (%s)", m_server_path.c_str());
         Http::Response response;
-        int result_code = this->HttpRequest(Http::METHOD_POST, data.toStyledString().c_str(), &response);
+        int result_code = this->HttpRequest(Http::METHOD_POST, json_str.c_str(), &response);
         if (result_code < 0) {
             Logger::Log(LOG_ERROR, "Registration failed, result code: %d", result_code);
             return false;
@@ -58,33 +72,34 @@ namespace MasterServer {
             return false;
         }
 
-        Json::Value root;
-        Json::Reader reader;
-        if (!reader.parse(response.GetBody().c_str(), root)) {
-            Logger::Log(LOG_ERROR, "Registration failed, invalid server response (JSON parsing failed)");
+        Parser parser;
+        Var result;
+
+        try
+        {
+            result = parser.parse(response.GetBody());
+        }
+        catch(JSONException& jsonException)
+        {
+            Logger::Log(LOG_ERROR, "Registration failed, invalid server response (%s)", jsonException.message().c_str());
             Logger::Log(LOG_DEBUG, "Raw response: %s", response.GetBody().c_str());
             return false;
         }
 
-        Json::Value trust_level = root["verified-level"];
-        Json::Value challenge = root["challenge"];
-        if (!root.isObject() || !trust_level.isNumeric() || !challenge.isString()) {
-            Logger::Log(LOG_ERROR, "Registration failed, incorrect response from server");
-            Logger::Log(LOG_DEBUG, "Raw response: %s", response.GetBody().c_str());
-            return false;
-        }
+        DynamicStruct root = result.extract<Object>();
 
-        m_token = challenge.asString();
-        m_trust_level = trust_level.asInt();
+        m_trust_level = root["verified-level"];
+        m_token = root["challenge"].toString();
         m_is_registered = true;
         return true;
     }
 
-    bool Client::SendHeatbeat(Json::Value &user_list) {
-        Json::Value data(Json::objectValue);
+    bool Client::SendHeatbeat(Poco::JSON::Array &user_list) {
+        DynamicStruct data;
         data["challenge"] = m_token;
         data["users"] = user_list;
-        std::string json_str = data.toStyledString();
+
+        auto json_str = JsonToString(data);
         Logger::Log(LOG_DEBUG, "Heartbeat JSON:\n%s", json_str.c_str());
 
         Http::Response response;
@@ -100,9 +115,11 @@ namespace MasterServer {
     bool Client::UnRegister() {
         assert(m_is_registered == true);
 
-        Json::Value data(Json::objectValue);
+        DynamicStruct data;
         data["challenge"] = m_token;
-        std::string json_str = data.toStyledString();
+
+        auto json_str = JsonToString(data);
+
         Logger::Log(LOG_DEBUG, "UnRegister JSON:\n%s", json_str.c_str());
 
         Http::Response response;

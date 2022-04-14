@@ -26,6 +26,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <sstream>
 #include <vector>
 #include <stdexcept>
+#include <Poco/Dynamic/Struct.h>
 
 namespace Utils {
 
@@ -74,3 +75,5 @@ std::string trim(const std::string &str);
 std::string hexdump(void *pAddressIn, long lSize);
 
 int intlen(int num);
+
+std::string JsonToString(const Poco::DynamicStruct data);

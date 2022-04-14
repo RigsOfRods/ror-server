@@ -39,6 +39,10 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <stdexcept>
 #include <sstream>
 
+#include <Poco/JSON/Array.h>
+#include <Poco/JSON/Object.h>
+#include <Poco/JSON/ParseHandler.h>
+
 #ifdef __GNUC__
 
 #include <stdlib.h>
@@ -409,14 +413,15 @@ void Sequencer::broadcastUserInfo(int client_id) {
     }
 }
 
-void Sequencer::GetHeartbeatUserList(Json::Value &out_array) {
+void Sequencer::GetHeartbeatUserList(Poco::JSON::Array &out_array)
+{
     std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
 
     auto itor = m_clients.begin();
     auto endi = m_clients.end();
     for (; itor != endi; ++itor) {
         Client *client = *itor;
-        Json::Value user_data(Json::objectValue);
+        Poco::DynamicStruct user_data;
         user_data["is_admin"] = (client->user.authstatus & RoRnet::AUTH_ADMIN);
         user_data["is_mod"] = (client->user.authstatus & RoRnet::AUTH_MOD);
         user_data["is_ranked"] = (client->user.authstatus & RoRnet::AUTH_RANKED);
@@ -425,7 +430,7 @@ void Sequencer::GetHeartbeatUserList(Json::Value &out_array) {
         user_data["ip_address"] = client->GetIpAddress();
         user_data["client_id"] = client->user.uniqueid;
 
-        out_array.append(user_data);
+        out_array.add(user_data);
     }
 }
 

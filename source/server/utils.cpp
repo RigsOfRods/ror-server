@@ -29,6 +29,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <cstdio>
 #include <iostream>
 #include <locale>
+#include <Poco/JSON/Stringifier.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -240,4 +241,12 @@ int intlen(int num) {
         num = num / 10;
     }
     return length;
+}
+
+
+std::string JsonToString(const Poco::DynamicStruct data)
+{
+    std::stringstream s; 
+    Poco::JSON::Stringifier::stringify(data, s, 1); 
+    return s.str();
 }

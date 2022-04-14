@@ -24,11 +24,21 @@ along with Rigs of Rods Server. If not, see <http://www.gnu.org/licenses/>.
 #include "sequencer.h"
 #include "utils.h"
 
-#include <fstream>
-#include <json/json.h>
+#include <Poco/Dynamic/Var.h>
+#include <Poco/JSON/Array.h>
+#include <Poco/JSON/JSONException.h>
+#include <Poco/JSON/Object.h>
+#include <Poco/JSON/ParseHandler.h>
+#include <Poco/JSON/Parser.h>
+#include <Poco/JSON/Stringifier.h>
 
-Blacklist::Blacklist(Sequencer* database)
-    : m_database(database)
+using namespace Poco;
+using namespace Poco::JSON;
+using namespace Poco::Dynamic;
+
+#include <fstream>
+
+Blacklist::Blacklist(Sequencer *database) : m_database(database)
 {
 }
 
@@ -38,31 +48,29 @@ void Blacklist::SaveBlacklistToFile()
     f.open(Config::getBlacklistFile(), std::ios::out);
     if (!f.is_open() || !f.good())
     {
-        Logger::Log(LogLevel::LOG_WARN,
-            "Couldn't open the local blacklist file ('%s'). Bans were not saved.",
-            Config::getBlacklistFile().c_str());
+        Logger::Log(LogLevel::LOG_WARN, "Couldn't open the local blacklist file ('%s'). Bans were not saved.",
+                    Config::getBlacklistFile().c_str());
         return;
     }
 
-    Json::Value j_bans(Json::arrayValue);
+    JSON::Array j_bans;
     std::vector<ban_t> bans = m_database->GetBanListCopy();
 
-    for (ban_t& ban : bans)
+    for (ban_t &ban : bans)
     {
-        Json::Value j_ban(Json::objectValue);
-		j_ban["bid"] = ban.bid;
+        DynamicStruct j_ban;
+        j_ban["bid"] = ban.bid;
         j_ban["ip"] = ban.ip;
         j_ban["nickname"] = ban.nickname;
         j_ban["banned_by_nickname"] = ban.bannedby_nick;
         j_ban["message"] = ban.banmsg;
-        j_bans.append(j_ban);
+        j_bans.add(j_ban);
     }
 
-    Json::Value j_doc(Json::objectValue);
+    DynamicStruct j_doc;
     j_doc["bans"] = j_bans;
 
-    Json::StyledStreamWriter j_writer;
-    j_writer.write(f, j_doc);
+    Poco::JSON::Stringifier::stringify(j_doc, f, 1);
 }
 
 bool Blacklist::LoadBlacklistFromFile()
@@ -71,8 +79,7 @@ bool Blacklist::LoadBlacklistFromFile()
     f.open(Config::getBlacklistFile(), std::ios::in);
     if (!f.is_open() || !f.good())
     {
-        Logger::Log(LogLevel::LOG_WARN,
-                    "Couldn't open the local blacklist file ('%s'). No bans were loaded.",
+        Logger::Log(LogLevel::LOG_WARN, "Couldn't open the local blacklist file ('%s'). No bans were loaded.",
                     Config::getBlacklistFile().c_str());
         return false;
     }
@@ -80,32 +87,41 @@ bool Blacklist::LoadBlacklistFromFile()
     if (Utils::IsEmptyFile(f))
     {
         f.close();
-        Logger::Log(LogLevel::LOG_WARN,
-                    "Local blacklist file ('%s') is empty.",
-                    Config::getBlacklistFile().c_str());
+        Logger::Log(LogLevel::LOG_WARN, "Local blacklist file ('%s') is empty.", Config::getBlacklistFile().c_str());
         return false;
     }
 
-    Json::Value j_doc;
-    Json::Reader j_reader;
-    j_reader.parse(f, j_doc);
-    if (!j_reader.good())
+    Parser parser;
+    Var result;
+
+    try
     {
-        Logger::Log(LogLevel::LOG_WARN,
-                    "Couldn't parse blacklist file, messages:\n%s",
-                    j_reader.getFormattedErrorMessages());
+        result = parser.parse(f);
+    }
+    catch (JSONException &jsonException)
+    {
+        Logger::Log(LogLevel::LOG_WARN, "Couldn't parse blacklist file, messages:\n%s",
+                    jsonException.message().c_str());
         return false;
     }
 
-    for (Json::Value& j_ban: j_doc["bans"])
+    try
     {
-        m_database->RecordBan(
-            // ban IDs are reset to start at 1 on every start/restart
-            j_ban["ip"].asString(),
-            j_ban["nickname"].asString(),
-            j_ban["banned_by_nickname"].asString(),
-            j_ban["message"].asString());
-    }
+        Poco::JSON::Object::Ptr root = result.extract<Poco::JSON::Object::Ptr>();
+        JSON::Array::Ptr bans = root->getArray("bans");
 
+        for (int i = 0; i < bans->size(); ++i)
+        {
+            auto j_ban = bans->getObject(i);
+            m_database->RecordBan(j_ban->getValue<std::string>("ip"),
+                                  j_ban->getValue<std::string>("nickname"),
+                                  j_ban->getValue<std::string>("banned_by_nickname"),
+                                  j_ban->getValue<std::string>("message"));
+        }
+    }
+    catch (Exception e)
+    {
+        Logger::Log(LogLevel::LOG_WARN, "Couldn't parse blacklist file, messages:\n%s", e.message().c_str());
+    }
     return true;
 }

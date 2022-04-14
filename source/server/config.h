@@ -77,6 +77,8 @@ namespace Config {
 
     const std::string &getBlacklistFile();
 
+    const std::string &getTruckBlacklistFile();
+
     const std::string &getOwner();
 
     const std::string &getWebsite();
@@ -147,6 +149,8 @@ namespace Config {
     void setRulesFile(const std::string &rulesFile);
 
     void setBlacklistFile(const std::string &blacklistFile);
+
+    void setTruckBlacklistFile(const std::string &blacklistFile);
 
     void setOwner(const std::string &owner);
 

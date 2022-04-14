@@ -161,6 +161,7 @@ Sequencer::Sequencer() :
         m_num_disconnects_total(0),
         m_num_disconnects_crash(0),
         m_blacklist(this),
+        m_truck_blacklist(this),
         m_bot_count(0),
         m_free_user_id(1) {
     m_start_time = static_cast<int>(time(nullptr));
@@ -184,6 +185,8 @@ void Sequencer::Initialize() {
     m_auth_resolver = new UserAuth(Config::getAuthFile());
 
     m_blacklist.LoadBlacklistFromFile();
+
+    m_truck_blacklist.LoadTruckBlacklistFromFile();
 }
 
 /**
@@ -718,6 +721,18 @@ void Sequencer::SilentBan(int buid, const char *msg, bool doScriptCallback /*= t
     QueueClientForDisconnect(banned_client->user.uniqueid, kick_msg.c_str(), false, doScriptCallback);
 }
 
+bool Sequencer::unBanVehicle(std::string const& filename) {
+    for (unsigned int i = 0; i < m_vehiclebans.size(); i++) {
+        if (m_vehiclebans[i]->filename == filename) {
+            m_vehiclebans.erase(m_vehiclebans.begin() + i);
+			m_truck_blacklist.SaveTruckBlacklistToFile(); // Remove from the blacklist file
+            Logger::Log(LOG_VERBOSE, "ban removed: %s", filename.c_str());
+            return true;
+        }
+    }
+    return false;
+}
+
 bool Sequencer::UnBan(int bid) {
     for (unsigned int i = 0; i < m_bans.size(); i++) {
         if (m_bans[i]->bid == bid) {
@@ -737,6 +752,18 @@ bool Sequencer::IsBanned(const char *ip) {
 
     for (unsigned int i = 0; i < m_bans.size(); i++) {
         if (!strcmp(m_bans[i]->ip, ip))
+            return true;
+    }
+    return false;
+}
+
+bool Sequencer::isTruckFileBanned(const char *filename) {
+    if (filename == nullptr) {
+        return false;
+    }
+
+    for (unsigned int i = 0; i < m_vehiclebans.size(); i++) {
+        if (!strcmp(m_vehiclebans[i]->filename.c_str(), filename))
             return true;
     }
     return false;
@@ -852,6 +879,21 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
 
             QueueClientForDisconnect(client->user.uniqueid, sayMsg, false);
             publishMode = BROADCAST_BLOCK; // drop
+        } else if (reg->type == RORNET_STREAM_TYPE_VEHICLE && Sequencer::isTruckFileBanned(reg->name)) {
+            // This user spawned a banned vehicle, we drop the stream and then disconnect the user
+            Logger::Log(LOG_INFO, "%s(%d) spawned a banned vehicle. Stream dropped, user kicked.",
+                        client->GetUsername().c_str(), client->user.uniqueid);
+
+            // broadcast a general message that this user was auto-kicked
+            char sayMsg[300] = "";
+            snprintf(sayMsg, 300, "%s was auto-kicked for spawning a banned vehicle", client->GetUsername().c_str());
+            serverSay(sayMsg, TO_ALL, FROM_SERVER);
+
+            // disconnect the user with a message
+            snprintf(sayMsg, 300, "You were auto-kicked for spawning a banned vehicle");
+
+            QueueClientForDisconnect(client->user.uniqueid, sayMsg, false);
+            publishMode = BROADCAST_BLOCK; // drop
         } else {
             publishMode = BROADCAST_NORMAL;
 
@@ -954,7 +996,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
 #endif //WITH_ANGELSCRIPT
         if (str == "!help") {
             serverSay(std::string("builtin commands:"), uid);
-            serverSay(std::string("!version, !list, !say, !bans, !ban, !unban, !kick, !vehiclelimit"), uid);
+            serverSay(std::string("!version, !list, !say, !bans, !ban, !unban, !kick, !vehiclelimit, !vehiclebans, !banvehicle, !unbanvehicle, !reload"), uid);
             serverSay(std::string("!website, !irc, !owner, !voip, !rules, !motd"), uid);
         }
 
@@ -1051,6 +1093,72 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
             } else {
                 // not allowed
                 serverSay(std::string("You are not authorized to ban people!"), uid);
+            }
+        } else if (str.substr(0, 12) == "!banvehicle ") {
+            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+                char filename_tmp[1000] = {};
+                int res = sscanf(str.substr(12).c_str(), "%s", filename_tmp);
+                std::string filename = std::string(filename_tmp);
+                filename = trim(filename);
+                if (res != 1 || !filename.size()) {
+                    serverSay(std::string("usage: !banvehicle <filename> "), uid);
+                    serverSay(std::string("example: !banvehicle foo.truck"), uid);
+                } else {
+                    bool banned = banVehicle(filename);
+                    if (!banned)
+                    {
+                        serverSay(std::string("vehicle already banned"), uid);
+                    }
+                    else
+                    {
+                        std::string msg = "Vehicle " + filename + " banned";
+                        serverSay(msg, uid);
+                    }
+                }
+            } else {
+                // not allowed
+                serverSay(std::string("You are not authorized to ban vehicles!"), uid);
+            }
+        } else if (str.substr(0, 14) == "!unbanvehicle ") {
+            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+				char filename_tmp[1000] = {};
+                int res = sscanf(str.substr(14).c_str(), "%s", filename_tmp);
+                std::string filename = std::string(filename_tmp);
+                filename = trim(filename);
+                if (res != 1 || !filename.size()) {
+                    serverSay(std::string("usage: !unban <filename>"), uid);
+                    serverSay(std::string("example: !foo.truck"), uid);
+                } else {
+                    if (unBanVehicle(filename))
+                        serverSay(std::string("ban removed"), uid);
+                    else
+                        serverSay(std::string("ban not removed: error"), uid);
+                }
+            } else {
+                // not allowed
+                serverSay(std::string("You are not authorized to unban vehicles!"), uid);
+            }
+        } else if (str.substr(0, 12) == "!vehiclebans") {
+            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+				serverSay(std::string("filename"), uid);
+				if (m_vehiclebans.empty()) {
+					serverSay(std::string("There are no vehicle bans recorded!"), uid);
+				} else {
+					for (unsigned int i = 0; i < m_vehiclebans.size(); i++) {
+						serverSay(std::string(m_vehiclebans[i]->filename), uid);
+					}
+				}
+            } else {
+                // not allowed
+                serverSay(std::string("You are not authorized to use this command!"), uid);
+            }
+        } else if (str.substr(0, 7) == "!reload") {
+            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+				serverSay(std::string("Reloading vehicle bans"), uid);
+                                m_truck_blacklist.LoadTruckBlacklistFromFile();
+            } else {
+                // not allowed
+                serverSay(std::string("You are not authorized to use this command!"), uid);
             }
         } else if (str.substr(0, 6) == "!kick ") {
             if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
@@ -1330,3 +1438,36 @@ std::vector<ban_t> Sequencer::GetBanListCopy()
     return output;
 }
 
+std::vector<vehicleban_t> Sequencer::GetTruckBanListCopy()
+{
+    // FIXME: bans really should be synchronized ~ 09/2019
+
+    std::vector<vehicleban_t> output;
+    for (vehicleban_t *vb : m_vehiclebans) {
+        output.push_back(*vb);
+    }
+    return output;
+}
+
+// ------------------------------------------------------------------
+// Vehicle bans
+
+bool Sequencer::banVehicle(std::string const& filename)
+{
+    if (Sequencer::isTruckFileBanned(filename.c_str())) // already banned
+    {
+        Logger::Log(LOG_DEBUG, "vehicle already banned, size: %u", m_vehiclebans.size());
+        return false;
+    }
+
+    vehicleban_t* vb = new vehicleban_t;
+    vb->filename = filename;
+
+    Logger::Log(LOG_DEBUG, "adding vehicle-ban, size: %u", m_vehiclebans.size());
+    m_vehiclebans.push_back(vb);
+    Logger::Log(LOG_VERBOSE, "new vehicle-ban added: '%s'", filename.c_str());
+
+    m_truck_blacklist.SaveTruckBlacklistToFile(); // Persist the ban
+
+    return true;
+}

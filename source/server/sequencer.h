@@ -21,6 +21,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #pragma once
 
 #include "blacklist.h"
+#include "truckblacklist.h"
 #include "prerequisites.h"
 #include "rornet.h"
 #include "mutexutils.h"
@@ -172,6 +173,10 @@ struct ban_t {
     char banmsg[256];           //!< why he got banned
 };
 
+struct vehicleban_t {
+    std::string filename;         //!< banned file name with extension
+};
+
 void *LaunchKillerThread(void *);
 
 class Sequencer {
@@ -248,7 +253,17 @@ public:
 
     std::vector<WebserverClientInfo> GetClientListCopy();
 
+    std::vector<vehicleban_t> GetTruckBanListCopy();
+
     std::vector<ban_t> GetBanListCopy();
+
+    /// @name Vehicle bans
+    /// @{
+    bool banVehicle(std::string const& filename);
+    bool unBanVehicle(std::string const& filename);
+    bool isTruckFileBanned(const char *filename);
+    std::vector<vehicleban_t> getVehicleBanListCopy();
+    /// @}
 
     static unsigned int connCrash, connCount;
 
@@ -265,10 +280,12 @@ private:
     size_t m_num_disconnects_total; //!< Statistic
     size_t m_num_disconnects_crash; //!< Statistic
     Blacklist m_blacklist;
+    TruckBlacklist m_truck_blacklist;
 
     std::queue<Client *> m_kill_queue; //!< holds pointer for client deletion
     std::vector<Client *> m_clients;
     std::vector<ban_t *> m_bans;
+    std::vector<vehicleban_t *> m_vehiclebans;
 
     Client *FindClientById(unsigned int client_id);
 };

@@ -55,6 +55,7 @@ static std::string s_authfile("server.auth");
 static std::string s_motdfile("server.motd");
 static std::string s_rulesfile("server.rules");
 static std::string s_blacklistfile("server.blacklist");
+static std::string s_truckblacklistfile("truck.blacklist");
 static std::string s_owner;
 static std::string s_website;
 static std::string s_irc;
@@ -94,41 +95,42 @@ namespace Config {
                 "Usage: rorserver [OPTIONS]\n"
                         "[OPTIONS] can be in Un*x `--help` or windows `/help` notation\n"
                         "\n"
-                        " -config-file (-c) <INI file> Loads the configuration from a file\n"
-                        " -name <name>                 Name of the server, no spaces, only\n"
-                        "                              [a-z,0-9,A-Z]\n"
-                        " -terrain <mapname>           Map name (defaults to 'any')\n"
-                        " -max-clients|speed <clients> Maximum clients allowed\n"
-                        " -lan|inet                    Private or public server (defaults to inet)\n"
+                        " -config-file (-c) <INI file>              Loads the configuration from a file\n"
+                        " -name <name>                              Name of the server, no spaces, only\n"
+                        "                                           [a-z,0-9,A-Z]\n"
+                        " -terrain <mapname>                        Map name (defaults to 'any')\n"
+                        " -max-clients|speed <clients>              Maximum clients allowed\n"
+                        " -lan|inet                                 Private or public server (defaults to inet)\n"
                         "\n"
-                        " -password <password>         Private server password\n"
-                        " -ip <ip>                     Public IP address to register with.\n"
-                        " -port <port>                 Port to use (defaults to random 12000-12500)\n"
-                        " -verbosity {0-5}             Sets displayed log verbosity\n"
-                        " -log-verbosity {0-5}         Sets file log verbositylog verbosity\n"
-                        "                              levels available to verbosity and logverbosity:\n"
-                        "                                  0 = stack\n"
-                        "                                  1 = debug\n"
-                        "                                  2 = verbosity\n"
-                        "                                  3 = info\n"
-                        "                                  4 = warn\n"
-                        "                                  5 = error\n"
-                        " -log-file <server.log>       Sets the filename of the log\n"
-                        " -script-file <script.as>     Server script to execute\n"
-                        " -print-stats                 Prints stats to the console\n"
-                        " -version                     Prints the server version numbers\n"
-                        " -fg                          Starts the server in the foreground (background by default)\n"
-                        " -resource-dir <path>         Sets the path to the resource directory\n"
-                        " -auth-file <server.auth>             Path to file with authorization info\n"
-                        " -motd-file <server.motd>             Path to file with message of the day\n"
-                        " -rules-file <server.rules>           Path to file with rules for this server\n"
-                        " -blacklist-file <server.blacklist>   Path to file where bans are persisted\n"
-                        " -vehicle-limit {0-...}       Sets the maximum number of vehicles that a user is allowed to have\n"
-                        " -owner <name|organisation>   Sets the owner of this server (for the !owner command) (optional)\n"
-                        " -website <URL>               Sets the website of this server (for the !website command) (optional)\n"
-                        " -irc <URL>                   Sets the IRC url for this server (for the !irc command) (optional)\n"
-                        " -voip <URL>                  Sets the voip url for this server (for the !voip command) (optional)\n"
-                        " -help                        Show this list\n");
+                        " -password <password>                      Private server password\n"
+                        " -ip <ip>                                  Public IP address to register with.\n"
+                        " -port <port>                              Port to use (defaults to random 12000-12500)\n"
+                        " -verbosity {0-5}                          Sets displayed log verbosity\n"
+                        " -log-verbosity {0-5}                      Sets file log verbositylog verbosity\n"
+                        "                                           levels available to verbosity and logverbosity:\n"
+                        "                                               0 = stack\n"
+                        "                                               1 = debug\n"
+                        "                                               2 = verbosity\n"
+                        "                                               3 = info\n"
+                        "                                               4 = warn\n"
+                        "                                               5 = error\n"
+                        " -log-file <server.log>                    Sets the filename of the log\n"
+                        " -script-file <script.as>                  Server script to execute\n"
+                        " -print-stats                              Prints stats to the console\n"
+                        " -version                                  Prints the server version numbers\n"
+                        " -fg                                       Starts the server in the foreground (background by default)\n"
+                        " -resource-dir <path>                      Sets the path to the resource directory\n"
+                        " -auth-file <server.auth>                  Path to file with authorization info\n"
+                        " -motd-file <server.motd>                  Path to file with message of the day\n"
+                        " -rules-file <server.rules>                Path to file with rules for this server\n"
+                        " -blacklist-file <server.blacklist>        Path to file where bans are persisted\n"
+                        " -truck-blacklist-file <truck.blacklist>   Path to file where banned vehicles are persisted\n"
+                        " -vehicle-limit {0-...}                    Sets the maximum number of vehicles that a user is allowed to have\n"
+                        " -owner <name|organisation>                Sets the owner of this server (for the !owner command) (optional)\n"
+                        " -website <URL>                            Sets the website of this server (for the !website command) (optional)\n"
+                        " -irc <URL>                                Sets the IRC url for this server (for the !irc command) (optional)\n"
+                        " -voip <URL>                               Sets the voip url for this server (for the !voip command) (optional)\n"
+                        " -help                                     Show this list\n");
     }
 
     void ShowVersion() {
@@ -253,6 +255,7 @@ namespace Config {
             HANDLE_ARG_VALUE("motd-file", { setMOTDFile(value); });
             HANDLE_ARG_VALUE("rules-file", { setRulesFile(value); });
             HANDLE_ARG_VALUE("blacklist-file", { setBlacklistFile(value); });
+            HANDLE_ARG_VALUE("truck-blacklist-file", { setTruckBlacklistFile(value); });
             HANDLE_ARG_VALUE("owner", { setOwner(value); });
             HANDLE_ARG_VALUE("website", { setWebsite(value); });
             HANDLE_ARG_VALUE("irc", { setIRC(value); });
@@ -321,6 +324,8 @@ namespace Config {
     const std::string &getMOTDFile() { return s_motdfile; }
 
     const std::string &getBlacklistFile() { return s_blacklistfile; }
+
+    const std::string &getTruckBlacklistFile() { return s_truckblacklistfile; }
 
     const std::string &getRulesFile() { return s_rulesfile; }
 
@@ -417,6 +422,8 @@ namespace Config {
 
     void setBlacklistFile(const std::string &file) { s_blacklistfile = file; }
 
+    void setTruckBlacklistFile(const std::string &file) { s_truckblacklistfile = file; }
+
     void setMaxVehicles(unsigned int num) { s_max_vehicles = num; }
 
     void setSpawnIntervalSec(int sec) { s_spawn_interval_sec = sec; }
@@ -501,6 +508,7 @@ namespace Config {
         else if (strcmp(key, "motdfile") == 0) { setMOTDFile(VAL_STR (value)); }
         else if (strcmp(key, "rulesfile") == 0) { setRulesFile(VAL_STR (value)); }
         else if (strcmp(key, "blacklistfile") == 0) { setBlacklistFile(VAL_STR(value)); }
+        else if (strcmp(key, "truckblacklistfile") == 0) { setTruckBlacklistFile(VAL_STR(value)); }
         else if (strcmp(key, "owner") == 0) { setOwner(VAL_STR (value)); }
         else if (strcmp(key, "website") == 0) { setWebsite(VAL_STR (value)); }
         else if (strcmp(key, "irc") == 0) { setIRC(VAL_STR (value)); }

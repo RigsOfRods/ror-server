@@ -11,6 +11,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${CMAKE_SOURCE_DIR}/dependencies/jsoncpp/include/
         )
 
+target_link_libraries(${PROJECT_NAME} PRIVATE Poco::Poco)
+
 # libraries
 if (RORSERVER_WITH_ANGELSCRIPT)
     add_dependencies(${PROJECT_NAME} angelscript)

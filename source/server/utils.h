@@ -74,3 +74,8 @@ std::string trim(const std::string &str);
 std::string hexdump(void *pAddressIn, long lSize);
 
 int intlen(int num);
+
+#define JsonToString(_data, _string) \
+    std::stringstream s; \
+    Poco::JSON::Stringifier::stringify(_data, s, 1); \
+    std::string _string = s.str()

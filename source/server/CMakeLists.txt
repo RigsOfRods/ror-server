@@ -8,8 +8,9 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${CMAKE_SOURCE_DIR}/dependencies/
         ${CMAKE_SOURCE_DIR}/source/protocol/
         ${CMAKE_SOURCE_DIR}/source/common/
-        ${CMAKE_SOURCE_DIR}/dependencies/jsoncpp/include/
         )
+
+target_link_libraries(${PROJECT_NAME} PRIVATE Poco::Foundation Poco::JSON)
 
 # libraries
 if (RORSERVER_WITH_ANGELSCRIPT)
@@ -23,10 +24,10 @@ endif ()
 IF (WIN32)
     target_compile_definitions(${PROJECT_NAME} PRIVATE PTW32_STATIC_LIB)
     target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/win32_pthread/include)
-    target_link_libraries(${PROJECT_NAME} PRIVATE mysocketw jsoncpp pthread)
+    target_link_libraries(${PROJECT_NAME} PRIVATE mysocketw pthread)
 ELSEIF (UNIX)
     #add_definitions("-DAS_MAX_PORTABILITY")
-    target_link_libraries(${PROJECT_NAME} PRIVATE mysocketw pthread dl jsoncpp)
+    target_link_libraries(${PROJECT_NAME} PRIVATE mysocketw pthread dl)
 ELSEIF (APPLE)
 ENDIF (WIN32)
 

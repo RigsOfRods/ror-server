@@ -26,7 +26,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 namespace Messaging {
 
-    int SendMessage(
+    int SWSendMessage(
             SWInetSocket *socket,
             int msg_type,
             int msg_client_id,

@@ -39,6 +39,10 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <stdexcept>
 #include <sstream>
 
+#include "Poco/JSON/Array.h"
+#include "Poco/JSON/Object.h"
+#include "Poco/JSON/ParseHandler.h"
+
 #ifdef __GNUC__
 
 #include <stdlib.h>
@@ -187,7 +191,7 @@ void Sequencer::Close() {
     for (unsigned int i = 0; i < m_clients.size(); i++) {
         // HACK-ISH override all thread stuff and directly send it!
         Client *client = m_clients[i];
-        Messaging::SendMessage(client->GetSocket(), RoRnet::MSG2_USER_LEAVE, client->user.uniqueid, 0, strlen(str),
+        Messaging::SWSendMessage(client->GetSocket(), RoRnet::MSG2_USER_LEAVE, client->user.uniqueid, 0, strlen(str),
                                str);
     }
     Logger::Log(LOG_INFO, "all clients disconnected. exiting.");
@@ -254,7 +258,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
     SWBaseSocket::SWBaseError error;
     if (Sequencer::IsBanned(sock->get_peerAddr(&error).c_str())) {
         Logger::Log(LOG_WARN, "rejected banned client '%s' with IP %s", nick.c_str(), sock->get_peerAddr(&error).c_str());
-        Messaging::SendMessage(sock, RoRnet::MSG2_BANNED, 0, 0, 0, 0);
+        Messaging::SWSendMessage(sock, RoRnet::MSG2_BANNED, 0, 0, 0, 0);
         return;
     }
 
@@ -266,7 +270,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
         // set a low time out because we don't want to cause a back up of
         // connecting clients
         sock->set_timeout(10, 0);
-        Messaging::SendMessage(sock, RoRnet::MSG2_FULL, 0, 0, 0, 0);
+        Messaging::SWSendMessage(sock, RoRnet::MSG2_FULL, 0, 0, 0, 0);
         throw std::runtime_error("Server is full");
     }
 
@@ -326,7 +330,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
     to_add->StartThreads();
 
     Logger::Log(LOG_VERBOSE, "Sending welcome message to uid %i", client_id);
-    if (Messaging::SendMessage(sock, RoRnet::MSG2_WELCOME, client_id, 0, sizeof(RoRnet::UserInfo),
+    if (Messaging::SWSendMessage(sock, RoRnet::MSG2_WELCOME, client_id, 0, sizeof(RoRnet::UserInfo),
                                (char *) &to_add->user)) {
         this->QueueClientForDisconnect(client_id, "error sending welcome message");
         return;
@@ -376,14 +380,14 @@ void Sequencer::broadcastUserInfo(int client_id) {
     }
 }
 
-void Sequencer::GetHeartbeatUserList(Json::Value &out_array) {
+void Sequencer::GetHeartbeatUserList(Poco::JSON::Array &out_array) {
     MutexLocker scoped_lock(m_clients_mutex);
 
     auto itor = m_clients.begin();
     auto endi = m_clients.end();
     for (; itor != endi; ++itor) {
         Client *client = *itor;
-        Json::Value user_data(Json::objectValue);
+        Poco::DynamicStruct user_data;
         user_data["is_admin"] = (client->user.authstatus & RoRnet::AUTH_ADMIN);
         user_data["is_mod"] = (client->user.authstatus & RoRnet::AUTH_MOD);
         user_data["is_ranked"] = (client->user.authstatus & RoRnet::AUTH_RANKED);
@@ -392,7 +396,7 @@ void Sequencer::GetHeartbeatUserList(Json::Value &out_array) {
         user_data["ip_address"] = client->GetIpAddress();
         user_data["client_id"] = client->user.uniqueid;
 
-        out_array.append(user_data);
+        out_array.add(user_data);
     }
 }
 

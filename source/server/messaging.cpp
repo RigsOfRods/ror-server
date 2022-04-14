@@ -93,7 +93,7 @@ namespace Messaging {
  * @param content Payload
  * @return 0 on success
  */
-    int SendMessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len,
+    int SWSendMessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len,
                     const char *content) {
         assert(socket != nullptr);
 

@@ -6,7 +6,7 @@ set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${CMAKE_BINARY_DIR})
 project(rorserver)
 
 
-find_package(Poco REQUIRED)
+find_package(Poco REQUIRED COMPONENTS Foundation)
 
 # setup paths
 SET(RUNTIME_OUTPUT_DIRECTORY "${rorserver_SOURCE_DIR}/bin/")

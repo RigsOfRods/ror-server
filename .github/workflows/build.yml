@@ -17,8 +17,31 @@ jobs:
       - name: Enable Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1.10.0
 
-      - name: Get latest CMake and ninja
-        uses: lukka/get-cmake@latest
+      - name: Install deps (Ubuntu)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: sudo apt-get update && sudo apt-get -y install libpoco-dev ninja-build
+
+      - name: Cache conan
+        if: startsWith(matrix.os, 'windows')
+        uses: actions/cache@v3
+        with:
+          key: conan-${{ hashFiles('conanfile.txt') }}
+          path: ~/.conan/
+
+      - run: echo "C:\apps\build-tools\" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        if: startsWith(matrix.os, 'windows')
+
+      - name: Install Build tools
+        if: startsWith(matrix.os, 'windows')
+        shell: cmake -P {0}
+        run: |
+          file(MAKE_DIRECTORY "C:/apps/build-tools/")
+          file(DOWNLOAD https://cdn.anotherfoxguy.com/build-tools.zip "$ENV{TMP}/build-tools.zip" SHOW_PROGRESS)
+          execute_process(COMMAND ${CMAKE_COMMAND} -E tar xzf "$ENV{TMP}/build-tools.zip" WORKING_DIRECTORY "C:/apps/build-tools/")
+
+      - name: Install deps with conan
+        if: startsWith(matrix.os, 'windows')
+        run: conan install . --build=missing
 
       - name: Configure
         run: cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DRORSERVER_WITH_ANGELSCRIPT=ON .

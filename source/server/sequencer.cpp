@@ -147,7 +147,6 @@ void *LaunchKillerThread(void *data) {
 Sequencer::Sequencer() :
         m_script_engine(nullptr),
         m_auth_resolver(nullptr),
-        m_clients_mutex(/*recursive=*/ true),
         m_num_disconnects_total(0),
         m_num_disconnects_crash(0),
         m_blacklist(this),
@@ -247,7 +246,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
     //try to find a place for him
     Logger::Log(LOG_DEBUG, "got instance in createClient()");
 
-    MutexLocker scoped_lock(m_clients_mutex);
+    std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
 
 	std::string nick = Str::SanitizeUtf8(user.username);
     // check if banned
@@ -368,7 +367,7 @@ void Sequencer::broadcastUserInfo(int client_id) {
     memset(info_for_others.usertoken, 0, 40);
     memset(info_for_others.clientGUID, 0, 40);
     { // Lock scope
-        MutexLocker scoped_lock(m_clients_mutex);
+        std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
         for (unsigned int i = 0; i < m_clients.size(); i++) {
             m_clients[i]->QueueMessage(RoRnet::MSG2_USER_INFO, info_for_others.uniqueid, 0, sizeof(RoRnet::UserInfo),
                                        (char *) &info_for_others);
@@ -377,7 +376,7 @@ void Sequencer::broadcastUserInfo(int client_id) {
 }
 
 void Sequencer::GetHeartbeatUserList(Json::Value &out_array) {
-    MutexLocker scoped_lock(m_clients_mutex);
+    std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
 
     auto itor = m_clients.begin();
     auto endi = m_clients.end();
@@ -397,12 +396,12 @@ void Sequencer::GetHeartbeatUserList(Json::Value &out_array) {
 }
 
 int Sequencer::getNumClients() {
-    MutexLocker scoped_lock(m_clients_mutex);
+    std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
     return (int) m_clients.size();
 }
 
 int Sequencer::AuthorizeNick(std::string token, std::string &nickname) {
-    MutexLocker scoped_lock(m_clients_mutex);
+    std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
     if (m_auth_resolver == nullptr) {
         return RoRnet::AUTH_NONE;
     }
@@ -433,7 +432,6 @@ void Sequencer::killerthreadstart() {
 }
 
 void Sequencer::QueueClientForDisconnect(int uid, const char *errormsg, bool isError /*=true*/, bool doScriptCallback /*= true*/) {
-    MutexLocker scoped_lock(m_clients_mutex);
 
     Client *client = this->FindClientById(static_cast<unsigned int>(uid));
     if (client == nullptr) {
@@ -494,7 +492,7 @@ void Sequencer::QueueClientForDisconnect(int uid, const char *errormsg, bool isE
 
 //this is called from the listener thread initial handshake
 void Sequencer::enableFlow(int uid) {
-    MutexLocker scoped_lock(m_clients_mutex);
+    std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
 
     Client *client = this->FindClientById(static_cast<unsigned int>(uid));
     if (client == nullptr) {
@@ -755,7 +753,7 @@ void Sequencer::streamDebug() {
 
 //this is called by the receivers threads, like crazy & concurrently
 void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *data, unsigned int len) {
-    MutexLocker scoped_lock(m_clients_mutex);
+    std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
 
     Client *client = this->FindClientById(static_cast<unsigned int>(uid));
     if (client == nullptr) {
@@ -1219,7 +1217,7 @@ Client *Sequencer::getClient(int uid) {
 }
 
 void Sequencer::UpdateMinuteStats() {
-    MutexLocker scoped_lock(m_clients_mutex);
+    std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
 
     for (unsigned int i = 0; i < m_clients.size(); i++) {
         if (m_clients[i]->GetStatus() == Client::STATUS_USED) {
@@ -1306,7 +1304,7 @@ Client *Sequencer::FindClientById(unsigned int client_id) {
 }
 
 std::vector<WebserverClientInfo> Sequencer::GetClientListCopy() {
-    MutexLocker scoped_lock(m_clients_mutex);
+    std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
 
     std::vector<WebserverClientInfo> output;
     for (Client *c : m_clients) {

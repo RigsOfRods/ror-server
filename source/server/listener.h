@@ -21,31 +21,33 @@
 #pragma once
 
 #include "SocketW.h"
-#include "mutexutils.h"
 #include "prerequisites.h"
 
-#include <pthread.h>
-#include <atomic>
+#include <mutex>
+#include <thread>
 
 class Listener {
 private:
-    pthread_t m_thread;
+    enum class ThreadState
+    {
+        NOT_RUNNING,
+        RUNNING,
+        STOP_REQUESTED
+    };
+
     SWInetSocket m_listen_socket;
-    int m_listen_port;
-    Threading::SimpleCond m_ready_cond;
-    Sequencer *m_sequencer;
-    std::atomic_bool m_thread_shutdown;
+    ThreadState  m_thread_state = ThreadState::NOT_RUNNING;
+    std::mutex   m_mutex;
+    std::thread  m_thread;
+    Sequencer*   m_sequencer = nullptr;
+
+    void ThreadMain();
+    ThreadState GetThreadState();
+
 public:
-    Listener(Sequencer *sequencer, int port);
-
-    ~Listener(void);
-
-    void threadstart();
+    Listener(Sequencer *sequencer);
 
     bool Initialize();
-
-    bool WaitUntilReady();
-
     void Shutdown();
 };
 

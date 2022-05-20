@@ -22,7 +22,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #ifdef WITH_ANGELSCRIPT
 
 #include "logger.h"
-#include "mutexutils.h"
 #include "ScriptEngine.h"
 #include "sequencer.h"
 #include "config.h"
@@ -72,25 +71,25 @@ std::string stream_register_get_name(RoRnet::StreamRegister *reg) {
     return std::string(reg->name);
 }
 
-void *s_sethreadstart(void *se) {
-    ((ScriptEngine *) se)->timerLoop();
-    return NULL;
-}
+
 
 ScriptEngine::ScriptEngine(Sequencer *seq) : seq(seq),
                                              engine(0),
-                                             context(0),
-                                             frameStepThreadRunning(false),
-                                             exit(false) {
+                                             context(0)
+{
     init();
 }
 
 ScriptEngine::~ScriptEngine() {
- // Stop thread first
-    if (frameStepThreadRunning) {
-        exit = true; // signal thread to exit. TODO: protect by mutex.
-        pthread_join(timer_thread, NULL);
-    }
+    // Stop thread first
+    { // Lock scope
+        std::lock_guard<std::mutex> scoped_lock(m_framestep_thread_mutex);
+        if (m_framestep_thread_state == RUNNING)
+        {
+            m_framestep_thread_state = PENDING_SHUTDOWN;
+            m_framestep_thread.join();
+        }
+    } // End of lock scope
 
     // Clean up
     deleteAllCallbacks();
@@ -608,7 +607,7 @@ int ScriptEngine::executeString(std::string command) {
 
 int ScriptEngine::framestep(float dt) {
     if (!engine) return 0;
-    MutexLocker scoped_lock(context_mutex);
+    std::lock_guard<std::mutex> scoped_lock(m_context_mutex);
     if (!context) context = engine->CreateContext();
     int r;
 
@@ -640,17 +639,12 @@ int ScriptEngine::framestep(float dt) {
     return 0;
 }
 
-void ScriptEngine::playerDeleted(int uid, int crash, bool doNestedCall /*= false*/) {
+void ScriptEngine::playerDeleted(int uid, int crash) {
+
     if (!engine) return;
-    if (!doNestedCall) MutexLocker scoped_lock(context_mutex);
+    std::lock_guard<std::mutex> scoped_lock(m_context_mutex);
     if (!context) context = engine->CreateContext();
     int r;
-
-    // Push the state of the context if this is a nested call
-    if (doNestedCall) {
-        r = context->PushState();
-        if (r < 0) return;
-    }
 
     // Copy the callback list, because the callback list itself may get changed while executing the script
     callbackList queue(callbacks["playerDeleted"]);
@@ -675,19 +669,12 @@ void ScriptEngine::playerDeleted(int uid, int crash, bool doNestedCall /*= false
         r = context->Execute();
     }
 
-    // Pop the state of the context if this is was a nested call
-    if (doNestedCall) {
-        r = context->PopState();
-        if (r < 0) return;
-    }
-
-
     return;
 }
 
 void ScriptEngine::playerAdded(int uid) {
     if (!engine) return;
-    MutexLocker scoped_lock(context_mutex);
+    std::lock_guard<std::mutex> scoped_lock(m_context_mutex);
     if (!context) context = engine->CreateContext();
     int r;
 
@@ -717,7 +704,7 @@ void ScriptEngine::playerAdded(int uid) {
 
 int ScriptEngine::streamAdded(int uid, RoRnet::StreamRegister *reg) {
     if (!engine) return 0;
-    MutexLocker scoped_lock(context_mutex);
+    std::lock_guard<std::mutex> scoped_lock(m_context_mutex);
     if (!context) context = engine->CreateContext();
     int r;
     int ret = BROADCAST_AUTO;
@@ -757,7 +744,7 @@ int ScriptEngine::streamAdded(int uid, RoRnet::StreamRegister *reg) {
 
 int ScriptEngine::playerChat(int uid, std::string msg) {
     if (!engine) return 0;
-    MutexLocker scoped_lock(context_mutex);
+    std::lock_guard<std::mutex> scoped_lock(m_context_mutex);
     if (!context) context = engine->CreateContext();
     int r;
     int ret = BROADCAST_AUTO;
@@ -797,7 +784,7 @@ int ScriptEngine::playerChat(int uid, std::string msg) {
 
 void ScriptEngine::gameCmd(int uid, const std::string &cmd) {
     if (!engine) return;
-    MutexLocker scoped_lock(context_mutex);
+    std::lock_guard<std::mutex> scoped_lock(m_context_mutex);
     if (!context) context = engine->CreateContext();
     int r;
 
@@ -827,7 +814,7 @@ void ScriptEngine::gameCmd(int uid, const std::string &cmd) {
     return;
 }
 
-void ScriptEngine::timerLoop() {
+void ScriptEngine::FrameStepThreadMain() {
     while (!exit) {
         // sleep 200 miliseconds
 #ifndef _WIN32
@@ -928,10 +915,13 @@ void ScriptEngine::addCallback(const std::string &type, asIScriptFunction *func,
     callbacks[type].push_back(tmp);
 
     // Do we need to start the frameStep thread?
-    if (type == "frameStep" && !frameStepThreadRunning) {
-        frameStepThreadRunning = true;
-        Logger::Log(LOG_DEBUG, "ScriptEngine: starting timer thread");
-        pthread_create(&timer_thread, NULL, s_sethreadstart, this);
+    if (type == "frameStep") {
+        std::lock_guard<std::mutex> scoped_lock(m_context_mutex);
+        if (m_framestep_thread_state == NOT_RUNNING) {
+            Logger::Log(LOG_DEBUG, "ScriptEngine: starting framestep thread");
+            m_framestep_thread = std::thread(&ScriptEngine::FrameStepThreadMain, this);
+            m_framestep_thread_state = RUNNING;
+        }
     }
 
     // finished :)
@@ -1041,12 +1031,12 @@ void ServerScript::say(std::string &msg, int uid, int type) {
 
 void ServerScript::kick(int kuid, std::string &msg) {
     seq->QueueClientForDisconnect(kuid, msg.c_str(), false, false);
-    mse->playerDeleted(kuid, 0, true);
+    mse->playerDeleted(kuid, 0);
 }
 
 void ServerScript::ban(int buid, std::string &msg) {
     seq->SilentBan(buid, msg.c_str(), false);
-    mse->playerDeleted(buid, 0, true);
+    mse->playerDeleted(buid, 0);
 }
 
 bool ServerScript::unban(int buid) {
@@ -1221,5 +1211,10 @@ void ServerScript::broadcastUserInfo(int uid) {
     seq->broadcastUserInfo(uid);
 }
 
+ScriptEngine::ThreadState ScriptEngine::GetFrameStepThreadState()
+{
+    std::lock_guard<std::mutex> scoped_lock(m_framestep_thread_mutex);
+    return m_framestep_thread_state;
+}
 
 #endif //WITH_ANGELSCRIPT

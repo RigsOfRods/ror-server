@@ -24,6 +24,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "UnicodeStrings.h"
 #include <map>
+#include <mutex>
+#include <thread>
 #include <vector>
 #include "angelscript.h"
 #include "rornet.h"
@@ -48,6 +50,13 @@ typedef std::vector<callback_t> callbackList;
 
 class ScriptEngine {
 public:
+    enum ThreadState
+    {
+        NOT_RUNNING,
+        RUNNING,
+        PENDING_SHUTDOWN
+    };
+
     ScriptEngine(Sequencer *seq);
 
     ~ScriptEngine();
@@ -56,7 +65,7 @@ public:
 
     int executeString(std::string command);
 
-    void playerDeleted(int uid, int crash, bool doNestedCall = false);
+    void playerDeleted(int uid, int crash);
 
     void playerAdded(int uid);
 
@@ -65,14 +74,6 @@ public:
     int playerChat(int uid, std::string msg);
 
     void gameCmd(int uid, const std::string &cmd);
-
-    int framestep(float dt);
-
-    /**
-     * A loop that makes sure that does a regular call to the frameStep method.
-     * @see frameStep
-     */
-    void timerLoop();
 
     /**
      * Gets the currently used AngelScript script engine.
@@ -132,14 +133,16 @@ public:
      */
     bool callbackExists(const std::string &type, asIScriptFunction *func, asIScriptObject *obj);
 
+    ThreadState GetFrameStepThreadState();
+
 protected:
     Sequencer *seq;
     asIScriptEngine *engine;                //!< instance of the scripting engine
     asIScriptContext *context;              //!< context in which all scripting happens
-    Mutex context_mutex;                    //!< mutex used for locking access to the context
-    bool frameStepThreadRunning;            //!< indicates whether the thread for the frameStep is running or not
-    bool exit;                              //!< indicates whether the script engine is shutting down
-    pthread_t timer_thread;
+    std::mutex m_context_mutex;                    //!< mutex used for locking access to the context
+    std::thread m_framestep_thread;
+    ThreadState m_framestep_thread_state = ThreadState::NOT_RUNNING;
+    std::mutex  m_framestep_thread_mutex;
     std::map<std::string, callbackList> callbacks; //!< A map containing the script callbacks by type.
 
     /**
@@ -182,6 +185,13 @@ protected:
      * unused
      */
     void LineCallback(asIScriptContext *ctx, void *param);
+
+    int framestep(float dt);
+
+    /**
+     * A loop that does a regular call to the framestep() method.
+     */
+    void FrameStepThreadMain();
 };
 
 class ServerScript {

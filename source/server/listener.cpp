@@ -39,79 +39,60 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #endif
 
-void *s_lsthreadstart(void *arg) {
-    Listener *listener = static_cast<Listener *>(arg);
-    listener->threadstart();
-    return nullptr;
-}
 
-
-Listener::Listener(Sequencer *sequencer, int port) :
-        m_listen_port(port),
-        m_sequencer(sequencer),
-        m_thread_shutdown(false) {
-}
-
-Listener::~Listener(void) {
-    if (!m_thread_shutdown) {
-        this->Shutdown();
-    }
+Listener::Listener(Sequencer *sequencer) :
+        m_sequencer(sequencer) {
 }
 
 bool Listener::Initialize() {
-    if (!m_ready_cond.Initialize()) {
-        return false;
+    // Make sure it's not started twice
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_thread_state != NOT_RUNNING)
+    {
+        return true;
     }
-    return (0 == pthread_create(&m_thread, NULL, s_lsthreadstart, this));
-}
 
-void Listener::Shutdown() {
-    Logger::Log(LOG_VERBOSE, "Stopping listener thread...");
-    m_thread_shutdown = true;
-    m_listen_socket.disconnect();
-    pthread_join(m_thread, nullptr);
-    Logger::Log(LOG_VERBOSE, "Listener thread stopped");
-}
-
-bool Listener::WaitUntilReady() {
-    int result = 0;
-    if (!m_ready_cond.Wait(&result)) {
-        Logger::Log(LOG_ERROR, "Internal: Error while starting listener thread");
-        return false;
-    }
-    if (result < 0) {
-        Logger::Log(LOG_ERROR, "Internal: Listerer thread failed to start");
-        return false;
-    }
-    return true;
-}
-
-void Listener::threadstart() {
-    Logger::Log(LOG_DEBUG, "Listerer thread starting");
-    //here we start
+    // Start listening on the socket
     SWBaseSocket::SWBaseError error;
-
-    //manage the listening socket
-    m_listen_socket.bind(m_listen_port, &error);
+    m_listen_socket.bind(Config::getListenPort(), &error);
     if (error != SWBaseSocket::ok) {
-        //this is an error!
         Logger::Log(LOG_ERROR, "FATAL Listerer: %s", error.get_error().c_str());
-        //there is nothing we can do here
-        return;
-        // exit(1);
+        return false;
     }
     m_listen_socket.listen();
 
-    Logger::Log(LOG_VERBOSE, "Listener ready");
-    m_ready_cond.Signal(1);
+    // Start the thread
+    m_thread = std::thread(&Listener::ThreadMain, this);
+    m_thread_state = RUNNING;
+
+    return true;
+}
+
+void Listener::Shutdown() {
+    // Make sure it's not shut down twice
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_thread_state != RUNNING)
+    {
+        return;
+    }
+
+    Logger::Log(LOG_VERBOSE, "Stopping listener thread...");
+    m_thread_state = PENDING_SHUTDOWN;
+    m_thread.join();
+    Logger::Log(LOG_VERBOSE, "Listener thread stopped");
+}
+
+void Listener::ThreadMain() {
+    Logger::Log(LOG_DEBUG, "Listerer thread starting");
+
+    SWBaseSocket::SWBaseError error;
 
     //await connections
-    while (!m_thread_shutdown) {
+    while (GetThreadState() == RUNNING) {
         Logger::Log(LOG_VERBOSE, "Listener awaiting connections");
         SWInetSocket *ts = (SWInetSocket *) m_listen_socket.accept(&error);
-
         if (error != SWBaseSocket::ok) {
-            if (m_thread_shutdown) {
+            if (GetThreadState() == PENDING_SHUTDOWN) {
                 Logger::Log(LOG_ERROR, "INFO Listener shutting down");
             } else {
                 Logger::Log(LOG_ERROR, "ERROR Listener: %s", error.get_error().c_str());
@@ -162,73 +143,11 @@ void Listener::threadstart() {
                 throw std::runtime_error("ERROR Listener: bad version: " + std::string(buffer) + ". rejecting ...");
             }
 
-            // compatible version, continue to send server settings
-            std::string motd_str;
-            {
-                std::vector<std::string> lines;
-                if (!Utils::ReadLinesFromFile(Config::getMOTDFile(), lines))
-                {
-                    for (const auto& line : lines)
-                        motd_str += line + "\n";
-                }
-            }
-
-            Logger::Log(LOG_DEBUG, "Listener sending server settings");
-            RoRnet::ServerInfo settings;
-            memset(&settings, 0, sizeof(RoRnet::ServerInfo));
-            settings.has_password = !Config::getPublicPassword().empty();
-            strncpy(settings.info, motd_str.c_str(), motd_str.size());
-            strncpy(settings.protocolversion, RORNET_VERSION, strlen(RORNET_VERSION));
-            strncpy(settings.servername, Config::getServerName().c_str(), Config::getServerName().size());
-            strncpy(settings.terrain, Config::getTerrainName().c_str(), Config::getTerrainName().size());
-
-            if (Messaging::SendMessage(ts, RoRnet::MSG2_HELLO, 0, 0, (unsigned int) sizeof(RoRnet::ServerInfo),
-                                       (char *) &settings))
-                throw std::runtime_error("ERROR Listener: sending version");
-
-            //receive user infos
-            if (Messaging::ReceiveMessage(ts, &type, &source, &streamid, &len, buffer, RORNET_MAX_MESSAGE_LENGTH)) {
-                std::stringstream error_msg;
-                error_msg << "ERROR Listener: receiving user infos\n"
-                          << "ERROR Listener: got that: "
-                          << type;
-                throw std::runtime_error(error_msg.str());
-            }
-
-            if (type != RoRnet::MSG2_USER_INFO)
-                throw std::runtime_error("Warning Listener: no user name");
-
-            if (len > sizeof(RoRnet::UserInfo))
-                throw std::runtime_error("Error: did not receive proper user credentials");
-            Logger::Log(LOG_INFO, "Listener creating a new client...");
-
-            RoRnet::UserInfo *user = (RoRnet::UserInfo *) buffer;
-            user->authstatus = RoRnet::AUTH_NONE;
-
-            // authenticate
-            user->username[RORNET_MAX_USERNAME_LEN - 1] = 0;
-            std::string nickname = Str::SanitizeUtf8(user->username);
-            user->authstatus = m_sequencer->AuthorizeNick(std::string(user->usertoken, 40), nickname);
-            strncpy(user->username, nickname.c_str(), RORNET_MAX_USERNAME_LEN - 1);
-
-            if (Config::isPublic()) {
-                Logger::Log(LOG_DEBUG, "password login: %s == %s?",
-                            Config::getPublicPassword().c_str(),
-                            std::string(user->serverpassword, 40).c_str());
-                if (strncmp(Config::getPublicPassword().c_str(), user->serverpassword, 40)) {
-                    Messaging::SendMessage(ts, RoRnet::MSG2_WRONG_PW, 0, 0, 0, 0);
-                    throw std::runtime_error("ERROR Listener: wrong password");
-                }
-
-                Logger::Log(LOG_DEBUG, "user used the correct password, "
-                        "creating client!");
-            } else {
-                Logger::Log(LOG_DEBUG, "no password protection, creating client");
-            }
-
-            //create a new client
-            m_sequencer->createClient(ts, *user); // copy the user info, since the buffer will be cleared soon
-            Logger::Log(LOG_DEBUG, "listener returned!");
+            // compatible version - tell client to reconnect using ENet
+            Messaging::SendMessage(ts, RoRnet::MSG2_VERSION, 0, 0, 0, 0);
+            // close socket
+            ts->disconnect(&error);
+            delete ts;
         }
         catch (std::runtime_error &e) {
             Logger::Log(LOG_ERROR, e.what());
@@ -236,4 +155,10 @@ void Listener::threadstart() {
             delete ts;
         }
     }
+}
+
+Listener::ThreadState Listener::GetThreadState()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_thread_state;
 }

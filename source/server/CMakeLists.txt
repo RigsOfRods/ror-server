@@ -5,6 +5,7 @@ add_executable(${PROJECT_NAME} ${server_src})
 
 target_include_directories(${PROJECT_NAME} PRIVATE
         ${CMAKE_SOURCE_DIR}/dependencies/socketw/
+        ${CMAKE_SOURCE_DIR}/dependencies/enet/include
         ${CMAKE_SOURCE_DIR}/dependencies/
         ${CMAKE_SOURCE_DIR}/source/protocol/
         ${CMAKE_SOURCE_DIR}/source/common/
@@ -21,12 +22,10 @@ if (RORSERVER_WITH_ANGELSCRIPT)
 endif ()
 
 IF (WIN32)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE PTW32_STATIC_LIB)
-    target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/win32_pthread/include)
-    target_link_libraries(${PROJECT_NAME} PRIVATE mysocketw jsoncpp pthread)
+    target_link_libraries(${PROJECT_NAME} PRIVATE mysocketw jsoncpp enet winmm)
 ELSEIF (UNIX)
     #add_definitions("-DAS_MAX_PORTABILITY")
-    target_link_libraries(${PROJECT_NAME} PRIVATE mysocketw pthread dl jsoncpp)
+    target_link_libraries(${PROJECT_NAME} PRIVATE mysocketw dl jsoncpp enet)
 ELSEIF (APPLE)
 ENDIF (WIN32)
 

@@ -57,9 +57,7 @@ SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${RUNTIME_OUTPUT_DIRECTORY})
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${RUNTIME_OUTPUT_DIRECTORY})
 
 
-if (WIN32)
-    add_subdirectory(dependencies/win32_pthread)
-else ()
+if (NOT WIN32)
     add_definitions(-Wall)
     option(RORSERVER_CRASHHANDLER "enables linux startup script crashhandling" FALSE)
 
@@ -74,6 +72,7 @@ endif ()
 
 add_subdirectory("dependencies/socketw")
 add_subdirectory("dependencies/jsoncpp")
+add_subdirectory("dependencies/enet")
 
 add_subdirectory("source/server")
 

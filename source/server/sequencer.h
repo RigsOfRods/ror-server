@@ -23,11 +23,10 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "blacklist.h"
 #include "prerequisites.h"
 #include "rornet.h"
-#include "mutexutils.h"
-#include "broadcaster.h"
-#include "receiver.h"
 #include "spamfilter.h"
 #include "json/json.h"
+#include "enet/enet.h"
+#include "dispatcher_enet.h"
 
 #ifdef WITH_ANGELSCRIPT
 
@@ -40,6 +39,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <chrono>
 #include <queue>
 #include <vector>
+#include <mutex>
 #include <map>
 
 // How many not-vehicles streams has every user by default? (e.g.: "default" and "chat" are not-vehicles streams)
@@ -100,13 +100,22 @@ public:
         STATUS_USED = 2
     };
 
-    Client(Sequencer *sequencer, SWInetSocket *socket);
+    enum Progress
+    {
+        INVALID,
+        AWAITING_HELLO,
+        AWAITING_USER_INFO,
+        BEING_VERIFIED,
+        PLAYING,
+        DISCONNECTING
+    };
 
-    void StartThreads();
+    Client(Sequencer *sequencer, ENetPeer* peer, DispatcherENet* dispatcher_enet);
 
     void Disconnect();
 
     void QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len, const char *payload);
+    void MessageReceived(ENetPacket* packet);
 
     void NotifyAllVehicles(Sequencer *sequencer);
 
@@ -114,13 +123,9 @@ public:
 
     std::string GetIpAddress();
 
-    SWInetSocket *GetSocket() { return m_socket; }
+    bool IsBroadcasterDroppingPackets() const { return false; /*TODO delete after ENet is integrated*/  }
 
-    bool IsBroadcasterDroppingPackets() const { return m_broadcaster.IsDroppingPackets(); }
-
-    void SetReceiveData(bool val) { m_is_receiving_data = val; }
-
-    bool IsReceivingData() const { return m_is_receiving_data; }
+    bool IsReceivingData() const { return true; /*TODO delete after ENet is integrated*/ }
 
     Status GetStatus() const { return m_status; }
 
@@ -132,6 +137,9 @@ public:
 
     Sequencer* GetSequencer() {  }
 
+    void SetProgress(Progress v) { m_progress = v; }
+    Progress GetProgress() { return m_progress; }
+
     RoRnet::UserInfo user;  //!< user information
 
     int drop_state;             // dropping outgoing packets?
@@ -141,15 +149,15 @@ public:
     std::map<unsigned int, stream_traffic_t> streams_traffic;
 
 private:
-    SWInetSocket *m_socket;
-    Receiver m_receiver;
-    Broadcaster m_broadcaster;
+    ENetPeer* m_peer = nullptr;
+    DispatcherENet* m_dispatcher_enet = nullptr;
+    Progress m_progress = Progress::INVALID;
     Status m_status;
     SpamFilter m_spamfilter;
     Sequencer* m_sequencer;
-    bool m_is_receiving_data;
     bool m_is_initialized;
     std::vector<std::chrono::system_clock::time_point> m_stream_reg_timestamps; //!< To limit spawn rate
+    
 };
 
 struct WebserverClientInfo // Needed because Client cannot be trivially copied anymore due to presence of std::atomic<>
@@ -179,10 +187,7 @@ struct ban_t {
     char banmsg[256];           //!< why he got banned
 };
 
-void *LaunchKillerThread(void *);
-
 class Sequencer {
-    friend void *LaunchKillerThread(void *);
 
 public:
 
@@ -194,16 +199,11 @@ public:
     void Close();
 
     //! initilize client information
-    void createClient(SWInetSocket *sock, RoRnet::UserInfo user);
-
-    //! call to start the thread to disconnect clients from the server.
-    void killerthreadstart();
+    void registerClient(Client *client, RoRnet::UserInfo user);
 
     void QueueClientForDisconnect(int client_id, const char *error, bool isError = true, bool doScriptCallback = true);
 
-    void queueMessage(int uid, int type, unsigned int streamid, char *data, unsigned int len);
-
-    void enableFlow(int id);
+    void queueMessage(int uid, int type, unsigned int streamid, const char *data, unsigned int len);
 
     int sendMOTD(int id);
 
@@ -260,20 +260,14 @@ public:
     static unsigned int connCrash, connCount;
 
 private:
-    pthread_t m_killer_thread;  //!< thread to handle the killing of clients
-    Condition m_killer_cond;    //!< wait condition that there are clients to kill
-    Mutex m_killer_mutex;   //!< mutex used for locking access to the killqueue
-    Mutex m_clients_mutex;  //!< Protects: m_clients, m_script_engine, m_auth_resolver, m_bot_count, m_num_disconnects_[total/crash]
+    std::mutex m_clients_mutex;  //!< Protects: m_clients, m_script_engine, m_auth_resolver, m_bot_count, m_num_disconnects_[total/crash]
     ScriptEngine *m_script_engine;
     UserAuth *m_auth_resolver;
     int m_bot_count;      //!< Amount of registered bots on the server.
     unsigned int m_free_user_id;
     int m_start_time;
-    size_t m_num_disconnects_total; //!< Statistic
-    size_t m_num_disconnects_crash; //!< Statistic
     Blacklist m_blacklist;
 
-    std::queue<Client *> m_kill_queue; //!< holds pointer for client deletion
     std::vector<Client *> m_clients;
     std::vector<ban_t *> m_bans;
 

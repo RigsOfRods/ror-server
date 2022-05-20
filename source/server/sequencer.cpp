@@ -490,18 +490,6 @@ void Sequencer::QueueClientForDisconnect(int uid, const char *errormsg, bool isE
         m_num_disconnects_crash, m_num_disconnects_total);
 }
 
-//this is called from the listener thread initial handshake
-void Sequencer::enableFlow(int uid) {
-    std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
-
-    Client *client = this->FindClientById(static_cast<unsigned int>(uid));
-    if (client == nullptr) {
-        return;
-    }
-
-    client->SetReceiveData(true);
-}
-
 
 //this is called from the listener thread initial handshake
 int Sequencer::sendMOTD(int uid) {

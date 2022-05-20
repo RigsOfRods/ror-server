@@ -203,8 +203,6 @@ public:
 
     void queueMessage(int uid, int type, unsigned int streamid, char *data, unsigned int len);
 
-    void enableFlow(int id);
-
     int sendMOTD(int id);
 
     void IntroduceNewClientToAllVehicles(Client *client);

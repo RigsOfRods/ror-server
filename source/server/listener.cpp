@@ -39,79 +39,60 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #endif
 
-void *s_lsthreadstart(void *arg) {
-    Listener *listener = static_cast<Listener *>(arg);
-    listener->threadstart();
-    return nullptr;
-}
 
-
-Listener::Listener(Sequencer *sequencer, int port) :
-        m_listen_port(port),
-        m_sequencer(sequencer),
-        m_thread_shutdown(false) {
-}
-
-Listener::~Listener(void) {
-    if (!m_thread_shutdown) {
-        this->Shutdown();
-    }
+Listener::Listener(Sequencer *sequencer) :
+        m_sequencer(sequencer) {
 }
 
 bool Listener::Initialize() {
-    if (!m_ready_cond.Initialize()) {
-        return false;
+    // Make sure it's not started twice
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_thread_state != ThreadState::NOT_RUNNING)
+    {
+        return true;
     }
-    return (0 == pthread_create(&m_thread, NULL, s_lsthreadstart, this));
-}
 
-void Listener::Shutdown() {
-    Logger::Log(LOG_VERBOSE, "Stopping listener thread...");
-    m_thread_shutdown = true;
-    m_listen_socket.disconnect();
-    pthread_join(m_thread, nullptr);
-    Logger::Log(LOG_VERBOSE, "Listener thread stopped");
-}
-
-bool Listener::WaitUntilReady() {
-    int result = 0;
-    if (!m_ready_cond.Wait(&result)) {
-        Logger::Log(LOG_ERROR, "Internal: Error while starting listener thread");
-        return false;
-    }
-    if (result < 0) {
-        Logger::Log(LOG_ERROR, "Internal: Listerer thread failed to start");
-        return false;
-    }
-    return true;
-}
-
-void Listener::threadstart() {
-    Logger::Log(LOG_DEBUG, "Listerer thread starting");
-    //here we start
+    // Start listening on the socket
     SWBaseSocket::SWBaseError error;
-
-    //manage the listening socket
-    m_listen_socket.bind(m_listen_port, &error);
+    m_listen_socket.bind(Config::getListenPort(), &error);
     if (error != SWBaseSocket::ok) {
-        //this is an error!
         Logger::Log(LOG_ERROR, "FATAL Listerer: %s", error.get_error().c_str());
-        //there is nothing we can do here
-        return;
-        // exit(1);
+        return false;
     }
     m_listen_socket.listen();
 
-    Logger::Log(LOG_VERBOSE, "Listener ready");
-    m_ready_cond.Signal(1);
+    // Start the thread
+    m_thread = std::thread(&Listener::ThreadMain, this);
+    m_thread_state = ThreadState::RUNNING;
+
+    return true;
+}
+
+void Listener::Shutdown() {
+    // Make sure it's not shut down twice
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_thread_state != ThreadState::RUNNING)
+    {
+        return;
+    }
+
+    Logger::Log(LOG_VERBOSE, "Stopping listener thread...");
+    m_thread_state = ThreadState::STOP_REQUESTED;
+    m_thread.join();
+    Logger::Log(LOG_VERBOSE, "Listener thread stopped");
+}
+
+void Listener::ThreadMain() {
+    Logger::Log(LOG_DEBUG, "Listerer thread starting");
+
+    SWBaseSocket::SWBaseError error;
 
     //await connections
-    while (!m_thread_shutdown) {
+    while (GetThreadState() == ThreadState::RUNNING) {
         Logger::Log(LOG_VERBOSE, "Listener awaiting connections");
         SWInetSocket *ts = (SWInetSocket *) m_listen_socket.accept(&error);
-
         if (error != SWBaseSocket::ok) {
-            if (m_thread_shutdown) {
+            if (GetThreadState() == ThreadState::STOP_REQUESTED) {
                 Logger::Log(LOG_ERROR, "INFO Listener shutting down");
             } else {
                 Logger::Log(LOG_ERROR, "ERROR Listener: %s", error.get_error().c_str());
@@ -236,4 +217,10 @@ void Listener::threadstart() {
             delete ts;
         }
     }
+}
+
+Listener::ThreadState Listener::GetThreadState()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_thread_state;
 }

@@ -54,8 +54,6 @@ public:
 
     int loadScript(std::string scriptName);
 
-    int executeString(std::string command);
-
     void playerDeleted(int uid, int crash, bool doNestedCall = false);
 
     void playerAdded(int uid);

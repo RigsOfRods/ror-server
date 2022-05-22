@@ -589,23 +589,6 @@ int ScriptEngine::loadScriptFile(const char *fileName, string &script) {
     return 0;
 }
 
-// unused method
-int ScriptEngine::executeString(std::string command) {
-    // This method would work if you include the scriptHelper add-on
-#if 0
-    if(!engine) return 0;
-    if(!context) context = engine->CreateContext();
-    asIScriptModule* mod = engine->GetModule("script", asGM_CREATE_IF_NOT_EXISTS);
-    int result = ExecuteString(engine, command.c_str(), mod, context);
-    if(result<0)
-    {
-        Logger::Log(LOG_ERROR, "ScriptEngine: Error while executing string: '" + command + "'.");
-    }
-    return result;
-#endif // 0
-    return 0;
-}
-
 int ScriptEngine::framestep(float dt) {
     if (!engine) return 0;
     MutexLocker scoped_lock(context_mutex);

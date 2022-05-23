@@ -192,6 +192,7 @@ class Sequencer {
     friend class SpamFilter;
     friend class Client;
     friend class ServerScript;
+    friend class Blacklist;
 public:
 
     // Startup and shutdown
@@ -202,64 +203,15 @@ public:
     // Synchronized public interface
     void createClient(SWInetSocket *sock, RoRnet::UserInfo user);
     void disconnectClient(int client_id, const char* error, bool isError = true, bool doScriptCallback = true);
+    int getNumClients();
     void queueMessage(int uid, int type, unsigned int streamid, char *data, unsigned int len);
-
-    
-
-    
+    void sendMOTDSynchronized(int uid);
     void frameStepScripts(float dt);
-
-    int sendMOTD(int id);
-
-    void IntroduceNewClientToAllVehicles(Client *client);
-
-    UserAuth *getUserAuth();
-
-    int getNumClients(); //! number of clients connected to this server
-    Client *getClient(int uid);
-
     void GetHeartbeatUserList(Json::Value &out_array);
-
-    //! prints the Stats view, of who is connected and what slot they are in
-    void printStats();
-
     void UpdateMinuteStats();
-
-    
-
-    int sendGameCommand(int uid, std::string cmd);
-
-    
-
-    bool CheckNickIsUnique(std::string &nick);
-
-    int GetFreePlayerColour();
-
     int AuthorizeNick(std::string token, std::string &nickname);
-
-    bool Kick(int to_kick_uid, int modUID, const char *msg = 0);
-
-    void RecordBan(int bid, std::string const& ip_addr,
-        std::string const& nickname, std::string const& by_nickname,
-        std::string const& banmsg);
-
-    bool Ban(int to_ban_uid, int modUID, const char *msg = 0);
-
-    void SilentBan(int to_ban_uid, const char *msg = 0, bool doScriptCallback = true);
-
-    bool UnBan(int bid);
-
-    bool IsBanned(const char *ip);
-
-    void streamDebug();
-
-    int getStartTime();
-
-    void broadcastUserInfo(int uid);
-
     std::vector<WebserverClientInfo> GetClientListCopy();
-
-    std::vector<ban_t> GetBanListCopy();
+    int getStartTime();
 
     // Killer thread control
     void StartKillerThread();
@@ -268,10 +220,26 @@ public:
     static unsigned int connCrash, connCount;
 
 private:
-    // Helpers (not thread safe)
+    // Helpers (not thread safe - only call when clients-mutex is locked!)
     Client*                  FindClientById(unsigned int client_id);
+    Client*                  getClient(int uid);
     void                     QueueClientForDisconnect(int client_id, const char *error, bool isError = true, bool doScriptCallback = true);
     void                     serverSay(std::string msg, int uid = -1, int type = 0);
+    void                     sendMOTD(int id);
+    void                     IntroduceNewClientToAllVehicles(Client *client);
+    int                      sendGameCommand(int uid, std::string cmd);
+    void                     printStats(); //! prints the Stats view, of who is connected and what slot they are in
+    bool                     CheckNickIsUnique(std::string &nick);
+    int                      GetFreePlayerColour();
+    bool                     Kick(int to_kick_uid, int modUID, const char *msg = 0);
+    bool                     Ban(int to_ban_uid, int modUID, const char *msg = 0);
+    void                     SilentBan(int to_ban_uid, const char *msg = 0, bool doScriptCallback = true);
+    void                     RecordBan(int bid, std::string const& ip_addr, std::string const& nickname, std::string const& by_nickname, std::string const& banmsg);
+    bool                     IsBanned(const char *ip);
+    bool                     UnBan(int bid);
+    void                     streamDebug();
+    std::vector<ban_t>       GetBanListCopy();
+    void                     broadcastUserInfo(int uid);
 
     // Killer thread
     void                     KillerThreadMain();

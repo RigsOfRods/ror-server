@@ -189,21 +189,24 @@ enum class KillerThreadState
 };
 
 class Sequencer {
+    friend class SpamFilter;
+    friend class Client;
+    friend class ServerScript;
 public:
 
+    // Startup and shutdown
     Sequencer();
-
     void Initialize();
-
-    //! destructor call, used for clean up
     void Close();
 
-    //! initilize client information
+    // Synchronized public interface
     void createClient(SWInetSocket *sock, RoRnet::UserInfo user);
-
-    void QueueClientForDisconnect(int client_id, const char *error, bool isError = true, bool doScriptCallback = true);
-
+    void disconnectClient(int client_id, const char* error, bool isError = true, bool doScriptCallback = true);
     void queueMessage(int uid, int type, unsigned int streamid, char *data, unsigned int len);
+
+    
+
+    
     void frameStepScripts(float dt);
 
     int sendMOTD(int id);
@@ -222,11 +225,11 @@ public:
 
     void UpdateMinuteStats();
 
-    void serverSay(std::string msg, int uid = -1, int type = 0);
+    
 
     int sendGameCommand(int uid, std::string cmd);
 
-    void serverSayThreadSave(std::string msg, int notto = -1, int type = 0);
+    
 
     bool CheckNickIsUnique(std::string &nick);
 
@@ -266,7 +269,9 @@ public:
 
 private:
     // Helpers (not thread safe)
-    Client *FindClientById(unsigned int client_id);
+    Client*                  FindClientById(unsigned int client_id);
+    void                     QueueClientForDisconnect(int client_id, const char *error, bool isError = true, bool doScriptCallback = true);
+    void                     serverSay(std::string msg, int uid = -1, int type = 0);
 
     // Killer thread
     void                     KillerThreadMain();

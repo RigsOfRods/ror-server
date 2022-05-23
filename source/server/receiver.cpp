@@ -83,7 +83,7 @@ void Receiver::ThreadMain() {
 
     while (this->GetThreadState() == ThreadState::RUNNING) {
         if (!this->ThreadReceiveMessage()) {
-            m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Game connection closed");
+            m_sequencer->disconnectClient(m_client->GetUserId(), "Game connection closed");
             break;
         }
 
@@ -94,7 +94,7 @@ void Receiver::ThreadMain() {
         }
 
         if (m_recv_header.command < 1000u || m_recv_header.command > 1050u) {
-            m_sequencer->QueueClientForDisconnect(m_client->GetUserId(), "Protocol error 3");
+            m_sequencer->disconnectClient(m_client->GetUserId(), "Protocol error 3");
             break;
         }
 

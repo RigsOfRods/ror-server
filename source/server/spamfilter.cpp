@@ -53,6 +53,9 @@ SpamFilter::SpamFilter(Sequencer* seq, Client* c)
 {}
 
 bool SpamFilter::CheckForSpam(std::string const& msg) {
+    // CAUTION - called by Sequencer with clients-mutex locked
+    // -------------------------------------------------------
+
     const TimePoint now = std::chrono::system_clock::now();
     const std::chrono::seconds cache_expiry(Config::getSpamFilterMsgIntervalSec());
 

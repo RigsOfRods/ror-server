@@ -80,6 +80,9 @@ void Client::Disconnect() {
 
 bool Client::CheckSpawnRate()
 {
+    // CAUTION - called by Sequencer with clients-mutex locked
+    // -------------------------------------------------------    
+
     std::chrono::seconds spawn_interval(Config::getSpawnIntervalSec());
     if (spawn_interval.count() == 0 || Config::getMaxSpawnRate() == 0) {
         return true; // Spawn rate not limited
@@ -264,7 +267,6 @@ int Sequencer::GetFreePlayerColour() {
     }
 }
 
-//this is called by the Listener thread
 void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
     //we have a confirmed client that wants to play
     //try to find a place for him
@@ -376,6 +378,12 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
 
     // done!
     Logger::Log(LOG_VERBOSE, "Sequencer: New client added");
+}
+
+void Sequencer::disconnectClient(int client_id, const char* error, bool isError /*= true*/, bool doScriptCallback /*= true*/)
+{
+    std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
+    this->QueueClientForDisconnect(client_id, error, isError, doScriptCallback);
 }
 
 // Only used by scripting
@@ -643,10 +651,6 @@ void Sequencer::serverSay(std::string msg, int uid, int type) {
             client->QueueMessage(RoRnet::MSG2_UTF8_CHAT, -1, -1, msg_valid.length(), msg_valid.c_str());
         }
     }
-}
-
-void Sequencer::serverSayThreadSave(std::string msg, int uid, int type) {
-    this->serverSay(msg, uid, type);
 }
 
 bool Sequencer::Kick(int kuid, int modUID, const char *msg) {

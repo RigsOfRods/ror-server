@@ -1034,7 +1034,7 @@ void ServerScript::log(std::string &msg) {
 }
 
 void ServerScript::say(std::string &msg, int uid, int type) {
-    seq->serverSayThreadSave(msg, uid, type);
+    seq->serverSay(msg, uid, type);
 }
 
 void ServerScript::kick(int kuid, std::string &msg) {

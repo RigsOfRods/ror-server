@@ -73,13 +73,11 @@ Receiver::ThreadState Receiver::GetThreadState()
 void Receiver::ThreadMain() {
     Logger::Log(LOG_DEBUG, "Started receiver thread (user ID %d)", m_client->GetUserId());
 
-
-    m_sequencer->sendMOTD(m_client->GetUserId()); // send MOTD
-
     m_client->GetSocket()->set_timeout((Uint32)60, 0); // 60sec
-
     m_client->SetReceiveData(true);
     Logger::Log(LOG_VERBOSE, "UID %d is switching to FLOW", m_client->GetUserId());
+
+    m_sequencer->sendMOTDSynchronized(m_client->GetUserId());
 
     while (this->GetThreadState() == ThreadState::RUNNING) {
         if (!this->ThreadReceiveMessage()) {

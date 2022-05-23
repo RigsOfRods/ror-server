@@ -135,6 +135,9 @@ void Client::QueueMessage(int msg_type, int client_id, unsigned int stream_id, u
 
 // Yes, this is weird. To be refactored.
 void Client::NotifyAllVehicles(Sequencer *sequencer) {
+    // CAUTION: called by Sequencer with clients-mutex locked
+    // ------------------------------------------------------
+
     if (!m_is_initialized) {
         sequencer->IntroduceNewClientToAllVehicles(this);
         m_is_initialized = true;
@@ -386,7 +389,6 @@ void Sequencer::disconnectClient(int client_id, const char* error, bool isError 
     this->QueueClientForDisconnect(client_id, error, isError, doScriptCallback);
 }
 
-// Only used by scripting
 void Sequencer::broadcastUserInfo(int client_id) {
     Client *client = this->FindClientById(static_cast<unsigned int>(client_id));
     if (client == nullptr) {
@@ -544,23 +546,25 @@ void Sequencer::QueueClientForDisconnect(int uid, const char *errormsg, bool isE
         m_num_disconnects_crash, m_num_disconnects_total);
 }
 
+void Sequencer::sendMOTDSynchronized(int uid)
+{
+    std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
+    this->sendMOTD(uid);
+}
 
-//this is called from the listener thread initial handshake
-int Sequencer::sendMOTD(int uid) {
+void Sequencer::sendMOTD(int uid) {
     std::vector<std::string> lines;
     int res = Utils::ReadLinesFromFile(Config::getMOTDFile(), lines);
     if (res)
-        return res;
+    {
+        Logger::Log(LOG_ERROR, "Could not read MOTD file, error code: %d", res);
+        return;
+    }
 
     std::vector<std::string>::iterator it;
     for (it = lines.begin(); it != lines.end(); it++) {
         serverSay(*it, uid, FROM_MOTD);
     }
-    return 0;
-}
-
-UserAuth *Sequencer::getUserAuth() {
-    return m_auth_resolver;
 }
 
 //this is called from the listener thread initial handshake

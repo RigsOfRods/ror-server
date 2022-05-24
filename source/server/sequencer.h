@@ -204,6 +204,7 @@ public:
     void QueueClientForDisconnect(int client_id, const char *error, bool isError = true, bool doScriptCallback = true);
 
     void queueMessage(int uid, int type, unsigned int streamid, char *data, unsigned int len);
+    void frameStepScripts(float dt);
 
     int sendMOTD(int id);
 

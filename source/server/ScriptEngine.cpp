@@ -589,9 +589,8 @@ int ScriptEngine::loadScriptFile(const char *fileName, string &script) {
     return 0;
 }
 
-int ScriptEngine::framestep(float dt) {
+int ScriptEngine::frameStep(float dt) {
     if (!engine) return 0;
-    MutexLocker scoped_lock(context_mutex);
     if (!context) context = engine->CreateContext();
     int r;
 
@@ -625,7 +624,6 @@ int ScriptEngine::framestep(float dt) {
 
 void ScriptEngine::playerDeleted(int uid, int crash, bool doNestedCall /*= false*/) {
     if (!engine) return;
-    if (!doNestedCall) MutexLocker scoped_lock(context_mutex);
     if (!context) context = engine->CreateContext();
     int r;
 
@@ -670,7 +668,6 @@ void ScriptEngine::playerDeleted(int uid, int crash, bool doNestedCall /*= false
 
 void ScriptEngine::playerAdded(int uid) {
     if (!engine) return;
-    MutexLocker scoped_lock(context_mutex);
     if (!context) context = engine->CreateContext();
     int r;
 
@@ -700,7 +697,6 @@ void ScriptEngine::playerAdded(int uid) {
 
 int ScriptEngine::streamAdded(int uid, RoRnet::StreamRegister *reg) {
     if (!engine) return 0;
-    MutexLocker scoped_lock(context_mutex);
     if (!context) context = engine->CreateContext();
     int r;
     int ret = BROADCAST_AUTO;
@@ -740,7 +736,6 @@ int ScriptEngine::streamAdded(int uid, RoRnet::StreamRegister *reg) {
 
 int ScriptEngine::playerChat(int uid, std::string msg) {
     if (!engine) return 0;
-    MutexLocker scoped_lock(context_mutex);
     if (!context) context = engine->CreateContext();
     int r;
     int ret = BROADCAST_AUTO;
@@ -780,7 +775,6 @@ int ScriptEngine::playerChat(int uid, std::string msg) {
 
 void ScriptEngine::gameCmd(int uid, const std::string &cmd) {
     if (!engine) return;
-    MutexLocker scoped_lock(context_mutex);
     if (!context) context = engine->CreateContext();
     int r;
 
@@ -818,8 +812,9 @@ void ScriptEngine::timerLoop() {
 #else // _WIN32
         Sleep(200);
 #endif // _WIN32
+
         // call script
-        framestep(200);
+        seq->frameStepScripts(200);
     }
 }
 

@@ -41,6 +41,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <vector>
 #include <mutex>
 #include <map>
+#include <thread>
+#include <condition_variable>
 
 // How many not-vehicles streams has every user by default? (e.g.: "default" and "chat" are not-vehicles streams)
 // This is used for the vehicle-limit
@@ -179,11 +181,14 @@ struct ban_t {
     char banmsg[256];           //!< why he got banned
 };
 
-void *LaunchKillerThread(void *);
+enum class KillerThreadState
+{
+    NOT_RUNNING,
+    RUNNING,
+    STOP_REQUESTED
+};
 
 class Sequencer {
-    friend void *LaunchKillerThread(void *);
-
 public:
 
     Sequencer();
@@ -195,9 +200,6 @@ public:
 
     //! initilize client information
     void createClient(SWInetSocket *sock, RoRnet::UserInfo user);
-
-    //! call to start the thread to disconnect clients from the server.
-    void killerthreadstart();
 
     void QueueClientForDisconnect(int client_id, const char *error, bool isError = true, bool doScriptCallback = true);
 
@@ -255,13 +257,22 @@ public:
 
     std::vector<ban_t> GetBanListCopy();
 
+    // Killer thread control
+    void StartKillerThread();
+    void StopKillerThread();
+
     static unsigned int connCrash, connCount;
 
 private:
+    // Helpers (not thread safe)
+    Client *FindClientById(unsigned int client_id);
+
+    // Killer thread
+    void                     KillerThreadMain();
+    KillerThreadState        KillerThreadWaitForClient(Client*& out_client);
+    void                     KillerThreadProcessClient(Client* client);
+
     std::mutex m_clients_mutex;  //!< Protects: m_clients, m_script_engine, m_auth_resolver, m_bot_count, m_num_disconnects_[total/crash]
-    pthread_t m_killer_thread;  //!< thread to handle the killing of clients
-    Condition m_killer_cond;    //!< wait condition that there are clients to kill
-    Mutex m_killer_mutex;   //!< mutex used for locking access to the killqueue
     ScriptEngine *m_script_engine;
     UserAuth *m_auth_resolver;
     int m_bot_count;      //!< Amount of registered bots on the server.
@@ -271,10 +282,14 @@ private:
     size_t m_num_disconnects_crash; //!< Statistic
     Blacklist m_blacklist;
 
-    std::queue<Client *> m_kill_queue; //!< holds pointer for client deletion
     std::vector<Client *> m_clients;
     std::vector<ban_t *> m_bans;
 
-    Client *FindClientById(unsigned int client_id);
+    // Killer thread context
+    std::queue<Client *>     m_kill_queue;
+    std::thread              m_killer_thread;
+    std::condition_variable  m_killer_cond;
+    std::mutex               m_killer_mutex;
+    KillerThreadState        m_killer_state = KillerThreadState::NOT_RUNNING;
 };
 

@@ -64,7 +64,7 @@ public:
 
     void gameCmd(int uid, const std::string &cmd);
 
-    int framestep(float dt);
+    int frameStep(float dt);
 
     /**
      * A loop that makes sure that does a regular call to the frameStep method.
@@ -134,7 +134,6 @@ protected:
     Sequencer *seq;
     asIScriptEngine *engine;                //!< instance of the scripting engine
     asIScriptContext *context;              //!< context in which all scripting happens
-    Mutex context_mutex;                    //!< mutex used for locking access to the context
     bool frameStepThreadRunning;            //!< indicates whether the thread for the frameStep is running or not
     bool exit;                              //!< indicates whether the script engine is shutting down
     pthread_t timer_thread;

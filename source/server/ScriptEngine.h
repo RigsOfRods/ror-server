@@ -24,6 +24,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "UnicodeStrings.h"
 #include <map>
+#include <mutex>
+#include <thread>
 #include <vector>
 #include "angelscript.h"
 #include "rornet.h"
@@ -48,6 +50,13 @@ typedef std::vector<callback_t> callbackList;
 
 class ScriptEngine {
 public:
+    enum class ThreadState
+    {
+        NOT_RUNNING,
+        RUNNING,
+        STOP_REQUESTED
+    };
+
     ScriptEngine(Sequencer *seq);
 
     ~ScriptEngine();
@@ -65,12 +74,6 @@ public:
     void gameCmd(int uid, const std::string &cmd);
 
     int frameStep(float dt);
-
-    /**
-     * A loop that makes sure that does a regular call to the frameStep method.
-     * @see frameStep
-     */
-    void timerLoop();
 
     /**
      * Gets the currently used AngelScript script engine.
@@ -130,14 +133,21 @@ public:
      */
     bool callbackExists(const std::string &type, asIScriptFunction *func, asIScriptObject *obj);
 
+    // Timer thread control
+    void        EnsureTimerThreadRunning();
+    void        StopTimerThread();
+    ThreadState GetTimerThreadState();
+
 protected:
     Sequencer *seq;
     asIScriptEngine *engine;                //!< instance of the scripting engine
     asIScriptContext *context;              //!< context in which all scripting happens
-    bool frameStepThreadRunning;            //!< indicates whether the thread for the frameStep is running or not
-    bool exit;                              //!< indicates whether the script engine is shutting down
-    pthread_t timer_thread;
     std::map<std::string, callbackList> callbacks; //!< A map containing the script callbacks by type.
+
+    // Timer thread context
+    std::thread m_timer_thread;
+    ThreadState m_timer_thread_state = ThreadState::NOT_RUNNING;
+    std::mutex  m_timer_thread_mutex;
 
     /**
      * This function initialzies the engine and registeres all types
@@ -179,6 +189,11 @@ protected:
      * unused
      */
     void LineCallback(asIScriptContext *ctx, void *param);
+
+    /**
+     * A loop that periodically the frameStep() script callback.
+     */
+    void TimerThreadMain();
 };
 
 class ServerScript {

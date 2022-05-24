@@ -21,15 +21,16 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "logger.h"
 
-#include "pthread.h"
 #include "utils.h"
-#include "mutexutils.h"
 
 #include <stdio.h>
 #include <ctime>
 #include <cstring>
 #include <cstdio>
 #include <cstdarg>
+#include <mutex>
+#include <sstream>
+#include <thread>
 
 #ifndef _WIN32
 
@@ -41,7 +42,7 @@ static FILE *s_file = nullptr;
 static LogLevel s_log_level[2] = {LOG_VERBOSE, LOG_INFO};
 static const char *s_log_level_names[] = {"STACK", "DEBUG", "VERBO", "INFO", "WARN", "ERROR"};
 static std::string s_log_filename = "server.log";
-static Mutex s_log_mutex;
+static std::mutex s_log_mutex;
 
 namespace Logger {
 
@@ -67,11 +68,15 @@ namespace Logger {
         strftime(time_str, 20, "%d-%m-%Y %H:%M:%S", localtime(&current_time));
         const char *level_str = s_log_level_names[(int) level];
 
+        std::stringstream tid_ss;
+        tid_ss << std::this_thread::get_id();
+        std::string tid_str = tid_ss.str();
+
         if (level >= s_log_level[LOGTYPE_DISPLAY]) {
-            printf("%s|t%02d|%5s|%s\n", time_str, ThreadID::getID(), level_str, msg);
+            printf("%s|t%s|%5s|%s\n", time_str, tid_str.c_str(), level_str, msg);
         }
 
-        pthread_mutex_lock(s_log_mutex.getRaw());
+        std::lock_guard<std::mutex> scoped_lock(s_log_mutex);
 
         if (s_file && level >= s_log_level[LOGTYPE_FILE]) {
 #ifndef _WIN32
@@ -83,11 +88,10 @@ namespace Logger {
             freopen(s_log_filename.c_str(), "a+", s_file);
         }
 #endif // _WIN32
-            fprintf(s_file, "%s|t%02d|%5s| %s\n", time_str, ThreadID::getID(), level_str, msg);
+
+            fprintf(s_file, "%s|t%s|%5s| %s\n", time_str, tid_str.c_str(), level_str, msg);
             fflush(s_file);
         }
-
-        pthread_mutex_unlock(s_log_mutex.getRaw());
     }
 
     void SetOutputFile(const std::string &filename) {

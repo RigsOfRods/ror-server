@@ -22,7 +22,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #ifdef WITH_ANGELSCRIPT
 
 #include "logger.h"
-#include "mutexutils.h"
 #include "ScriptEngine.h"
 #include "sequencer.h"
 #include "config.h"
@@ -72,25 +71,18 @@ std::string stream_register_get_name(RoRnet::StreamRegister *reg) {
     return std::string(reg->name);
 }
 
-void *s_sethreadstart(void *se) {
-    ((ScriptEngine *) se)->timerLoop();
-    return NULL;
-}
+
 
 ScriptEngine::ScriptEngine(Sequencer *seq) : seq(seq),
                                              engine(0),
-                                             context(0),
-                                             frameStepThreadRunning(false),
-                                             exit(false) {
+                                             context(0)
+{
     init();
 }
 
 ScriptEngine::~ScriptEngine() {
- // Stop thread first
-    if (frameStepThreadRunning) {
-        exit = true; // signal thread to exit. TODO: protect by mutex.
-        pthread_join(timer_thread, NULL);
-    }
+    // Stop thread first
+    this->StopTimerThread();
 
     // Clean up
     deleteAllCallbacks();
@@ -804,8 +796,8 @@ void ScriptEngine::gameCmd(int uid, const std::string &cmd) {
     return;
 }
 
-void ScriptEngine::timerLoop() {
-    while (!exit) {
+void ScriptEngine::TimerThreadMain() {
+    while (this->GetTimerThreadState() == ThreadState::RUNNING) {
         // sleep 200 miliseconds
 #ifndef _WIN32
         usleep(200000);
@@ -815,6 +807,36 @@ void ScriptEngine::timerLoop() {
 
         // call script
         seq->frameStepScripts(200);
+    }
+}
+
+void ScriptEngine::EnsureTimerThreadRunning() {
+    std::lock_guard<std::mutex> scoped_lock(m_timer_thread_mutex);
+    if (m_timer_thread_state == ThreadState::NOT_RUNNING) {
+        Logger::Log(LOG_DEBUG, "ScriptEngine: starting framestep thread");
+        m_timer_thread = std::thread(&ScriptEngine::TimerThreadMain, this);
+        m_timer_thread_state = ThreadState::RUNNING;
+    }    
+}
+
+ScriptEngine::ThreadState ScriptEngine::GetTimerThreadState() {
+    std::lock_guard<std::mutex> scoped_lock(m_timer_thread_mutex);
+    return m_timer_thread_state;
+}
+
+void ScriptEngine::StopTimerThread() {
+    {
+        std::lock_guard<std::mutex> scoped_lock(m_timer_thread_mutex);
+        if (m_timer_thread_state != ThreadState::RUNNING)
+            return;
+        m_timer_thread_state = ThreadState::STOP_REQUESTED;
+    }
+
+    m_timer_thread.join();
+    
+    {
+        std::lock_guard<std::mutex> scoped_lock(m_timer_thread_mutex);
+        m_timer_thread_state = ThreadState::NOT_RUNNING;
     }
 }
 
@@ -906,10 +928,8 @@ void ScriptEngine::addCallback(const std::string &type, asIScriptFunction *func,
     callbacks[type].push_back(tmp);
 
     // Do we need to start the frameStep thread?
-    if (type == "frameStep" && !frameStepThreadRunning) {
-        frameStepThreadRunning = true;
-        Logger::Log(LOG_DEBUG, "ScriptEngine: starting timer thread");
-        pthread_create(&timer_thread, NULL, s_sethreadstart, this);
+    if (type == "frameStep") {
+        this->EnsureTimerThreadRunning();
     }
 
     // finished :)
@@ -1198,6 +1218,5 @@ int ServerScript::rangeRandomInt(int from, int to) {
 void ServerScript::broadcastUserInfo(int uid) {
     seq->broadcastUserInfo(uid);
 }
-
 
 #endif //WITH_ANGELSCRIPT

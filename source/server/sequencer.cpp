@@ -138,12 +138,6 @@ void Client::NotifyAllVehicles(Sequencer *sequencer) {
     }
 }
 
-void *LaunchKillerThread(void *data) {
-    Sequencer *sequencer = static_cast<Sequencer *>(data);
-    sequencer->killerthreadstart();
-    return nullptr;
-}
-
 Sequencer::Sequencer() :
         m_script_engine(nullptr),
         m_auth_resolver(nullptr),
@@ -168,7 +162,7 @@ void Sequencer::Initialize() {
     }
 #endif //WITH_ANGELSCRIPT
 
-    pthread_create(&m_killer_thread, NULL, LaunchKillerThread, this);
+    this->StartKillerThread();
 
     m_auth_resolver = new UserAuth(Config::getAuthFile());
 
@@ -203,8 +197,38 @@ void Sequencer::Close() {
         m_auth_resolver = nullptr;
     }
 
-    pthread_cancel(m_killer_thread);
-    pthread_detach(m_killer_thread);
+    this->StopKillerThread();
+}
+
+void Sequencer::StartKillerThread()
+{
+    std::lock_guard<std::mutex> lock(m_killer_mutex);
+    if (m_killer_state != KillerThreadState::NOT_RUNNING)
+    {
+        return;
+    }
+    m_killer_thread = std::thread(&Sequencer::KillerThreadMain, this);
+    m_killer_state = KillerThreadState::RUNNING;
+}
+
+void Sequencer::StopKillerThread()
+{
+    {
+        std::lock_guard<std::mutex> lock(m_killer_mutex);
+        if (m_killer_state != KillerThreadState::RUNNING)
+        {
+            return;
+        }
+        m_killer_state = KillerThreadState::STOP_REQUESTED;
+    }
+    
+    m_killer_cond.notify_one();
+    m_killer_thread.join();
+
+    {
+        std::lock_guard<std::mutex> lock(m_killer_mutex);
+        m_killer_state = KillerThreadState::NOT_RUNNING;
+    }
 }
 
 bool Sequencer::CheckNickIsUnique(std::string &nick) {
@@ -408,27 +432,49 @@ int Sequencer::AuthorizeNick(std::string token, std::string &nickname) {
     return m_auth_resolver->resolve(token, nickname, m_free_user_id);
 }
 
-void Sequencer::killerthreadstart() {
+void Sequencer::KillerThreadMain()
+{
     Logger::Log(LOG_DEBUG, "Killer thread ready");
-    while (1) {
-        Logger::Log(LOG_DEBUG, "Killer entering cycle");
-
-        m_killer_mutex.lock();
-        while (m_kill_queue.empty()) {
-            m_killer_mutex.wait(m_killer_cond);
+    while (true)
+    {
+        Client* client = nullptr;
+        KillerThreadState state = this->KillerThreadWaitForClient(/*out:*/ client);
+        if (state == KillerThreadState::STOP_REQUESTED)
+        {
+            Logger::Log(LOG_DEBUG, "Killer thread requested to stop");
+            break;
         }
-
-        //pop the kill queue
-        Client *to_del = m_kill_queue.front();
-        m_kill_queue.pop();
-        m_killer_mutex.unlock();
-
-        Logger::Log(LOG_DEBUG, "Killer called to kill %s", Str::SanitizeUtf8(to_del->user.username).c_str());
-        to_del->Disconnect();
-
-        delete to_del;
-        to_del = NULL;
+        else if (client)
+        {
+            this->KillerThreadProcessClient(client);
+        }
     }
+}
+
+KillerThreadState Sequencer::KillerThreadWaitForClient(Client*& out_client)
+{
+    std::unique_lock<std::mutex> uni_lock(m_killer_mutex);
+    if (m_kill_queue.empty())
+    {
+        m_killer_cond.wait(uni_lock);
+    }
+    if (!m_kill_queue.empty())
+    {
+        out_client = m_kill_queue.front();
+        m_kill_queue.pop(); // pop front
+    }
+    return m_killer_state;
+}
+
+void Sequencer::KillerThreadProcessClient(Client* client)
+{
+    // Give the client time to disconnect itself
+    std::this_thread::sleep_for(std::chrono::seconds(5));
+
+    // Join the send/recv threads and close socket
+    client->Disconnect();
+
+    delete client;
 }
 
 void Sequencer::QueueClientForDisconnect(int uid, const char *errormsg, bool isError /*=true*/, bool doScriptCallback /*= true*/) {
@@ -477,10 +523,10 @@ void Sequencer::QueueClientForDisconnect(int uid, const char *errormsg, bool isE
     Logger::Log(LOG_VERBOSE, "Disconnecting client ID %d: %s", uid, errormsg);
     Logger::Log(LOG_DEBUG, "adding client to kill queue, size: %d", m_kill_queue.size());
     {
-        MutexLocker scoped_lock(m_killer_mutex);
+        std::lock_guard<std::mutex> lock(m_killer_mutex);
         m_kill_queue.push(client);
     }
-    m_killer_cond.signal();
+    m_killer_cond.notify_one();
 
     m_num_disconnects_total++;
     if (isError) {

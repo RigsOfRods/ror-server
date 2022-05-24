@@ -1103,13 +1103,13 @@ void ServerScript::setUserColourNum(int uid, int num) {
 
 std::string ServerScript::getUserToken(int uid) {
     Client *c = seq->getClient(uid);
-    if (!c) return 0;
+    if (!c) return "";
     return std::string(c->user.usertoken, 40);
 }
 
 std::string ServerScript::getUserVersion(int uid) {
     Client *c = seq->getClient(uid);
-    if (!c) return 0;
+    if (!c) return "";
     return std::string(c->user.clientversion, 25);
 }
 
@@ -1201,7 +1201,7 @@ std::string ServerScript::get_IPAddr() { return Config::getIPAddr(); }
 
 unsigned int ServerScript::get_listenPort() { return Config::getListenPort(); }
 
-int ServerScript::get_serverMode() { return Config::getServerMode(); }
+int ServerScript::get_serverMode() { return (int)Config::getServerMode(); }
 
 std::string ServerScript::get_owner() { return Config::getOwner(); }
 

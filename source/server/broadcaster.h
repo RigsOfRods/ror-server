@@ -21,56 +21,61 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #pragma once
 
 #include "rornet.h"
-#include "mutexutils.h"
 #include "prerequisites.h"
 
-#include <atomic>
-#include <pthread.h>
+#include <condition_variable>
 #include <deque>
+#include <mutex>
+#include <thread>
 
-class SWInetSocket;
-
-class Sequencer;
-
-struct queue_entry_t {
-    int type;
+struct QueueEntry {
+    RoRnet::MessageType type = RoRnet::MSG2_INVALID;
     int uid;
     unsigned int streamid;
     unsigned int datalen;
     char data[RORNET_MAX_MESSAGE_LENGTH];
 };
 
-void *StartBroadcasterThread(void *);
 
 class Broadcaster {
-    friend void *StartBroadcasterThread(void *);
-
 public:
     static const int QUEUE_SOFT_LIMIT = 100;
     static const int QUEUE_HARD_LIMIT = 300;
 
+    enum class ThreadState
+    {
+        NOT_RUNNING,      //!< Initial/terminal state - thread not running.
+        RUNNING,          //!< Thread running.
+        STOP_REQUESTED,   //!< Thread running.
+    };
+
     Broadcaster(Sequencer *sequencer);
+    ~Broadcaster();
 
     void Start(Client* client);
-
     void Stop();
 
     void QueueMessage(int msg_type, int client_id, unsigned int streamid, unsigned int payload_len, const char *payload);
-
     bool IsDroppingPackets() const { return m_is_dropping_packets; }
 
 private:
-    void Thread();
+    void  ThreadMain();
+    ThreadState ThreadWaitForMessage(QueueEntry& out_message);
+    bool  ThreadTransmitMessage(QueueEntry const& message); //!< Returns false on error.
 
-    Sequencer *m_sequencer;
-    pthread_t m_thread;
-    Mutex m_queue_mutex;
-    Condition m_queue_cond;
-    Client* m_client;
-    std::atomic<bool> m_keep_running;
-    bool m_is_dropping_packets;
-    int  m_packet_drop_counter;
-    int  m_packet_good_counter;
+    // Thread context
+    std::thread              m_thread;
+    ThreadState              m_thread_state = ThreadState::NOT_RUNNING;
+    std::mutex               m_mutex;
 
-    std::deque<queue_entry_t> m_msg_queue;
+    // Queue
+    std::deque<QueueEntry>   m_msg_queue;
+    std::condition_variable  m_queue_cond;
+
+    // Broadcaster state
+    Sequencer*               m_sequencer = nullptr;
+    Client*                  m_client = nullptr;
+    bool                     m_is_dropping_packets = false;
+    int                      m_packet_drop_counter = 0;
+    int                      m_packet_good_counter = 0;
 };

@@ -21,11 +21,10 @@ if (RORSERVER_WITH_ANGELSCRIPT)
 endif ()
 
 IF (WIN32)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE PTW32_STATIC_LIB)
-    target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/win32_pthread/include)
-    target_link_libraries(${PROJECT_NAME} PRIVATE mysocketw jsoncpp pthread)
+    target_link_libraries(${PROJECT_NAME} PRIVATE mysocketw jsoncpp)
 ELSEIF (UNIX)
     #add_definitions("-DAS_MAX_PORTABILITY")
+    #NOTE: pthread is needed for AngelScript to link.
     target_link_libraries(${PROJECT_NAME} PRIVATE mysocketw pthread dl jsoncpp)
 ELSEIF (APPLE)
 ENDIF (WIN32)

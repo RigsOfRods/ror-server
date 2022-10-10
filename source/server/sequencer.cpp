@@ -1333,9 +1333,11 @@ void Sequencer::printStats() {
 
 void Sequencer::frameStepScripts(float dt)
 {
+#ifdef WITH_ANGELSCRIPT
     // All script callbacks must be invoked while clients-mutex is locked
     std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
     m_script_engine->frameStep(dt);
+#endif // WITH_ANGELSCRIPT
 }
 
 // clients_mutex needs to be locked wen calling this method

@@ -100,7 +100,7 @@ bool Blacklist::LoadBlacklistFromFile()
     for (Json::Value& j_ban: j_doc["bans"])
     {
         m_database->RecordBan(
-			j_ban["bid"].asInt(),
+            // ban IDs are reset to start at 1 on every start/restart
             j_ban["ip"].asString(),
             j_ban["nickname"].asString(),
             j_ban["banned_by_nickname"].asString(),

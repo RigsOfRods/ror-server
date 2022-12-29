@@ -689,8 +689,7 @@ bool Sequencer::Kick(int kuid, int modUID, const char *msg) {
     return true;
 }
 
-void Sequencer::RecordBan(int bid,
-	std::string const& ip_addr,
+void Sequencer::RecordBan(std::string const& ip_addr,
     std::string const& nickname,
     std::string const& by_nickname,
     std::string const& banmsg)
@@ -699,12 +698,8 @@ void Sequencer::RecordBan(int bid,
     ban_t *b = new ban_t;
     memset(b, 0, sizeof(ban_t));
 
-	// a somewhat auto-incrementing id based on the vector size
-	if (bid != -1) {
-		b->bid = bid;
-	} else {
-		b->bid = m_bans.size();
-	}
+    // this will always be reconstructed on loading
+	b->bid = m_bans.size() + 1; // a somewhat auto-incrementing id based on the vector size
     strncpy(b->banmsg, banmsg.c_str(), /* copy max: */255);
     strncpy(b->ip, ip_addr.c_str(), 16); 
     strncpy(b->nickname, nickname.c_str(), /* copy max: */RORNET_MAX_USERNAME_LEN - 1);
@@ -725,8 +720,8 @@ bool Sequencer::Ban(int buid, int modUID, const char *msg) {
         return false;
     }
 
-    this->RecordBan(-1, banned_client->GetIpAddress(),
-                    banned_client->GetUsername(), mod_client->GetUsername(), msg);
+    this->RecordBan(banned_client->GetIpAddress(), 
+        banned_client->GetUsername(), mod_client->GetUsername(), msg);
     m_blacklist.SaveBlacklistToFile(); // Persist the ban
 
     std::string kick_msg = msg + std::string(" (banned)");
@@ -740,12 +735,24 @@ void Sequencer::SilentBan(int buid, const char *msg, bool doScriptCallback /*= t
         return;
     }
 
-    this->RecordBan(-1, banned_client->GetIpAddress(),
+    this->RecordBan(banned_client->GetIpAddress(),
         banned_client->GetUsername(), "rorserver", msg);
     m_blacklist.SaveBlacklistToFile(); // Persist the ban
 
     std::string kick_msg = msg + std::string(" (banned)");
     QueueClientForDisconnect(banned_client->user.uniqueid, kick_msg.c_str(), false, doScriptCallback);
+}
+
+bool Sequencer::UnBanIP(std::string ip_addr) {
+    for (unsigned int i = 0; i < m_bans.size(); i++) {
+        if (m_bans[i]->ip == ip_addr) {
+            m_bans.erase(m_bans.begin() + i);
+            m_blacklist.SaveBlacklistToFile();
+            Logger::Log(LOG_VERBOSE, "ban removed: %d", ip_addr);
+            return true;
+        }
+    }
+    return false;
 }
 
 bool Sequencer::UnBan(int bid) {
@@ -990,7 +997,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
 #endif //WITH_ANGELSCRIPT
         if (str == "!help") {
             serverSay(std::string("builtin commands:"), uid);
-            serverSay(std::string("!version, !list, !say, !bans, !ban, !unban, !kick, !vehiclelimit"), uid);
+            serverSay(std::string("!version, !list, !say, !bans, !ban, !unban, !unbanip, !kick, !vehiclelimit"), uid);
             serverSay(std::string("!website, !irc, !owner, !voip, !rules, !motd"), uid);
         }
 
@@ -1052,22 +1059,45 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                 // not allowed
                 serverSay(std::string("You are not authorized to use this command!"), uid);
             }
-        } else if (str.substr(0, 7) == "!unban ") {
+        }
+        else if (str.substr(0, 7) == "!unban ") {
             if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
-				int bid = -1;
+                int bid = -1;
                 int res = sscanf(str.substr(7).c_str(), "%d", &bid);
                 if (res != 1 || bid == -1) {
                     serverSay(std::string("usage: !unban <bid>"), uid);
                     serverSay(std::string("example: !unban 3"), uid);
-                } else {
+                }
+                else {
                     if (UnBan(bid))
                         serverSay(std::string("ban removed"), uid);
                     else
                         serverSay(std::string("ban not removed: error"), uid);
                 }
-            } else {
+            }
+            else {
                 // not allowed
                 serverSay(std::string("You are not authorized to unban people!"), uid);
+            }
+        } else if (str.substr(0, 9) == "!unbanip ") {
+            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+                std::string ip_addr = "";
+                ip_addr = str.substr(9);
+                if (ip_addr.empty()) {
+                    serverSay(std::string("usage: !unbanip <ip>"), uid);
+                }
+                else {
+                    if (UnBanIP(ip_addr)) {
+                        serverSay(std::string("ban removed"), uid);
+                    }
+                    else {
+                        serverSay(std::string("ban not removed: error"), uid);
+                    }
+                }
+            }
+            else {
+                // not allowed
+                serverSay(std::string("You are not authorized to use this command!"), uid);
             }
         } else if (str.substr(0, 5) == "!ban ") {
             if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {

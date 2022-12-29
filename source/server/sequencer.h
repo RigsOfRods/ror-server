@@ -234,8 +234,9 @@ private:
     bool                     Kick(int to_kick_uid, int modUID, const char *msg = 0);
     bool                     Ban(int to_ban_uid, int modUID, const char *msg = 0);
     void                     SilentBan(int to_ban_uid, const char *msg = 0, bool doScriptCallback = true);
-    void                     RecordBan(int bid, std::string const& ip_addr, std::string const& nickname, std::string const& by_nickname, std::string const& banmsg);
+    void                     RecordBan(std::string const& ip_addr, std::string const& nickname, std::string const& by_nickname, std::string const& banmsg);
     bool                     IsBanned(const char *ip);
+    bool                     UnBanIP(std::string ip_addr);
     bool                     UnBan(int bid);
     void                     streamDebug();
     std::vector<ban_t>       GetBanListCopy();

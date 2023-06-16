@@ -96,8 +96,7 @@ void Receiver::ThreadMain() {
             break;
         }
 
-        m_sequencer->queueMessage(m_client->GetUserId(),
-            (int)m_recv_header.command, m_recv_header.streamid, m_recv_payload, m_recv_header.size);
+        m_sequencer->queueMessage(m_recv_header, m_recv_payload);
     }
 
     Logger::Log(LOG_DEBUG, "Receiver thread (user ID %d) exits", m_client->GetUserId());

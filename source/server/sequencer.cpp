@@ -130,7 +130,18 @@ std::string Client::GetIpAddress() {
 
 void Client::QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len,
                           const char *payload) {
-    m_broadcaster.QueueMessage(msg_type, client_id, stream_id, payload_len, payload);
+    RoRnet::Header header;
+    memset(&header, 0, sizeof(RoRnet::Header));
+    header.command = msg_type;
+    header.source = client_id;
+    header.streamid = stream_id;
+    header.size = payload_len;
+
+    m_broadcaster.QueuePacket(header, payload);
+}
+
+void Client::QueueMessageWithHeader(RoRnet::Header header, const char *payload) {
+    m_broadcaster.QueuePacket(header, payload);
 }
 
 // Yes, this is weird. To be refactored.
@@ -801,10 +812,14 @@ void Sequencer::streamDebug() {
 }
 
 //this is called by the receivers threads, like crazy & concurrently
-void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *data, unsigned int len) {
+void Sequencer::queueMessage(RoRnet::Header header, char *data) {
     std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
 
-    Client *client = this->FindClientById(static_cast<unsigned int>(uid));
+    const int type = header.command;
+    const int streamid = header.streamid;
+    const int uid = header.source;
+    const unsigned int len = header.size;
+    Client *client = this->FindClientById(uid);
     if (client == nullptr) {
         return;
     }
@@ -1262,8 +1277,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                 Client *curr_client = m_clients[i];
                 if (curr_client->GetStatus() == Client::STATUS_USED && curr_client->IsReceivingData() &&
                     (curr_client != client || toAll)) {
-                    curr_client->streams_traffic[streamid].bandwidthOutgoing += len;
-                    curr_client->QueueMessage(type, client->user.uniqueid, streamid, len, data);
+                    this->sendStreamData(curr_client, header, data);
                 }
             }
         } else if (publishMode == BROADCAST_AUTHED) {
@@ -1272,12 +1286,16 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                 Client *curr_client = m_clients[i];
                 if (curr_client->GetStatus() == Client::STATUS_USED && curr_client->IsReceivingData() &&
                     (curr_client != client) && (client->user.authstatus & RoRnet::AUTH_ADMIN)) {
-                    curr_client->streams_traffic[streamid].bandwidthOutgoing += len;
-                    curr_client->QueueMessage(type, client->user.uniqueid, streamid, len, data);
+                    this->sendStreamData(curr_client, header, data);
                 }
             }
         }
     }
+}
+
+void Sequencer::sendStreamData(Client *dst_client, RoRnet::Header header, char *data) {
+    dst_client->streams_traffic[header.streamid].bandwidthOutgoing += header.size;
+    dst_client->QueueMessageWithHeader(header, data);
 }
 
 int Sequencer::getStartTime() {

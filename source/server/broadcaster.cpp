@@ -128,7 +128,7 @@ bool Broadcaster::ThreadTransmitMessage(QueueEntry const& msg) {
     if (type == RoRnet::MSG2_STREAM_DATA_DISCARDABLE)
         type = RoRnet::MSG2_STREAM_DATA;
 
-    int res = Messaging::SendMessage(m_client->GetSocket(), type, msg.uid, msg.streamid, msg.datalen, msg.data);
+    int res = Messaging::SWSendMessage(m_client->GetSocket(), type, msg.uid, msg.streamid, msg.datalen, msg.data);
     return res == 0;
 }
 

@@ -22,8 +22,8 @@ jobs:
       - name: Cache conan
         uses: actions/cache@v3
         with:
-          key: conan-${{ hashFiles('CMakeLists.txt') }}
-          path: ~/.conan/
+          key: conan-${{ matrix.os }}-${{ hashFiles('conanfile.py') }}
+          path: ~/.conan2/
 
       - name: Enable Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1.13.0
@@ -37,14 +37,28 @@ jobs:
 
       - name: Install dependencies (Windows)
         if: startsWith(matrix.os, 'windows')
-        shell: cmake -P {0}
-        run: |
-          file(MAKE_DIRECTORY $ENV{BUILD_TOOLS_PATH})
-          file(DOWNLOAD https://cdn.anotherfoxguy.com/build-tools.zip "$ENV{TMP}/build-tools.zip" SHOW_PROGRESS)
-          execute_process(COMMAND ${CMAKE_COMMAND} -E tar xzf "$ENV{TMP}/build-tools.zip" WORKING_DIRECTORY "$ENV{BUILD_TOOLS_PATH}")
+        shell: cmd
+        run: git clone https://git.anotherfoxguy.com/AnotherFoxGuy/build-tools.git %BUILD_TOOLS_PATH%
 
-      - name: Configure
-        run: cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DUSE_PACKAGE_MANAGER=ON .
+      - name: Configure (Ubuntu)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          conan profile detect --force
+          echo "tools.system.package_manager:mode = install" > ~/.conan2/global.conf
+          echo "tools.system.package_manager:sudo = True" >> ~/.conan2/global.conf
+          conan remote add ror-conan https://git.anotherfoxguy.com/api/packages/rorbot/conan -f
+          conan install . -s build_type=Release -b missing -pr:b=default -c tools.cmake.cmaketoolchain:generator="Ninja"
+          cmake --preset conan-release
+        shell: bash
+
+
+      - name: Configure (Windows)
+        if: startsWith(matrix.os, 'windows')
+        run: |
+          conan remote add ror-conan https://git.anotherfoxguy.com/api/packages/rorbot/conan -f
+          conan install . -b missing -pr:b=tools/conan-profiles/vs-22-release-ninja -pr=tools/conan-profiles/vs-22-release-ninja
+          cmake --preset conan-release
+        shell: cmd
 
       - name: Build
         run: ninja

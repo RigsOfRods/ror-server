@@ -15,10 +15,10 @@ if (RORSERVER_WITH_ANGELSCRIPT)
     target_link_libraries(${PROJECT_NAME} PRIVATE Angelscript::angelscript angelscript_addons)
 endif ()
 
-target_link_libraries(${PROJECT_NAME} PRIVATE SocketW::SocketW pthread jsoncpp_lib)
+target_link_libraries(${PROJECT_NAME} PRIVATE SocketW::SocketW jsoncpp_lib)
 
 IF (WIN32)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE PTW32_STATIC_LIB)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 ELSEIF (UNIX)
     #add_definitions("-DAS_MAX_PORTABILITY")
     target_link_libraries(${PROJECT_NAME} PRIVATE dl)

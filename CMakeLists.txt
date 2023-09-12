@@ -8,71 +8,13 @@ include(FeatureSummary)
 project(rorserver VERSION "2021.10")
 
 # Options
-option(USE_PACKAGE_MANAGER "Use conan" OFF)
 set(ROR_DEPENDENCY_DIR "${CMAKE_SOURCE_DIR}/dependencies/build" CACHE PATH "Path to the dependencies")
+set(CMAKE_PREFIX_PATH ${ROR_DEPENDENCY_DIR} ${CMAKE_PREFIX_PATH})
 
-if (USE_PACKAGE_MANAGER)
-
-    macro(_conan_install build_type)
-        conan_cmake_autodetect(settings BUILD_TYPE ${build_type})
-        conan_cmake_install(PATH_OR_REFERENCE . BUILD missing SETTINGS ${settings})
-    endmacro()
-
-    include(conan)
-
-    conan_add_remote(NAME rigs-of-rods-deps-V2 URL https://artifactory.anotherfoxguy.com/artifactory/api/conan/rigs-of-rods VERIFY_SSL True)
-
-    set(RORSERVER_WITH_ANGELSCRIPT ON)
-
-    set(
-            _BASE_DEPS
-            angelscript/2.35.0
-            jsoncpp/1.9.5
-            socketw/3.11.0@anotherfoxguy/stable
-    )
-
-    if (WIN32)
-        list(APPEND _BASE_DEPS pthread-win/3.0.3.1@anotherfoxguy/stable)
-    endif ()
-
-    conan_cmake_configure(REQUIRES ${_BASE_DEPS} GENERATORS cmake_multi)
-
-    if (MSVC OR XCODE AND NOT DEFINED CMAKE_BUILD_TYPE)
-        foreach (TYPE ${CMAKE_CONFIGURATION_TYPES})
-            _conan_install(${TYPE})
-        endforeach ()
-    else ()
-        _conan_install(${CMAKE_BUILD_TYPE})
-    endif ()
-
-    include(${CMAKE_BINARY_DIR}/conanbuildinfo_multi.cmake)
-    conan_define_targets()
-
-    set_target_properties(CONAN_PKG::angelscript PROPERTIES IMPORTED_GLOBAL TRUE)
-    set_target_properties(CONAN_PKG::socketw PROPERTIES IMPORTED_GLOBAL TRUE)
-    set_target_properties(CONAN_PKG::jsoncpp PROPERTIES IMPORTED_GLOBAL TRUE)
-
-    add_library(Angelscript::angelscript ALIAS CONAN_PKG::angelscript)
-    add_library(SocketW::SocketW ALIAS CONAN_PKG::socketw)
-    add_library(jsoncpp_lib ALIAS CONAN_PKG::jsoncpp)
-    if (WIN32)
-        add_library(pthread ALIAS CONAN_PKG::pthread-win)
-    endif ()
-
-else ()
-    set(CMAKE_PREFIX_PATH ${ROR_DEPENDENCY_DIR} ${CMAKE_PREFIX_PATH})
-
-    find_package(Angelscript)
-    find_package(jsoncpp REQUIRED)
-    find_package(SocketW REQUIRED)
-    if (WIN32)
-        find_package(PThread REQUIRED)
-        add_library(pthread ALIAS PThread::PThread)
-    endif ()
-
-    cmake_dependent_option(RORSERVER_WITH_ANGELSCRIPT "Adds scripting support" ON "AngelScript_FOUND" OFF)
-endif ()
-
+find_package(Angelscript)
+find_package(jsoncpp REQUIRED)
+find_package(SocketW REQUIRED)
+cmake_dependent_option(RORSERVER_WITH_ANGELSCRIPT "Adds scripting support" ON "AngelScript_FOUND" OFF)
 
 # setup paths
 SET(RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/")

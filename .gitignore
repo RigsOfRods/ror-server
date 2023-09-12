@@ -4,7 +4,6 @@ bin/*
 !bin/pthreadVC2.dll
 _build
 build
-
-cmake-build-debug/
-
+cmake-build-*/
 \.idea/
+CMakeUserPresets.json

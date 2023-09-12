@@ -112,12 +112,13 @@ void Listener::ThreadMain() {
 
         try {
             // this is the start of it all, it all starts with a simple hello
-            if (Messaging::ReceiveMessage(ts, &type, &source, &streamid, &len, buffer, RORNET_MAX_MESSAGE_LENGTH))
+            if (Messaging::SWReceiveMessage(ts, &type, &source, &streamid, &len,
+                                            buffer, RORNET_MAX_MESSAGE_LENGTH))
                 throw std::runtime_error("ERROR Listener: receiving first message");
 
             // make sure our first message is a hello message
             if (type != RoRnet::MSG2_HELLO) {
-                Messaging::SendMessage(ts, RoRnet::MSG2_WRONG_VER, 0, 0, 0, 0);
+                Messaging::SWSendMessage(ts, RoRnet::MSG2_WRONG_VER, 0, 0, 0, 0);
                 throw std::runtime_error("ERROR Listener: protocol error");
             }
 
@@ -127,7 +128,7 @@ void Listener::ThreadMain() {
                 // send back some information, then close socket
                 char tmp[2048] = "";
                 sprintf(tmp, "protocol:%s\nrev:%s\nbuild_on:%s_%s\n", RORNET_VERSION, VERSION, __DATE__, __TIME__);
-                if (Messaging::SendMessage(ts, RoRnet::MSG2_MASTERINFO, 0, 0, (unsigned int) strlen(tmp), tmp)) {
+                if (Messaging::SWSendMessage(ts, RoRnet::MSG2_MASTERINFO, 0, 0, (unsigned int) strlen(tmp), tmp)) {
                     throw std::runtime_error("ERROR Listener: sending master info");
                 }
                 // close socket
@@ -139,7 +140,7 @@ void Listener::ThreadMain() {
             // compare the versions if they are compatible
             if (strncmp(buffer, RORNET_VERSION, strlen(RORNET_VERSION))) {
                 // not compatible
-                Messaging::SendMessage(ts, RoRnet::MSG2_WRONG_VER, 0, 0, 0, 0);
+                Messaging::SWSendMessage(ts, RoRnet::MSG2_WRONG_VER, 0, 0, 0, 0);
                 throw std::runtime_error("ERROR Listener: bad version: " + std::string(buffer) + ". rejecting ...");
             }
 
@@ -163,12 +164,14 @@ void Listener::ThreadMain() {
             strncpy(settings.servername, Config::getServerName().c_str(), Config::getServerName().size());
             strncpy(settings.terrain, Config::getTerrainName().c_str(), Config::getTerrainName().size());
 
-            if (Messaging::SendMessage(ts, RoRnet::MSG2_HELLO, 0, 0, (unsigned int) sizeof(RoRnet::ServerInfo),
+            if (Messaging::SWSendMessage(ts, RoRnet::MSG2_HELLO, 0, 0, (unsigned int) sizeof(RoRnet::ServerInfo),
                                        (char *) &settings))
                 throw std::runtime_error("ERROR Listener: sending version");
 
             //receive user infos
-            if (Messaging::ReceiveMessage(ts, &type, &source, &streamid, &len, buffer, RORNET_MAX_MESSAGE_LENGTH)) {
+            if (Messaging::SWReceiveMessage(ts, &type, &source, &streamid, &len,
+                                            buffer,
+                                            RORNET_MAX_MESSAGE_LENGTH)) {
                 std::stringstream error_msg;
                 error_msg << "ERROR Listener: receiving user infos\n"
                           << "ERROR Listener: got that: "
@@ -197,7 +200,7 @@ void Listener::ThreadMain() {
                             Config::getPublicPassword().c_str(),
                             std::string(user->serverpassword, 40).c_str());
                 if (strncmp(Config::getPublicPassword().c_str(), user->serverpassword, 40)) {
-                    Messaging::SendMessage(ts, RoRnet::MSG2_WRONG_PW, 0, 0, 0, 0);
+                    Messaging::SWSendMessage(ts, RoRnet::MSG2_WRONG_PW, 0, 0, 0, 0);
                     throw std::runtime_error("ERROR Listener: wrong password");
                 }
 

@@ -3,29 +3,25 @@ FILE(GLOB_RECURSE server_src CONFIGURE_DEPENDS *.cpp *.c *.h *.rc)
 # the final lib
 add_executable(${PROJECT_NAME} ${server_src})
 
-target_include_directories(${PROJECT_NAME} PRIVATE
-        ${CMAKE_SOURCE_DIR}/dependencies/socketw/
-        ${CMAKE_SOURCE_DIR}/dependencies/
+target_include_directories(
+        ${PROJECT_NAME} PRIVATE
         ${CMAKE_SOURCE_DIR}/source/protocol/
         ${CMAKE_SOURCE_DIR}/source/common/
-        ${CMAKE_SOURCE_DIR}/dependencies/jsoncpp/include/
-        )
-
+)
 # libraries
 if (RORSERVER_WITH_ANGELSCRIPT)
-    add_dependencies(${PROJECT_NAME} angelscript)
     target_compile_definitions(${PROJECT_NAME} PRIVATE WITH_ANGELSCRIPT)
-    target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/angelscript/include)
-    target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/angelscript/add_on)
-    target_link_libraries(${PROJECT_NAME} PRIVATE angelscript)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/source/angelscript_add_on)
+    target_link_libraries(${PROJECT_NAME} PRIVATE Angelscript::angelscript angelscript_addons)
 endif ()
 
+target_link_libraries(${PROJECT_NAME} PRIVATE SocketW::SocketW jsoncpp_lib)
+
 IF (WIN32)
-    target_link_libraries(${PROJECT_NAME} PRIVATE mysocketw jsoncpp)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 ELSEIF (UNIX)
     #add_definitions("-DAS_MAX_PORTABILITY")
-    #NOTE: pthread is needed for AngelScript to link.
-    target_link_libraries(${PROJECT_NAME} PRIVATE mysocketw pthread dl jsoncpp)
+    target_link_libraries(${PROJECT_NAME} PRIVATE dl)
 ELSEIF (APPLE)
 ENDIF (WIN32)
 
@@ -51,35 +47,35 @@ ELSEIF (UNIX)
             DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/init.d
             RENAME rorserver
             PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
-            )
+    )
 
     # add example server configuration
     INSTALL(FILES ${CMAKE_SOURCE_DIR}/contrib/example-config.cfg
             DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/rorserver/
             RENAME simple.cfg.example
             PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
-            )
+    )
 
     # add example server authorization file
     INSTALL(FILES ${CMAKE_SOURCE_DIR}/contrib/example-auth.auth
             DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/rorserver/
             RENAME simple.auth.example
             PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
-            )
+    )
 
     # add example server message of the day (MOTD) file
     INSTALL(FILES ${CMAKE_SOURCE_DIR}/contrib/example-motd.motd
             DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/rorserver/
             RENAME simple.motd.example
             PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
-            )
+    )
 
     # add example rules file
     INSTALL(FILES ${CMAKE_SOURCE_DIR}/contrib/example-rules.rules
             DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/rorserver/
             RENAME simple.rules.example
             PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
-            )
+    )
 
     CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/contrib/postinst.in
             ${CMAKE_BINARY_DIR}/contrib/postinst

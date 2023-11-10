@@ -29,10 +29,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <thread>
 
 struct QueueEntry {
-    RoRnet::MessageType type = RoRnet::MSG2_INVALID;
-    int uid;
-    unsigned int streamid;
-    unsigned int datalen;
+    RoRnet::Header header;
     char data[RORNET_MAX_MESSAGE_LENGTH];
 };
 
@@ -55,7 +52,7 @@ public:
     void Start(Client* client);
     void Stop();
 
-    void QueueMessage(int msg_type, int client_id, unsigned int streamid, unsigned int payload_len, const char *payload);
+    void QueuePacket(RoRnet::Header header, const char *payload);
     bool IsDroppingPackets() const { return m_is_dropping_packets; }
 
 private:

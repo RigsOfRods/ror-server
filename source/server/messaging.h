@@ -34,6 +34,11 @@ namespace Messaging {
             unsigned int payload_len,
             const char *payload);
 
+    int SendMessageWithHeader(
+            SWInetSocket *socket,
+            RoRnet::Header header,
+            const char *payload);
+
     int ReceiveMessage(
             SWInetSocket *socket,
             int *out_msg_type,

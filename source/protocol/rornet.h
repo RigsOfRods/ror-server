@@ -1,8 +1,9 @@
 /*
     This file is part of Rigs of Rods
 
-    Copyright 2007  Pierre-Michel Ricordel
-    Copyright 2014+ Petr Ohlidal & contributors.
+    Copyright 2007 Pierre-Michel Ricordel
+    Copyright 2014-2017 Ulteq
+    Copyright 2020-2023 Petr Ohlidal
 
     Rigs of Rods is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,7 +21,7 @@
 #pragma once
 
 #include <stdint.h>
-
+typedef uint32_t BitMask_t;
 #define BITMASK(x) (1 << (x-1))
 
 namespace RoRnet {
@@ -28,9 +29,11 @@ namespace RoRnet {
 #define RORNET_MAX_PEERS            64     //!< maximum clients connected at the same time
 #define RORNET_MAX_MESSAGE_LENGTH   8192   //!< maximum size of a RoR message. 8192 bytes = 8 kibibytes
 #define RORNET_LAN_BROADCAST_PORT   13000  //!< port used to send the broadcast announcement in LAN mode
-#define RORNET_MAX_USERNAME_LEN     40     //!< port used to send the broadcast announcement in LAN mode
+#define RORNET_MAX_USERNAME_LEN     40     //!< bytes.
 
 #define RORNET_VERSION              "RoRnet_2.44"
+
+typedef uint32_t NetTime32_t; //!< Milliseconds
 
 enum MessageType
 {
@@ -54,8 +57,8 @@ enum MessageType
     MSG2_GAME_CMD,                     //!< Script message. Can be sent in both directions.
     MSG2_USER_JOIN,                    //!< new user joined
     MSG2_USER_LEAVE,                   //!< user leaves
-    MSG2_UTF8_CHAT,                    //!< chat line in UTF8 encoding
-    MSG2_UTF8_PRIVCHAT,                //!< private chat line in UTF8 encoding
+    MSG2_UTF8_CHAT,                    //!< broadcast chat line in UTF8 encoding; Payload: const char*(text)
+    MSG2_UTF8_PRIVCHAT,                //!< private chat line in UTF8 encoding; Payload: uint32_t(uniqueid), const char*(text)
 
     // Stream functions
     MSG2_STREAM_REGISTER,              //!< create new stream
@@ -67,6 +70,7 @@ enum MessageType
     // Legacy values (RoRnet_2.38 and earlier)
     MSG2_WRONG_VER_LEGACY = 1003,      //!< Wrong version
 
+    // Special values
     MSG2_INVALID = 0                   //!< Not to be transmitted
 };
 
@@ -82,37 +86,45 @@ enum UserAuth
 
 enum Netmask
 {
-    NETMASK_HORN         = BITMASK(1),  //!< horn is in use
-    NETMASK_LIGHTS       = BITMASK(2),  //!< lights on
-    NETMASK_BRAKES       = BITMASK(3),  //!< brake lights on
-    NETMASK_REVERSE      = BITMASK(4),  //!< reverse light on
-    NETMASK_BEACONS      = BITMASK(5),  //!< beacons on
-    NETMASK_BLINK_LEFT   = BITMASK(6),  //!< left blinker on
-    NETMASK_BLINK_RIGHT  = BITMASK(7),  //!< right blinker on
-    NETMASK_BLINK_WARN   = BITMASK(8),  //!< warn blinker on
-    NETMASK_CLIGHT1      = BITMASK(9),  //!< custom light 1 on
-    NETMASK_CLIGHT2      = BITMASK(10), //!< custom light 2 on
-    NETMASK_CLIGHT3      = BITMASK(11), //!< custom light 3 on
-    NETMASK_CLIGHT4      = BITMASK(12), //!< custom light 4 on
-    NETMASK_CLIGHT5      = BITMASK(13), //!< custom light 5 on
-    NETMASK_CLIGHT6      = BITMASK(14), //!< custom light 6 on
-    NETMASK_CLIGHT7      = BITMASK(15), //!< custom light 7 on
-    NETMASK_CLIGHT8      = BITMASK(16), //!< custom light 8 on
-    NETMASK_CLIGHT9      = BITMASK(17), //!< custom light 9 on
-    NETMASK_CLIGHT10     = BITMASK(18), //!< custom light 10 on
-    NETMASK_POLICEAUDIO  = BITMASK(19), //!< police siren on
-    NETMASK_PARTICLE     = BITMASK(20), //!< custom particles on
-    NETMASK_PBRAKE       = BITMASK(21), //!< parking brake on
-    NETMASK_TC_ACTIVE    = BITMASK(22), //!< traction control light on?
-    NETMASK_ALB_ACTIVE   = BITMASK(23), //!< anti lock brake light on?
-    NETMASK_ENGINE_CONT  = BITMASK(24), //!< ignition on?
-    NETMASK_ENGINE_RUN   = BITMASK(25), //!< engine running?
+    NETMASK_HORN         = BITMASK(1), //!< horn is in use
+    NETMASK_POLICEAUDIO  = BITMASK(2), //!< police siren on
+    NETMASK_PARTICLE     = BITMASK(3), //!< custom particles on
+    NETMASK_PBRAKE       = BITMASK(4), //!< parking brake
+    NETMASK_TC_ACTIVE    = BITMASK(5), //!< traction control light on?
+    NETMASK_ALB_ACTIVE   = BITMASK(6), //!< anti lock brake light on?
+    NETMASK_ENGINE_CONT  = BITMASK(7), //!< ignition on?
+    NETMASK_ENGINE_RUN   = BITMASK(8), //!< engine running?
 
-    NETMASK_ENGINE_MODE_AUTOMATIC     = BITMASK(26), //!< engine mode
-    NETMASK_ENGINE_MODE_SEMIAUTO      = BITMASK(27), //!< engine mode
-    NETMASK_ENGINE_MODE_MANUAL        = BITMASK(28), //!< engine mode
-    NETMASK_ENGINE_MODE_MANUAL_STICK  = BITMASK(29), //!< engine mode
-    NETMASK_ENGINE_MODE_MANUAL_RANGES = BITMASK(30)  //!< engine mode
+    NETMASK_ENGINE_MODE_AUTOMATIC     = BITMASK(9), //!< engine mode
+    NETMASK_ENGINE_MODE_SEMIAUTO      = BITMASK(10), //!< engine mode
+    NETMASK_ENGINE_MODE_MANUAL        = BITMASK(11), //!< engine mode
+    NETMASK_ENGINE_MODE_MANUAL_STICK  = BITMASK(12), //!< engine mode
+    NETMASK_ENGINE_MODE_MANUAL_RANGES = BITMASK(13), //!< engine mode
+};
+
+enum Lightmask
+{
+    LIGHTMASK_CUSTOM1     = BITMASK(1),  //!< custom light 1 on
+    LIGHTMASK_CUSTOM2     = BITMASK(2),  //!< custom light 2 on
+    LIGHTMASK_CUSTOM3     = BITMASK(3),  //!< custom light 3 on
+    LIGHTMASK_CUSTOM4     = BITMASK(4),  //!< custom light 4 on
+    LIGHTMASK_CUSTOM5     = BITMASK(5),  //!< custom light 5 on
+    LIGHTMASK_CUSTOM6     = BITMASK(6),  //!< custom light 6 on
+    LIGHTMASK_CUSTOM7     = BITMASK(7),  //!< custom light 7 on
+    LIGHTMASK_CUSTOM8     = BITMASK(8),  //!< custom light 8 on
+    LIGHTMASK_CUSTOM9     = BITMASK(9),  //!< custom light 9 on
+    LIGHTMASK_CUSTOM10    = BITMASK(10), //!< custom light 10 on
+
+    LIGHTMASK_HEADLIGHT   = BITMASK(11),
+    LIGHTMASK_HIGHBEAMS   = BITMASK(12),
+    LIGHTMASK_FOGLIGHTS   = BITMASK(13),
+    LIGHTMASK_SIDELIGHTS  = BITMASK(14),
+    LIGHTMASK_BRAKES      = BITMASK(15), //!< brake lights on
+    LIGHTMASK_REVERSE     = BITMASK(16), //!< reverse light on
+    LIGHTMASK_BEACONS     = BITMASK(17), //!< beacons on
+    LIGHTMASK_BLINK_LEFT  = BITMASK(18), //!< left blinker on
+    LIGHTMASK_BLINK_RIGHT = BITMASK(19), //!< right blinker on
+    LIGHTMASK_BLINK_WARN  = BITMASK(20), //!< warn blinker on
 };
 
 // -------------------------------- structs -----------------------------------
@@ -123,32 +135,37 @@ enum Netmask
 
 struct Header                      //!< Common header for every packet
 {
-    uint32_t command;              //!< the command of this packet: MSG2_*
-    int32_t  source;               //!< source of this command: 0 = server
-    uint32_t streamid;             //!< streamid for this command
-    uint32_t size;                 //!< size of the attached data block
+    uint32_t    command;           //!< the command of this packet: MSG2_*
+    int32_t     source;            //!< client who sent this command: 0 = server
+    NetTime32_t source_queue_time; //!< client time when queuing packet for sending
+    NetTime32_t source_send_time;  //!< client time when actually sending the packet
+    uint32_t    streamid;          //!< streamid for this command
+    uint32_t    size;              //!< size of the attached data block
+    
 };
 
 struct StreamRegister              //!< Sent from the client to server and vice versa, to broadcast a new stream
 {
-    int32_t type;                  //!< stream type
+    int32_t type;                  //!< 0 = Actor, 1 = Character, 3 = ChatSystem
     int32_t status;                //!< initial stream status
     int32_t origin_sourceid;       //!< origin sourceid
     int32_t origin_streamid;       //!< origin streamid
-    char    name[128];             //!< the actor filename
+    char    name[128];             //!< file name
     char    data[128];             //!< data used for stream setup
 };
 
-struct ActorStreamRegister
+struct ActorStreamRegister         //!< Must preserve mem. layout of RoRnet::StreamRegister
 {
-    int32_t type;                  //!< stream type
+    // RoRnet::StreamRegister: Common
+    int32_t type;                  //!< 0
     int32_t status;                //!< initial stream status
     int32_t origin_sourceid;       //!< origin sourceid
     int32_t origin_streamid;       //!< origin streamid
-    char    name[128];             //!< filename
+    char    name[128];             //!< truck file name
+    // RoRnet::StreamRegister: Data buffer (128B)
     int32_t bufferSize;            //!< initial stream status
     int32_t time;                  //!< initial time stamp
-    char    skin[60];              //!< skin
+    char    skin[60];              //!< skin 
     char    sectionconfig[60];     //!< section configuration
 };
 
@@ -164,7 +181,7 @@ struct UserInfo
     int32_t  slotnum;              //!< slot number set by server
     int32_t  colournum;            //!< colour set by server
 
-    char     username[RORNET_MAX_USERNAME_LEN]; //!< the nickname of the user WIDE CHAR!
+    char     username[RORNET_MAX_USERNAME_LEN]; //!< the nickname of the user (UTF-8)
     char     usertoken[40];        //!< user token
     char     serverpassword[40];   //!< server password
     char     language[10];         //!< user's language. For example "de-DE" or "en-US"
@@ -185,7 +202,8 @@ struct VehicleState                  //!< Formerly `oob_t`
     float    hydrodirstate;        //!< the turning direction status
     float    brake;                //!< the brake value
     float    wheelspeed;           //!< the wheel speed value
-    uint32_t flagmask;             //!< flagmask: NETMASK_*
+    BitMask_t flagmask;             //!< flagmask: NETMASK_*
+    BitMask_t lightmask;            //!< flagmask: LIGHTMASK_*
 };
 
 struct ServerInfo

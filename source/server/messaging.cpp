@@ -85,6 +85,22 @@ namespace Messaging {
         return s_traffic;
     }
 
+    int SendMessage(SWInetSocket *socket,
+            int type, int source, unsigned int streamid, unsigned int len,
+            const char *content)
+    {
+        assert(socket != nullptr);
+
+        RoRnet::Header head;
+        memset(&head, 0, sizeof(RoRnet::Header));
+        head.command = type;
+        head.source = source;
+        head.size = len;
+        head.streamid = streamid;
+
+        return SendMessageWithHeader(socket, head, content);
+    }
+
 /**
  * @param socket  Socket to communicate over
  * @param type    Command ID
@@ -93,32 +109,27 @@ namespace Messaging {
  * @param content Payload
  * @return 0 on success
  */
-    int SendMessage(SWInetSocket *socket, int type, int source, unsigned int streamid, unsigned int len,
+    int SendMessageWithHeader(SWInetSocket *socket, RoRnet::Header head,
                     const char *content) {
         assert(socket != nullptr);
 
         SWBaseSocket::SWBaseError error;
-        RoRnet::Header head;
 
-        const int msgsize = sizeof(RoRnet::Header) + len;
+        const int msgsize = sizeof(RoRnet::Header) + head.size;
 
         if (msgsize >= RORNET_MAX_MESSAGE_LENGTH) {
-            Logger::Log(LOG_ERROR, "UID: %d - attempt to send too long message", source);
+            Logger::Log(LOG_ERROR, "UID: %d - attempt to send too long message", head.source);
             return -4;
         }
 
         char buffer[RORNET_MAX_MESSAGE_LENGTH];
 
-        memset(&head, 0, sizeof(RoRnet::Header));
-        head.command = type;
-        head.source = source;
-        head.size = len;
-        head.streamid = streamid;
+
 
         // construct buffer
         memset(buffer, 0, RORNET_MAX_MESSAGE_LENGTH);
         memcpy(buffer, (char *) &head, sizeof(RoRnet::Header));
-        memcpy(buffer + sizeof(RoRnet::Header), content, len);
+        memcpy(buffer + sizeof(RoRnet::Header), content, head.size);
 
         if (socket->fsend(buffer, msgsize, &error) < msgsize)
         {

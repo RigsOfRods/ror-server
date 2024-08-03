@@ -122,39 +122,38 @@ Broadcaster::ThreadState Broadcaster::ThreadWaitForMessage(QueueEntry& out_messa
 
 
 bool Broadcaster::ThreadTransmitMessage(QueueEntry const& msg) {
-    int type = msg.type;
+    int type = msg.header.command;
     if (type == RoRnet::MSG2_INVALID)
         return true; // No error.
     if (type == RoRnet::MSG2_STREAM_DATA_DISCARDABLE)
         type = RoRnet::MSG2_STREAM_DATA;
 
-    int res = Messaging::SendMessage(m_client->GetSocket(), type, msg.uid, msg.streamid, msg.datalen, msg.data);
+    int res = Messaging::SendMessageWithHeader(m_client->GetSocket(), msg.header, msg.data);
     return res == 0;
 }
 
 
-void Broadcaster::QueueMessage(int type, int uid, unsigned int streamid, unsigned int len, const char *data) {
+void Broadcaster::QueuePacket(RoRnet::Header header, const char *data) {
     QueueEntry msg;
-    msg.type = (RoRnet::MessageType)type;
-    msg.uid = uid;
-    msg.streamid = streamid;
-    msg.datalen = len;
-    std::memcpy(msg.data, data, len);
+    msg.header = header;
+    std::memcpy(msg.data, data, header.size);
 
     {
         std::lock_guard<std::mutex> scoped_lock(m_mutex);
         if (m_msg_queue.empty()) {
             m_packet_drop_counter = 0;
             m_is_dropping_packets = (++m_packet_good_counter > 3) ? false : m_is_dropping_packets;
-        } else if (type == RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
+        } else if (msg.header.command == RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
             auto search = std::find_if(m_msg_queue.begin(), m_msg_queue.end(), [&](const QueueEntry& m)
-                    { return m.type == RoRnet::MSG2_STREAM_DATA_DISCARDABLE && m.uid == uid && m.streamid == streamid; });
+                    { return m.header.command == RoRnet::MSG2_STREAM_DATA_DISCARDABLE
+                        && m.header.source == msg.header.source
+                        && m.header.streamid == msg.header.streamid; });
             if (search != m_msg_queue.end()) {
                 // Found outdated discardable streamdata -> replace it
                 (*search) = msg;
                 m_packet_good_counter = 0;
                 m_is_dropping_packets = (++m_packet_drop_counter > 3) ? true : m_is_dropping_packets;
-                Messaging::StatsAddOutgoingDrop(sizeof(RoRnet::Header) + msg.datalen); // Statistics
+                Messaging::StatsAddOutgoingDrop(sizeof(RoRnet::Header) + msg.header.size); // Statistics
                 return;
             }
         }

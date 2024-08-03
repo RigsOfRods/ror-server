@@ -109,6 +109,7 @@ public:
     void Disconnect();
 
     void QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len, const char *payload);
+    void QueueMessageWithHeader(RoRnet::Header header, const char *payload);
 
     void NotifyAllVehicles(Sequencer *sequencer);
 
@@ -204,7 +205,8 @@ public:
     void createClient(SWInetSocket *sock, RoRnet::UserInfo user);
     void disconnectClient(int client_id, const char* error, bool isError = true, bool doScriptCallback = true);
     int getNumClients();
-    void queueMessage(int uid, int type, unsigned int streamid, char *data, unsigned int len);
+    void queueMessage(RoRnet::Header header, char *data);
+    void sendStreamData(Client *dst_client, RoRnet::Header header, char *data);
     void sendMOTDSynchronized(int uid);
     void frameStepScripts(float dt);
     void GetHeartbeatUserList(Json::Value &out_array);

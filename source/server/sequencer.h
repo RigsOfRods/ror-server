@@ -181,6 +181,15 @@ struct ban_t {
     char banmsg[256];           //!< why he got banned
 };
 
+struct report_t {
+    unsigned int rid;           //!< id of report
+    unsigned int cid;           //!< client id of the reported user, just in case
+    char ip[40];                //!< ip of the reported user
+    char nickname[RORNET_MAX_USERNAME_LEN];  //!< nickname of the reported user
+    char reportedby_nick[RORNET_MAX_USERNAME_LEN]; //!< nickname of the reporter
+    char reportmsg[256];        //!< reason for report
+};
+
 enum class KillerThreadState
 {
     NOT_RUNNING,
@@ -233,8 +242,10 @@ private:
     int                      GetFreePlayerColour();
     bool                     Kick(int to_kick_uid, int modUID, const char *msg = 0);
     bool                     Ban(int to_ban_uid, int modUID, const char *msg = 0);
+    bool                     Report(int to_report_uid, int reporter_uid, const char *msg = 0);
     void                     SilentBan(int to_ban_uid, const char *msg = 0, bool doScriptCallback = true);
     void                     RecordBan(std::string const& ip_addr, std::string const& nickname, std::string const& by_nickname, std::string const& banmsg);
+    void                     RecordReport(int to_report_uid, std::string const& ip_addr, std::string const& nickname, std::string const& by_nickname, std::string const& msg);
     bool                     IsBanned(const char *ip);
     bool                     UnBanIP(std::string ip_addr);
     bool                     UnBan(int bid);
@@ -259,6 +270,7 @@ private:
 
     std::vector<Client *> m_clients;
     std::vector<ban_t *> m_bans;
+    std::vector<report_t *> m_reports;
 
     // Killer thread context
     std::queue<Client *>     m_kill_queue;

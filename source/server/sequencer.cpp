@@ -689,6 +689,47 @@ bool Sequencer::Kick(int kuid, int modUID, const char *msg) {
     return true;
 }
 
+void Sequencer::RecordReport(int to_report_uid,
+                             const std::string& ip_addr,
+                             const std::string& nickname,
+                             const std::string& by_nickname,
+                             const std::string& msg)
+{
+    report_t *report = new report_t;
+    memset(report, 0, sizeof(report_t));
+
+    report->rid = m_reports.size() + 1;
+    report->cid = to_report_uid;
+    strncpy(report->ip, ip_addr.c_str(), 16);
+    strncpy(report->nickname, nickname.c_str(), RORNET_MAX_USERNAME_LEN - 1);
+    strncpy(report->reportedby_nick, by_nickname.c_str(), RORNET_MAX_USERNAME_LEN - 1);
+    strncpy(report->reportmsg, msg.c_str(), 255);
+
+    Logger::Log(LOG_DEBUG, "adding report, size: %u", m_bans.size());
+    m_reports.push_back(report);
+    Logger::Log(LOG_VERBOSE, "new report added: '%s'against '%s'", nickname.c_str(), by_nickname.c_str());
+
+}
+
+bool Sequencer::Report(int to_report_uid, int reporter_uid, const char* msg)
+{
+    Client *reported_client = this->FindClientById(static_cast<unsigned int>(to_report_uid));
+    if (reported_client == nullptr) {
+        return false;
+    }
+    Client *reporter_client = this->FindClientById(static_cast<unsigned int>(reporter_uid));
+    if (reporter_client == nullptr) {
+        return false;
+    }
+
+    this->RecordReport(reported_client->GetUserId(),
+                       reported_client->GetIpAddress(),
+                       reported_client->GetUsername(),
+                       reporter_client->GetUsername(),
+                       msg);
+    return true;
+}
+
 void Sequencer::RecordBan(std::string const& ip_addr,
     std::string const& nickname,
     std::string const& by_nickname,
@@ -1059,8 +1100,52 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                 // not allowed
                 serverSay(std::string("You are not authorized to use this command!"), uid);
             }
-        }
-        else if (str.substr(0, 7) == "!unban ") {
+        } else if (str.substr(0, 6) == "!reports") {
+            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+                serverSay(std::string("id | IP              | nickname             | reported by"), uid);
+                if (m_reports.empty()) {
+					serverSay(std::string("There are no reports recorded!"), uid);
+				} else {
+					for (unsigned int i = 0; i < m_reports.size(); i++) {
+						char tmp[256] = "";
+						sprintf(tmp, "% 3d | %-15s | %-20s | %-20s",
+                            m_reports[i]->rid,
+							m_reports[i]->ip,
+							m_reports[i]->nickname,
+							m_reports[i]->reportedby_nick);
+						serverSay(std::string(tmp), uid);
+					}
+				}
+            } else {
+                // not allowed
+                serverSay(std::string("You are not authorized to use this command!"), uid);
+            }
+        } else if (str.substr(0, 12) == "!viewreport ") {
+            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+                int rid = -1;
+                int res = sscanf(str.substr(13).c_str(), "%d", &rid);
+                if (res != 1 || rid == -1) {
+                    serverSay(std::string("usage: !viewreport <rid>"), uid);
+                    serverSay(std::string("example: !viewreport 3"), uid);
+                }
+                bool found = false;
+                for (unsigned int i = 0; i < m_reports.size(); i++) {
+                    if (m_reports[i]->rid == rid) {
+                        serverSay(std::string("==================== Report ===================="));
+                        serverSay(std::string("IP: ") + std::string(m_reports[i]->ip));
+                        serverSay(std::string("Player reproted: ") + m_reports[i]->nickname);
+                        serverSay(std::string("Message: ") + m_reports[i]->reportmsg);
+                        serverSay(std::string("Reporting player: ") + m_reports[i]->reportedby_nick);
+                        break;
+                    }
+                }
+                if (!found)
+                    serverSay(std::string("report not found: error"), uid);
+            } else {
+                // not allowed
+                serverSay(std::string("You are not authorized to use this command!"), uid);
+            }
+        } else if (str.substr(0, 7) == "!unban ") {
             if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
                 int bid = -1;
                 int res = sscanf(str.substr(7).c_str(), "%d", &bid);
@@ -1117,6 +1202,22 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
             } else {
                 // not allowed
                 serverSay(std::string("You are not authorized to ban people!"), uid);
+            }
+        } else if (str.substr(0, 8) == "!report ") {
+            int ruid = -1;
+            char reportmsg_tmp[256] = "";
+            int res = sscanf(str.substr(8).c_str(), "%d %s", &ruid, reportmsg_tmp);
+            std::string reportMsg = std::string(reportmsg_tmp);
+            reportMsg = trim(reportMsg);
+            if (res != 2 || ruid == -1 || !reportMsg.size()) {
+                serverSay(std::string("usage: !report <uid> <message>"), uid);
+                serverSay(std::string("example: !report 3 rude"), uid);
+            } else {
+                bool report = Report(ruid, uid, str.substr(9 + intlen(ruid), 256).c_str());
+                if (!report)
+                    serverSay(std::string("report not successful: uid not found!"), uid);
+                else
+                    serverSay(std::string("report submitted!"), uid);
             }
         } else if (str.substr(0, 6) == "!kick ") {
             if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {

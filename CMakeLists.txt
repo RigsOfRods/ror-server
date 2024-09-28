@@ -11,6 +11,8 @@ project(rorserver VERSION "2021.10")
 set(ROR_DEPENDENCY_DIR "${CMAKE_SOURCE_DIR}/dependencies/build" CACHE PATH "Path to the dependencies")
 set(CMAKE_PREFIX_PATH ${ROR_DEPENDENCY_DIR} ${CMAKE_PREFIX_PATH})
 
+set(CMAKE_THREAD_PREFER_PTHREAD YES)
+find_package(Threads REQUIRED)
 find_package(Angelscript)
 find_package(jsoncpp REQUIRED)
 find_package(SocketW REQUIRED)

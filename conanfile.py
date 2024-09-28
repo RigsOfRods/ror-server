@@ -8,6 +8,9 @@ class RoRServer(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
     generators = "CMakeToolchain", "CMakeDeps"
 
+    def layout(self):
+        self.folders.generators = os.path.join(self.folders.build, "generators")
+
     def requirements(self):
         self.requires("angelscript/2.36.1")
         self.requires("jsoncpp/1.9.5")

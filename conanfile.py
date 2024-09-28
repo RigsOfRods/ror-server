@@ -12,7 +12,7 @@ class RoRServer(ConanFile):
         self.folders.generators = os.path.join(self.folders.build, "generators")
 
     def requirements(self):
-        self.requires("angelscript/2.36.1")
+        self.requires("angelscript/2.37.0")
         self.requires("jsoncpp/1.9.5")
-        self.requires("openssl/1.1.1v", override=True)
+        self.requires("openssl/3.3.2", override=True)
         self.requires("socketw/3.11.0@anotherfoxguy/stable")

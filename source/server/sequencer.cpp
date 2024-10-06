@@ -704,10 +704,11 @@ void Sequencer::RecordReport(int to_report_uid,
     strncpy(report->nickname, nickname.c_str(), RORNET_MAX_USERNAME_LEN - 1);
     strncpy(report->reportedby_nick, by_nickname.c_str(), RORNET_MAX_USERNAME_LEN - 1);
     strncpy(report->reportmsg, msg.c_str(), 255);
+    Logger::Log(LOG_DEBUG, "report with id %u added", report->rid);
 
-    Logger::Log(LOG_DEBUG, "adding report, size: %u", m_bans.size());
+    Logger::Log(LOG_DEBUG, "adding report, size: %u", m_reports.size());
     m_reports.push_back(report);
-    Logger::Log(LOG_VERBOSE, "new report added: '%s'against '%s'", nickname.c_str(), by_nickname.c_str());
+    Logger::Log(LOG_VERBOSE, "new report added: '%s' gainst '%s'", nickname.c_str(), by_nickname.c_str());
 
 }
 
@@ -1100,21 +1101,22 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                 // not allowed
                 serverSay(std::string("You are not authorized to use this command!"), uid);
             }
-        } else if (str.substr(0, 6) == "!reports") {
+        } else if (str.substr(0, 8) == "!reports") {
             if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
-                serverSay(std::string("id | IP              | nickname             | reported by"), uid);
+                serverSay(std::string("id | IP             | reported nick             | reported by             "), uid);
                 if (m_reports.empty()) {
 					serverSay(std::string("There are no reports recorded!"), uid);
 				} else {
 					for (unsigned int i = 0; i < m_reports.size(); i++) {
 						char tmp[256] = "";
-						sprintf(tmp, "% 3d | %-15s | %-20s | %-20s",
+						sprintf(tmp, "% 3d | %-20s | %-20s | %-20s",
                             m_reports[i]->rid,
 							m_reports[i]->ip,
 							m_reports[i]->nickname,
 							m_reports[i]->reportedby_nick);
 						serverSay(std::string(tmp), uid);
 					}
+					serverSay(std::string("To view the specifics of a report, use !viewreport"));
 				}
             } else {
                 // not allowed
@@ -1123,7 +1125,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
         } else if (str.substr(0, 12) == "!viewreport ") {
             if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
                 int rid = -1;
-                int res = sscanf(str.substr(13).c_str(), "%d", &rid);
+                int res = sscanf(str.substr(12).c_str(), "%d", &rid);
                 if (res != 1 || rid == -1) {
                     serverSay(std::string("usage: !viewreport <rid>"), uid);
                     serverSay(std::string("example: !viewreport 3"), uid);
@@ -1131,6 +1133,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                 bool found = false;
                 for (unsigned int i = 0; i < m_reports.size(); i++) {
                     if (m_reports[i]->rid == rid) {
+                        found = true;
                         serverSay(std::string("==================== Report ===================="));
                         serverSay(std::string("IP: ") + std::string(m_reports[i]->ip));
                         serverSay(std::string("Player reproted: ") + m_reports[i]->nickname);

@@ -1136,7 +1136,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                         found = true;
                         serverSay(std::string("==================== Report ===================="));
                         serverSay(std::string("IP: ") + std::string(m_reports[i]->ip));
-                        serverSay(std::string("Player reproted: ") + m_reports[i]->nickname);
+                        serverSay(std::string("Player reported: ") + m_reports[i]->nickname);
                         serverSay(std::string("Message: ") + m_reports[i]->reportmsg);
                         serverSay(std::string("Reporting player: ") + m_reports[i]->reportedby_nick);
                         break;

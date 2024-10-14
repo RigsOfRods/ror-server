@@ -1,7 +1,12 @@
 # ensure cmake features we need
 CMAKE_MINIMUM_REQUIRED(VERSION 3.1)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/cmake)
+set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${CMAKE_BINARY_DIR})
 
 project(rorserver VERSION "2021.10")
+
+
+find_package(Poco REQUIRED COMPONENTS Foundation)
 
 # setup paths
 SET(RUNTIME_OUTPUT_DIRECTORY "${rorserver_SOURCE_DIR}/bin/")

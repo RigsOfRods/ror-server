@@ -26,6 +26,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "sequencer.h"
 #include "config.h"
 #include "messaging.h"
+#include "CurlHelpers.h"
 #include "scriptstdstring/scriptstdstring.h" // angelscript addon
 #include "scriptmath/scriptmath.h" // angelscript addon
 #include "scriptmath3d/scriptmath3d.h" // angelscript addon
@@ -44,19 +45,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 using namespace std;
 
-// cross platform assert
-#ifdef _WIN32
-#include "windows.h" // for Sleep()
-extern "C" {
-_CRTIMP void __cdecl _wassert(_In_z_ const wchar_t * _Message, _In_z_ const wchar_t *_File, _In_ unsigned _Line);
-}
-# define assert_net(_Expression) (void)( (!!(_Expression)) || (_wassert(_CRT_WIDE(#_Expression), _CRT_WIDE(__FILE__), __LINE__), 0) )
-#else // _WIN32
-
 #include <assert.h>
-
 # define assert_net(expr) assert(expr)
-#endif // _WIN32
 
 
 #ifdef __GNUC__
@@ -64,6 +54,9 @@ _CRTIMP void __cdecl _wassert(_In_z_ const wchar_t * _Message, _In_z_ const wcha
 #include <string.h>
 
 #endif
+
+#include <thread>
+#include <future>
 
 
 // Stream_register_t wrapper
@@ -196,6 +189,9 @@ int ScriptEngine::loadScript(std::string scriptname) {
 
     func = mod->GetFunctionByDecl("void gameCmd(int, string)");
     if (func) addCallback("gameCmd", func, NULL);
+
+    func = mod->GetFunctionByDecl("void curlStatus(curlStatusType, int, int, string, string)");
+    if (func) addCallback("curlStatus", func, NULL);
 
     // Create and configure our context
     context = engine->CreateContext();
@@ -373,6 +369,10 @@ void ScriptEngine::init() {
     result = engine->RegisterObjectMethod("ServerScriptClass", "int cmd(int uid, string cmd)",
                                           asMETHOD(ServerScript, sendGameCommand), asCALL_THISCALL);
     assert_net(result >= 0);
+    result = engine->RegisterObjectMethod("ServerScriptClass", "void curlRequestAsync(string url, string displayname)",
+                                          asMETHOD(ServerScript, curlRequestAsync), asCALL_THISCALL);
+
+    assert_net(result >= 0);
     result = engine->RegisterObjectMethod("ServerScriptClass", "int getNumClients()",
                                           asMETHOD(ServerScript, getNumClients), asCALL_THISCALL);
     assert_net(result >= 0);
@@ -520,6 +520,7 @@ void ScriptEngine::init() {
     // Register authorizations
     result = engine->RegisterEnum("authType");
     assert_net(result >= 0);
+
     result = engine->RegisterEnumValue("authType", "AUTH_NONE", RoRnet::AUTH_NONE);
     assert_net(result >= 0);
     result = engine->RegisterEnumValue("authType", "AUTH_ADMIN", RoRnet::AUTH_ADMIN);
@@ -545,6 +546,20 @@ void ScriptEngine::init() {
     result = engine->RegisterEnumValue("serverSayType", "FROM_MOTD", FROM_MOTD);
     assert_net(result >= 0);
     result = engine->RegisterEnumValue("serverSayType", "FROM_RULES", FROM_RULES);
+    assert_net(result >= 0);
+
+    // Register curl update type for `curlStatus` callback
+    result = engine->RegisterEnum("curlStatusType");
+    assert_net(result >= 0);
+    result = engine->RegisterEnumValue("curlStatusType", "CURL_STATUS_INVALID", CURL_STATUS_INVALID);
+    assert_net(result >= 0);
+    result = engine->RegisterEnumValue("curlStatusType", "CURL_STATUS_START", CURL_STATUS_START);
+    assert_net(result >= 0);
+    result = engine->RegisterEnumValue("curlStatusType", "CURL_STATUS_PROGRESS", CURL_STATUS_PROGRESS);
+    assert_net(result >= 0);
+    result = engine->RegisterEnumValue("curlStatusType", "CURL_STATUS_SUCCESS", CURL_STATUS_SUCCESS);
+    assert_net(result >= 0);
+    result = engine->RegisterEnumValue("curlStatusType", "CURL_STATUS_FAILURE", CURL_STATUS_FAILURE);
     assert_net(result >= 0);
 
     // register constants
@@ -798,6 +813,44 @@ void ScriptEngine::gameCmd(int uid, const std::string &cmd) {
     return;
 }
 
+void ScriptEngine::curlStatus(CurlStatusType type, int n1, int n2, string displayname, string message)
+{
+    // Params `n1` and `n2` depend on status type :
+    // - for CURL_STATUS_PROGRESS, n1 = bytes downloaded, n2 = total bytes,
+    // - otherwise, n1 = CURL return code, n2 = HTTP result code.
+    // -------------------------------------------------------------------
+
+    if (!engine) return;
+    if (!context) context = engine->CreateContext();
+    int r;
+
+    // Copy the callback list, because the callback list itself may get changed while executing the script
+    callbackList queue(callbacks["curlStatus"]);
+
+    // loop over all callbacks
+    for (unsigned int i = 0; i < queue.size(); ++i) {
+        // prepare the call
+        r = context->Prepare(queue[i].func);
+        if (r < 0) continue;
+
+        // Set the object if present (if we don't set it, then we call a global function)
+        if (queue[i].obj != NULL) {
+            context->SetObject(queue[i].obj);
+            if (r < 0) continue;
+        }
+
+        // Set the arguments
+        context->SetArgDWord(0, (asDWORD)type);
+        context->SetArgDWord(1, (asDWORD)n1);
+        context->SetArgDWord(2, (asDWORD)n2);
+        context->SetArgObject(3, (void*)&displayname);
+        context->SetArgObject(4, (void*)&message);
+
+        // Execute it
+        r = context->Execute();
+    }
+}
+
 void ScriptEngine::TimerThreadMain() {
     while (this->GetTimerThreadState() == ThreadState::RUNNING) {
         // sleep 200 miliseconds
@@ -869,6 +922,8 @@ void ScriptEngine::addCallbackScript(const std::string &type, const std::string 
         funcDecl = "void " + _func + "(int, int)";
     else if (type == "streamAdded")
         funcDecl = "int " + _func + "(int, StreamRegister@)";
+    else if (type == "curlStatus")
+        funcDecl = "void " + _func + "(curlStatusType, int, int, string, string)";
     else {
         setException("Type " + type +
                      " does not exist! Possible type strings: 'frameStep', 'playerChat', 'gameCmd', 'playerAdded', 'playerDeleted', 'streamAdded'.");
@@ -956,6 +1011,8 @@ void ScriptEngine::deleteCallbackScript(const std::string &type, const std::stri
         funcDecl = "void " + _func + "(int, int)";
     else if (type == "streamAdded")
         funcDecl = "int " + _func + "(int, StreamRegister@)";
+    else if (type == "curlStatus")
+        funcDecl = "void " + _func + "(curlStatusType, int, int, string, string)";
     else {
         setException("Type " + type +
                      " does not exist! Possible type strings: 'frameStep', 'playerChat', 'gameCmd', 'playerAdded', 'playerDeleted', 'streamAdded'.");
@@ -1129,6 +1186,18 @@ std::string ServerScript::getServerTerrain() {
 
 int ServerScript::sendGameCommand(int uid, std::string cmd) {
     return seq->sendGameCommand(uid, cmd);
+}
+
+void ServerScript::curlRequestAsync(std::string url, string displayname) {
+#if WITH_CURL
+    CurlTaskContext context;
+    context.ctc_url = url;
+    context.ctc_displayname = displayname;
+    context.ctc_script_engine = this->mse;
+
+    std::packaged_task<void(CurlTaskContext)> pktask(CurlRequestThreadFunc);
+    std::thread(std::move(pktask), context).detach();
+#endif
 }
 
 int ServerScript::getNumClients() {

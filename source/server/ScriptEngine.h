@@ -23,6 +23,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #ifdef WITH_ANGELSCRIPT
 
 #include "UnicodeStrings.h"
+#include "CurlHelpers.h"
 #include <map>
 #include <mutex>
 #include <thread>
@@ -61,6 +62,9 @@ public:
 
     ~ScriptEngine();
 
+    /// @name callbacks
+    /// @{
+
     int loadScript(std::string scriptName);
 
     void playerDeleted(int uid, int crash, bool doNestedCall = false);
@@ -73,7 +77,17 @@ public:
 
     void gameCmd(int uid, const std::string &cmd);
 
+    /**
+     * Params `n1`, `n2` and `message` depend on status type :
+     * - CURL_STATUS_PROGRESS: n1 = bytes downloaded, n2 = total bytes, message = empty
+     * - CURL_STATUS_SUCCESS: n1 = CURL return code, n2 = HTTP result code, message = payload as string
+     * - CURL_STATUS_FAILURE: n1 = CURL return code, n2 = HTTP result code, message = CURL error string
+     */
+    void curlStatus(CurlStatusType type, int n1, int n2, std::string displayname, std::string message);
+
     int frameStep(float dt);
+
+    /// @}
 
     /**
      * Gets the currently used AngelScript script engine.
@@ -283,6 +297,16 @@ public:
     int rangeRandomInt(int from, int to);
 
     void broadcastUserInfo(int uid);
+
+    /**
+     * Launches a background task, use `curlStatus` callback to monitor progress and receive result.
+     * @param displayname The "correlation ID" - the label passed to the callback to identify the transfer.
+     * @remark Callback signature: `curlStatus(curlStatusType, int n1, int n2, string displayname, string message)`
+     * - CURL_STATUS_PROGRESS: n1 = bytes downloaded, n2 = total bytes, message = empty
+     * - CURL_STATUS_SUCCESS: n1 = CURL return code, n2 = HTTP result code, message = payload as string
+     * - CURL_STATUS_FAILURE: n1 = CURL return code, n2 = HTTP result code, message = CURL error string
+     */
+    void curlRequestAsync(std::string url, std::string displayname);
 };
 
 #endif // WITH_ANGELSCRIPT

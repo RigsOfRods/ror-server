@@ -16,6 +16,7 @@ have a single handler function (`setCallback()` replaces the previous).
     int streamAdded(int uid, StreamRegister@ reg) ~ executed when player spawns an actor. Returns `broadcastType` which determines how the message is treated.
     int playerChat(int uid, const string &in msg) ~ ONLY ONE AT A TIME ~ executed when player sends a chat message. Returns `broadcastType` which determines how the message is treated.
     void gameCmd(int uid, const string &in cmd) ~ ONLY ONE AT A TIME ~ invoked when a script running on client calls `game.sendGameCmd()`
+    void curlStatus(curlStatusType type, int n1, int n2, string displayname, string message) ~ Provides progress and result info, see `server.curlRequestAsync()`; for CURL_STATUS_PROGRESS, n1 = bytes downloaded, n2 = total bytes; otherwise n1 = CURL return code, n2 = HTTP result code.
 
 
 Constants and enumerations
@@ -37,6 +38,15 @@ enum broadcastType // This is returned by the `playerChat()/streamAdded()` callb
     BROADCAST_NORMAL,     // broadcast to all clients except sender
     BROADCAST_AUTHED,     // broadcast to authed users (bots)
     BROADCAST_BLOCK       // no broadcast
+};
+
+enum curlStatusType // Used by `curlStatus()` callback.
+{
+    CURL_STATUS_INVALID,  //!< Should never be reported.
+    CURL_STATUS_START,    //!< New CURL request started, n1/n2 both 0.
+    CURL_STATUS_PROGRESS, //!< Download in progress, n1 = bytes downloaded, n2 = total bytes.
+    CURL_STATUS_SUCCESS,  //!< CURL request finished, n1 = CURL return code, n2 = HTTP result code, message = received payload.
+    CURL_STATUS_FAILURE,  //!< CURL request finished, n1 = CURL return code, n2 = HTTP result code, message = CURL error string.
 };
 
 TO_ALL = -1 // constant for functions that receive an uid for sending something
@@ -64,14 +74,20 @@ void main()
     server.Log("Example server script loaded!");
 }
 
+const float TIME_LOG_CHUNK = 5.f;
 float g_totalTime = 0.f;
 float g_timeSinceLastMsg = 0.f;
+
+// For CURL progress, don't log each received byte, just
+const float CURL_LOG_CHUNK = 0.1; // Log at least in 10% steps.
+float g_prevCurlProgress = 0.f;
+float g_lastCurlLoggedProgress = 0.f;
 
 // Optional, executed periodically, the parameter is delta time (time since last execution) in milliseconds.
 void frameStep(float dt_millis)
 {
     // reset every 5 sec
-    if (g_timeSinceLastMsg >= 5.f)
+    if (g_timeSinceLastMsg >= TIME_LOG_CHUNK)
     {
         server.say("Example server script: frameStep(): total time is " + g_totalTime + " sec.", TO_ALL, FROM_SERVER);
         g_timeSinceLastMsg = 0.f;
@@ -118,6 +134,38 @@ void gameCmd(int uid, const string &in cmd)
 {
     server.say("Example server script: gameCmd(): UID: " + uid + ", cmd: '" + cmd + "'.", TO_ALL, FROM_SERVER);
 }
+
+void curlStatus(curlStatusType type, int n1, int n2, string displayname, string message)
+{
+    switch (type)
+    {
+        case CURL_STATUS_START:
+            g_prevCurlProgress = 0.f;
+            g_lastCurlLoggedProgress = 0.f;
+            server.say("Example server script: curlStatus(): type: CURL_STATUS_START, displayname: '" + displayname + "'", TO_ALL, FROM_SERVER);
+            break;
+            
+        case CURL_STATUS_PROGRESS:
+            g_prevCurlProgress = float(n1)/float(n2);
+            if (g_prevCurlProgress - g_lastCurlLoggedProgress >= CURL_LOG_CHUNK)
+            {
+                server.say("Example server script: curlStatus(): type: CURL_STATUS_PROGRESS (" + (g_prevCurlProgress * 100) + "%)"
+                    + ", n1(bytes dl): " + n1 + ", n2(bytes total): " + n2 + ", displayname: '" + displayname + "'", TO_ALL, FROM_SERVER);
+                g_lastCurlLoggedProgress = g_prevCurlProgress;
+            }
+            break;
+        
+        case CURL_STATUS_SUCCESS:
+            server.say("Example server script: curlStatus(): type: CURL_STATUS_SUCCESS"
+                    + ", n1(curl result): " + n1 + ", n2(HTTP result): " + n2 + ", displayname: '" + displayname + "', message(payload): '" + message + "'", TO_ALL, FROM_SERVER);
+            break;
+            
+        case CURL_STATUS_FAILURE:
+            server.say("Example server script: curlStatus(): type: CURL_STATUS_FAILURE"
+                    + ", n1(curl result): " + n1 + ", n2(HTTP result): " + n2 + ", displayname: '" + displayname + "', message(CURL error): '" + message + "'", TO_ALL, FROM_SERVER);
+            break;
+    }
+}
     
 // ============================================================================
 //                  Callback functions registered manually 
@@ -162,6 +210,10 @@ int myStreamRegisteredCallback(int uid, StreamRegister@ reg)
 int myChatMessageCallback(int uid, const string &in msg)
 {
     server.say("Example server script: myChatMessageCallback(): UID: " + uid + ", msg: '" + msg + "'.", TO_ALL, FROM_SERVER);
+    if (msg == "CURL test")
+    {
+        server.curlRequestAsync("https://www.rigsofrods.org", "rigsofrods.org");
+    }    
     return BROADCAST_NORMAL;
 }
 

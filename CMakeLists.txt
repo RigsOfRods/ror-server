@@ -16,7 +16,8 @@ find_package(Threads REQUIRED)
 find_package(Angelscript)
 find_package(jsoncpp REQUIRED)
 find_package(SocketW REQUIRED)
-cmake_dependent_option(RORSERVER_WITH_ANGELSCRIPT "Adds scripting support" ON "AngelScript_FOUND" OFF)
+
+cmake_dependent_option(RORSERVER_WITH_ANGELSCRIPT "Adds scripting support" ON "TARGET Angelscript::angelscript" OFF)
 
 # setup paths
 SET(RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/")

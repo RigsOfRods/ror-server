@@ -132,8 +132,6 @@ public:
 
     SpamFilter& GetSpamFilter() { return m_spamfilter; }
 
-    Sequencer* GetSequencer() {  }
-
     RoRnet::UserInfo user;  //!< user information
 
     int drop_state;             // dropping outgoing packets?

@@ -4,22 +4,26 @@
 
 ## Description
 
-The Rigs of Rods Server is a game server for Rigs of Rods (https://www.rigsofrods.org/).
-It is compabible with RoR clients version 2021.04+, and any future client using the RoRNet protocol version 2.43+
+The Rigs of Rods Server is a game server for [Rigs of Rods](https://www.rigsofrods.org/).
+It is compabible with RoR clients version 2021.04+, and any future client using the RoRNet protocol version 2.43+.
 
 ## Installation
 
-Please refer to: [Multiplayer server setup](http://docs.rigsofrods.org/gameplay/multiplayer-server-setup)
+Please refer to [Multiplayer server setup](http://docs.rigsofrods.org/gameplay/multiplayer-server-setup).
 
 ## Usage
 
 To start a server using CLI arguments:
 
-`rorserver` `-name <server name>` `-port <port>` `-terrain <terrain name>` `-maxclients <max number of clients>`
+```sh
+rorserver -name <server name> -port <port> -terrain <terrain name> -maxclients <max number of clients>
+```
 
 To start a server using a config file:
 
-`rorserver` `-c your-config.cfg`
+```sh
+rorserver -c your-config.cfg
+```
 
 ## CLI arguments:
 
@@ -46,7 +50,7 @@ To start a server using a config file:
 
 ## Config file parameters:
 
-```
+```conf
 ## amount of slots that clients can connect to
 slots  = 10
 
@@ -162,39 +166,43 @@ logverbosity = 1
 ```
 
 Notes:
-By default, if neither `-lan` nor `-inet` is used the server will try to register at the master server and fall back to LAN mode in case it fails.
+By default, if neither `-lan` nor `-inet` is used, the server will try to register at the master server and fall back to LAN mode in case it fails.
 
 ## Chat spam filtering
 
 The spam filter operates by caching player's chat messages for a defined period of time (see config file) and looking for repeated messages (see config file).
-If spam is detected, the player is silenced for some time (see config file) and server responds (to each message) `"You are gagged. Time remaining: N seconds."`.
+If spam is detected, the player is silenced for some time (see config file) and the server responds (to each message) with `"You are gagged. Time remaining: N seconds."`.
+
 The spam detection is continuous, and for each new spam message, the gag time is increased by the configured value.
-Finally, if player behaves, the gag lapses and server displays (upon first passing message) `"Your gag has expired. Chat nicely!"`.
+If the player stops spamming, the gag eventually lapses and the server displays (upon the first received message from the player): `"Your gag has expired. Chat nicely!"`.
 
 ## Vehicle spawn limits
 
-Server can limit the total number of vehicles the player spawns, as well as the rate at which they spawn.
-  Exceeding the limits results in auto-kick.
+* Server can limit the total number of vehicles the player spawns, as well as the rate at which they spawn.
+  * Exceeding either limit results in auto-kick.
 
-The maximum vehicle count is specified in config file or command line.
-  Player receives informational messages about the limit and current usage.
+* The maximum vehicle count is specified in the config file or via command line.
+  * Players receive informational messages about the limit and their current quota usage.
 
-The spawn rate is specified in config file as a time interval and maximum number of spawns within the interval.
-  When player uses 70% of the limit they begin getting warning messages.
+* The spawn rate is specified in config file as a time interval and maximum number of spawns within the interval.
+  * When players exceed 70% of the limit, they begin receiving warning messages.
 
 ## Bandwidth used by the server:
-The RoR server uses large amounts of bandwidth. The general formula to compute bandwidth is:  
+The RoR server uses large amounts of bandwidth, particularly for upload. The general formula to compute bandwidth is:
 
--DOWNLOAD: `maxclients * 64kbit/s` 
+| Direction     | Bandwidth requirement                           |
+|---------------|:------------------------------------------------|
+| ⬇️ Download   | `<maxclients> * 64 kbit/s`                      |
+| ⬆️ Upload     | `<maxclients> * (<maxclients> - 1) * 64 kbit/s` |
 
--UPLOAD  : `maxclients * (maxclients-1) * 64kbit/s` 
+### Examples of bandwidth requirements depending on the number of clients
 
-That translates into:  
-
--4 clients: `256kbit/s` download, `768kbit/s` upload <= will nearly saturate most ADSL links  
--8 clients: `512kbit/s` download, `3.5Mbit/s` upload  
--16 clients:  `1Mbit/s` download,  `15Mbit/s` upload  
--32 clients:  `2Mbit/s` download,  `64Mbit/s` upload <= will nearly saturate a 100Mbit/s LAN!
+| No. of clients    | Download b/w | Upload b/w    | comment                              |
+|------------------:|-------------:|--------------:|:-------------------------------------|
+| 4                 | 256 kbit/s   | 768 kbit/s    | will nearly saturate most ADSL links |
+| 8                 | 512 kbit/s   | 3.5 Mbit/s    |                                      |
+| 16                |   1 Mbit/s   |  15 Mbit/s    |                                      |
+| 32                |   2 Mbit/s   |  64 Mbit/s    | will nearly saturate a 100Mbit/s LAN |
 
 ## License and Credits
 

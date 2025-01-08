@@ -1,0 +1,40 @@
+<%@ include file="header.cpsp" %>
+
+<%!!
+#include "../server/config.h"
+#include "rornet.h"
+%>
+
+<table class="table table-striped">
+    <thead>
+        <tr class="header"><th>Server settings</th><th></th></tr>
+    </thead>
+    <tbody>
+        <tr><td>Server Name</td><td><%= Config::getServerName() %></td></tr>
+        <tr><td>Max Clients</td><td><%= Config::getMaxClients() %></td></tr>
+        <tr><td>Terrain Name</td><td><%= Config::getTerrainName() %></td></tr>
+        <tr><td>IP Address</td><td><%= Config::getIPAddr() == "0.0.0.0" ? "0.0.0.0 (Any)" : Config::getIPAddr() %></td></tr>
+        <tr><td>Password Protected</td><td><%= Config::getPublicPassword().empty() ? "No" : "Yes" %></td></tr>
+        <tr><td>Listening Port</td><td><%= Config::getListenPort() %></td></tr>
+        <tr><td>Protocol Version</td><td><%= RORNET_VERSION %></td></tr>
+<%
+#ifdef WITH_ANGELSCRIPT 
+%>
+        <tr><td>Scripting support</td><td>Yes</td></tr>
+        <tr><td>Scripting enabled</td><td><%= Config::getEnableScripting() ? "Yes" : "No" %></td></tr>
+        <% if (Config::getEnableScripting()){ %>
+            <tr><td>Script Name in use</td><td><%= Config::getScriptName() %></td></tr>
+        <% } %>
+<%
+#else  // WITH_ANGELSCRIPT 
+%>
+        <tr><td>Scripting support</td><td>No</td></tr>
+<%
+#endif // WITH_ANGELSCRIPT 
+%>
+        <tr><td>Webserver Port</td><td><%= Config::getWebserverPort() %></td></tr>
+    </tbody>
+</table>
+
+
+<%@ include file="footer.cpsp" %>

@@ -1,0 +1,61 @@
+<%@ include file="header.cpsp" %>
+
+<%@ page context="std::vector<WebserverClientInfo>" %>
+
+<%!!
+#include <vector>
+#include "../server/sequencer.h"
+#include "../server/macros.h"
+%>
+
+<table class="table table-striped">
+    <thead>
+    <tr class="header">
+        <th>Status</th>
+        <th>Uid</th>
+        <th>Name</th>
+        <th>IP</th>
+    </tr>
+    </thead>
+    <tbody>
+<% BEGIN_HTML_ITERATOR(_context.begin(), _context.end()) %>
+    <tr>
+        <td>USED</td>
+        <td><%= it->user.uniqueid %></td>
+        <td><%= it->user.username %></td>
+        <td><%= it->GetIpAddress() %></td>
+    </tr>
+<% END_HTML_ITERATOR %>
+    </tbody>
+</table>
+
+<div class="container">
+    <button id="AutoRefreshButton" onclick="toggleAutoRefresh()" class="btn btn-primary"></button>
+</div>
+
+<script type="application/javascript">
+    let autoRefresh = localStorage.getItem('autoRefresh');
+    const arbutton = document.getElementById('AutoRefreshButton');
+
+    let _ref;
+
+    function toggleAutoRefresh() {
+        autoRefresh = !autoRefresh;
+        localStorage.setItem('autoRefresh', autoRefresh);
+        UpdateAutoRefresh();
+    }
+
+    function UpdateAutoRefresh() {
+        if (autoRefresh) {
+            _ref = setInterval(() => location.reload(), 5000);
+            arbutton.innerText = "Disable autorefresh";
+        } else {
+            arbutton.innerText = "Enable autorefresh";
+            clearInterval(_ref)
+        }
+    }
+
+    UpdateAutoRefresh();
+</script>
+
+<%@ include file="footer.cpsp" %>

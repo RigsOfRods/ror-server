@@ -13,12 +13,15 @@ set(CMAKE_PREFIX_PATH ${ROR_DEPENDENCY_DIR} ${CMAKE_PREFIX_PATH})
 
 set(CMAKE_THREAD_PREFER_PTHREAD YES)
 find_package(Threads REQUIRED)
-find_package(Angelscript)
 find_package(jsoncpp REQUIRED)
 find_package(SocketW REQUIRED)
 find_package(CURL)
+find_package(Angelscript)
 cmake_dependent_option(RORSERVER_WITH_ANGELSCRIPT "Adds scripting support" ON "TARGET Angelscript::angelscript" OFF)
 cmake_dependent_option(RORSERVER_WITH_CURL "Adds CURL request support (needs AngelScript)" ON "TARGET CURL::libcurl" OFF)
+
+find_package(Poco)
+cmake_dependent_option(RORSERVER_WITH_WEBSERVER "Adds the webserver" ON "TARGET Poco::Poco" OFF)
 
 # setup paths
 SET(RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/")

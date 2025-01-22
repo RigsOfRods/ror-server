@@ -285,7 +285,9 @@ void ScriptEngine::PrintVariables(asIScriptContext *ctx, int stackLevel) {
     // Print the value of each variable, including parameters
     int numVars = ctx->GetVarCount(stackLevel);
     for (int n = 0; n < numVars; n++) {
-        int typeId = ctx->GetVarTypeId(n, stackLevel);
+        int typeId = -1;
+        const char* varName = nullptr;
+        ctx->GetVar(n, stackLevel, &varName, &typeId);
         void *varPointer = ctx->GetAddressOfVar(n, stackLevel);
         if (typeId == asTYPEID_INT32) {
             Logger::Log(LOG_INFO, " %s = %d", ctx->GetVarDeclaration(n, stackLevel), *(int *) varPointer);

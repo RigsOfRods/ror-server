@@ -22,8 +22,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "prerequisites.h"
 #include "UnicodeStrings.h"
-
-#include "json/json.h"
+#include <Poco/JSON/Array.h>
 
 namespace MasterServer {
 
@@ -33,7 +32,7 @@ namespace MasterServer {
 
         bool Register();
 
-        bool SendHeatbeat(Json::Value &user_list);
+        bool SendHeatbeat(Poco::JSON::Array &user_list);
 
         bool UnRegister();
 

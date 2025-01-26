@@ -39,6 +39,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include <stdio.h>
 #include <string.h>
+#include <Poco/Dynamic/Struct.h>
 
 #ifdef _WIN32
 # include "windows.h"
@@ -343,7 +344,7 @@ int main(int argc, char *argv[]) {
             Utils::SleepSeconds(Config::GetHeartbeatIntervalSec());
 
             Logger::Log(LOG_VERBOSE, "Sending heartbeat...");
-            Json::Value user_list(Json::arrayValue);
+            Poco::JSON::Array user_list;
             s_sequencer.GetHeartbeatUserList(user_list);
             if (!s_master_server.SendHeatbeat(user_list)) {
                 unsigned int timeout = Config::GetHeartbeatRetrySeconds();

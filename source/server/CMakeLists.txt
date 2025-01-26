@@ -1,5 +1,21 @@
 FILE(GLOB_RECURSE server_src CONFIGURE_DEPENDS *.cpp *.c *.h *.rc)
 
+if (RORSERVER_WITH_WEBSERVER)
+    include(PageCompiler)
+
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/web)
+
+    PageCompiler("${CMAKE_SOURCE_DIR}/source/web/index.cpsp" "${CMAKE_CURRENT_BINARY_DIR}/web/index.cpp")
+    PageCompiler("${CMAKE_SOURCE_DIR}/source/web/playerlist.cpsp" "${CMAKE_CURRENT_BINARY_DIR}/web/playerlist.cpp")
+    PageCompiler("${CMAKE_SOURCE_DIR}/source/web/playerlist_test.cpsp" "${CMAKE_CURRENT_BINARY_DIR}/web/playerlist_test.cpp")
+    set(
+            server_src ${server_src}
+            "${CMAKE_CURRENT_BINARY_DIR}/web/index.cpp"
+            "${CMAKE_CURRENT_BINARY_DIR}/web/playerlist.cpp"
+            "${CMAKE_CURRENT_BINARY_DIR}/web/playerlist_test.cpp"
+    )
+endif (RORSERVER_WITH_WEBSERVER)
+
 # the final lib
 add_executable(${PROJECT_NAME} ${server_src})
 
@@ -22,6 +38,12 @@ endif ()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads SocketW::SocketW jsoncpp_lib)
 
+if (RORSERVER_WITH_WEBSERVER)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE WITH_WEBSERVER)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+    target_link_libraries(${PROJECT_NAME} PRIVATE Poco::Poco)
+endif (RORSERVER_WITH_WEBSERVER)
+
 IF (WIN32)
     target_compile_definitions(${PROJECT_NAME} PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 ELSEIF (UNIX)
@@ -41,6 +63,14 @@ ELSEIF (UNIX)
             RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
             LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    )
+    # install the files required for the runtime
+    INSTALL(
+            DIRECTORY ${CMAKE_SOURCE_DIR}/bin/resources/
+            DESTINATION share/rorserver/
+            FILES_MATCHING PATTERN "*"
+            PATTERN ".svn" EXCLUDE
+            PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
     )
 
     # configure and install init script

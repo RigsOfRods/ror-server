@@ -1,0 +1,37 @@
+<%@ include file="header.cpsp" %>
+
+<table class="table table-striped">
+    <thead>
+    <tr class="header">
+        <th>Status</th>
+        <th>Uid</th>
+        <th>Name</th>
+        <th>IP</th>
+    </tr>
+    </thead>
+    <tbody id="playerTable">
+    </tbody>
+</table>
+
+<script type="application/javascript">
+    function FillTable() {
+        $.get("/api/playerlist", (data) => {
+            $('#playerTable').empty()
+            for (const d of data) {
+                $('#playerTable').append(
+                    `<tr>
+                    <td>${d.status}</td>
+                    <td>${d.uid}</td>
+                    <td>${d.name}</td>
+                    <td>${d.ip}</td>
+                </tr>`
+                )
+            }
+        });
+    }
+
+    setInterval(FillTable, 5000);
+    FillTable();
+</script>
+
+<%@ include file="footer.cpsp" %>

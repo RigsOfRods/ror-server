@@ -7,6 +7,8 @@ include(FeatureSummary)
 
 project(rorserver VERSION "2021.10")
 
+set(CMAKE_CXX_STANDARD 17)
+
 # Options
 set(ROR_DEPENDENCY_DIR "${CMAKE_SOURCE_DIR}/dependencies/build" CACHE PATH "Path to the dependencies")
 set(CMAKE_PREFIX_PATH ${ROR_DEPENDENCY_DIR} ${CMAKE_PREFIX_PATH})

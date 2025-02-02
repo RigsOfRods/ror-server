@@ -20,7 +20,7 @@ if (RORSERVER_WITH_CURL)
     target_link_libraries(${PROJECT_NAME} PRIVATE CURL::libcurl)
 endif ()
 
-target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads SocketW::SocketW jsoncpp_lib)
+target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads SocketW::SocketW fmt::fmt jsoncpp_lib)
 
 IF (WIN32)
     target_compile_definitions(${PROJECT_NAME} PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)

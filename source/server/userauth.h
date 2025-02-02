@@ -15,7 +15,8 @@ warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Foobar. If not, see <http://www.gnu.org/licenses/>.
+along with Rigs of Rods server. 
+If not, see <http://www.gnu.org/licenses/>.
 */
 
 #pragma once
@@ -27,16 +28,15 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 typedef std::pair<int, std::string> user_auth_pair_t;
 
+// Uses 2 separate tokens for 2 separate purposes:
+// * classic token (cvar 'mp_player_token') is since 2025 only used for admin/mod privs based on server's local auth file
+// * auth token (cvar 'remote_login_token') is authorized by master server API and gives 'ranked' status.
 class UserAuth {
 
 public:
     UserAuth(std::string authFile);
 
-    int resolve(std::string user_token, std::string &user_nick, int clientid);
-
-    int setUserAuth(int flags, std::string user_nick, std::string token);
-
-    int sendUserEvent(std::string user_token, std::string type, std::string arg1, std::string arg2);
+    int resolve(const std::string& user_token, const std::string& auth_token, std::string &user_nick, int clientid);
 
 private:
 

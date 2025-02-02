@@ -30,7 +30,7 @@ namespace RoRnet {
 #define RORNET_LAN_BROADCAST_PORT   13000  //!< port used to send the broadcast announcement in LAN mode
 #define RORNET_MAX_USERNAME_LEN     40     //!< port used to send the broadcast announcement in LAN mode
 
-#define RORNET_VERSION              "RoRnet_2.45"
+#define RORNET_VERSION              "RoRnet_2.45AUTHPOC"
 
 enum MessageType
 {
@@ -172,7 +172,7 @@ struct UserInfo
     char     clientversion[25];    //!< a version number of the client. For example 1 for RoR 0.35
     char     clientGUID[40];       //!< the clients GUID
     char     sessiontype[10];      //!< the requested session type. For example "normal", "bot", "rcon"
-    char     sessionoptions[128];  //!< reserved for future options
+    char     authtoken[300];       //!< authorization token (the master server API-based method); PROOF OF CONCEPT: this is currently the temporary login key, see cvar 'remote_login_token'.
 };
 
 struct VehicleState                  //!< Formerly `oob_t`

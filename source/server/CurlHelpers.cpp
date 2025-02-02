@@ -46,10 +46,17 @@ static size_t CurlXferInfoFunc(void* ptr, curl_off_t filesize_B, curl_off_t down
     return 0;
 }
 
-bool GetUrlAsString(const std::string& url, CURLcode& curl_result, long& response_code, std::string& response_payload)
+bool GetUrlAsString(const std::string& url, const std::vector<std::string>& headers, CURLcode& curl_result, long& response_code, std::string& response_payload)
 {
     std::string response_header;
     std::string user_agent = "Rigs of Rods Server";
+
+    struct curl_slist* slist;
+    slist = NULL;
+    for (const std::string& header : headers)
+    {
+        slist = curl_slist_append(slist, header.c_str());
+    }
 
     CURL *curl = curl_easy_init();
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
@@ -59,6 +66,7 @@ bool GetUrlAsString(const std::string& url, CURLcode& curl_result, long& respons
 #endif // _WIN32
     curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "gzip");
     curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent.c_str());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, slist);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CurlStringWriteFunc);
     curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, CurlXferInfoFunc);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_payload);
@@ -70,12 +78,7 @@ bool GetUrlAsString(const std::string& url, CURLcode& curl_result, long& respons
     curl_easy_cleanup(curl);
     curl = nullptr;
 
-    if (curl_result != CURLE_OK || response_code != 200)
-    {
-        return false;
-    }
-
-    return true;
+    return curl_result == CURLE_OK && response_code == 200;
 }
 
 bool CurlRequestThreadFunc(CurlTaskContext context)
@@ -84,7 +87,7 @@ bool CurlRequestThreadFunc(CurlTaskContext context)
     std::string data;
     CURLcode curl_result = CURLE_OK;
     long http_response = 0;
-    if (GetUrlAsString(context.ctc_url, /*out:*/curl_result, /*out:*/http_response, /*out:*/data))
+    if (GetUrlAsString(context.ctc_url, context.ctc_headers, /*out:*/curl_result, /*out:*/http_response, /*out:*/data))
     {
         context.ctc_script_engine->curlStatus(CURL_STATUS_SUCCESS, (int)curl_result, (int)http_response, context.ctc_displayname, data);
         return true;

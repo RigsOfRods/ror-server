@@ -434,12 +434,12 @@ int Sequencer::getNumClients() {
     return (int) m_clients.size();
 }
 
-int Sequencer::AuthorizeNick(std::string token, std::string &nickname) {
+int Sequencer::AuthorizeNick(const std::string& user_token, const std::string& auth_token, std::string &nickname) {
     std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
     if (m_auth_resolver == nullptr) {
         return RoRnet::AUTH_NONE;
     }
-    return m_auth_resolver->resolve(token, nickname, m_free_user_id);
+    return m_auth_resolver->resolve(user_token, auth_token, nickname, m_free_user_id);
 }
 
 void Sequencer::KillerThreadMain()
@@ -964,11 +964,6 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                 Logger::Log(LOG_VERBOSE, " * new stream registered: %d:%d, type: %d, name: '%s', status: %d",
                             client->user.uniqueid, streamid, reg->type, reg->name, reg->status);
                 client->streams[streamid] = *reg;
-
-                // send an event if user is rankend and if we are a official server
-                if (m_auth_resolver && (client->user.authstatus & RoRnet::AUTH_RANKED))
-                    m_auth_resolver->sendUserEvent(std::string(client->user.usertoken, 40), std::string("newvehicle"),
-                                                   std::string(reg->name), std::string());
 
                 // Notify the user about the vehicle limit
                 if ((client->streams.size() >= Config::getMaxVehicles() + NON_VEHICLE_STREAMS - 3) &&

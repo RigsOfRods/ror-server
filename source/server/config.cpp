@@ -61,6 +61,7 @@ static std::string s_irc;
 static std::string s_voip;
 static std::string s_serverlist_host("api.rigsofrods.org");
 static std::string s_serverlist_path("");
+static std::string s_authapi_url("v2.api.rigsofrods.org");
 static std::string s_resourcedir(RESOURCE_DIR);
 
 static unsigned int s_listen_port(0);
@@ -338,6 +339,8 @@ namespace Config {
 
     const std::string &GetServerlistPath() { return s_serverlist_path; }
 
+    const std::string& GetAuthApiUrl() { return s_authapi_url; }
+
     bool GetShowVersion() { return s_show_version; }
 
     bool GetShowHelp() { return s_show_help; }
@@ -507,6 +510,7 @@ namespace Config {
         else if (strcmp(key, "voip") == 0) { setVoIP(VAL_STR (value)); }
         else if (strcmp(key, "serverlist-host") == 0) { s_serverlist_host = VAL_STR (value); }
         else if (strcmp(key, "serverlist-path") == 0) { s_serverlist_path = VAL_STR (value); }
+        else if (strcmp(key, "authapi-url") == 0) { s_authapi_url = VAL_STR(value); }
         else if (strcmp(key, "verbosity") == 0) { Logger::SetLogLevel(LOGTYPE_DISPLAY, (LogLevel) VAL_INT(value)); }
         else if (strcmp(key, "logverbosity") == 0) { Logger::SetLogLevel(LOGTYPE_FILE, (LogLevel) VAL_INT(value)); }
         else if (strcmp(key, "heartbeat-interval") == 0) { setHeartbeatIntervalSec(VAL_INT(value)); }

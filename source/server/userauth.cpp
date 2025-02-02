@@ -24,10 +24,14 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "rornet.h"
 #include "logger.h"
 #include "http.h"
+#include "CurlHelpers.h"
+
 #include "json/json.h"
 
 #include <stdexcept>
 #include <cstdio>
+#include <fmt/format.h>
+#include <curl/curl.h>
 
 #ifdef __GNUC__
 
@@ -117,74 +121,63 @@ int UserAuth::readConfig(const char *authFile) {
     return 0;
 }
 
-int UserAuth::setUserAuth(int flags, std::string user_nick, std::string token) {
-    user_auth_pair_t p;
-    p.first = flags;
-    p.second = user_nick;
-    local_auth[token] = p;
-    return 0;
-}
-
-int UserAuth::sendUserEvent(std::string user_token, std::string type, std::string arg1, std::string arg2) {
-    /* #### DISABLED UNTIL SUPPORTED BY NEW MULTIPLAYER PORTAL ####
-
-    // Only contact the master server if we are allowed to do so
-    if(trustlevel<=1) return 0;
-    
-    char url[2048];
-    sprintf(url, "%s/userevent_utf8/?v=0&sh=%s&h=%s&t=%s&a1=%s&a2=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), type.c_str(), arg1.c_str(), arg2.c_str());
-    Logger::Log(LOG_DEBUG, "UserAuth event to server: " + std::string(url));
-    Http::Response resp;
-    if (HTTPGET(url, resp) < 0)
-    {
-        Logger::Log(LOG_ERROR, "UserAuth event query result empty");
-        return -1;
-    }
-
-    std::string body = resp.GetBody();
-    Logger::Log(LOG_DEBUG,"UserEvent reply: " + body);
-
-    return (body!="ok");
-
-    */
-
-    return -1;
-}
-
-int UserAuth::resolve(std::string user_token, std::string &user_nick, int clientid) {
+int UserAuth::resolve(const std::string& user_token, const std::string& auth_token, std::string &user_nick, int clientid) {
     // initialize the authlevel on none = normal user
     int authlevel = RoRnet::AUTH_NONE;
 
-    // contact the master server
-    char url[512];
-    sprintf(url, "/%s/users", Config::GetServerlistPath().c_str());
-    Logger::Log(LOG_INFO, "Attempting user authentication (%s)", url);
+    try
+    {
+        // contact the master server API (Carbon)
+        // Proof of concept - fetch the user profile using the temp-login token
+        const std::string url = fmt::format("{}/users/me", Config::GetAuthApiUrl());
 
-    Json::Value data(Json::objectValue);
-    data["username"] = user_nick;
-    data["user_token"] = user_token;
-    std::string json_str = data.toStyledString();
+        std::vector<std::string> headers;
+        headers.push_back("Content-Type: application/json");
+        headers.push_back("Accept: application/json");
+        headers.push_back(fmt::format("Authorization: Bearer {}", auth_token));
 
-    Http::Response resp;
-    int result_code = Http::Request(Http::METHOD_GET,
-                                    Config::GetServerlistHostC(), url, "application/json",
-                                    json_str.c_str(), &resp);
+        CURLcode curl_result;
+        long response_code;
+        std::string response_payload;
+        const bool result = GetUrlAsString(url, headers, curl_result, response_code, response_payload);
 
-    // 200 means success!
-    if (result_code == 200) {
-        Logger::Log(LOG_INFO, "User authentication success, result code: %d", result_code);
-        authlevel = RoRnet::AUTH_RANKED;
-    } else {
-        Logger::Log(LOG_INFO, "User authentication failed, result code: %d", result_code);
+        if (result) {
+            Logger::Log(LOG_INFO, "User authentication success");
+            authlevel = RoRnet::AUTH_RANKED;
+            Json::Value root;
+            Json::Reader reader;
+            if (!reader.parse(response_payload, root)) {
+                Logger::Log(LOG_WARN, "Failed to parse JSON response from master server API");
+            }
+            else if (root.isMember("me") && root["me"].isMember("username")) {
+                user_nick = root["me"]["username"].asString();
+            }
+            else {
+                Logger::Log(LOG_WARN, "Unexpected contents of JSON response from master server API");
+            }
+        }
+        else {
+            Logger::Log(LOG_INFO, fmt::format("User authentication failed, HTTP response: {}, CURL result: {} ({})",
+                response_code, (int)curl_result, curl_easy_strerror(curl_result)));
+        }
+    }
+    catch (std::exception& e) {
+        Logger::Log(LOG_WARN, fmt::format("UserAuth: contacting auth API failed with exception: '{}'", e.what()));
     }
 
-    //then check for overrides in the authorizations file (server admins, etc)
-    if (local_auth.find(user_token) != local_auth.end()) {
-        // local auth hit!
-        // the stored nickname can be empty if no nickname is specified.
-        if (!local_auth[user_token].second.empty())
-            user_nick = local_auth[user_token].second;
-        authlevel |= local_auth[user_token].first;
+    try
+    {
+        //then check for overrides in the authorizations file (server admins, etc)
+        if (local_auth.find(user_token) != local_auth.end()) {
+            // local auth hit!
+            // the stored nickname can be empty if no nickname is specified.
+            if (!local_auth[user_token].second.empty())
+                user_nick = local_auth[user_token].second;
+            authlevel |= local_auth[user_token].first;
+        }
+    }
+    catch (std::exception& e) {
+        Logger::Log(LOG_WARN, fmt::format("UserAuth: resolving local overrides failed with exception: '{}'", e.what()));
     }
 
     return authlevel;

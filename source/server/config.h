@@ -91,6 +91,8 @@ namespace Config {
 
     const std::string &GetServerlistPath();
 
+    const std::string& GetAuthApiUrl();
+
     unsigned int GetHeartbeatRetryCount();
 
     unsigned int GetHeartbeatRetrySeconds();

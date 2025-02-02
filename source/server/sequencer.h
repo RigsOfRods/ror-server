@@ -216,7 +216,7 @@ public:
     void frameStepScripts(float dt);
     void GetHeartbeatUserList(Json::Value &out_array);
     void UpdateMinuteStats();
-    int AuthorizeNick(std::string token, std::string &nickname);
+    int AuthorizeNick(const std::string& user_token, const std::string& auth_token, std::string &nickname);
     std::vector<WebserverClientInfo> GetClientListCopy();
     int getStartTime();
 

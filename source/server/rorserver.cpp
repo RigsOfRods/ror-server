@@ -92,8 +92,9 @@ void handler(int signalnum) {
             s_sequencer.Close();
         } else {
             Logger::Log(LOG_INFO, "closing server ... unregistering ... ");
-            if (s_master_server.IsRegistered()) {
-                s_master_server.UnRegister();
+            // We should really have a global var for the server status...
+            if (s_api.Authenticated()) {
+                s_api.SyncServerPowerState("offline");
             }
             s_sequencer.Close();
         }
@@ -126,10 +127,10 @@ BOOL WINAPI WindowsConsoleHandlerRoutine(DWORD ctrl_type)
         return TRUE; // Means 'event handled'
     }
 
-    if (s_master_server.IsRegistered())
+    if (s_api.Authenticated())
     {
         Logger::Log(LOG_INFO, "Unregistering...");
-        s_master_server.UnRegister();
+        s_api.SyncServerPowerState("offline");
     }
     s_sequencer.Close(); // TODO: This somehow closes (crashes?) the process on Windows, debugger doesn't intercept anything...
     Logger::Log(LOG_INFO, "Clean exit (Windows)");

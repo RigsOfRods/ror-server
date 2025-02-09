@@ -22,18 +22,19 @@
 
 #include <string>
 
+/**
+ * \brief Enum representing different API error states
+ */
+enum ApiErrorState
+{
+    API_NO_ERROR = 0,
+    API_CLIENT_ERROR = 1,
+    API_SERVER_ERROR = 2,
+    API_ERROR_UNKNOWN = 999,
+};
+
 namespace Api
 {
-    /**
-     * \brief Enum representing different API error states
-     */
-    enum ApiErrorState
-    {
-        API_NO_ERROR = 0,
-        API_CLIENT_ERROR = 1,
-        API_SERVER_ERROR = 2,
-        API_ERROR_UNKNOWN = 999,
-    };
     class Client
     {
         /**
@@ -44,7 +45,8 @@ namespace Api
             GET,
             POST,
             PUT,
-            DELETE
+            DELETE,
+            PATCH
         };
 
         /**
@@ -72,12 +74,15 @@ namespace Api
 
     public:
         Client();
-        bool GetIpAddress(std::string &ip_addr);
+        bool GetPublicIp(std::string &ip_addr);
+        bool Callable();
+        bool Authenticated();
         ApiErrorState CreateServer();
         ApiErrorState UpdateServer();
         ApiErrorState SyncServer();
-        ApiErrorState SyncServerPowerState();
+        ApiErrorState SyncServerPowerState(std::string status);
         ApiErrorState CreateClient();
+        ApiErrorState VerifyClientSession(std::string challenge);
 
     private:
         ApiErrorState HandleHttpRequestErrors(HttpResponse &response);

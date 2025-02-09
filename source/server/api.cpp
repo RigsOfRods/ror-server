@@ -21,7 +21,10 @@
 /// @file api.c
 #include "api.h"
 #include "logger.h"
+#include "config.h"
 #include "json/json.h"
+
+#include <rornet.h>
 
 #include <curl/curl.h>
 #include <curl/easy.h>
@@ -37,12 +40,36 @@ namespace Api
     Client::Client() {}
 
     /**
-     * \brief Call the API to retrieve our server public IP address.
+     * \brief Call the API to retrieve our server public IP.
      *
      * \param ip_addr
      */
-    bool Client::GetIpAddress(std::string &ip_addr)
+    bool Client::GetPublicIp(std::string &ip_addr)
     {
+        return true;
+    }
+
+    /**
+     * \brief Call the API to determine if it's callable.
+     * 
+     * \return bool True or False if we can call the API.
+     */
+    bool Client::Callable()
+    {
+        return true;
+    }
+
+    /**
+     * \brief Check whether we've already authenticated against the API.
+     *        This is typically done to ensure we don't call CreateServer()
+     *        again. This condition is satsified if an API key and server
+     *        unique identifier is present.
+     * 
+     * \return bool True or False if we're authenticated againsted the API.
+     */
+    bool Client::Authenticated()
+    {
+        return true;
     }
 
     /**
@@ -56,14 +83,17 @@ namespace Api
         HttpResponse response;
         ApiErrorState error_code;
 
+        char url[300] = "";
+        sprintf(url, "%s/servers", Config::GetServerlistHostC());
+
         Json::Value data(Json::objectValue);
-        data["name"];
-        data["ip"];
-        data["port"];
-        data["version"];
-        data["description"];
-        data["max_clients"];
-        data["has_password"];
+        data["name"] = Config::getServerName();
+        data["ip"] = Config::getIPAddr();
+        data["port"] = Config::getListenPort();
+        data["version"] = RORNET_VERSION;
+        data["description"] = "This is temp";
+        data["max_clients"] = Config::getMaxClients();
+        data["has_password"] = Config::isPublic();
 
         request = this->BuildHttpRequestQuery(HttpMethod::POST,
                                               "/servers", 
@@ -85,10 +115,17 @@ namespace Api
     {
         HttpRequest request;
         HttpResponse response;
-        ApiErrorState error_code;
+        ApiErrorState error_code;    
+
+        char url[300] = "";
+        sprintf(url, "%s/servers/%d", Config::GetServerlistHostC(), 2);
 
         Json::Value data(Json::objectValue);
-        request.body = data.asString();
+
+        request = this->BuildHttpRequestQuery(HttpMethod::PUT,
+                                              url,
+                                              "", 
+                                              data.asString());
 
         response = this->ApiHttpQuery(request);
         error_code = this->HandleHttpRequestErrors(response);
@@ -107,9 +144,14 @@ namespace Api
         HttpResponse response;
         ApiErrorState error_code;
 
-        Json::Value data(Json::objectValue);
-        request.method = HttpMethod::POST;
-        request.body = data.asString();
+        // Verify the power status of the server later...
+        char url[300] = "";
+        sprintf(url, "%s/servers/%d/sync", Config::GetServerlistHostC(), 2);
+
+        request = this->BuildHttpRequestQuery(HttpMethod::PATCH,
+                                              url,
+                                              "",
+                                              "");
 
         response = this->ApiHttpQuery(request);
         error_code = this->HandleHttpRequestErrors(response);
@@ -120,16 +162,55 @@ namespace Api
     /**
      * \brief Call the API to sync the server power state with the server list.
      *
+     * \param status The current power state to report to the server list.
      * \return ApiErrorState Error state from the API.
      */
-    ApiErrorState Client::SyncServerPowerState()
+    ApiErrorState Client::SyncServerPowerState(std::string status)
     {
         HttpRequest request;
         HttpResponse response;
         ApiErrorState error_code;
 
+        // We should look into verifying the power status later...
+        // If we make a weird request while in a state of limbo where the API
+        // is unable to reach us, we need to avoid making that wasteful call.
         Json::Value data(Json::objectValue);
+        data["power_status"] = status;
         request.body = data.asString();
+
+        // When we send a power status of "online" we are telling the API that
+        // we're ready to accept people and can be publicly displayed. Otherwise
+        // we remain hidden.
+        response = this->ApiHttpQuery(request);
+        error_code = this->HandleHttpRequestErrors(response);
+
+        return error_code;
+    }
+
+    /**
+     * \brief Call the API to verify a challenge for a client.
+     * 
+     * \param challenge The challenge to us by the client.
+     * \return ApiErrorState Error state of the API.
+     */
+    ApiErrorState Client::VerifyClientSession(std::string challenge)
+    {
+        HttpRequest request;
+        HttpResponse response;
+        ApiErrorState error_code;
+
+        // Need to maybe look into whether or not C++20 has better string formatting?
+        char url[300] = "";
+        sprintf(url, "%s/auth/session/%d/verify", Config::GetServerlistHostC(), 2);
+
+        // We don't actually know what is in the claims of the challenge, so
+        // we'll wait for the API to return a pass or fail on them.
+        Json::Value data(Json::objectValue);
+        data["challenge"] = challenge;
+        request = this->BuildHttpRequestQuery(HttpMethod::GET,
+                                              url,
+                                              "", 
+                                              data.asString());
 
         response = this->ApiHttpQuery(request);
         error_code = this->HandleHttpRequestErrors(response);

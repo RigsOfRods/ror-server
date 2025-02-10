@@ -19,6 +19,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "utils.h"
+#include "win32_wrapper.h"
 
 #include "logger.h"
 #include <string>
@@ -30,10 +31,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <iostream>
 #include <locale>
 
-#ifdef _WIN32
-#include <windows.h>
-#include <time.h>
-#else
+#ifndef _WIN32
 
 #include <sys/time.h>
 #include <unistd.h>

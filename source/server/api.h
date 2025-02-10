@@ -20,6 +20,8 @@
 */
 ///@file api.h
 
+#include "win32_wrapper.h" // Guard against clashes from preceding includes
+
 #include <string>
 #include <vector>
 

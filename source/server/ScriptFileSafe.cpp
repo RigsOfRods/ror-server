@@ -24,6 +24,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #ifdef WITH_ANGELSCRIPT
 
 #include "ScriptFileSafe.h"
+#include "win32_wrapper.h"
 #include <new>
 #include <assert.h>
 #include <string>
@@ -32,12 +33,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "logger.h"
 #include "config.h"
 
-#ifdef _WIN32_WCE
-#include <windows.h> // For GetModuleFileName
-#ifdef GetObject
-#undef GetObject
-#endif
-#endif
 
 using namespace std;
 

@@ -28,6 +28,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "listener.h"
 #include "master-server.h"
 #include "utils.h"
+#include "api.h"
 
 #include "sha1_util.h"
 #include "sha1.h"
@@ -58,6 +59,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 static Sequencer s_sequencer;
 static MasterServer::Client s_master_server;
+static Api::Client s_api;
 static bool s_exit_requested = false;
 #ifndef _WIN32
 
@@ -90,8 +92,9 @@ void handler(int signalnum) {
             s_sequencer.Close();
         } else {
             Logger::Log(LOG_INFO, "closing server ... unregistering ... ");
-            if (s_master_server.IsRegistered()) {
-                s_master_server.UnRegister();
+            // We should really have a global var for the server status...
+            if (s_api.Authenticated()) {
+                s_api.SyncServerPowerState("offline");
             }
             s_sequencer.Close();
         }
@@ -124,10 +127,10 @@ BOOL WINAPI WindowsConsoleHandlerRoutine(DWORD ctrl_type)
         return TRUE; // Means 'event handled'
     }
 
-    if (s_master_server.IsRegistered())
+    if (s_api.Authenticated())
     {
         Logger::Log(LOG_INFO, "Unregistering...");
-        s_master_server.UnRegister();
+        s_api.SyncServerPowerState("offline");
     }
     s_sequencer.Close(); // TODO: This somehow closes (crashes?) the process on Windows, debugger doesn't intercept anything...
     Logger::Log(LOG_INFO, "Clean exit (Windows)");

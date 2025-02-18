@@ -97,6 +97,8 @@ namespace Config {
 
     unsigned int GetHeartbeatIntervalSec();
 
+    const std::string &GetApiKeyKey();
+
     bool GetShowHelp();
 
     bool GetShowVersion();
@@ -165,6 +167,8 @@ namespace Config {
     void setSpamFilterMsgIntervalSec(int sec);
     void setSpamFilterMsgCount(int count);
     void setSpamFilterGagDurationSec(int sec);
+
+    void setApiKeyKey(const std::string &key);
 //!@}
 
 } // namespace Config

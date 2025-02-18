@@ -21,6 +21,9 @@
 ///@file api.h
 
 #include <string>
+#include <vector>
+
+#include <rornet.h>
 
 /**
  * \brief Enum representing different API error states
@@ -30,7 +33,7 @@ enum ApiErrorState
     API_NO_ERROR = 0,
     API_CLIENT_ERROR = 1,
     API_SERVER_ERROR = 2,
-    API_ERROR_UNKNOWN = 999,
+    API_UNKNOWN_ERROR = 999,
 };
 
 namespace Api
@@ -46,7 +49,8 @@ namespace Api
             POST,
             PUT,
             DELETE,
-            PATCH
+            PATCH,
+            UPDATE
         };
 
         /**
@@ -64,12 +68,27 @@ namespace Api
          */
         struct HttpRequest
         {
-            std::string body;
-            std::string url = "https://v2.api.rigsofrods.org/";
-            std::string headers;
-            std::string user_agent = "Rigs of Rods Server";
             HttpMethod method = HttpMethod::GET;
-            std::string content_type = "Content-Type: application/json";
+            std::string url;
+            std::string body;
+            std::vector<std::string> headers;
+            std::string content_type;
+            std::string user_agent;
+
+            HttpRequest(HttpMethod method,
+                        const std::string &uri,
+                        const std::string &body = "",
+                        const std::vector<std::string> &headers = {},
+                        const std::string &content_type = "Content-Type: application/json",
+                        const std::string &user_agent = std::string("Rigs of Rods Server/") + RORNET_VERSION)
+                : method(method),
+                  url("http://127.0.0.1:8080" + uri),
+                  body(body),
+                  headers(headers),
+                  content_type(content_type),
+                  user_agent(user_agent)
+            {
+            }
         };
 
     public:
@@ -87,10 +106,9 @@ namespace Api
     private:
         ApiErrorState HandleHttpRequestErrors(HttpResponse &response);
         bool HasError(int status_code);
-        HttpRequest BuildHttpRequestQuery(HttpMethod method, std::string uri, std::string headers, std::string body);
         HttpResponse ApiHttpQuery(HttpRequest &request);
         const char *HttpMethodToString(HttpMethod method);
-        std::string m_api_key;
+        std::string m_api_key_key;
         bool m_api_active;
     };
 } // namespace Api

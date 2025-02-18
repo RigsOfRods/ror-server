@@ -85,6 +85,8 @@ static int s_spamfilter_msg_interval_sec(0); // 0 disables spamfilter
 static int s_spamfilter_msg_count(0); // 0 disables spamfilter
 static int s_spamfilter_gag_duration_sec(10);
 
+static std::string s_api_key_key("");
+
 // ============================== Functions ===================================
 
 namespace Config {
@@ -439,6 +441,8 @@ namespace Config {
 
     void setSpamFilterGagDurationSec(int sec) { s_spamfilter_gag_duration_sec = sec; }
 
+    void setApiKeyKey(const std::string &key) { s_api_key_key = key; }
+
     void setHeartbeatIntervalSec(unsigned sec) {
         s_heartbeat_interval_sec = sec;
         Logger::Log(LOG_VERBOSE, "Hearbeat interval is %d seconds", sec);
@@ -520,6 +524,8 @@ namespace Config {
         else if (strcmp(key, "spamfilter-msg-interval") == 0) { setSpamFilterMsgIntervalSec(VAL_INT(value)); }
         else if (strcmp(key, "spamfilter-msg-count")    == 0) { setSpamFilterMsgCount(VAL_INT(value)); }
         else if (strcmp(key, "spamfilter-gag-duration") == 0) { setSpamFilterGagDurationSec(VAL_INT(value)); }
+
+        else if (strcmp(key, "apikey") == 0) { setApiKeyKey(VAL_STR(value)); }
 
         else {
             Logger::Log(LOG_WARN, "Unknown key '%s' (value: '%s') in config file.", key, value);

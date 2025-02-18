@@ -32,7 +32,7 @@ class UserAuth {
 public:
     UserAuth(std::string authFile);
 
-    int resolve(std::string user_token, std::string &user_nick, int clientid);
+    int resolve(const std::string& user_token, const std::string& session_token, std::string &user_nick, int clientid);
 
     int setUserAuth(int flags, std::string user_nick, std::string token);
 

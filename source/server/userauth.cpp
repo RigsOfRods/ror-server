@@ -153,17 +153,21 @@ int UserAuth::sendUserEvent(std::string user_token, std::string type, std::strin
     return -1;
 }
 
-int UserAuth::resolve(std::string user_token, std::string &user_nick, int clientid) {
+int UserAuth::resolve(const std::string& user_token, const std::string& session_token, std::string &user_nick, int clientid) {
     int auth_level = RoRnet::AUTH_NONE;
 
     // The challenge and user token should be seperate...
     // We'll call the API to verify the challenge the client sent, we should
     // only get back API_NO_ERROR to indicate that the challenge could be
     // verified.
-    ApiErrorState status = s_api.VerifyClientSession(user_token);
-    if (status == API_NO_ERROR)
+    if (!session_token.empty() || session_token[0] == '\000')
     {
-        auth_level = RoRnet::AUTH_RANKED;
+        ApiErrorState status = s_api.VerifyClientSession(session_token);
+        if (status == API_NO_ERROR)
+        {
+            Logger::Log(LOG_INFO, "%s was assigned RANKED", user_nick);
+            auth_level = RoRnet::AUTH_RANKED;
+        }
     }
 
     // Then, we compare against the local authorizations file and override

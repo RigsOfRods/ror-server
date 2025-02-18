@@ -434,12 +434,12 @@ int Sequencer::getNumClients() {
     return (int) m_clients.size();
 }
 
-int Sequencer::AuthorizeNick(std::string token, std::string &nickname) {
+int Sequencer::AuthorizeNick(const std::string& user_token, const std::string& session_token, std::string &nickname) {
     std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
     if (m_auth_resolver == nullptr) {
         return RoRnet::AUTH_NONE;
     }
-    return m_auth_resolver->resolve(token, nickname, m_free_user_id);
+    return m_auth_resolver->resolve(user_token, session_token, nickname, m_free_user_id);
 }
 
 void Sequencer::KillerThreadMain()

@@ -46,7 +46,21 @@ namespace Api
      */
     bool Client::GetPublicIp(std::string &ip_addr)
     {
-        return true;
+        HttpResponse response;
+        ApiErrorState error_code;
+
+        HttpRequest request(HttpMethod::GET, "/ip");
+
+        response = this->ApiHttpQuery(request);
+        error_code = this->HandleHttpRequestErrors(response);
+
+        if (error_code == API_NO_ERROR)
+        {
+            // OK, we got back a string that we can update the reference with ...
+            ip_addr = response.body;
+        };
+
+        return ( error_code != API_NO_ERROR );
     }
 
     /**
@@ -56,14 +70,21 @@ namespace Api
      */
     bool Client::Callable()
     {
-        return true;
+        HttpResponse response;
+        ApiErrorState error_code;
+
+        HttpRequest request(HttpMethod::GET, "/");
+
+        response = this->ApiHttpQuery(request);
+        error_code = this->HandleHttpRequestErrors(response);
+
+        return ( error_code != API_NO_ERROR );
     }
 
     /**
-     * \brief Check whether we've already authenticated against the API.
-     *        This is typically done to ensure we don't call CreateServer()
-     *        again. This condition is satsified if an API key and server
-     *        unique identifier is present.
+     * \brief This will check if both the server unique identifier and a
+     *        unique server identifier. The unique identifier is something we
+     *        update and the API key is manually configured by the owner.
      * 
      * \return bool True or False if we're authenticated againsted the API.
      */
@@ -79,12 +100,8 @@ namespace Api
      */
     ApiErrorState Client::CreateServer()
     {
-        HttpRequest request;
         HttpResponse response;
         ApiErrorState error_code;
-
-        char url[300] = "";
-        sprintf(url, "%s/servers", Config::GetServerlistHostC());
 
         Json::Value data(Json::objectValue);
         data["name"] = Config::getServerName();
@@ -95,10 +112,7 @@ namespace Api
         data["max_clients"] = Config::getMaxClients();
         data["has_password"] = Config::isPublic();
 
-        request = this->BuildHttpRequestQuery(HttpMethod::POST,
-                                              "/servers", 
-                                              "", 
-                                              data.asString());
+        HttpRequest request(HttpMethod::POST, "/servers", data.asString());
 
         response = this->ApiHttpQuery(request);
         error_code = this->HandleHttpRequestErrors(response);
@@ -113,19 +127,15 @@ namespace Api
      */
     ApiErrorState Client::UpdateServer()
     {
-        HttpRequest request;
         HttpResponse response;
         ApiErrorState error_code;    
 
         char url[300] = "";
-        sprintf(url, "%s/servers/%d", Config::GetServerlistHostC(), 2);
+        sprintf(url, "/servers/%d", 10000);
 
         Json::Value data(Json::objectValue);
 
-        request = this->BuildHttpRequestQuery(HttpMethod::PUT,
-                                              url,
-                                              "", 
-                                              data.asString());
+        HttpRequest request(HttpMethod::UPDATE, url, data.asString());
 
         response = this->ApiHttpQuery(request);
         error_code = this->HandleHttpRequestErrors(response);
@@ -140,18 +150,12 @@ namespace Api
      */
     ApiErrorState Client::SyncServer()
     {
-        HttpRequest request;
         HttpResponse response;
         ApiErrorState error_code;
 
-        // Verify the power status of the server later...
-        char url[300] = "";
-        sprintf(url, "%s/servers/%d/sync", Config::GetServerlistHostC(), 2);
+        Json::Value data(Json::objectValue);
 
-        request = this->BuildHttpRequestQuery(HttpMethod::PATCH,
-                                              url,
-                                              "",
-                                              "");
+        HttpRequest request(HttpMethod::PATCH, "/servers", data.asString());
 
         response = this->ApiHttpQuery(request);
         error_code = this->HandleHttpRequestErrors(response);
@@ -167,7 +171,6 @@ namespace Api
      */
     ApiErrorState Client::SyncServerPowerState(std::string status)
     {
-        HttpRequest request;
         HttpResponse response;
         ApiErrorState error_code;
 
@@ -176,7 +179,8 @@ namespace Api
         // is unable to reach us, we need to avoid making that wasteful call.
         Json::Value data(Json::objectValue);
         data["power_status"] = status;
-        request.body = data.asString();
+
+        HttpRequest request(HttpMethod::UPDATE, "/servers", data.asString());
 
         // When we send a power status of "online" we are telling the API that
         // we're ready to accept people and can be publicly displayed. Otherwise
@@ -195,22 +199,18 @@ namespace Api
      */
     ApiErrorState Client::VerifyClientSession(std::string challenge)
     {
-        HttpRequest request;
         HttpResponse response;
         ApiErrorState error_code;
 
         // Need to maybe look into whether or not C++20 has better string formatting?
         char url[300] = "";
-        sprintf(url, "%s/auth/session/%d/verify", Config::GetServerlistHostC(), 2);
+        sprintf(url, "/auth/sessions/%s/verify", "ee1b920c-f815-4c9e-b5a2-b60db71dba88");
 
         // We don't actually know what is in the claims of the challenge, so
         // we'll wait for the API to return a pass or fail on them.
         Json::Value data(Json::objectValue);
-        data["challenge"] = challenge;
-        request = this->BuildHttpRequestQuery(HttpMethod::GET,
-                                              url,
-                                              "", 
-                                              data.asString());
+        data["challenge"] = challenge.c_str(); // TODO: I really don't appreciate how funky this is ...
+        HttpRequest request(HttpMethod::GET, url, data.toStyledString());
 
         response = this->ApiHttpQuery(request);
         error_code = this->HandleHttpRequestErrors(response);
@@ -233,6 +233,24 @@ namespace Api
         curl_easy_setopt(curl, CURLOPT_URL, request.url.c_str());
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, HttpMethodToString(request.method));
         curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+
+        if (!m_api_key_key.empty())
+        {
+            // If the API key is present, we need to send it even if the call we're
+            // making does not require authentication.
+            request.headers.push_back("Authorization: Bearer " + m_api_key_key);
+        }
+
+        // Let the API know we're prefering JSON or HTML to be sent back.
+        request.headers.push_back("Accept: application/json");
+
+        struct curl_slist *headers = nullptr;
+        for (const auto &header : request.headers)
+        {
+            headers = curl_slist_append(headers, header.c_str());
+        }
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request.body.c_str());
 #ifdef _WIN32
         curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
 #endif // _WIN32
@@ -247,13 +265,11 @@ namespace Api
         curl_easy_cleanup(curl);
         curl = nullptr;
 
-        Logger::Log(LOG_INFO, "");
-        Logger::Log(LOG_DEBUG, "");
-
         if (curl_result != CURLE_OK)
         {
-            Logger::Log(LOG_ERROR, "");
+            Logger::Log(LOG_ERROR, "curl error!");
         }
+
         return response;
     }
 
@@ -266,20 +282,22 @@ namespace Api
     ApiErrorState Client::HandleHttpRequestErrors(HttpResponse &response)
     {
         ApiErrorState error_code;
-        LogLevel log_level;
 
         if (!this->HasError(response.status_code))
         {
+            Logger::Log(LOG_INFO, "no http warning");
             error_code = API_NO_ERROR;
         }
 
         if (response.status_code >= 400 && response.status_code < 500)
         {
+            Logger::Log(LOG_ERROR, "client error http");
             error_code = API_CLIENT_ERROR;
         }
 
         else if (response.status_code >= 500)
         {
+            Logger::Log(LOG_ERROR, "server error http");
             error_code = API_SERVER_ERROR;
         }
 
@@ -295,20 +313,6 @@ namespace Api
     bool Client::HasError(int status_code)
     {
         return status_code >= 300 || status_code < 200;
-    }
-
-    /**
-     * \brief Build the HTTP request query.
-     * 
-     * \param method The HTTP method.
-     * \param uri The URI of the request.
-     * \param headers The headers of the request.
-     * \param body The body of the request.
-     * \return HttpRequest The HTTP request.
-     */
-    Client::HttpRequest Client::BuildHttpRequestQuery(HttpMethod method, std::string uri, std::string headers, std::string body)
-    {
-        HttpRequest request;
     }
 
     /**

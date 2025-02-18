@@ -20,6 +20,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 // RoRserver.cpp : Defines the entry point for the console application.
 
+// TODO: the way this entire file is formatted makes my head HURT ... CHANGE !!!
+
 #include "rornet.h"
 #include "sequencer.h"
 #include "logger.h"
@@ -267,7 +269,7 @@ int main(int argc, char *argv[]) {
         std::string ip_addr = Config::getIPAddr();
         if (ip_addr.empty() || (ip_addr == "0.0.0.0")) {
             Logger::Log(LOG_WARN, "No IP given, detecting...");
-            if (!MasterServer::RetrievePublicIp()) {
+            if (s_api.GetPublicIp(ip_addr) != API_NO_ERROR) {
                 Logger::Log(LOG_ERROR, "Failed to auto-detect public IP, exit.");
                 return -1;
             }

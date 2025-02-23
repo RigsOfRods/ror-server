@@ -281,7 +281,7 @@ namespace Api
      */
     ApiErrorState Client::HandleHttpRequestErrors(HttpResponse &response)
     {
-        ApiErrorState error_code;
+        ApiErrorState error_code = API_UNKNOWN_ERROR; // the HTTP response code may end up being 0 when endpoint isn't configured.
 
         if (!this->HasError(response.status_code))
         {

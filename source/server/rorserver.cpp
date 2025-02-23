@@ -1,26 +1,28 @@
 /*
-This file is part of "Rigs of Rods Server" (Relay mode)
+    This source file is part of Rigs of Rods
+    Copyright 2005-2012 Pierre-Michel Ricordel
+    Copyright 2007-2012 Thomas Fischer
+    Copyright 2013-2025 Petr Ohlidal
 
-Copyright 2007   Pierre-Michel Ricordel
-Copyright 2014+  Rigs of Rods Community
+    For more information, see http://www.rigsofrods.org/
 
-"Rigs of Rods Server" is free software: you can redistribute it
-and/or modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation, either version 3
-of the License, or (at your option) any later version.
+    Rigs of Rods is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License version 3, as
+    published by the Free Software Foundation.
 
-"Rigs of Rods Server" is distributed in the hope that it will
-be useful, but WITHOUT ANY WARRANTY; without even the implied
-warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-See the GNU General Public License for more details.
+    Rigs of Rods is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with Foobar. If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU General Public License
+    along with Rigs of Rods. If not, see <http://www.gnu.org/licenses/>.
 */
-
-// RoRserver.cpp : Defines the entry point for the console application.
-
-// TODO: the way this entire file is formatted makes my head HURT ... CHANGE !!!
+/// @file rorserver.cpp
+/// @brief This file defines the entry point for the console application.
+/// @author Pierre-Michel Ricordel
+/// @author Thomas Fisher,
+/// @author Petr Ohlidal
 
 #include "rornet.h"
 #include "sequencer.h"
@@ -61,7 +63,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 static Sequencer s_sequencer;
 static MasterServer::Client s_master_server;
-static Api::Client s_api;
+static Api::Client s_api_client;
 static bool s_exit_requested = false;
 #ifndef _WIN32
 
@@ -95,8 +97,8 @@ void handler(int signalnum) {
         } else {
             Logger::Log(LOG_INFO, "closing server ... unregistering ... ");
             // We should really have a global var for the server status...
-            if (s_api.Authenticated()) {
-                s_api.SyncServerPowerState("offline");
+            if (s_api_client.Authenticated()) {
+                s_api_client.SyncServerPowerState("offline");
             }
             s_sequencer.Close();
         }
@@ -319,6 +321,27 @@ int main(int argc, char *argv[]) {
         return -1;
     }
     s_sequencer.Initialize();
+
+    std::string api_key_key = Config::GetApiKeyKey();
+    if (server_mode != SERVER_LAN && api_key_key.empty())
+    {
+        if (server_mode == SERVER_INET)
+        {
+            Logger::Log(LOG_ERROR, "The API key was not set or is missing from the config file. Exiting.");
+            listener.Shutdown();
+            return -1;
+        }
+    
+        Logger::Log(LOG_ERROR, "The API key was not set or is missing from the config file, continuing in LAN mode.");
+        server_mode = SERVER_LAN;
+    }
+
+    if (server_mode != SERVER_LAN)
+    {
+        ApiErrorState api_error;
+        api_error = s_api_client.CreateServer();
+    }
+    
 
     // Listener is ready, let's register ourselves on serverlist (which will contact us back to check).
     if (server_mode != SERVER_LAN) {

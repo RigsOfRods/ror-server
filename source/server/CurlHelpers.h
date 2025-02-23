@@ -38,17 +38,18 @@ class ScriptEngine;
 #include <curl/easy.h>
 
 #include <string>
-
+#include <vector>
 
 struct CurlTaskContext
 {
     std::string ctc_displayname;
     std::string ctc_url;
+    std::vector<std::string> ctc_headers;
     ScriptEngine* ctc_script_engine;
     // Status is reported via new server callback `curlStatus()`
 };
 
-bool GetUrlAsString(const std::string& url, CURLcode& curl_result, long& response_code, std::string& response_payload);
+bool GetUrlAsString(const std::string& url, const std::vector<std::string>& headers, CURLcode& curl_result, long& response_code, std::string& response_payload);
 
 bool CurlRequestThreadFunc(CurlTaskContext task);
 

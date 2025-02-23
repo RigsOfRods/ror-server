@@ -21,6 +21,7 @@
 ///@file api.h
 
 #include "win32_wrapper.h" // Guard against clashes from preceding includes
+#include "config.h"
 
 #include <string>
 #include <vector>
@@ -84,7 +85,7 @@ namespace Api
                         const std::string &content_type = "Content-Type: application/json",
                         const std::string &user_agent = std::string("Rigs of Rods Server/") + RORNET_VERSION)
                 : method(method),
-                  url("http://127.0.0.1:8080" + uri),
+                  url(Config::GetApiHost() + uri),
                   body(body),
                   headers(headers),
                   content_type(content_type),

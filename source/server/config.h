@@ -112,6 +112,8 @@ namespace Config {
 
     const std::string &GetApiKeyKey();
 
+    const std::string& GetApiHost();
+
     bool GetShowHelp();
 
     bool GetShowVersion();
@@ -182,6 +184,7 @@ namespace Config {
     void setSpamFilterGagDurationSec(int sec);
 
     void setApiKeyKey(const std::string &key);
+    void setApiHost(const std::string& host);
 //!@}
 
 } // namespace Config

@@ -73,6 +73,7 @@ static bool s_print_stats(false);
 static bool s_foreground(false);
 static bool s_show_version(false);
 static bool s_show_help(false);
+static bool s_ranked_only(false);
 
 // Vehicle spawn limits
 static size_t s_max_vehicles(20);
@@ -314,6 +315,8 @@ namespace Config {
 
     bool getForeground() { return s_foreground; }
 
+    bool getRankedOnly() { return s_ranked_only; }
+
     const std::string &getResourceDir() { return s_resourcedir; }
 
     const std::string &getAuthFile() { return s_authfile; }
@@ -426,6 +429,8 @@ namespace Config {
     void setOwner(const std::string &owner) { s_owner = owner; }
 
     void setForeground(bool value) { s_foreground = value; }
+
+    void setRankedOnly(bool value) { s_ranked_only = value; }
 
     void setWebsite(const std::string &website) { s_website = website; }
 

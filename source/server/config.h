@@ -67,6 +67,8 @@ namespace Config {
 
     bool getForeground();
 
+    bool getRankedOnly();
+
     const std::string &getResourceDir();
 
     const std::string &getAuthFile();
@@ -135,6 +137,8 @@ namespace Config {
     void setHeartbeatIntervalSec(unsigned sec);
 
     void setForeground(bool value);
+
+    void setRankedOnly(bool value);
 
     void LoadConfigFile(const std::string &filename);
 

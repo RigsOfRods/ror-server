@@ -17,7 +17,7 @@ jobs:
       - name: Install socketw
         run: git clone https://mpr.makedeb.org/socketw.git && cd socketw && makedeb -is
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Configure
         run: cmake -DCMAKE_BUILD_TYPE=Release .

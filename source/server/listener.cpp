@@ -192,7 +192,7 @@ void Listener::ThreadMain() {
             // authenticate
             user->username[RORNET_MAX_USERNAME_LEN - 1] = 0;
             std::string nickname = Str::SanitizeUtf8(user->username);
-            user->authstatus = m_sequencer->AuthorizeNick(std::string(user->usertoken, 40), nickname);
+            user->authstatus = m_sequencer->AuthorizeNick(std::string(user->usertoken, 40), std::string(user->sessiontoken, 300), nickname);
             strncpy(user->username, nickname.c_str(), RORNET_MAX_USERNAME_LEN - 1);
 
             if (Config::isPublic()) {

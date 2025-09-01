@@ -85,6 +85,9 @@ static int s_spamfilter_msg_interval_sec(0); // 0 disables spamfilter
 static int s_spamfilter_msg_count(0); // 0 disables spamfilter
 static int s_spamfilter_gag_duration_sec(10);
 
+static std::string s_api_key_key("");
+static std::string s_api_host("http://127.0.0.1:8080");
+
 // ============================== Functions ===================================
 
 namespace Config {
@@ -360,6 +363,10 @@ namespace Config {
 
     int getSpamFilterGagDurationSec() { return s_spamfilter_gag_duration_sec; }
 
+    const std::string& GetApiKeyKey() { return s_api_key_key; }
+
+    const std::string& GetApiHost() { return s_api_host; }
+
     bool setScriptName(const std::string &name) {
         if (name.empty()) return false;
         s_scriptname = name;
@@ -438,6 +445,10 @@ namespace Config {
     void setSpamFilterMsgCount(int count) { s_spamfilter_msg_count = count; }
 
     void setSpamFilterGagDurationSec(int sec) { s_spamfilter_gag_duration_sec = sec; }
+
+    void setApiKeyKey(const std::string &key) { s_api_key_key = key; }
+
+    void setApiHost(const std::string& host) { s_api_host = host; }
 
     void setHeartbeatIntervalSec(unsigned sec) {
         s_heartbeat_interval_sec = sec;
@@ -520,6 +531,9 @@ namespace Config {
         else if (strcmp(key, "spamfilter-msg-interval") == 0) { setSpamFilterMsgIntervalSec(VAL_INT(value)); }
         else if (strcmp(key, "spamfilter-msg-count")    == 0) { setSpamFilterMsgCount(VAL_INT(value)); }
         else if (strcmp(key, "spamfilter-gag-duration") == 0) { setSpamFilterGagDurationSec(VAL_INT(value)); }
+
+        else if (strcmp(key, "apikey") == 0) { setApiKeyKey(VAL_STR(value)); }
+        else if (strcmp(key, "apihost") == 0) { setApiHost(VAL_STR(value)); }
 
         else {
             Logger::Log(LOG_WARN, "Unknown key '%s' (value: '%s') in config file.", key, value);

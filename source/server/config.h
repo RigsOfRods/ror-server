@@ -1,32 +1,45 @@
 /*
-This file is part of "Rigs of Rods Server" (Relay mode)
+    This source file is part of Rigs of Rods
+    Copyright 2005-2012 Pierre-Michel Ricordel
+    Copyright 2007-2012 Thomas Fischer
+    Copyright 2013-2025 Petr Ohlidal
 
-Copyright 2007   Pierre-Michel Ricordel
-Copyright 2014+  Rigs of Rods Community
+    For more information, see http://www.rigsofrods.org/
 
-"Rigs of Rods Server" is free software: you can redistribute it
-and/or modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation, either version 3
-of the License, or (at your option) any later version.
+    Rigs of Rods is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License version 3, as
+    published by the Free Software Foundation.
 
-"Rigs of Rods Server" is distributed in the hope that it will
-be useful, but WITHOUT ANY WARRANTY; without even the implied
-warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-See the GNU General Public License for more details.
+    Rigs of Rods is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with Foobar. If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU General Public License
+    along with Rigs of Rods. If not, see <http://www.gnu.org/licenses/>.
 */
+//// \file config.h
 
 #pragma once
 
 #include "UnicodeStrings.h"
 
-// server modes
+/**
+ * \brief Enum representing the server type
+ */
 enum ServerType {
     SERVER_LAN = 0,
     SERVER_INET,
     SERVER_AUTO
+};
+
+/**
+ * \brief Enum representing the server power state
+ */
+enum ServerState {
+    SERVER_STARTING = 0,
+    SERVER_RUNNING,
+    SERVER_STOPPING,
 };
 
 namespace Config {
@@ -97,6 +110,10 @@ namespace Config {
 
     unsigned int GetHeartbeatIntervalSec();
 
+    const std::string &GetApiKeyKey();
+
+    const std::string& GetApiHost();
+
     bool GetShowHelp();
 
     bool GetShowVersion();
@@ -165,6 +182,9 @@ namespace Config {
     void setSpamFilterMsgIntervalSec(int sec);
     void setSpamFilterMsgCount(int count);
     void setSpamFilterGagDurationSec(int sec);
+
+    void setApiKeyKey(const std::string &key);
+    void setApiHost(const std::string& host);
 //!@}
 
 } // namespace Config

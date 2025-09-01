@@ -23,7 +23,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #include "rornet.h"
 #include "logger.h"
-#include "http.h"
+#include "api.h"
 #include "json/json.h"
 
 #include <stdexcept>
@@ -35,6 +35,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <stdlib.h>
 
 #endif
+
+static Api::Client s_api;
 
 UserAuth::UserAuth(std::string authFile) {
     readConfig(authFile.c_str());
@@ -151,42 +153,33 @@ int UserAuth::sendUserEvent(std::string user_token, std::string type, std::strin
     return -1;
 }
 
-int UserAuth::resolve(std::string user_token, std::string &user_nick, int clientid) {
-    // initialize the authlevel on none = normal user
-    int authlevel = RoRnet::AUTH_NONE;
+int UserAuth::resolve(const std::string& user_token, const std::string& session_token, std::string &user_nick, int clientid) {
+    int auth_level = RoRnet::AUTH_NONE;
 
-    // contact the master server
-    char url[512];
-    sprintf(url, "/%s/users", Config::GetServerlistPath().c_str());
-    Logger::Log(LOG_INFO, "Attempting user authentication (%s)", url);
-
-    Json::Value data(Json::objectValue);
-    data["username"] = user_nick;
-    data["user_token"] = user_token;
-    std::string json_str = data.toStyledString();
-
-    Http::Response resp;
-    int result_code = Http::Request(Http::METHOD_GET,
-                                    Config::GetServerlistHostC(), url, "application/json",
-                                    json_str.c_str(), &resp);
-
-    // 200 means success!
-    if (result_code == 200) {
-        Logger::Log(LOG_INFO, "User authentication success, result code: %d", result_code);
-        authlevel = RoRnet::AUTH_RANKED;
-    } else {
-        Logger::Log(LOG_INFO, "User authentication failed, result code: %d", result_code);
+    // The challenge and user token should be seperate...
+    // We'll call the API to verify the challenge the client sent, we should
+    // only get back API_NO_ERROR to indicate that the challenge could be
+    // verified.
+    if (!session_token.empty() || session_token[0] == '\000')
+    {
+        ApiErrorState status = s_api.VerifyClientSession(session_token);
+        if (status == API_NO_ERROR)
+        {
+            Logger::Log(LOG_INFO, "%s was assigned RANKED", user_nick);
+            auth_level = RoRnet::AUTH_RANKED;
+        }
     }
 
-    //then check for overrides in the authorizations file (server admins, etc)
+    // Then, we compare against the local authorizations file and override
+    // with what the server has for us.
     if (local_auth.find(user_token) != local_auth.end()) {
-        // local auth hit!
-        // the stored nickname can be empty if no nickname is specified.
+        // Check if the stored nick name is empty, and override with what
+        // is in the local file.
         if (!local_auth[user_token].second.empty())
             user_nick = local_auth[user_token].second;
-        authlevel |= local_auth[user_token].first;
+        auth_level |= local_auth[user_token].first;
     }
 
-    return authlevel;
+    return auth_level;
 }
 

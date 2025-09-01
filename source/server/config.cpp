@@ -363,6 +363,8 @@ namespace Config {
 
     int getSpamFilterGagDurationSec() { return s_spamfilter_gag_duration_sec; }
 
+    const std::string& GetApiKeyKey() { return s_api_key_key; }
+
     const std::string& GetApiHost() { return s_api_host; }
 
     bool setScriptName(const std::string &name) {

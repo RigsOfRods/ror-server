@@ -103,7 +103,6 @@ namespace Api
         ApiErrorState UpdateServer();
         ApiErrorState SyncServer();
         ApiErrorState SyncServerPowerState(std::string status);
-        ApiErrorState CreateClient();
         ApiErrorState VerifyClientSession(std::string challenge);
 
     private:
@@ -111,7 +110,6 @@ namespace Api
         bool HasError(int status_code);
         HttpResponse ApiHttpQuery(HttpRequest &request);
         const char *HttpMethodToString(HttpMethod method);
-        std::string m_api_key_key;
-        bool m_api_active;
+        bool m_api_active = false;
     };
 } // namespace Api

@@ -234,11 +234,11 @@ namespace Api
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, HttpMethodToString(request.method));
         curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
 
-        if (!m_api_key_key.empty())
+        if (Config::GetApiKeyKey() != "")
         {
             // If the API key is present, we need to send it even if the call we're
             // making does not require authentication.
-            request.headers.push_back("Authorization: Bearer " + m_api_key_key);
+            request.headers.push_back("Authorization: Bearer " + Config::GetApiKeyKey());
         }
 
         // Let the API know we're prefering JSON or HTML to be sent back.

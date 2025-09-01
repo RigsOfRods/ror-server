@@ -131,10 +131,10 @@ BOOL WINAPI WindowsConsoleHandlerRoutine(DWORD ctrl_type)
         return TRUE; // Means 'event handled'
     }
 
-    if (s_api.Authenticated())
+    if (s_api_client.Authenticated())
     {
         Logger::Log(LOG_INFO, "Unregistering...");
-        s_api.SyncServerPowerState("offline");
+        s_api_client.SyncServerPowerState("offline");
     }
     s_sequencer.Close(); // TODO: This somehow closes (crashes?) the process on Windows, debugger doesn't intercept anything...
     Logger::Log(LOG_INFO, "Clean exit (Windows)");
@@ -271,7 +271,7 @@ int main(int argc, char *argv[]) {
         std::string ip_addr = Config::getIPAddr();
         if (ip_addr.empty() || (ip_addr == "0.0.0.0")) {
             Logger::Log(LOG_WARN, "No IP given, detecting...");
-            if (s_api.GetPublicIp(ip_addr) != API_NO_ERROR) {
+            if (s_api_client.GetPublicIp(ip_addr) != API_NO_ERROR) {
                 Logger::Log(LOG_ERROR, "Failed to auto-detect public IP, exit.");
                 return -1;
             }

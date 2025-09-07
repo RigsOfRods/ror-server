@@ -5,6 +5,7 @@ add_executable(${PROJECT_NAME} ${server_src})
 
 target_include_directories(
         ${PROJECT_NAME} PRIVATE
+        ${CMAKE_SOURCE_DIR}/dependencies/enet/include
         ${CMAKE_SOURCE_DIR}/source/protocol/
         ${CMAKE_SOURCE_DIR}/source/common/
 )
@@ -20,10 +21,11 @@ if (RORSERVER_WITH_CURL)
     target_link_libraries(${PROJECT_NAME} PRIVATE CURL::libcurl)
 endif ()
 
-target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads SocketW::SocketW jsoncpp_lib)
+target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads SocketW::SocketW jsoncpp_lib enet)
 
 IF (WIN32)
     target_compile_definitions(${PROJECT_NAME} PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+    target_link_libraries(${PROJECT_NAME} PRIVATE winmm)
 ELSEIF (UNIX)
     #add_definitions("-DAS_MAX_PORTABILITY")
     target_link_libraries(${PROJECT_NAME} PRIVATE dl)

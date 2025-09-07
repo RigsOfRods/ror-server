@@ -29,6 +29,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <cstdio>
 #include <cstdarg>
 #include <mutex>
+#include <thread>
 #include <sstream>
 #include <thread>
 

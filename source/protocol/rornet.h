@@ -30,7 +30,7 @@ namespace RoRnet {
 #define RORNET_LAN_BROADCAST_PORT   13000  //!< port used to send the broadcast announcement in LAN mode
 #define RORNET_MAX_USERNAME_LEN     40     //!< port used to send the broadcast announcement in LAN mode
 
-#define RORNET_VERSION              "RoRnet_2.45"
+#define RORNET_VERSION              "RoRnet_2.50"
 
 enum MessageType
 {
@@ -44,7 +44,7 @@ enum MessageType
     MSG2_WELCOME,                      //!< we can proceed
 
     // Technical
-    MSG2_VERSION,                      //!< server responds with its version
+    MSG2_VERSION,                      //!< (repurposed) TCP only; instructs client to reconnect using ENet
     MSG2_SERVER_SETTINGS,              //!< server send client the terrain name: server_info_t
     MSG2_USER_INFO,                    //!< user data that is sent from the server to the clients
     MSG2_MASTERINFO,                   //!< master information response

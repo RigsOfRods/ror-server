@@ -23,10 +23,10 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "blacklist.h"
 #include "prerequisites.h"
 #include "rornet.h"
-#include "broadcaster.h"
-#include "receiver.h"
 #include "spamfilter.h"
 #include "json/json.h"
+#include "enet/enet.h"
+#include "dispatcher_enet.h"
 
 #ifdef WITH_ANGELSCRIPT
 
@@ -64,8 +64,8 @@ enum serverSayType {
 };
 
 enum broadcastType {
-// order: least restrictive to most restrictive!
-            BROADCAST_AUTO = -1,  // Do not edit the publishmode (for scripts only)
+    // order: least restrictive to most restrictive!
+    BROADCAST_AUTO = -1,  // Do not edit the publishmode (for scripts only)
     BROADCAST_ALL,        // broadcast to all clients including sender
     BROADCAST_NORMAL,     // broadcast to all clients except sender
     BROADCAST_AUTHED,     // broadcast to authed users (bots)
@@ -102,13 +102,22 @@ public:
         STATUS_USED = 2
     };
 
-    Client(Sequencer *sequencer, SWInetSocket *socket);
+    enum Progress
+    {
+        INVALID,
+        AWAITING_HELLO,
+        AWAITING_USER_INFO,
+        BEING_VERIFIED,
+        PLAYING,
+        DISCONNECTING
+    };
 
-    void StartThreads();
+    Client(Sequencer *sequencer, ENetPeer* peer, DispatcherENet* dispatcher_enet);
 
     void Disconnect();
 
     void QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len, const char *payload);
+    void MessageReceived(ENetPacket* packet);
 
     void NotifyAllVehicles(Sequencer *sequencer);
 
@@ -116,13 +125,9 @@ public:
 
     std::string GetIpAddress();
 
-    SWInetSocket *GetSocket() { return m_socket; }
+    bool IsBroadcasterDroppingPackets() const { return false; /*TODO delete after ENet is integrated*/  }
 
-    bool IsBroadcasterDroppingPackets() const { return m_broadcaster.IsDroppingPackets(); }
-
-    void SetReceiveData(bool val) { m_is_receiving_data = val; }
-
-    bool IsReceivingData() const { return m_is_receiving_data; }
+    bool IsReceivingData() const { return true; /*TODO delete after ENet is integrated*/ }
 
     Status GetStatus() const { return m_status; }
 
@@ -131,6 +136,9 @@ public:
     std::string GetUsername() const { return Str::SanitizeUtf8(user.username); }
 
     SpamFilter& GetSpamFilter() { return m_spamfilter; }
+
+    void SetProgress(Progress v) { m_progress = v; }
+    Progress GetProgress() { return m_progress; }
 
     RoRnet::UserInfo user;  //!< user information
 
@@ -141,15 +149,15 @@ public:
     std::map<unsigned int, stream_traffic_t> streams_traffic;
 
 private:
-    SWInetSocket *m_socket;
-    Receiver m_receiver;
-    Broadcaster m_broadcaster;
+    ENetPeer* m_peer = nullptr;
+    DispatcherENet* m_dispatcher_enet = nullptr;
+    Progress m_progress = Progress::INVALID;
     Status m_status;
     SpamFilter m_spamfilter;
     Sequencer* m_sequencer;
-    bool m_is_receiving_data;
     bool m_is_initialized;
     std::vector<std::chrono::system_clock::time_point> m_stream_reg_timestamps; //!< To limit spawn rate
+    
 };
 
 struct WebserverClientInfo // Needed because Client cannot be trivially copied anymore due to presence of std::atomic<>
@@ -188,13 +196,6 @@ struct report_t {
     char reportmsg[256];        //!< reason for report
 };
 
-enum class KillerThreadState
-{
-    NOT_RUNNING,
-    RUNNING,
-    STOP_REQUESTED
-};
-
 class Sequencer {
     friend class SpamFilter;
     friend class Client;
@@ -208,11 +209,10 @@ public:
     void Close();
 
     // Synchronized public interface
-    void createClient(SWInetSocket *sock, RoRnet::UserInfo user);
+    void registerClient(Client *client, RoRnet::UserInfo user);
+    void queueMessage(int uid, int type, unsigned int streamid, const char *data, unsigned int len);
     void disconnectClient(int client_id, const char* error, bool isError = true, bool doScriptCallback = true);
     int getNumClients();
-    void queueMessage(int uid, int type, unsigned int streamid, char *data, unsigned int len);
-    void sendMOTDSynchronized(int uid);
     void frameStepScripts(float dt);
     void GetHeartbeatUserList(Json::Value &out_array);
     void UpdateMinuteStats();
@@ -220,11 +220,6 @@ public:
     std::vector<WebserverClientInfo> GetClientListCopy();
     int getStartTime();
 
-    // Killer thread control
-    void StartKillerThread();
-    void StopKillerThread();
-
-    static unsigned int connCrash, connCount;
 
 private:
     // Helpers (not thread safe - only call when clients-mutex is locked!)
@@ -251,30 +246,17 @@ private:
     std::vector<ban_t>       GetBanListCopy();
     void                     broadcastUserInfo(int uid);
 
-    // Killer thread
-    void                     KillerThreadMain();
-    KillerThreadState        KillerThreadWaitForClient(Client*& out_client);
-    void                     KillerThreadProcessClient(Client* client);
 
-    std::mutex m_clients_mutex;  //!< Protects: m_clients, m_script_engine, m_auth_resolver, m_bot_count, m_num_disconnects_[total/crash]
+    std::mutex m_clients_mutex;  //!< Protects: m_clients, m_script_engine, m_auth_resolver, m_bot_count
     ScriptEngine *m_script_engine;
     UserAuth *m_auth_resolver;
     int m_bot_count;      //!< Amount of registered bots on the server.
     unsigned int m_free_user_id;
     int m_start_time;
-    size_t m_num_disconnects_total; //!< Statistic
-    size_t m_num_disconnects_crash; //!< Statistic
     Blacklist m_blacklist;
 
     std::vector<Client *> m_clients;
     std::vector<ban_t *> m_bans;
     std::vector<report_t *> m_reports;
-
-    // Killer thread context
-    std::queue<Client *>     m_kill_queue;
-    std::thread              m_killer_thread;
-    std::condition_variable  m_killer_cond;
-    std::mutex               m_killer_mutex;
-    KillerThreadState        m_killer_state = KillerThreadState::NOT_RUNNING;
 };
 

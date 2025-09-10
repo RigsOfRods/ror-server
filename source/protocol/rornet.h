@@ -61,8 +61,8 @@ enum MessageType
     MSG2_STREAM_REGISTER,              //!< create new stream
     MSG2_STREAM_REGISTER_RESULT,       //!< result of a stream creation
     MSG2_STREAM_UNREGISTER,            //!< remove stream
-    MSG2_STREAM_DATA,                  //!< stream data
-    MSG2_STREAM_DATA_DISCARDABLE,      //!< stream data that is allowed to be discarded
+    MSG2_STREAM_DATA_ACTOR,            //!< stream data (actor)
+    MSG2_STREAM_DATA_CHARACTER,        //!< stream data (character)
 
     MSG2_NO_RANK,                      //!< client has no ranked status
 

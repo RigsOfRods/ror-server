@@ -185,11 +185,6 @@ void DispatcherENet::QueueMessage(ENetPeer *peer, int type, int source, unsigned
 
     char buffer[RORNET_MAX_MESSAGE_LENGTH];
 
-    if (type == RoRnet::MSG2_STREAM_DATA_DISCARDABLE)
-    {
-        type = RoRnet::MSG2_STREAM_DATA;
-    }
-
     memset(&head, 0, sizeof(RoRnet::Header));
     head.command = type;
     head.source = source;

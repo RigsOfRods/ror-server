@@ -125,6 +125,7 @@ struct Header                      //!< Common header for every packet
 {
     uint32_t command;              //!< the command of this packet: MSG2_*
     int32_t  source;               //!< source of this command: 0 = server
+    uint32_t server2source_ping;   //!< filled by rorserver with current ENet ping of the source peer.
     uint32_t streamid;             //!< streamid for this command
     uint32_t size;                 //!< size of the attached data block
 };

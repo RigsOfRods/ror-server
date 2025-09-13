@@ -228,8 +228,9 @@ void Client::MessageReceived(ENetPacket* packet) {
             break;
 
         default:
+            header.server2source_ping = m_peer->roundTripTime;
             m_sequencer->queueMessage(this->GetUserId(),
-                (int)header.command, header.streamid, payload, header.size);            
+                (int)header.command, header.streamid, payload, header.size);
     }
 }
 

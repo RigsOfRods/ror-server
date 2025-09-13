@@ -84,7 +84,6 @@ void Listener::Shutdown() {
 
 void Listener::ThreadMain() {
     Logger::Log(LOG_DEBUG, "Listerer thread starting");
-
     SWBaseSocket::SWBaseError error;
 
     //await connections
@@ -144,75 +143,11 @@ void Listener::ThreadMain() {
                 throw std::runtime_error("ERROR Listener: bad version: " + std::string(buffer) + ". rejecting ...");
             }
 
-            // compatible version, continue to send server settings
-            std::string motd_str;
-            {
-                std::vector<std::string> lines;
-                if (!Utils::ReadLinesFromFile(Config::getMOTDFile(), lines))
-                {
-                    for (const auto& line : lines)
-                        motd_str += line + "\n";
-                }
-            }
-
-            Logger::Log(LOG_DEBUG, "Listener sending server settings");
-            RoRnet::ServerInfo settings;
-            memset(&settings, 0, sizeof(RoRnet::ServerInfo));
-            settings.has_password = !Config::getPublicPassword().empty();
-            strncpy(settings.info, motd_str.c_str(), motd_str.size());
-            strncpy(settings.protocolversion, RORNET_VERSION, strlen(RORNET_VERSION));
-            strncpy(settings.servername, Config::getServerName().c_str(), Config::getServerName().size());
-            strncpy(settings.terrain, Config::getTerrainName().c_str(), Config::getTerrainName().size());
-
-            if (Messaging::SWSendMessage(ts, RoRnet::MSG2_HELLO, 0, 0, (unsigned int) sizeof(RoRnet::ServerInfo),
-                                       (char *) &settings))
-                throw std::runtime_error("ERROR Listener: sending version");
-
-            //receive user infos
-            if (Messaging::SWReceiveMessage(ts, &type, &source, &streamid, &len,
-                                            buffer,
-                                            RORNET_MAX_MESSAGE_LENGTH)) {
-                std::stringstream error_msg;
-                error_msg << "ERROR Listener: receiving user infos\n"
-                          << "ERROR Listener: got that: "
-                          << type;
-                throw std::runtime_error(error_msg.str());
-            }
-
-            if (type != RoRnet::MSG2_USER_INFO)
-                throw std::runtime_error("Warning Listener: no user name");
-
-            if (len > sizeof(RoRnet::UserInfo))
-                throw std::runtime_error("Error: did not receive proper user credentials");
-            Logger::Log(LOG_INFO, "Listener creating a new client...");
-
-            RoRnet::UserInfo *user = (RoRnet::UserInfo *) buffer;
-            user->authstatus = RoRnet::AUTH_NONE;
-
-            // authenticate
-            user->username[RORNET_MAX_USERNAME_LEN - 1] = 0;
-            std::string nickname = Str::SanitizeUtf8(user->username);
-            user->authstatus = m_sequencer->AuthorizeNick(std::string(user->usertoken, 40), nickname);
-            strncpy(user->username, nickname.c_str(), RORNET_MAX_USERNAME_LEN - 1);
-
-            if (Config::isPublic()) {
-                Logger::Log(LOG_DEBUG, "password login: %s == %s?",
-                            Config::getPublicPassword().c_str(),
-                            std::string(user->serverpassword, 40).c_str());
-                if (strncmp(Config::getPublicPassword().c_str(), user->serverpassword, 40)) {
-                    Messaging::SWSendMessage(ts, RoRnet::MSG2_WRONG_PW, 0, 0, 0, 0);
-                    throw std::runtime_error("ERROR Listener: wrong password");
-                }
-
-                Logger::Log(LOG_DEBUG, "user used the correct password, "
-                        "creating client!");
-            } else {
-                Logger::Log(LOG_DEBUG, "no password protection, creating client");
-            }
-
-            //create a new client
-            m_sequencer->createClient(ts, *user); // copy the user info, since the buffer will be cleared soon
-            Logger::Log(LOG_DEBUG, "listener returned!");
+            // compatible version - tell client to reconnect using ENet
+            Messaging::SWSendMessage(ts, RoRnet::MSG2_VERSION, 0, 0, 0, 0);
+            // close socket
+            ts->disconnect(&error);
+            delete ts;
         }
         catch (std::runtime_error &e) {
             Logger::Log(LOG_ERROR, e.what());

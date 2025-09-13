@@ -30,7 +30,7 @@ namespace RoRnet {
 #define RORNET_LAN_BROADCAST_PORT   13000  //!< port used to send the broadcast announcement in LAN mode
 #define RORNET_MAX_USERNAME_LEN     40     //!< port used to send the broadcast announcement in LAN mode
 
-#define RORNET_VERSION              "RoRnet_2.45"
+#define RORNET_VERSION              "RoRnet_2.50"
 
 enum MessageType
 {
@@ -44,7 +44,7 @@ enum MessageType
     MSG2_WELCOME,                      //!< we can proceed
 
     // Technical
-    MSG2_VERSION,                      //!< server responds with its version
+    MSG2_VERSION,                      //!< (repurposed) TCP only; instructs client to reconnect using ENet
     MSG2_SERVER_SETTINGS,              //!< server send client the terrain name: server_info_t
     MSG2_USER_INFO,                    //!< user data that is sent from the server to the clients
     MSG2_MASTERINFO,                   //!< master information response
@@ -61,8 +61,9 @@ enum MessageType
     MSG2_STREAM_REGISTER,              //!< create new stream
     MSG2_STREAM_REGISTER_RESULT,       //!< result of a stream creation
     MSG2_STREAM_UNREGISTER,            //!< remove stream
-    MSG2_STREAM_DATA,                  //!< stream data
-    MSG2_STREAM_DATA_DISCARDABLE,      //!< stream data that is allowed to be discarded
+    MSG2_STREAM_DATA_ACTOR,            //!< stream data (actor state and positions)
+    MSG2_STREAM_DATA_FORCES,           //!< stream data (actor collision forces)
+    MSG2_STREAM_DATA_CHARACTER,        //!< stream data (character)
 
     // Legacy values (RoRnet_2.38 and earlier)
     MSG2_WRONG_VER_LEGACY = 1003,      //!< Wrong version
@@ -125,6 +126,7 @@ struct Header                      //!< Common header for every packet
 {
     uint32_t command;              //!< the command of this packet: MSG2_*
     int32_t  source;               //!< source of this command: 0 = server
+    uint32_t server2source_ping;   //!< filled by rorserver with current ENet ping of the source peer.
     uint32_t streamid;             //!< streamid for this command
     uint32_t size;                 //!< size of the attached data block
 };

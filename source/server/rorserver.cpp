@@ -26,6 +26,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #include "messaging.h"
 #include "listener.h"
+#include "dispatcher_enet.h"
 #include "master-server.h"
 #include "utils.h"
 
@@ -308,11 +309,14 @@ int main(int argc, char *argv[]) {
     SetConsoleCtrlHandler(WindowsConsoleHandlerRoutine, TRUE);
 #endif // ! _WIN32
 
+    DispatcherENet dispatcher_enet(&s_sequencer);
+    dispatcher_enet.Initialize();
 
     Listener listener(&s_sequencer);
     if (!listener.Initialize()) {
         return -1;
     }
+
     s_sequencer.Initialize();
 
     // Listener is ready, let's register ourselves on serverlist (which will contact us back to check).
@@ -320,7 +324,8 @@ int main(int argc, char *argv[]) {
         bool registered = s_master_server.Register();
         if (!registered && (server_mode == SERVER_INET)) {
             Logger::Log(LOG_ERROR, "Failed to register on serverlist. Exit");
-            listener.Shutdown();
+            listener.Shutdown(); // Stop accepting TCP connections.
+            dispatcher_enet.Shutdown(); // Stop ENet messaging.            
             return -1;
         } else if (!registered) // server_mode == SERVER_AUTO
         {
@@ -386,7 +391,9 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    s_sequencer.Close();
+    listener.Shutdown(); // Stop accepting new TCP connections.
+    s_sequencer.Close(); // Disconnect all ENet clients.
+    dispatcher_enet.Shutdown(); // Stop all ENet messaging.
     return 0;
 }
 

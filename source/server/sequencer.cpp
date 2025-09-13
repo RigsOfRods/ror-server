@@ -22,8 +22,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "messaging.h"
 #include "sha1_util.h"
-#include "receiver.h"
-#include "broadcaster.h"
+
+
 #include "userauth.h"
 #include "SocketW.h"
 #include "logger.h"
@@ -38,6 +38,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <iostream>
 #include <stdexcept>
 #include <sstream>
+#include <cassert>
+#include <cstring>
 
 #ifdef __GNUC__
 
@@ -45,37 +47,20 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #endif
 
-Client::Client(Sequencer *sequencer, SWInetSocket *socket) :
-        m_socket(socket),
-        m_receiver(sequencer),
-        m_broadcaster(sequencer),
+Client::Client(Sequencer *sequencer, ENetPeer* peer, DispatcherENet *dispatcher_enet) :
+        m_peer(peer),
+        m_dispatcher_enet(dispatcher_enet),
         m_sequencer(sequencer),
         m_status(Client::STATUS_USED),
         m_spamfilter(sequencer, this),
-        m_is_receiving_data(false),
         m_is_initialized(false) {
 }
 
-void Client::StartThreads() {
-    m_receiver.Start(this);
-    m_broadcaster.Start(this);
-}
-
 void Client::Disconnect() {
-    // Signal threads to stop and wait for them to finish
-    m_broadcaster.Stop();
-    m_receiver.Stop();
-
-    // Disconnect the socket
-    SWBaseSocket::SWBaseError result;
-    bool disconnected_ok = m_socket->disconnect(&result);
-    if (!disconnected_ok || (result != SWBaseSocket::base_error::ok)) {
-        Logger::Log(
-                LOG_ERROR,
-                "Internal: Error while disconnecting client - failed to disconnect socket. Message: %s",
-                result.get_error().c_str());
-    }
-    delete m_socket;
+    // Instruct ENet to disconnect the peer.
+    // The Client object will be disposed on ENET_EVENT_TYPE_DISCONNECT.
+    enet_peer_disconnect(m_peer, 0);
+    m_progress = DISCONNECTING;
 }
 
 bool Client::CheckSpawnRate()
@@ -117,20 +102,136 @@ bool Client::CheckSpawnRate()
 }
 
 std::string Client::GetIpAddress() {
-    SWBaseSocket::SWBaseError result;
-    std::string ip = m_socket->get_peerAddr(&result);
-    if (result != SWBaseSocket::base_error::ok) {
-        Logger::Log(
-                LOG_ERROR,
-                "Internal: Error while getting client IP address. Message: %s",
-                result.get_error().c_str());
-    }
-    return ip;
+    const size_t LEN = 100;
+    char buf[LEN] = {};
+    enet_address_get_host_ip(&m_peer->address, buf, LEN);
+    return buf;
 }
 
 void Client::QueueMessage(int msg_type, int client_id, unsigned int stream_id, unsigned int payload_len,
                           const char *payload) {
-    m_broadcaster.QueueMessage(msg_type, client_id, stream_id, payload_len, payload);
+    m_dispatcher_enet->QueueMessage(m_peer, msg_type, client_id, stream_id, payload_len, payload);
+}
+
+void Client::MessageReceived(ENetPacket* packet) {
+    // Analyze packet
+    RoRnet::Header header;
+    std::memcpy(&header, packet->data, sizeof(RoRnet::Header));
+    if (header.command < 1000 || header.command > 1050)
+    {
+        Logger::Log(LOG_ERROR, "Received invalid RoRnet message! Disconnecting the peer.");
+        this->Disconnect();
+        return;
+    }
+    const char* payload = nullptr;
+    assert(header.size == packet->dataLength - sizeof(RoRnet::Header));
+    if (header.size > 0)
+    {
+        payload = reinterpret_cast<const char*>(packet->data + sizeof(RoRnet::Header));
+    }
+
+    // Update client if validation is in progress
+    switch (m_progress)
+    {
+        case Client::AWAITING_HELLO:
+            if (header.command == RoRnet::MSG2_HELLO)
+            {
+                if (header.size > 0 && strncmp(payload, RORNET_VERSION, strlen(RORNET_VERSION)) == 0)
+                {
+                    // compatible version, continue to send server settings
+                    std::string motd_str;
+                    {
+                        std::vector<std::string> lines;
+                        if (!Utils::ReadLinesFromFile(Config::getMOTDFile(), lines))
+                        {
+                            for (const auto& line : lines)
+                                motd_str += line + "\n";
+                        }
+                    }
+
+                    Logger::Log(LOG_DEBUG, "Client sending server settings");
+                    RoRnet::ServerInfo settings;
+                    memset(&settings, 0, sizeof(RoRnet::ServerInfo));
+                    settings.has_password = !Config::getPublicPassword().empty();
+                    strncpy(settings.info, motd_str.c_str(), motd_str.size());
+                    strncpy(settings.protocolversion, RORNET_VERSION, strlen(RORNET_VERSION));
+                    strncpy(settings.servername, Config::getServerName().c_str(), Config::getServerName().size());
+                    strncpy(settings.terrain, Config::getTerrainName().c_str(), Config::getTerrainName().size());
+
+                    this->QueueMessage(RoRnet::MSG2_SERVER_SETTINGS, 0, 0, (unsigned int) sizeof(RoRnet::ServerInfo),
+                                               (char *) &settings);
+                    m_progress = Client::AWAITING_USER_INFO;
+                }
+                else
+                {
+                    // not compatible
+                    this->QueueMessage(RoRnet::MSG2_WRONG_VER, 0, 0, 0, 0);
+                    Logger::Log(LOG_WARN, "Rejecting client; bad version '%s'", payload);
+                }
+            }
+            else
+            {
+                Logger::Log(LOG_WARN, "Rejecting client; bad message, expected HELLO, got %u", header.command);
+                this->Disconnect();
+            }
+            break;
+
+        case Client::AWAITING_USER_INFO:
+            if (header.command == RoRnet::MSG2_USER_INFO)
+            {
+                if (header.size == sizeof(RoRnet::UserInfo))
+                {
+                    m_progress = Client::BEING_VERIFIED;
+
+                    RoRnet::UserInfo *user = (RoRnet::UserInfo *) payload;
+                    user->authstatus = RoRnet::AUTH_NONE;
+
+                    // authenticate
+                    user->username[RORNET_MAX_USERNAME_LEN - 1] = 0;
+                    std::string nickname = Str::SanitizeUtf8(user->username);
+                    user->authstatus = m_sequencer->AuthorizeNick(std::string(user->usertoken, 40), nickname);
+                    strncpy(user->username, nickname.c_str(), RORNET_MAX_USERNAME_LEN - 1);
+
+                    if (Config::isPublic())
+                    {
+                        Logger::Log(LOG_DEBUG, "password login: %s == %s?",
+                                    Config::getPublicPassword().c_str(),
+                                    std::string(user->serverpassword, 40).c_str());
+
+                        if (0 == strncmp(Config::getPublicPassword().c_str(), user->serverpassword, 40))
+                        {
+                            Logger::Log(LOG_DEBUG, "password is valid, registering client!");
+                            m_sequencer->registerClient(this, *user);
+                        }
+                        else
+                        {
+                            this->QueueMessage(RoRnet::MSG2_WRONG_PW, 0, 0, 0, 0);
+                        }                        
+                    }
+                    else
+                    {
+                        Logger::Log(LOG_DEBUG, "no password protection, registering client");
+                        m_sequencer->registerClient(this, *user);
+                    }                
+                }
+                else
+                {
+                    Logger::Log(LOG_WARN, "Rejecting client; did not receive proper user credentials");
+                    this->Disconnect();
+                }
+            }
+            else
+            {
+                Logger::Log(LOG_WARN, "Rejecting client; bad message, expected USER_INFO, got %u", header.command);
+                this->Disconnect();
+            }
+            break;
+
+        default:
+            header.server2source_ping = m_peer->roundTripTime;
+            m_sequencer->queueMessage(this->GetUserId(),
+                (int)header.command, header.streamid, payload, header.size);
+    }
 }
 
 // Yes, this is weird. To be refactored.
@@ -147,8 +248,6 @@ void Client::NotifyAllVehicles(Sequencer *sequencer) {
 Sequencer::Sequencer() :
         m_script_engine(nullptr),
         m_auth_resolver(nullptr),
-        m_num_disconnects_total(0),
-        m_num_disconnects_crash(0),
         m_blacklist(this),
         m_bot_count(0),
         m_free_user_id(1) {
@@ -168,8 +267,6 @@ void Sequencer::Initialize() {
     }
 #endif //WITH_ANGELSCRIPT
 
-    this->StartKillerThread();
-
     m_auth_resolver = new UserAuth(Config::getAuthFile());
 
     m_blacklist.LoadBlacklistFromFile();
@@ -184,9 +281,9 @@ void Sequencer::Close() {
 
     const char *str = "server shutting down (try to reconnect later!)";
     for (unsigned int i = 0; i < m_clients.size(); i++) {
-        // HACK-ISH override all thread stuff and directly send it!
+        
         Client *client = m_clients[i];
-        Messaging::SWSendMessage(client->GetSocket(), RoRnet::MSG2_USER_LEAVE, client->user.uniqueid, 0, strlen(str),
+        client->QueueMessage(RoRnet::MSG2_USER_LEAVE, static_cast<int>(client->user.uniqueid), 0, strlen(str),
                                str);
     }
     Logger::Log(LOG_INFO, "all clients disconnected. exiting.");
@@ -201,39 +298,6 @@ void Sequencer::Close() {
     if (m_auth_resolver != nullptr) {
         delete m_auth_resolver;
         m_auth_resolver = nullptr;
-    }
-
-    this->StopKillerThread();
-}
-
-void Sequencer::StartKillerThread()
-{
-    std::lock_guard<std::mutex> lock(m_killer_mutex);
-    if (m_killer_state != KillerThreadState::NOT_RUNNING)
-    {
-        return;
-    }
-    m_killer_thread = std::thread(&Sequencer::KillerThreadMain, this);
-    m_killer_state = KillerThreadState::RUNNING;
-}
-
-void Sequencer::StopKillerThread()
-{
-    {
-        std::lock_guard<std::mutex> lock(m_killer_mutex);
-        if (m_killer_state != KillerThreadState::RUNNING)
-        {
-            return;
-        }
-        m_killer_state = KillerThreadState::STOP_REQUESTED;
-    }
-    
-    m_killer_cond.notify_one();
-    m_killer_thread.join();
-
-    {
-        std::lock_guard<std::mutex> lock(m_killer_mutex);
-        m_killer_state = KillerThreadState::NOT_RUNNING;
     }
 }
 
@@ -270,19 +334,19 @@ int Sequencer::GetFreePlayerColour() {
     }
 }
 
-void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
+//this is called by the ENet dispatcher thread
+void Sequencer::registerClient(Client *client, RoRnet::UserInfo user) {
     //we have a confirmed client that wants to play
     //try to find a place for him
-    Logger::Log(LOG_DEBUG, "got instance in createClient()");
+    Logger::Log(LOG_DEBUG, "got instance in registerClient()");
 
     std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
 
-	std::string nick = Str::SanitizeUtf8(user.username);
+    std::string nick = Str::SanitizeUtf8(user.username);
     // check if banned
-    SWBaseSocket::SWBaseError error;
-    if (Sequencer::IsBanned(sock->get_peerAddr(&error).c_str())) {
-        Logger::Log(LOG_WARN, "rejected banned client '%s' with IP %s", nick.c_str(), sock->get_peerAddr(&error).c_str());
-        Messaging::SWSendMessage(sock, RoRnet::MSG2_BANNED, 0, 0, 0, 0);
+    if (Sequencer::IsBanned(client->GetIpAddress().c_str())) {
+        Logger::Log(LOG_WARN, "rejected banned client '%s' with IP %s", nick.c_str(), client->GetIpAddress().c_str());
+        client->QueueMessage(RoRnet::MSG2_BANNED, 0, 0, 0, 0);
         return;
     }
 
@@ -291,10 +355,8 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
     if (m_clients.size() >= (Config::getMaxClients() + m_bot_count)) {
         Logger::Log(LOG_WARN, "join request from '%s' on full server: rejecting!",
                     Str::SanitizeUtf8(user.username).c_str());
-        // set a low time out because we don't want to cause a back up of
-        // connecting clients
-        sock->set_timeout(10, 0);
-        Messaging::SWSendMessage(sock, RoRnet::MSG2_FULL, 0, 0, 0, 0);
+
+        client->QueueMessage(RoRnet::MSG2_FULL, 0, 0, 0, 0);
         throw std::runtime_error("Server is full");
     }
 
@@ -324,7 +386,7 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
         m_bot_count++;
 
     //okay, create the client slot
-    Client *to_add = new Client(this, sock);
+    Client *to_add = client;
     to_add->user = user;
     to_add->user.colournum = Sequencer::GetFreePlayerColour();
     to_add->user.authstatus = user.authstatus;
@@ -349,16 +411,13 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
 
     // add the client to the vector
     m_clients.push_back(to_add);
-    // create one thread for the receiver
-    // and one for the broadcaster
-    to_add->StartThreads();
 
-    Logger::Log(LOG_VERBOSE, "Sending welcome message to uid %i", client_id);
-    if (Messaging::SWSendMessage(sock, RoRnet::MSG2_WELCOME, client_id, 0, sizeof(RoRnet::UserInfo),
-                               (char *) &to_add->user)) {
-        this->QueueClientForDisconnect(client_id, "error sending welcome message");
-        return;
-    }
+
+    Logger::Log(LOG_VERBOSE, "Sending welcome message to uid %u", client_id);
+    client->QueueMessage(RoRnet::MSG2_WELCOME, client_id, 0, sizeof(RoRnet::UserInfo),
+                               (char *) &to_add->user);
+    this->sendMOTD(client->GetUserId());
+    client->SetProgress(Client::PLAYING);
 
     // Do script callback
 #ifdef WITH_ANGELSCRIPT
@@ -442,51 +501,6 @@ int Sequencer::AuthorizeNick(std::string token, std::string &nickname) {
     return m_auth_resolver->resolve(token, nickname, m_free_user_id);
 }
 
-void Sequencer::KillerThreadMain()
-{
-    Logger::Log(LOG_DEBUG, "Killer thread ready");
-    while (true)
-    {
-        Client* client = nullptr;
-        KillerThreadState state = this->KillerThreadWaitForClient(/*out:*/ client);
-        if (state == KillerThreadState::STOP_REQUESTED)
-        {
-            Logger::Log(LOG_DEBUG, "Killer thread requested to stop");
-            break;
-        }
-        else if (client)
-        {
-            this->KillerThreadProcessClient(client);
-        }
-    }
-}
-
-KillerThreadState Sequencer::KillerThreadWaitForClient(Client*& out_client)
-{
-    std::unique_lock<std::mutex> uni_lock(m_killer_mutex);
-    if (m_kill_queue.empty())
-    {
-        m_killer_cond.wait(uni_lock);
-    }
-    if (!m_kill_queue.empty())
-    {
-        out_client = m_kill_queue.front();
-        m_kill_queue.pop(); // pop front
-    }
-    return m_killer_state;
-}
-
-void Sequencer::KillerThreadProcessClient(Client* client)
-{
-    // Give the client time to disconnect itself
-    std::this_thread::sleep_for(std::chrono::seconds(5));
-
-    // Join the send/recv threads and close socket
-    client->Disconnect();
-
-    delete client;
-}
-
 void Sequencer::QueueClientForDisconnect(int uid, const char *errormsg, bool isError /*=true*/, bool doScriptCallback /*= true*/) {
 
     Client *client = this->FindClientById(static_cast<unsigned int>(uid));
@@ -496,6 +510,8 @@ void Sequencer::QueueClientForDisconnect(int uid, const char *errormsg, bool isE
             "(error message: '%s')", uid, errormsg);
         return;
     }
+
+    Logger::Log(LOG_VERBOSE, "Disconnecting client ID %d: %s", uid, errormsg);
 
     // send an event if user is rankend and if we are a official server
     /* Disabled until new multiplayer portal supports it.
@@ -528,30 +544,13 @@ void Sequencer::QueueClientForDisconnect(int uid, const char *errormsg, bool isE
 
     printStats();
 
-    //this routine is a potential trouble maker as it can be called from many thread contexts
-    //so we use a killer thread
-    Logger::Log(LOG_VERBOSE, "Disconnecting client ID %d: %s", uid, errormsg);
-    Logger::Log(LOG_DEBUG, "adding client to kill queue, size: %d", m_kill_queue.size());
+    if (!isError)
     {
-        std::lock_guard<std::mutex> lock(m_killer_mutex);
-        m_kill_queue.push(client);
+        client->Disconnect();
     }
-    m_killer_cond.notify_one();
-
-    m_num_disconnects_total++;
-    if (isError) {
-        m_num_disconnects_crash++;
-    }
-    Logger::Log(LOG_INFO, "crash statistic: %zu of %zu deletes crashed",
-        m_num_disconnects_crash, m_num_disconnects_total);
 }
 
-void Sequencer::sendMOTDSynchronized(int uid)
-{
-    std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
-    this->sendMOTD(uid);
-}
-
+//this is called from the ENet dispatcher thread initial handshake
 void Sequencer::sendMOTD(int uid) {
     std::vector<std::string> lines;
     int res = Utils::ReadLinesFromFile(Config::getMOTDFile(), lines);
@@ -567,7 +566,7 @@ void Sequencer::sendMOTD(int uid) {
     }
 }
 
-//this is called from the listener thread initial handshake
+//this is called from the ENet dispatcher thread initial handshake
 void Sequencer::IntroduceNewClientToAllVehicles(Client *new_client) {
     RoRnet::UserInfo info_for_others = new_client->user;
     memset(info_for_others.usertoken, 0, 40);
@@ -842,8 +841,8 @@ void Sequencer::streamDebug() {
     }
 }
 
-//this is called by the receivers threads, like crazy & concurrently
-void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *data, unsigned int len) {
+//this is called by the ENet dispatcher thread
+void Sequencer::queueMessage(int uid, int type, unsigned int streamid, const char *data, unsigned int len) {
     std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
 
     Client *client = this->FindClientById(static_cast<unsigned int>(uid));
@@ -869,7 +868,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
 
     int publishMode = BROADCAST_BLOCK;
 
-    if (type == RoRnet::MSG2_STREAM_DATA || type == RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
+    if (type == RoRnet::MSG2_STREAM_DATA_CHARACTER || type == RoRnet::MSG2_STREAM_DATA_ACTOR || type == RoRnet::MSG2_STREAM_DATA_FORCES) {
         client->NotifyAllVehicles(this);
 
         publishMode = BROADCAST_NORMAL;
@@ -1306,7 +1305,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
         // private chat message
         Client *dest_client = this->FindClientById(static_cast<unsigned int>(uid));
         if (dest_client != nullptr) {
-            char *chatmsg = data + sizeof(int);
+            const char *chatmsg = data + sizeof(int);
             int chatlen = len - sizeof(int);
             dest_client->QueueMessage(RoRnet::MSG2_UTF8_PRIVCHAT, uid, streamid, chatlen, chatmsg);
             publishMode = BROADCAST_BLOCK;

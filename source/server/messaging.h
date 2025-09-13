@@ -49,6 +49,8 @@ namespace Messaging {
 
     void StatsAddIncomingDrop(int bytes);
 
+    void StatsAddOutgoing(int bytes);
+
     void StatsAddOutgoingDrop(int bytes);
 
     stream_traffic_t GetTrafficStats();

@@ -61,7 +61,8 @@ enum MessageType
     MSG2_STREAM_REGISTER,              //!< create new stream
     MSG2_STREAM_REGISTER_RESULT,       //!< result of a stream creation
     MSG2_STREAM_UNREGISTER,            //!< remove stream
-    MSG2_STREAM_DATA_ACTOR,            //!< stream data (actor)
+    MSG2_STREAM_DATA_ACTOR,            //!< stream data (actor state and positions)
+    MSG2_STREAM_DATA_FORCES,           //!< stream data (actor collision forces)
     MSG2_STREAM_DATA_CHARACTER,        //!< stream data (character)
 
     // Legacy values (RoRnet_2.38 and earlier)

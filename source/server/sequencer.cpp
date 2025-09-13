@@ -868,7 +868,7 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, const cha
 
     int publishMode = BROADCAST_BLOCK;
 
-    if (type == RoRnet::MSG2_STREAM_DATA_CHARACTER || type == RoRnet::MSG2_STREAM_DATA_ACTOR) {
+    if (type == RoRnet::MSG2_STREAM_DATA_CHARACTER || type == RoRnet::MSG2_STREAM_DATA_ACTOR || type == RoRnet::MSG2_STREAM_DATA_FORCES) {
         client->NotifyAllVehicles(this);
 
         publishMode = BROADCAST_NORMAL;

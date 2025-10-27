@@ -54,7 +54,7 @@ jobs:
           ninja
 
       - name: Upload bin folder
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ror-server-${{ matrix.os }}
           path: bin

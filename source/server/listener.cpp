@@ -211,8 +211,10 @@ void Listener::ThreadMain() {
             }
 
             if (Config::getRankedOnly()) {
-                if (user->authstatus & RoRnet::AUTH_NONE) {
-                    Messaging::SWSendMessage(ts, RoRnet::MSG2_FULL, 0, 0, 0, 0);
+                Logger::Log(LOG_DEBUG, "ranked-only server: checking user status");
+                if (user->authstatus == RoRnet::AUTH_NONE) {
+                    Logger::Log(LOG_DEBUG, "ranked-only server: rejecting non-ranked user");
+                    Messaging::SWSendMessage(ts, RoRnet::MSG2_NO_RANK, 0, 0, 0, 0);
                     throw std::runtime_error("ERROR Listener: no auth status");
                 }
             }

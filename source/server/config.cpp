@@ -194,6 +194,9 @@ namespace Config {
         Logger::Log(LOG_INFO, "server is%s password protected",
                     getPublicPassword().empty() ? " NOT" : "");
 
+        Logger::Log(LOG_INFO, "server is%s ranked-only mode",
+                    getRankedOnly() ? "" : " NOT");
+
         return getMaxClients() && getListenPort() && !getIPAddr().empty() &&
                !getTerrainName().empty();
     }
@@ -249,6 +252,7 @@ namespace Config {
             HANDLE_ARG_VALUE("terrain", { setTerrain(value); });
             HANDLE_ARG_VALUE("password", { setPublicPass(value); });
             HANDLE_ARG_VALUE("ip", { setIPAddr(value); });
+            HANDLE_ARG_FLAG ("ranked-only", { setRankedOnly(true); });
             HANDLE_ARG_VALUE("resource-dir", { setResourceDir(value); });
             HANDLE_ARG_VALUE("auth-file", { setAuthFile(value); });
             HANDLE_ARG_VALUE("motd-file", { setMOTDFile(value); });
@@ -500,6 +504,7 @@ namespace Config {
         else if (strcmp(key, "mode") == 0) { SetConfServerMode(VAL_STR (value)); }
         else if (strcmp(key, "printstats") == 0) { setPrintStats(VAL_BOOL(value)); }
         else if (strcmp(key, "foreground") == 0) { setForeground(VAL_BOOL(value)); }
+        else if (strcmp(key, "ranked-only") == 0) { setRankedOnly(VAL_BOOL(value)); }
         else if (strcmp(key, "resdir") == 0) { setResourceDir(VAL_STR (value)); }
         else if (strcmp(key, "logfilename") == 0) { Logger::SetOutputFile(VAL_STR (value)); }
         else if (strcmp(key, "authfile") == 0) { setAuthFile(VAL_STR (value)); }

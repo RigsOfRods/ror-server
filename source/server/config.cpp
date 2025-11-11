@@ -341,8 +341,6 @@ namespace Config {
 
     const std::string &GetServerlistHost() { return s_serverlist_host; }
 
-    const char *GetServerlistHostC() { return s_serverlist_host.c_str(); }
-
     const std::string &GetServerlistPath() { return s_serverlist_path; }
 
     bool GetShowVersion() { return s_show_version; }

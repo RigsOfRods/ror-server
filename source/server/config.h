@@ -89,8 +89,6 @@ namespace Config {
 
     const std::string &GetServerlistHost();
 
-    const char *GetServerlistHostC();
-
     const std::string &GetServerlistPath();
 
     unsigned int GetHeartbeatRetryCount();

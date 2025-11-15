@@ -73,6 +73,7 @@ static bool s_print_stats(false);
 static bool s_foreground(false);
 static bool s_show_version(false);
 static bool s_show_help(false);
+static bool s_ranked_only(false);
 
 // Vehicle spawn limits
 static size_t s_max_vehicles(20);
@@ -193,6 +194,9 @@ namespace Config {
         Logger::Log(LOG_INFO, "server is%s password protected",
                     getPublicPassword().empty() ? " NOT" : "");
 
+        Logger::Log(LOG_INFO, "server is%s ranked-only mode",
+                    getRankedOnly() ? "" : " NOT");
+
         return getMaxClients() && getListenPort() && !getIPAddr().empty() &&
                !getTerrainName().empty();
     }
@@ -248,6 +252,7 @@ namespace Config {
             HANDLE_ARG_VALUE("terrain", { setTerrain(value); });
             HANDLE_ARG_VALUE("password", { setPublicPass(value); });
             HANDLE_ARG_VALUE("ip", { setIPAddr(value); });
+            HANDLE_ARG_FLAG ("ranked-only", { setRankedOnly(true); });
             HANDLE_ARG_VALUE("resource-dir", { setResourceDir(value); });
             HANDLE_ARG_VALUE("auth-file", { setAuthFile(value); });
             HANDLE_ARG_VALUE("motd-file", { setMOTDFile(value); });
@@ -314,6 +319,8 @@ namespace Config {
 
     bool getForeground() { return s_foreground; }
 
+    bool getRankedOnly() { return s_ranked_only; }
+
     const std::string &getResourceDir() { return s_resourcedir; }
 
     const std::string &getAuthFile() { return s_authfile; }
@@ -333,8 +340,6 @@ namespace Config {
     const std::string &getVoIP() { return s_voip; }
 
     const std::string &GetServerlistHost() { return s_serverlist_host; }
-
-    const char *GetServerlistHostC() { return s_serverlist_host.c_str(); }
 
     const std::string &GetServerlistPath() { return s_serverlist_path; }
 
@@ -427,6 +432,8 @@ namespace Config {
 
     void setForeground(bool value) { s_foreground = value; }
 
+    void setRankedOnly(bool value) { s_ranked_only = value; }
+
     void setWebsite(const std::string &website) { s_website = website; }
 
     void setIRC(const std::string &irc) { s_irc = irc; }
@@ -495,6 +502,7 @@ namespace Config {
         else if (strcmp(key, "mode") == 0) { SetConfServerMode(VAL_STR (value)); }
         else if (strcmp(key, "printstats") == 0) { setPrintStats(VAL_BOOL(value)); }
         else if (strcmp(key, "foreground") == 0) { setForeground(VAL_BOOL(value)); }
+        else if (strcmp(key, "ranked-only") == 0) { setRankedOnly(VAL_BOOL(value)); }
         else if (strcmp(key, "resdir") == 0) { setResourceDir(VAL_STR (value)); }
         else if (strcmp(key, "logfilename") == 0) { Logger::SetOutputFile(VAL_STR (value)); }
         else if (strcmp(key, "authfile") == 0) { setAuthFile(VAL_STR (value)); }

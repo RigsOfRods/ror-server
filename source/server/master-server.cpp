@@ -118,7 +118,7 @@ namespace MasterServer {
 
 // Helper
     int Client::HttpRequest(const char *method, const char *payload, Http::Response *out_response) {
-        return Http::Request(method, Config::GetServerlistHostC(), m_server_path.c_str(), "application/json", payload,
+        return Http::Request(method, Config::GetServerlistHost(), m_server_path.c_str(), "application/json", payload,
                              out_response);
     }
 
@@ -128,7 +128,7 @@ namespace MasterServer {
 
         Http::Response response;
         int result_code = Http::Request(Http::METHOD_GET,
-                                        Config::GetServerlistHostC(), url, "application/json", "", &response);
+                                        Config::GetServerlistHost(), url, "application/json", "", &response);
         if (result_code < 0) {
             Logger::Log(LOG_ERROR, "Failed to retrieve public IP address");
             return false;

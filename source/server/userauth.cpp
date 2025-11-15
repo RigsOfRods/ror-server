@@ -156,9 +156,9 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
     int authlevel = RoRnet::AUTH_NONE;
 
     // contact the master server
-    char url[512];
-    sprintf(url, "/%s/users", Config::GetServerlistPath().c_str());
-    Logger::Log(LOG_INFO, "Attempting user authentication (%s)", url);
+    char log_url[512];
+    sprintf(log_url, "%s/%s/users", Config::GetServerlistHost().c_str(), Config::GetServerlistPath().c_str());
+    Logger::Log(LOG_INFO, "Attempting user authentication (%s)", log_url);
 
     Json::Value data(Json::objectValue);
     data["username"] = user_nick;
@@ -167,7 +167,7 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
 
     Http::Response resp;
     int result_code = Http::Request(Http::METHOD_GET,
-                                    Config::GetServerlistHostC(), url, "application/json",
+                                    Config::GetServerlistHost(), Config::GetServerlistPath(), "application/json",
                                     json_str.c_str(), &resp);
 
     // 200 means success!

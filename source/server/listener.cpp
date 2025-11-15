@@ -210,6 +210,15 @@ void Listener::ThreadMain() {
                 Logger::Log(LOG_DEBUG, "no password protection, creating client");
             }
 
+            if (Config::getRankedOnly()) {
+                Logger::Log(LOG_DEBUG, "ranked-only server: checking user status");
+                if (user->authstatus == RoRnet::AUTH_NONE) {
+                    Logger::Log(LOG_DEBUG, "ranked-only server: rejecting non-ranked user");
+                    Messaging::SWSendMessage(ts, RoRnet::MSG2_NO_RANK, 0, 0, 0, 0);
+                    throw std::runtime_error("ERROR Listener: no auth status");
+                }
+            }
+
             //create a new client
             m_sequencer->createClient(ts, *user); // copy the user info, since the buffer will be cleared soon
             Logger::Log(LOG_DEBUG, "listener returned!");

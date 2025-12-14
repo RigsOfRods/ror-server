@@ -4,18 +4,19 @@ on: [push, pull_request]
 
 jobs:
   linux:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Install build Dependencies
         run: |
           sudo apt update
           sudo apt install -y libjsoncpp-dev fakeroot libarchive-tools python3-apt zstd gettext
           curl "https://cdn.anotherfoxguy.com/makedeb/install-makedeb.sh" | sudo bash
-
-      - name: Install angelscript
-        run: git clone https://mpr.makedeb.org/angelscript.git && cd angelscript && makedeb -is
-      - name: Install socketw
-        run: git clone https://mpr.makedeb.org/socketw.git && cd socketw && makedeb -is
+          git clone https://git.anotherfoxguy.com/AnotherFoxGuy/makedeb-pkgs.git
+          cd makedeb-pkgs/angelscript 
+          makedeb -is
+          cd ..
+          cd socketw
+          makedeb -is          
 
       - uses: actions/checkout@v4
 

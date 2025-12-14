@@ -29,9 +29,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "master-server.h"
 #include "utils.h"
 
-#include "sha1_util.h"
-#include "sha1.h"
-
 #include <iostream>
 #include <cstdlib>
 #include <csignal>
@@ -284,11 +281,6 @@ int main(int argc, char *argv[]) {
 
     if (!Config::checkConfig()) {
         return 1;
-    }
-
-    if (!sha1check()) {
-        Logger::Log(LOG_ERROR, "sha1 malfunction!");
-        return -1;
     }
 
 #ifndef _WIN32

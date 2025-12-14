@@ -22,12 +22,12 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "logger.h"
 #include "sequencer.h"
-#include "sha1_util.h"
 #include "spamfilter.h"
 #include "utils.h"
 
 #include <cmath>
 #include <cstring>
+#include "Poco/SHA1Engine.h"
 
 #ifdef __GNUC__
 
@@ -390,15 +390,20 @@ namespace Config {
     }
 
     bool setPublicPass(const std::string &pub_pass) {
-        if (pub_pass.length() > 0 && pub_pass.size() < 250 &&
-            !SHA1FromString(s_public_password, pub_pass)) {
+        try
+        {
+            Poco::SHA1Engine engine;
+            engine.update(pub_pass);
+            s_public_password = Poco::DigestEngine::digestToHex(engine.digest());
+            Logger::Log(LOG_DEBUG, "sha1(%s) = %s", pub_pass.c_str(), s_public_password.c_str());
+            return true;
+        }
+        catch (...)
+        {
             Logger::Log(LOG_ERROR, "could not generate server SHA1 password hash!");
             s_public_password = "";
             return false;
         }
-        Logger::Log(LOG_DEBUG, "sha1(%s) = %s", pub_pass.c_str(),
-                    s_public_password.c_str());
-        return true;
     }
 
     bool setIPAddr(const std::string &ip) {

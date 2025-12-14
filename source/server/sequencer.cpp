@@ -21,7 +21,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "sequencer.h"
 
 #include "messaging.h"
-#include "sha1_util.h"
 #include "receiver.h"
 #include "broadcaster.h"
 #include "userauth.h"

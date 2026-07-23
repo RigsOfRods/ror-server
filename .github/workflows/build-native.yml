@@ -18,7 +18,7 @@ jobs:
           cd socketw
           makedeb -is          
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Configure
         run: cmake -DCMAKE_BUILD_TYPE=Release .

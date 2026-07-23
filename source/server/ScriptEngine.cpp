@@ -227,11 +227,14 @@ int ScriptEngine::loadScript(std::string scriptname) {
 
 void ScriptEngine::ExceptionCallback(asIScriptContext *ctx, void *param) {
     const asIScriptFunction *function = ctx->GetExceptionFunction();
+    const char *sectionName;
+    int s_col, s_row;
+    function->GetDeclaredAt(&sectionName, &s_row, &s_col);
     Logger::Log(LOG_INFO, "--- exception ---");
     Logger::Log(LOG_INFO, "desc: %s", ctx->GetExceptionString());
     Logger::Log(LOG_INFO, "func: %s", function->GetDeclaration());
     Logger::Log(LOG_INFO, "modl: %s", function->GetModuleName());
-    Logger::Log(LOG_INFO, "sect: %s", function->GetScriptSectionName());
+    Logger::Log(LOG_INFO, "sect: %s (%d,%d)", sectionName, s_col, s_row);
     int col, line = ctx->GetExceptionLineNumber(&col);
     Logger::Log(LOG_INFO, "line: %d,%d", line, col);
 
@@ -240,7 +243,8 @@ void ScriptEngine::ExceptionCallback(asIScriptContext *ctx, void *param) {
     char tmp[2048] = "";
     for (asUINT n = 0; n < ctx->GetCallstackSize(); n++) {
         function = ctx->GetFunction(n);
-        sprintf(tmp, "%s (%d): %s", function->GetScriptSectionName(), ctx->GetLineNumber(n),
+        function->GetDeclaredAt(&sectionName, &s_row, &s_col);
+        sprintf(tmp, "%s (%d): %s", sectionName, ctx->GetLineNumber(n),
                 function->GetDeclaration());
         Logger::Log(LOG_INFO, tmp);
         PrintVariables(ctx, n);

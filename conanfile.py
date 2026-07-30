@@ -6,7 +6,7 @@ from conan.tools.files import copy
 class RoRServer(ConanFile):
     name = "RoRServer"
     settings = "os", "compiler", "build_type", "arch"
-    generators = "CMakeToolchain", "CMakeDeps"
+    generators = "CMakeToolchain", "CMakeConfigDeps"
 
     def layout(self):
         self.folders.generators = os.path.join(self.folders.build, "generators")

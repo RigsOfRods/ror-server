@@ -13,6 +13,7 @@ class RoRServer(ConanFile):
 
     def requirements(self):
         self.requires("angelscript/2.38.0")
+        self.requires("enet/1.3.18")
         self.requires("jsoncpp/1.9.5")
         self.requires("openssl/3.3.2", override=True)
         self.requires("socketw/3.11.0@anotherfoxguy/stable")

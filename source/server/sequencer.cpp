@@ -979,10 +979,10 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                     // special case if the user has exactly 1 vehicle
                     if (client->streams.size() == NON_VEHICLE_STREAMS + 1)
                         sprintf(sayMsg, "You now have 1 vehicle. The vehicle limit on this server is set to %d.",
-                                Config::getMaxVehicles());
+                                (int)Config::getMaxVehicles());
                     else
-                        sprintf(sayMsg, "You now have %lu vehicles. The vehicle limit on this server is set to %d.",
-                                (client->streams.size() - NON_VEHICLE_STREAMS), Config::getMaxVehicles());
+                        sprintf(sayMsg, "You now have %d vehicles. The vehicle limit on this server is set to %d.",
+                                (int)(client->streams.size() - NON_VEHICLE_STREAMS), (int)Config::getMaxVehicles());
 
                     serverSay(sayMsg, client->user.uniqueid, FROM_SERVER);
                 }

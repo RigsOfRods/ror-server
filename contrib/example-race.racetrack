@@ -1,0 +1,18 @@
+; ~~ New '.racetrack' format (file extension: .racetrack). ~~
+; Each file specifies a single race track.
+; In .terrn2 file, list the race files under new section [Races]
+; Filenames must include extension and end with = (like scripts do)
+; Race system supports branching/joining paths!
+; Checkpoint format: checkpointNum(1+), altpathNum(1+), x, y, z, rotX, rotY, rotZ, objName(override, optional)
+; By convention, the checkpoint meshes are oriented sideways (facing X axis)
+
+racetrack_name "1 kilometer drag"
+racetrack_laps 0
+racetrack_checkpoint_object 31-checkpoint
+racetrack_start_object 31-checkpoint
+racetrack_finish_object 31-checkpoint
+
+begin_checkpoints
+1, 1, 1010, 9, 505, 0, 90, 0
+2, 1, 10, 9, 505, 0, 90, 0
+end_checkpoints

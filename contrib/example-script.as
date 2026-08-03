@@ -51,6 +51,80 @@ enum curlStatusType // Used by `curlStatus()` callback.
 
 TO_ALL = -1 // constant for functions that receive an uid for sending something
 
+The GenericDocument tokenizer/parser API
+----------------------------------------
+
+Adopted from the game (client) to have a common data format that the game can edit/export and server can load.
+Primary motivation is races, see https://github.com/RigsOfRods/rigs-of-rods/pull/3395.
+Usage: start by creating empty GenericDocumentClass. You can create document by hand or load existing.
+To traverse/edit tokens, you need to create GenericDocContextClass with the document as parameter.
+
+enum TokenType
+{
+    TOKEN_TYPE_NONE,
+    TOKEN_TYPE_LINEBREAK,    //!< Input: LF (CR is ignored); Output: platform-specific.
+    TOKEN_TYPE_COMMENT,      //!< Line starting with ; (skipping whitespace).
+    TOKEN_TYPE_STRING,       //!< Quoted string.
+    TOKEN_TYPE_FLOAT,        //!< Numbers with or without a decimal point.
+    TOKEN_TYPE_INT,          //!< Only numbers without decimal point.
+    TOKEN_TYPE_BOOL,         //!< Lowercase 'true'/'false'.
+    TOKEN_TYPE_KEYWORD,      //!< Unquoted string at start of line (skipping whitespace).
+};
+
+enum GenericDocumentOptions
+{
+    GENERIC_DOCUMENT_OPTION_ALLOW_NAKED_STRINGS, //!< Allow strings without quotes, for backwards compatibility.
+    GENERIC_DOCUMENT_OPTION_ALLOW_SLASH_COMMENTS, //!< Allow comments starting with `//`. 
+    GENERIC_DOCUMENT_OPTION_FIRST_LINE_IS_TITLE, //!< First non-empty & non-comment line is a naked string with spaces. 
+    GENERIC_DOCUMENT_OPTION_ALLOW_SEPARATOR_COLON, //!< Allow ':' as separator between tokens.
+    GENERIC_DOCUMENT_OPTION_PARENTHESES_CAPTURE_SPACES, //!< If non-empty NAKED string encounters '(', following spaces will be captured until matching ')' is found.    
+    GENERIC_DOCUMENT_OPTION_ALLOW_BRACED_KEYWORDS, //!< Allow INI-like '[keyword]' tokens.
+    GENERIC_DOCUMENT_OPTION_ALLOW_SEPARATOR_EQUALS, //!< Allow '=' as separator between tokens.
+    GENERIC_DOCUMENT_OPTION_ALLOW_HASH_COMMENTS //!< Allow comments starting with `#`.     
+};
+
+class GenericDocumentClass
+{
+    bool loadFromFile(string filename, int options = 0);     // Loads and parses a document from dedicated server script directory.
+    bool saveToFile(string filename);                        // Saves the document to dedicated server script directory.
+};
+
+class GenericDocContextClass
+{
+    GenericDocContext(GenericDocument@ d);
+
+    // Traversal
+    bool moveNext();
+    uint getPos();
+    bool seekNextLine();
+    int countLineArgs();
+    bool endOfFile(int offset = 0);
+    TokenType tokenType(int offset = 0);
+    
+    // Token getter functions:
+    // * DATATYPE string ~ TOKENTYPE String, Keyword, Comment
+    // * DATATYPE float ~ TOKENTYPE Float, Int
+    // * DATATYPE bool ~ TOKENTYPE Bool
+    // * no DATATYPE ~ TOKENTYPE LineBreak
+    
+    DATATYPE getTokTOKENTYPE(int offset = 0);
+    bool isTokTOKENTYPE(int offset = 0);
+    
+    // Token getter functions:
+    // * DATATYPE const string&in ~ TOKENTYPE String, Keyword, Comment
+    // * DATATYPE float ~ TOKENTYPE Float, Int
+    // * DATATYPE bool ~ TOKENTYPE Bool
+    // * no DATATYPE ~ TOKENTYPE LineBreak
+
+    void appendTokens(int count); //!< Appends a series of `TokenType::NONE` and sets Pos at the first one added; use `setTok*` functions to fill them.
+    bool insertToken(int offset = 0); //!< Inserts `TokenType::NONE`; @return false if offset is beyond EOF
+    bool eraseToken(int offset = 0); //!< @return false if offset is beyond EOF
+    
+    void appendTokTOKENTYPE(DATATYPE val);  
+
+    bool setTokTOKENTYPE(int offset, DATATYPE str);
+};
+
 */
 
 // ============================================================================
@@ -70,6 +144,9 @@ void main()
     server.setCallback("streamAdded", "myStreamRegisteredCallback", null); // Add another playerDeleted callback.
     server.setCallback("playerChat", "myChatMessageCallback", null); // CAUTION! This replaces the previous callback!
     server.setCallback("gameCmd", "myCommandCallback", null); // CAUTION! This replaces the previous callback!
+    
+    // Showcase the GenericDocument API
+    loadExampleRacetrackFile("example-race.racetrack");
     
     server.Log("Example server script loaded!");
 }
@@ -221,5 +298,104 @@ int myChatMessageCallback(int uid, const string &in msg)
 void myCommandCallback(int uid, const string &in cmd)
 {
     server.say("Example server script: myCommandCallback(): UID: " + uid + ", cmd: '" + cmd + "'.", TO_ALL, FROM_SERVER);
+}
+
+// ============================================================================
+//                GenericDocument (.racetrack) parsing example 
+// ============================================================================    
+
+void loadExampleRacetrackFile(string filename)
+{
+    GenericDocumentClass doc;
+    if (!doc.loadFromFile(filename, GENERIC_DOCUMENT_OPTION_ALLOW_NAKED_STRINGS))
+    {
+        server.say("Example server script: could not load file '"+filename
+            +"' - you need to move it from '/contrib' dir to '/storage' dir.", TO_ALL, FROM_SERVER);
+        return;
+    }
+    
+    GenericDocContextClass ctx(doc);
+    
+    server.say("Example server script: reading GenericDocument file '"+filename+"'", TO_ALL, FROM_SERVER);
+    
+    // BEGIN copypasta from game's 'races.as' file, function `racesManager::addRaceFromDefinitionFile()`
+    
+    bool inCheckpoints = false;
+    /* RORSERVER: we ignore procedural roads for this example
+    bool inProceduralRoad = false;
+    */
+    array<uint> checkpointTokPositions; // We must pre-count checkpoints to pick finish-obj correctly.
+    int highestCheckpointNum = 0; // Multiple finish lines are supported!
+    while (!ctx.endOfFile())
+    {
+        //game.log("DBG addRaceFromDefinitionFile() token "+genericdoc_utils::tokenTypeStr(ctx.tokenType())+" at pos "+ctx.getPos());
+
+        if (ctx.isTokKeyword(0))
+        {
+            if (ctx.isTokString(1) && ctx.getTokKeyword() == "racetrack_name")
+            {
+                server.say(" * Race name: "+ctx.getTokString(1), TO_ALL, FROM_SERVER);
+            }
+            if (ctx.isTokInt(1) && ctx.getTokKeyword() == "racetrack_laps")
+            {
+                server.say(" * Race laps: "+ctx.getTokInt(1), TO_ALL, FROM_SERVER);
+            }
+            else if (ctx.isTokString(1) && ctx.getTokKeyword() == "racetrack_checkpoint_object")
+            {
+                server.say(" * Race checkpoint-object: "+ctx.getTokString(1), TO_ALL, FROM_SERVER);
+            }
+            else if (ctx.isTokString(1) && ctx.getTokKeyword() == "racetrack_start_object")
+            {
+                server.say(" * Race start-object: "+ctx.getTokString(1), TO_ALL, FROM_SERVER);
+            }
+            else if (ctx.isTokString(1) && ctx.getTokKeyword() == "racetrack_finish_object")
+            {
+                server.say(" * Race finish-object: "+ctx.getTokString(1), TO_ALL, FROM_SERVER);
+            }
+            else if (ctx.getTokKeyword() == "begin_checkpoints")
+            {
+                inCheckpoints = true;
+                server.say(" * Race checkpoints...", TO_ALL, FROM_SERVER); 
+            }
+            else if (ctx.getTokKeyword() == "end_checkpoints")
+            {
+                inCheckpoints = false;
+            }
+            /* RORSERVER: we ignore procedural roads for this example
+            else if (ctx.getTokKeyword() == "begin_procedural_roads")
+            {
+                inProceduralRoad = true;
+            }
+            else if (ctx.getTokKeyword() == "end_procedural_roads")
+            {
+                inProceduralRoad = false;
+            }
+        }
+        else if (inProceduralRoad)
+        {
+            ProceduralObjectClass@ road = road_utils::ParseProceduralRoadFromFile(ctx);
+            if (@road != null) // Errors already logged
+            {
+                this.raceList[raceID].proceduralRoads.insertLast(road);
+            }
+            */
+        } 
+        else if (inCheckpoints)
+        {
+            if (ctx.isTokInt(0) && ctx.isTokInt(1) // chkpNum, altpathNum
+                && ctx.isTokFloat(2) && ctx.isTokFloat(3) && ctx.isTokFloat(4) // Pos XYZ
+                && ctx.isTokFloat(5) && ctx.isTokFloat(6) && ctx.isTokFloat(7)) // Rot XYZ
+            {
+                highestCheckpointNum = (ctx.getTokInt() > highestCheckpointNum) ? ctx.getTokInt() : highestCheckpointNum;
+                server.say("  ** Checkpoint: chkpNum="+ctx.getTokInt(0) +", altpathNum="+ctx.getTokInt(1) // chkpNum, altpathNum
+                    +", posX="+ ctx.getTokFloat(2) +", posY="+ ctx.getTokFloat(3) +", posZ="+ ctx.getTokFloat(4) // Pos XYZ
+                    +", rotX="+ ctx.getTokFloat(5) +", rotY="+ ctx.getTokFloat(6) +", rotZ="+ ctx.getTokFloat(7), // Rot XYZ
+                    TO_ALL, FROM_SERVER);
+            }
+        }
+        ctx.seekNextLine();
+    }
+
+    // END copypasta    
 }
     

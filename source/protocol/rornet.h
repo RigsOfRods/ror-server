@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 
+typedef uint32_t BitMask_t;
 #define BITMASK(x) (1 << (x-1))
 
 namespace RoRnet {

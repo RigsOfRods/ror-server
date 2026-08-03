@@ -27,6 +27,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #include "messaging.h"
 #include "CurlHelpers.h"
+#include "GenericFileFormat.h"
 #include "scriptstdstring/scriptstdstring.h" // angelscript addon
 #include "scriptmath/scriptmath.h" // angelscript addon
 #include "scriptmath3d/scriptmath3d.h" // angelscript addon
@@ -570,6 +571,9 @@ void ScriptEngine::init() {
     result = engine->RegisterGlobalProperty("const int TO_ALL", (void *) &TO_ALL);
     assert_net(result >= 0);
 
+    Logger::Log(LOG_INFO, "ScriptEngine: Registering the generic document parser...");
+
+    RegisterGenericFileFormat(engine); // Defined in 'GenericFileFormat.cpp'
 
     Logger::Log(LOG_INFO, "ScriptEngine: Registration done");
 }
